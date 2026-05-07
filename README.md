@@ -91,6 +91,8 @@ The release workflow is designed to publish:
 
 The Windows service zip includes the published API executable and PowerShell install/uninstall scripts from `deploy/windows-service`.
 
+See [GHCR publishing](docs/GHCR-PUBLISHING.md) for image names, tags, triggers, and required workflow permissions.
+
 ## Configuration
 
 | Variable | Description | Default |

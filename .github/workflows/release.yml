@@ -13,23 +13,40 @@ on:
 permissions:
   contents: write
   packages: write
+  attestations: write
+  id-token: write
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/open-identity-stack
+  IMAGE_PREFIX: ghcr.io/tjeerd-menno/open-identity-stack
   VERSION: ${{ github.event.inputs.version || github.ref_name }}
 
 jobs:
-  release:
+  publish-containers:
+    name: Publish ${{ matrix.name }} container
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            image: api
+            context: .
+            dockerfile: src/OpenIdentityStack.Api/Dockerfile
+          - name: db-migrator
+            image: db-migrator
+            context: .
+            dockerfile: src/OpenIdentityStack.DbMigrator/Dockerfile
+          - name: admin-web
+            image: admin-web
+            context: src/OpenIdentityStack.AdminWeb
+            dockerfile: Dockerfile
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: "10.0.x"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GHCR
         uses: docker/login-action@v4
@@ -38,22 +55,40 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build API image
-        run: docker build -f src/OpenIdentityStack.Api/Dockerfile -t ${{ env.IMAGE_PREFIX }}-api:${{ env.VERSION }} .
+      - name: Extract image metadata
+        id: metadata
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
+          tags: |
+            type=raw,value=${{ env.VERSION }}
+            type=sha,prefix=sha-
+          labels: |
+            org.opencontainers.image.title=OpenIdentityStack ${{ matrix.name }}
+            org.opencontainers.image.description=OpenIdentityStack ${{ matrix.name }} container image
+            org.opencontainers.image.vendor=Tjeerd-menno
+            org.opencontainers.image.licenses=MIT
 
-      - name: Build DbMigrator image
-        run: docker build -f src/OpenIdentityStack.DbMigrator/Dockerfile -t ${{ env.IMAGE_PREFIX }}-db-migrator:${{ env.VERSION }} .
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          labels: ${{ steps.metadata.outputs.labels }}
+          tags: ${{ steps.metadata.outputs.tags }}
 
-      - name: Build Admin Web image
-        run: docker build -f src/OpenIdentityStack.AdminWeb/Dockerfile -t ${{ env.IMAGE_PREFIX }}-admin-web:${{ env.VERSION }} src/OpenIdentityStack.AdminWeb
-
-      - name: Push images
-        run: |
-          docker push ${{ env.IMAGE_PREFIX }}-api:${{ env.VERSION }}
-          docker push ${{ env.IMAGE_PREFIX }}-db-migrator:${{ env.VERSION }}
-          docker push ${{ env.IMAGE_PREFIX }}-admin-web:${{ env.VERSION }}
+      - name: Attest image provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
   windows-service:
+    name: Publish Windows service artifact
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -74,7 +109,7 @@ jobs:
           Get-FileHash "open-identity-stack-api-win-x64-$version.zip" -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $($_.Path | Split-Path -Leaf)" } | Set-Content "open-identity-stack-api-win-x64-$version.zip.sha256"
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             open-identity-stack-api-win-x64-${{ env.VERSION }}.zip

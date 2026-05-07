@@ -32,11 +32,49 @@ updates:
     schedule:
       interval: "daily"
     groups:
-      npm-major:
-        patterns: ["*"]
+      npm-radix-ui-major:
+        patterns: ["@radix-ui/*"]
         update-types: ["major"]
-      npm-minor-patch:
+      npm-radix-ui-minor-patch:
+        patterns: ["@radix-ui/*"]
+        update-types: ["minor", "patch"]
+      npm-tanstack-major:
+        patterns: ["@tanstack/*"]
+        update-types: ["major"]
+      npm-tanstack-minor-patch:
+        patterns: ["@tanstack/*"]
+        update-types: ["minor", "patch"]
+      npm-testing-library-major:
+        patterns: ["@testing-library/*"]
+        update-types: ["major"]
+      npm-testing-library-minor-patch:
+        patterns: ["@testing-library/*"]
+        update-types: ["minor", "patch"]
+      npm-types-major:
+        patterns: ["@types/*"]
+        update-types: ["major"]
+      npm-types-minor-patch:
+        patterns: ["@types/*"]
+        update-types: ["minor", "patch"]
+      npm-vitejs-major:
+        patterns: ["@vitejs/*"]
+        update-types: ["major"]
+      npm-vitejs-minor-patch:
+        patterns: ["@vitejs/*"]
+        update-types: ["minor", "patch"]
+      npm-vitest-major:
+        patterns: ["@vitest/*"]
+        update-types: ["major"]
+      npm-vitest-minor-patch:
+        patterns: ["@vitest/*"]
+        update-types: ["minor", "patch"]
+      npm-unscoped-major:
         patterns: ["*"]
+        exclude-patterns: ["@*"]
+        update-types: ["major"]
+      npm-unscoped-minor-patch:
+        patterns: ["*"]
+        exclude-patterns: ["@*"]
         update-types: ["minor", "patch"]
 
   # npm (E2E tests)
