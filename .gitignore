@@ -130,7 +130,9 @@ lerna-debug.log*
 playwright-report/
 test-results/
 
-deploy
+deploy/*
+!deploy/windows-service/
+!deploy/windows-service/**
 .acr-build
 # Squad: ignore runtime state (logs, inbox, sessions)
 .squad/orchestration-log/
