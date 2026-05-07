@@ -40,7 +40,7 @@ jobs:
           - name: admin-web
             image: admin-web
             context: src/OpenIdentityStack.AdminWeb
-            dockerfile: Dockerfile
+            dockerfile: src/OpenIdentityStack.AdminWeb/Dockerfile
     steps:
       - name: Checkout
         uses: actions/checkout@v6
