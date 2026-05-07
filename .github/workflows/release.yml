@@ -81,7 +81,7 @@ jobs:
           tags: ${{ steps.metadata.outputs.tags }}
 
       - name: Attest image provenance
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
           subject-digest: ${{ steps.build.outputs.digest }}
