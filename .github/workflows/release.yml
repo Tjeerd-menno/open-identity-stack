@@ -109,7 +109,7 @@ jobs:
           Get-FileHash "open-identity-stack-api-win-x64-$version.zip" -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $($_.Path | Split-Path -Leaf)" } | Set-Content "open-identity-stack-api-win-x64-$version.zip.sha256"
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             open-identity-stack-api-win-x64-${{ env.VERSION }}.zip
