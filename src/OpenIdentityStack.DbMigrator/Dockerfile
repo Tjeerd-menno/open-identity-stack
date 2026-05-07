@@ -6,6 +6,7 @@ COPY Directory.Packages.props Directory.Packages.props
 COPY global.json global.json
 COPY nuget.config nuget.config
 
+COPY src/SharedKernel/SharedKernel.csproj src/SharedKernel/
 COPY src/OpenIdentityStack.Domain/OpenIdentityStack.Domain.csproj src/OpenIdentityStack.Domain/
 COPY src/OpenIdentityStack.Application/OpenIdentityStack.Application.csproj src/OpenIdentityStack.Application/
 COPY src/OpenIdentityStack.Infrastructure/OpenIdentityStack.Infrastructure.csproj src/OpenIdentityStack.Infrastructure/
@@ -13,6 +14,7 @@ COPY src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator.csproj src/Op
 
 RUN dotnet restore src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator.csproj
 
+COPY src/SharedKernel/ src/SharedKernel/
 COPY src/OpenIdentityStack.Domain/ src/OpenIdentityStack.Domain/
 COPY src/OpenIdentityStack.Application/ src/OpenIdentityStack.Application/
 COPY src/OpenIdentityStack.Infrastructure/ src/OpenIdentityStack.Infrastructure/
