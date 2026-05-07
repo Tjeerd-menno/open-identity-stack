@@ -1,0 +1,506 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using OpenIddict.Abstractions;
+using OpenIdentityStack.Application;
+using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Clients.Commands;
+using OpenIdentityStack.Application.Roles.Commands;
+using OpenIdentityStack.Application.Roles.Queries;
+using OpenIdentityStack.Application.Users.Queries;
+using OpenIdentityStack.Application.Sessions.Commands;
+using OpenIdentityStack.Application.Users.Commands;
+using OpenIdentityStack.Domain.Common;
+using OpenIdentityStack.Domain.Roles;
+using OpenIdentityStack.Domain.ServiceAccounts;
+using OpenIdentityStack.Domain.Users;
+using OpenIdentityStack.Infrastructure;
+using OpenIdentityStack.Infrastructure.Persistence;
+
+using SharedKernel;
+namespace OpenIdentityStack.Testing;
+
+public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
+{
+    private static readonly SemaphoreSlim SeedLock = new(1, 1);
+    private static readonly SemaphoreSlim ScopeLock = new(1, 1);
+    private static readonly HashSet<string> SeededConnections = new(StringComparer.Ordinal);
+    private static readonly string[] BaseScopes =
+    [
+        "api",
+        "openid",
+        "profile",
+        "email",
+        "isotopes:read",
+        "isotopes:write",
+        "exports:read",
+        "exports:write",
+        "audit:read"
+    ];
+
+    private readonly ServiceProvider _serviceProvider;
+
+    private OpenIdentityStackTestSeeder(ServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+    }
+
+    public static async Task<OpenIdentityStackTestSeeder> CreateAsync(string connectionString, CancellationToken cancellationToken = default)
+    {
+        // Explicitly specify the Testing environment so OpenIddict uses development
+        // certificates. The seeder runs in-process and does not inherit child-process
+        // environment variables set via Aspire's WithEnvironment().
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["ASPNETCORE_ENVIRONMENT"] = "Testing" })
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddApplication();
+        services.AddInfrastructure(connectionString, configuration, "Testing");
+
+        ServiceProvider provider = services.BuildServiceProvider();
+        OpenIdentityStackDbContext dbContext = provider.GetRequiredService<OpenIdentityStackDbContext>();
+        ILogger<OpenIdentityStackTestSeeder>? logger = provider.GetService<ILogger<OpenIdentityStackTestSeeder>>();
+        IOpenIddictScopeManager scopeManager = provider.GetRequiredService<IOpenIddictScopeManager>();
+
+        await SeedLock.WaitAsync(cancellationToken);
+        try
+        {
+            await dbContext.Database.MigrateAsync(cancellationToken);
+
+            if (SeededConnections.Add(connectionString))
+            {
+                await SeedData.SeedAsync(dbContext, logger, cancellationToken);
+            }
+
+            await EnsureScopesAsync(scopeManager, BaseScopes, cancellationToken);
+        }
+        finally
+        {
+            SeedLock.Release();
+        }
+
+        return new OpenIdentityStackTestSeeder(provider);
+    }
+
+    public async Task CreateServiceAccountAsync(
+        string clientId,
+        string clientSecret,
+        IReadOnlyList<string>? allowedScopes = null,
+        IReadOnlyList<string>? allowedGrantTypes = null,
+        IReadOnlyList<string>? redirectUris = null,
+        CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        IOpenIddictApplicationManager applicationManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+        IOpenIddictScopeManager scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
+        IServiceAccountRepository serviceAccountRepository = scope.ServiceProvider.GetRequiredService<IServiceAccountRepository>();
+        IPasswordHasher passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+        IDateTimeProvider dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+
+        IReadOnlyList<string> resolvedScopes = allowedScopes is { Count: > 0 }
+            ? allowedScopes
+            : ["api"];
+
+        IReadOnlyList<string> resolvedGrantTypes = allowedGrantTypes is { Count: > 0 }
+            ? allowedGrantTypes
+            : ["client_credentials"];
+
+        await EnsureScopesAsync(scopeManager, resolvedScopes, cancellationToken);
+
+        ServiceAccount? existingAccount = await serviceAccountRepository.GetByClientIdAsync(clientId, cancellationToken);
+        if (existingAccount is null)
+        {
+            Result<ServiceAccount> createResult = ServiceAccount.Create(
+                clientId,
+                $"Test Service Account - {clientId}",
+                resolvedScopes,
+                resolvedGrantTypes,
+                dateTimeProvider);
+
+            if (createResult.IsSuccess)
+            {
+                ServiceAccount account = createResult.Value;
+                string hashedSecret = passwordHasher.HashPassword(clientSecret);
+                account.AddCredential(hashedSecret, "Initial test credential", null, dateTimeProvider);
+
+                await serviceAccountRepository.AddAsync(account, cancellationToken);
+                await serviceAccountRepository.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        object? existingApp = await applicationManager.FindByClientIdAsync(clientId, cancellationToken);
+        if (existingApp is not null)
+        {
+            return;
+        }
+
+        var descriptor = new OpenIddictApplicationDescriptor
+        {
+            ClientId = clientId,
+            ClientSecret = clientSecret,
+            DisplayName = $"Test Service Account - {clientId}",
+            Permissions = { OpenIddictConstants.Permissions.Endpoints.Token }
+        };
+
+        foreach (string grantType in resolvedGrantTypes)
+        {
+            if (string.Equals(grantType, "client_credentials", StringComparison.OrdinalIgnoreCase))
+            {
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.ClientCredentials);
+            }
+            if (string.Equals(grantType, "authorization_code", StringComparison.OrdinalIgnoreCase))
+            {
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode);
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Authorization);
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.ResponseTypes.Code);
+            }
+            if (string.Equals(grantType, "refresh_token", StringComparison.OrdinalIgnoreCase))
+            {
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.RefreshToken);
+            }
+        }
+
+        if (redirectUris is { Count: > 0 })
+        {
+            foreach (string redirectUri in redirectUris)
+            {
+                descriptor.RedirectUris.Add(new Uri(redirectUri));
+            }
+        }
+
+        foreach (string scopeName in resolvedScopes)
+        {
+            descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + scopeName);
+        }
+
+        await applicationManager.CreateAsync(descriptor, cancellationToken);
+    }
+
+    public async Task<Guid> CreateTestUserAsync(
+        string email,
+        string displayName,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        ICreateUserUseCase createUserUseCase = scope.ServiceProvider.GetRequiredService<ICreateUserUseCase>();
+        IUserRepository userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+        IDateTimeProvider dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+
+        User? existingUser = await userRepository.GetByEmailAsync(email, cancellationToken);
+        if (existingUser is not null)
+        {
+            if (existingUser.Status == UserStatus.PendingVerification)
+            {
+                existingUser.VerifyEmail(dateTimeProvider);
+                await userRepository.SaveChangesAsync(cancellationToken);
+            }
+
+            return existingUser.Id.Value;
+        }
+
+        var command = new CreateUserCommand(email, displayName, password);
+        Result<CreateUserResult> result = await createUserUseCase.ExecuteAsync(command, cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new InvalidOperationException(result.Error.Description);
+        }
+
+        User? user = await userRepository.GetByIdAsync(result.Value.UserId, cancellationToken);
+        if (user is not null && user.Status == UserStatus.PendingVerification)
+        {
+            user.VerifyEmail(dateTimeProvider);
+            await userRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return result.Value.UserId.Value;
+    }
+
+    public async Task VerifyUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        IUserRepository userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+        IDateTimeProvider dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+
+        User? user = await userRepository.GetByIdAsync(new UserId(userId), cancellationToken);
+        if (user is null)
+        {
+            throw new InvalidOperationException("User not found.");
+        }
+
+        if (user.Status == UserStatus.PendingVerification)
+        {
+            user.VerifyEmail(dateTimeProvider);
+            await userRepository.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    public async Task ValidateUserCredentialsAsync(
+        string email,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        IValidateUserCredentialsUseCase validateUserCredentialsUseCase = scope.ServiceProvider.GetRequiredService<IValidateUserCredentialsUseCase>();
+        IUserRepository userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+        IDateTimeProvider dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+
+        User? user = await userRepository.GetByEmailAsync(email, cancellationToken);
+        if (user is not null && user.Status == UserStatus.PendingVerification)
+        {
+            user.VerifyEmail(dateTimeProvider);
+            await userRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        var command = new ValidateUserCredentialsCommand(email, password);
+        Result<ValidateUserCredentialsResult> result = await validateUserCredentialsUseCase.ExecuteAsync(command, cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new InvalidOperationException(result.Error.Description);
+        }
+    }
+
+    public async Task<Guid> CreateTestRoleAsync(
+        string name,
+        string? description = null,
+        IReadOnlyList<string>? permissions = null,
+        CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        ICreateRoleUseCase createRoleUseCase = scope.ServiceProvider.GetRequiredService<ICreateRoleUseCase>();
+        IRoleRepository roleRepository = scope.ServiceProvider.GetRequiredService<IRoleRepository>();
+
+        Role? existingRole = await roleRepository.GetByNameAsync(name, cancellationToken);
+        if (existingRole is not null)
+        {
+            return existingRole.Id.Value;
+        }
+
+        var command = new CreateRoleCommand(name, name, description, permissions);
+        Result<CreateRoleResponse> result = await createRoleUseCase.ExecuteAsync(command, cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new InvalidOperationException(result.Error.Description);
+        }
+
+        return result.Value.Id;
+    }
+
+    public async Task AssignRoleToUserAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        IAssignRoleUseCase assignRoleUseCase = scope.ServiceProvider.GetRequiredService<IAssignRoleUseCase>();
+
+        var command = new AssignRoleCommand(new UserId(userId), new RoleId(roleId));
+        Result result = await assignRoleUseCase.ExecuteAsync(command, cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new InvalidOperationException(result.Error.Description);
+        }
+    }
+
+    public async Task<IReadOnlyList<(Guid Id, string Name, string DisplayName)>> GetUserRolesAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler =
+            scope.ServiceProvider.GetRequiredService<IGetUserEffectiveRolesQueryHandler>();
+
+        Result<IReadOnlyList<RoleDto>> result = await getUserEffectiveRolesQueryHandler
+            .HandleAsync(new UserId(userId), cancellationToken);
+
+        if (result.IsFailure)
+        {
+            throw new InvalidOperationException(result.Error.Description);
+        }
+
+        return result.Value.Select(role => (role.Id, role.Name, role.DisplayName)).ToList();
+    }
+
+    public async Task<Guid> CreateSessionAsync(
+        Guid userId,
+        string? ipAddress = null,
+        string? userAgent = null,
+        int? durationMinutes = null,
+        CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        ICreateSessionUseCase createSessionUseCase = scope.ServiceProvider.GetRequiredService<ICreateSessionUseCase>();
+
+        var command = new CreateSessionCommand(
+            new UserId(userId),
+            ipAddress ?? "127.0.0.1",
+            userAgent ?? "TestAgent",
+            durationMinutes.HasValue ? TimeSpan.FromMinutes(durationMinutes.Value) : null);
+
+        Result<CreateSessionResult> result = await createSessionUseCase.ExecuteAsync(command, cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new InvalidOperationException(result.Error.Description);
+        }
+
+        return result.Value.SessionId.Value;
+    }
+
+    public async Task CreatePublicClientAsync(
+        string clientId,
+        string? displayName,
+        IReadOnlyList<string> redirectUris,
+        IReadOnlyList<string>? postLogoutRedirectUris = null,
+        IReadOnlyList<string>? allowedScopes = null,
+        CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        IOpenIddictApplicationManager applicationManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+        IOpenIddictScopeManager scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
+
+        IReadOnlyList<string> resolvedScopes = allowedScopes is { Count: > 0 }
+            ? allowedScopes
+            : ["openid", "profile", "email", "api"];
+
+        await EnsureScopesAsync(scopeManager, resolvedScopes, cancellationToken);
+
+        object? existingApp = await applicationManager.FindByClientIdAsync(clientId, cancellationToken);
+        if (existingApp is not null)
+        {
+            var existingDescriptor = new OpenIddictApplicationDescriptor();
+            await applicationManager.PopulateAsync(existingDescriptor, existingApp, cancellationToken);
+
+            existingDescriptor.RedirectUris.Clear();
+            foreach (string redirectUri in redirectUris)
+            {
+                existingDescriptor.RedirectUris.Add(new Uri(redirectUri));
+            }
+
+            existingDescriptor.Permissions.Clear();
+            existingDescriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Authorization);
+            existingDescriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Token);
+            existingDescriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.EndSession);
+            existingDescriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode);
+            existingDescriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.RefreshToken);
+            existingDescriptor.Permissions.Add(OpenIddictConstants.Permissions.ResponseTypes.Code);
+
+            foreach (string scopeName in resolvedScopes)
+            {
+                existingDescriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + scopeName);
+            }
+
+            if (postLogoutRedirectUris is { Count: > 0 })
+            {
+                existingDescriptor.PostLogoutRedirectUris.Clear();
+                foreach (string postLogoutUri in postLogoutRedirectUris)
+                {
+                    existingDescriptor.PostLogoutRedirectUris.Add(new Uri(postLogoutUri));
+                }
+            }
+
+            await applicationManager.UpdateAsync(existingApp, existingDescriptor, cancellationToken);
+            return;
+        }
+
+        var descriptor = new OpenIddictApplicationDescriptor
+        {
+            ClientId = clientId,
+            DisplayName = displayName ?? $"Public Client - {clientId}",
+            ClientType = OpenIddictConstants.ClientTypes.Public,
+            ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
+            Permissions =
+            {
+                OpenIddictConstants.Permissions.Endpoints.Authorization,
+                OpenIddictConstants.Permissions.Endpoints.Token,
+                OpenIddictConstants.Permissions.Endpoints.EndSession,
+                OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+                OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+                OpenIddictConstants.Permissions.ResponseTypes.Code,
+            },
+            Requirements = { OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange }
+        };
+
+        foreach (string scopeName in resolvedScopes)
+        {
+            descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + scopeName);
+        }
+
+        foreach (string redirectUri in redirectUris)
+        {
+            descriptor.RedirectUris.Add(new Uri(redirectUri));
+        }
+
+        if (postLogoutRedirectUris is { Count: > 0 })
+        {
+            foreach (string postLogoutUri in postLogoutRedirectUris)
+            {
+                descriptor.PostLogoutRedirectUris.Add(new Uri(postLogoutUri));
+            }
+        }
+
+        await applicationManager.CreateAsync(descriptor, cancellationToken);
+    }
+
+    public async Task<CreateClientResult> CreateClientAsync(CreateClientCommand command, CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        ICreateClientUseCase createClientUseCase = scope.ServiceProvider.GetRequiredService<ICreateClientUseCase>();
+        IOpenIddictScopeManager scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
+
+        await EnsureScopesAsync(scopeManager, command.AllowedScopes, cancellationToken);
+
+        Result<CreateClientResult> result = await createClientUseCase.ExecuteAsync(command, cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new InvalidOperationException(result.Error.Description);
+        }
+
+        return result.Value;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        return _serviceProvider.DisposeAsync();
+    }
+
+    private static async Task EnsureScopesAsync(
+        IOpenIddictScopeManager scopeManager,
+        IEnumerable<string> scopes,
+        CancellationToken cancellationToken)
+    {
+        await ScopeLock.WaitAsync(cancellationToken);
+        try
+        {
+            foreach (string scopeName in scopes.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (await scopeManager.FindByNameAsync(scopeName, cancellationToken).ConfigureAwait(false) is not null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await scopeManager.CreateAsync(new OpenIddictScopeDescriptor
+                    {
+                        Name = scopeName,
+                        DisplayName = $"{scopeName} Scope"
+                    }, cancellationToken);
+                }
+                catch (DbUpdateException ex) when (IsScopeUniqueViolation(ex))
+                {
+                    // Another concurrent seeding operation created the scope. Safe to ignore.
+                }
+            }
+        }
+        finally
+        {
+            ScopeLock.Release();
+        }
+    }
+
+    private static bool IsScopeUniqueViolation(DbUpdateException ex)
+    {
+        return ex.InnerException?.Message.Contains("IX_OpenIddictScopes_Name", StringComparison.OrdinalIgnoreCase) == true
+            || ex.Message.Contains("IX_OpenIddictScopes_Name", StringComparison.OrdinalIgnoreCase);
+    }
+}

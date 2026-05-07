@@ -1,0 +1,254 @@
+# Note: this file was added to your solution as a result of one or more projects using the SmartLab.CodeAnalysis.Build.Common NuGet package.
+# You can edit this file (e.g., to remove these comments), and it will not be updated - the package just checks for its presence, and copies
+# this file. If you don't want this file (but you want to use the NuGet package that puts it here), add this setting to all projects
+# using SmartLab.CodeAnalysis.Build.Common:
+#  <SmartLabDisableCodeAnalysis>true</SmartLabDisableCodeAnalysis>
+# and then delete this file. That setting will prevent the package from recreating this file.
+
+# Code style rules for enforcing the comecer house style
+# See: https://docs.microsoft.com/en-us/visualstudio/ide/editorconfig-code-style-settings-reference
+
+# XML project files
+[*.{csproj,vbproj,vcxproj,vcxproj.filters,proj,projitems,shproj}]
+indent_size = 2
+
+# XML config files
+[*.{props,targets,ruleset,config,nuspec,resx,vsixmanifest,vsct}]
+indent_size = 2
+
+# C# files
+[*.{cs,csx}]
+indent_size = 4
+insert_final_newline  = false
+
+# Core editorconfig formatting - indentation
+
+# use soft tabs (spaces) for indentation
+indent_style = space
+
+# Formatting - indentation options
+
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+
+# Formatting - new line options
+
+csharp_new_line_before_catch = true
+csharp_new_line_before_else = true
+csharp_new_line_before_open_brace = object_collection, object_collection_array_initalizers, accessors, lambdas, control_blocks, methods, properties, types
+
+# Formatting - spacing options
+
+csharp_space_after_cast = false
+csharp_space_after_colon_in_inheritance_clause = true
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_between_method_call_empty_parameter_list_parentheses = false
+csharp_space_between_method_call_name_and_opening_parenthesis = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_space_between_method_declaration_empty_parameter_list_parentheses = false
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+
+# Formatting - wrapping options
+
+csharp_preserve_single_line_blocks = true
+csharp_preserve_single_line_statements = true
+
+
+# Style - expression bodied member options
+
+csharp_style_expression_bodied_accessors = false:none
+csharp_style_expression_bodied_constructors = false:none
+csharp_style_expression_bodied_methods = false:none
+csharp_style_expression_bodied_properties = false:none
+
+# Style - expression level options
+
+csharp_style_inlined_variable_declaration = true:suggestion
+dotnet_style_predefined_type_for_member_access = true:suggestion
+
+# Style - implicit and explicit types
+
+csharp_style_var_for_built_in_types = false:warning
+csharp_style_var_when_type_is_apparent = true:warning
+csharp_style_var_elsewhere = false:warning
+
+# Style - language keyword and framework type options
+
+dotnet_style_predefined_type_for_locals_parameters_members = true:suggestion
+
+# Style - qualification options
+
+dotnet_style_qualification_for_field = true:suggestion
+dotnet_style_qualification_for_method = true:suggestion
+dotnet_style_qualification_for_property = true:suggestion
+dotnet_style_qualification_for_event = true:suggestion
+
+# Style - using directives and namespace declarations
+csharp_using_directive_placement = outside_namespace:warning
+dotnet_sort_system_directives_first = true
+csharp_style_namespace_declarations = file_scoped:warning
+
+# Code analyzer rules (formerly in StyleCop.ruleset)
+# SA1025 makes it impossible to write decent-looking switch expressions because it
+# doesn't allow multiple whitespace characters in a row. There seems to be no way to
+# disable this rule just inside switch expressions, so we reluctantly live without it.
+dotnet_diagnostic.SA1025.severity = None
+# StyleCop's insistence that constructors' summaries must always start with exactly
+# the same boilerplate text is not deeply helpful. Saying "Creates a Foo"
+# is in most cases better than the "Initializes a new instance of the Foo type"
+# that this rule insists on.
+dotnet_diagnostic.SA1642.severity = None
+
+# CLS Compliance - not relevant for most of what we work on.
+dotnet_diagnostic.CA1014.severity = None
+
+# Standard exception constructors - not helpful when the exception absolutely needs certain information
+dotnet_diagnostic.CA1032.severity = None
+dotnet_diagnostic.RCS1194.severity = None
+
+# Localize string constants - apps that want localization can turn this back on
+dotnet_diagnostic.CA1303.severity = None
+
+[*.{cs,vb}]
+#### Naming styles ####
+
+# Naming rules
+
+dotnet_naming_rule.interface_should_be_begins_with_i.severity = suggestion
+dotnet_naming_rule.interface_should_be_begins_with_i.symbols = interface
+dotnet_naming_rule.interface_should_be_begins_with_i.style = begins_with_i
+
+dotnet_naming_rule.types_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.types_should_be_pascal_case.symbols = types
+dotnet_naming_rule.types_should_be_pascal_case.style = pascal_case
+
+dotnet_naming_rule.non_field_members_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.non_field_members_should_be_pascal_case.symbols = non_field_members
+dotnet_naming_rule.non_field_members_should_be_pascal_case.style = pascal_case
+
+# Symbol specifications
+
+dotnet_naming_symbols.interface.applicable_kinds = interface
+dotnet_naming_symbols.interface.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
+dotnet_naming_symbols.interface.required_modifiers = 
+
+dotnet_naming_symbols.types.applicable_kinds = class, struct, interface, enum
+dotnet_naming_symbols.types.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
+dotnet_naming_symbols.types.required_modifiers = 
+
+dotnet_naming_symbols.non_field_members.applicable_kinds = property, event, method
+dotnet_naming_symbols.non_field_members.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
+dotnet_naming_symbols.non_field_members.required_modifiers = 
+
+# Naming styles
+
+dotnet_naming_style.begins_with_i.required_prefix = I
+dotnet_naming_style.begins_with_i.required_suffix = 
+dotnet_naming_style.begins_with_i.word_separator = 
+dotnet_naming_style.begins_with_i.capitalization = pascal_case
+
+dotnet_naming_style.pascal_case.required_prefix = 
+dotnet_naming_style.pascal_case.required_suffix = 
+dotnet_naming_style.pascal_case.word_separator = 
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+dotnet_naming_style.pascal_case.required_prefix = 
+dotnet_naming_style.pascal_case.required_suffix = 
+dotnet_naming_style.pascal_case.word_separator = 
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+dotnet_style_operator_placement_when_wrapping = beginning_of_line
+tab_width = 4
+indent_size = 4
+end_of_line = crlf
+dotnet_style_coalesce_expression = true:suggestion
+dotnet_style_null_propagation = true:suggestion
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:suggestion
+dotnet_style_prefer_auto_properties = true:silent
+dotnet_style_object_initializer = true:suggestion
+dotnet_style_collection_initializer = true:suggestion
+dotnet_style_prefer_simplified_boolean_expressions = true:suggestion
+dotnet_style_prefer_conditional_expression_over_assignment = true:silent
+dotnet_style_prefer_conditional_expression_over_return = true:silent
+dotnet_style_explicit_tuple_names = true:suggestion
+dotnet_style_prefer_inferred_tuple_names = true:suggestion
+dotnet_style_prefer_inferred_anonymous_type_member_names = true:suggestion
+dotnet_style_prefer_compound_assignment = true:suggestion
+dotnet_style_prefer_simplified_interpolation = true:suggestion
+dotnet_style_namespace_match_folder = true:suggestion
+dotnet_diagnostic.IDE1006.severity = warning
+
+# Fields to target
+dotnet_naming_symbols.private_instance_fields.applicable_kinds = field
+dotnet_naming_symbols.private_instance_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_instance_fields.required_modifiers =
+
+# Expected style: camelCase, no prefix/suffix
+dotnet_naming_style.camelcase_no_prefix.capitalization = camel_case
+dotnet_naming_style.camelcase_no_prefix.required_prefix =
+dotnet_naming_style.camelcase_no_prefix.required_suffix =
+dotnet_naming_style.camelcase_no_prefix.word_separator =
+
+# Rule: private fields must follow camelCase_no_prefix
+dotnet_naming_rule.private_fields_no_underscore.symbols = private_instance_fields
+dotnet_naming_rule.private_fields_no_underscore.style = camelcase_no_prefix
+dotnet_naming_rule.private_fields_no_underscore.severity = warning
+
+[*.cs]
+csharp_indent_labels = one_less_than_current
+csharp_using_directive_placement = outside_namespace:warning
+csharp_prefer_simple_using_statement = true:suggestion
+csharp_prefer_braces = true:silent
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_prefer_method_group_conversion = true:silent
+csharp_style_expression_bodied_methods = false:none
+csharp_style_expression_bodied_constructors = false:none
+csharp_style_expression_bodied_operators = false:silent
+csharp_style_expression_bodied_properties = false:none
+csharp_style_expression_bodied_indexers = true:silent
+csharp_style_expression_bodied_accessors = false:none
+csharp_style_expression_bodied_lambdas = true:silent
+csharp_style_expression_bodied_local_functions = false:silent
+csharp_style_throw_expression = true:suggestion
+csharp_style_prefer_null_check_over_type_check = true:suggestion
+
+
+# SA1413: Trailing comma's? please no.
+dotnet_diagnostic.SA1413.severity = none
+
+# Tone down documentation rules
+dotnet_diagnostic.CS1591.severity = none
+dotnet_diagnostic.SA1600.severity = none
+dotnet_diagnostic.SA1601.severity = none
+dotnet_diagnostic.SA1602.severity = none
+dotnet_diagnostic.SA1615.severity = none
+dotnet_diagnostic.SA1616.severity = none
+dotnet_diagnostic.SA1623.severity = none
+dotnet_diagnostic.SA0001.severity = none
+
+# SA1633: Fileheaders. We don't use this
+dotnet_diagnostic.SA1633.severity = none
+
+# No need to fix errors when commenting code out for debugging
+dotnet_diagnostic.SA1515.severity = none
+dotnet_diagnostic.SA1512.severity = none
+dotnet_diagnostic.SA1005.severity = none
+
+# test specific rules
+[{test/**.cs,**/*Tests.cs}]
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.IDE1006.severity = none
+
+[tests/**.cs]
+dotnet_diagnostic.IDE1006.severity = none
+
+# Different rules voor EF Core Migration folder 
+# Since this is generated code, we do not want to be interrupted by Stylecop
+[{**/Migrations/**.cs}]
+dotnet_diagnostic.SA1518.severity = none
+dotnet_diagnostic.SA1505.severity = none
+dotnet_diagnostic.SA1508.severity = none
+dotnet_diagnostic.SA1122.severity = none
+dotnet_diagnostic.IDE0161.severity = none
+csharp_style_prefer_top_level_statements = true:silent
+

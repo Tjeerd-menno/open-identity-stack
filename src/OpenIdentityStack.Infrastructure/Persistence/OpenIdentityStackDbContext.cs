@@ -1,0 +1,202 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System;
+using System.Globalization;
+using OpenIdentityStack.Domain.Clients;
+using OpenIdentityStack.Domain.Common;
+using OpenIdentityStack.Domain.Federation;
+using OpenIdentityStack.Domain.Roles;
+using OpenIdentityStack.Domain.Groups; // Added
+using OpenIdentityStack.Domain.ServiceAccounts;
+using OpenIdentityStack.Domain.ServicePermissions;
+using OpenIdentityStack.Domain.Sessions;
+using OpenIdentityStack.Domain.Settings;
+using OpenIdentityStack.Domain.Users;
+using OpenIdentityStack.Infrastructure.Audit;
+using OpenIdentityStack.Infrastructure.Persistence.Converters;
+
+using SharedKernel;
+namespace OpenIdentityStack.Infrastructure.Persistence;
+
+/// <summary>
+/// Main database context for the OpenIdentityStack.
+/// Configured to use OpenIddict entity stores for OIDC/OAuth2 entities.
+/// </summary>
+public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
+{
+    public OpenIdentityStackDbContext(DbContextOptions<OpenIdentityStackDbContext> options)
+        : base(options)
+    {
+    }
+
+    /// <summary>
+    /// Gets or sets the ASP.NET Core Data Protection keys.
+    /// </summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets the Users DbSet.
+    /// </summary>
+    public DbSet<User> Users => this.Set<User>();
+
+    /// <summary>
+    /// Gets or sets the ServiceAccounts DbSet.
+    /// </summary>
+    public DbSet<ServiceAccount> ServiceAccounts => this.Set<ServiceAccount>();
+
+    /// <summary>
+    /// Gets or sets the ClientCredentials DbSet.
+    /// </summary>
+    public DbSet<ClientCredential> ClientCredentials => this.Set<ClientCredential>();
+
+    /// <summary>
+    /// Gets or sets the ClientCertificates DbSet.
+    /// </summary>
+    public DbSet<ClientCertificate> ClientCertificates => this.Set<ClientCertificate>();
+
+    /// <summary>
+    /// Gets or sets the UpstreamProviders DbSet.
+    /// </summary>
+    public DbSet<UpstreamProvider> UpstreamProviders => this.Set<UpstreamProvider>();
+
+    /// <summary>
+    /// Gets or sets the Roles DbSet.
+    /// </summary>
+    public DbSet<Role> Roles => this.Set<Role>();
+
+    /// <summary>
+    /// Gets or sets the RoleAssignments DbSet.
+    /// </summary>
+    public DbSet<RoleAssignment> RoleAssignments => this.Set<RoleAssignment>();
+
+    /// <summary>
+    /// Gets or sets the Groups DbSet.
+    /// </summary>
+    public DbSet<Group> Groups => this.Set<Group>();
+
+    /// <summary>
+    /// Gets or sets the UserSessions DbSet.
+    /// </summary>
+    public DbSet<UserSession> UserSessions => this.Set<UserSession>();
+
+    /// <summary>
+    /// Gets or sets the Clients DbSet.
+    /// </summary>
+    public DbSet<Client> Clients => this.Set<Client>();
+
+    /// <summary>
+    /// Gets or sets the AuthenticationSettings DbSet.
+    /// </summary>
+    public DbSet<AuthenticationSettings> AuthenticationSettings => this.Set<AuthenticationSettings>();
+
+    /// Gets or sets the persisted audit log entries DbSet.
+    /// </summary>
+    public DbSet<AuditLogEntry> AuditLogEntries => this.Set<AuditLogEntry>();
+    /// <summary>
+    /// Gets or sets the RegisteredServices DbSet.
+    /// </summary>
+    public DbSet<RegisteredService> RegisteredServices => this.Set<RegisteredService>();
+
+    /// <summary>
+    /// Gets or sets the ServicePermissions DbSet.
+    /// </summary>
+    public DbSet<ServicePermission> ServicePermissions => this.Set<ServicePermission>();
+
+    /// <summary>
+    /// Gets or sets the DelegatedMaintainers DbSet.
+    /// </summary>
+    public DbSet<DelegatedMaintainer> DelegatedMaintainers => this.Set<DelegatedMaintainer>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Ignore domain event types - they are not persisted entities
+        modelBuilder.Ignore<DomainEvent>();
+
+        if (string.Equals(Database.ProviderName, "Microsoft.EntityFrameworkCore.Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            var dateTimeOffsetConverter = new ValueConverter<DateTimeOffset, string>(
+                v => v.ToString("o"),
+                v => DateTimeOffset.Parse(v, CultureInfo.InvariantCulture));
+            var nullableDateTimeOffsetConverter = new ValueConverter<DateTimeOffset?, string?>(
+                v => v.HasValue ? v.Value.ToString("o") : null,
+                v => v == null ? null : DateTimeOffset.Parse(v, CultureInfo.InvariantCulture));
+
+            foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableProperty property in entityType.GetProperties())
+                {
+                    if (property.ClrType == typeof(DateTimeOffset))
+                    {
+                        property.SetValueConverter(dateTimeOffsetConverter);
+                    }
+                    else if (property.ClrType == typeof(DateTimeOffset?))
+                    {
+                        property.SetValueConverter(nullableDateTimeOffsetConverter);
+                    }
+                }
+            }
+        }
+
+        // Apply all configurations from this assembly
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(OpenIdentityStackDbContext).Assembly);
+
+        // OpenIddict entity sets are configured via UseOpenIddict() in OnConfiguring or AddDbContext
+    }
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+
+        // Configure strongly-typed ID conversions
+        configurationBuilder
+            .Properties<UserId>()
+            .HaveConversion<UserIdConverter>();
+
+        configurationBuilder
+            .Properties<RoleId>()
+            .HaveConversion<RoleIdConverter>();
+
+        configurationBuilder
+            .Properties<GroupId>()
+            .HaveConversion<GroupIdConverter>();
+
+        configurationBuilder
+            .Properties<ServiceAccountId>()
+            .HaveConversion<ServiceAccountIdConverter>();
+
+        configurationBuilder
+            .Properties<SessionId>()
+            .HaveConversion<SessionIdConverter>();
+
+        configurationBuilder
+            .Properties<ProviderId>()
+            .HaveConversion<ProviderIdConverter>();
+
+        configurationBuilder
+            .Properties<UpstreamProviderId>()
+            .HaveConversion<UpstreamProviderIdConverter>();
+
+        configurationBuilder
+            .Properties<ClientId>()
+            .HaveConversion<ClientIdConverter>();
+
+        configurationBuilder
+            .Properties<AuthenticationSettingsId>()
+            .HaveConversion<AuthenticationSettingsIdConverter>();
+
+        configurationBuilder
+            .Properties<RegisteredServiceId>()
+            .HaveConversion<RegisteredServiceIdConverter>();
+
+        configurationBuilder
+            .Properties<ServicePermissionId>()
+            .HaveConversion<ServicePermissionIdConverter>();
+
+        configurationBuilder
+            .Properties<DelegatedMaintainerId>()
+            .HaveConversion<DelegatedMaintainerIdConverter>();
+    }
+}

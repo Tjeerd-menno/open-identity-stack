@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Testing" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="PactNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="NSubstitute" />
+    <Using Include="Shouldly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenIdentityStack.AppHost\OpenIdentityStack.AppHost.csproj">
+      <Aliases>AppHostProject</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\OpenIdentityStack.Infrastructure\OpenIdentityStack.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\TestSeedHelpers\AspireTestApplication.cs" Link="Fixtures\AspireTestApplication.cs" />
+    <Compile Include="..\TestSeedHelpers\OpenIdentityStackTestSeeder.cs" Link="Fixtures\OpenIdentityStackTestSeeder.cs" />
+  </ItemGroup>
+
+</Project>

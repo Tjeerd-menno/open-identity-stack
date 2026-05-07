@@ -1,0 +1,36 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
+
+namespace OpenIdentityStack.Infrastructure.Persistence;
+
+/// <summary>
+/// Design-time factory for creating OpenIdentityStackDbContext during EF Core migrations.
+/// This is used by the EF Core CLI tools when no startup project context is available.
+/// </summary>
+public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<OpenIdentityStackDbContext>
+{
+    /// <summary>
+    /// Creates a new instance of the DbContext for design-time operations.
+    /// </summary>
+    /// <param name="args">Command-line arguments (unused).</param>
+    /// <returns>A configured DbContext instance.</returns>
+    public OpenIdentityStackDbContext CreateDbContext(string[] args)
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<OpenIdentityStackDbContext>();
+
+        // Use a placeholder connection string for migration generation
+        // The actual connection string will be provided at runtime via Aspire
+        const string designTimeConnectionString =
+            "Host=localhost;Database=openidentitystack;Username=postgres;Password=postgres";
+
+        optionsBuilder.UseNpgsql(designTimeConnectionString, npgsqlOptions =>
+        {
+            npgsqlOptions.MigrationsAssembly(typeof(OpenIdentityStackDbContext).Assembly.FullName);
+        });
+
+        // Register OpenIddict entity sets
+        optionsBuilder.UseOpenIddict();
+
+        return new OpenIdentityStackDbContext(optionsBuilder.Options);
+    }
+}

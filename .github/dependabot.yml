@@ -1,0 +1,53 @@
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      github-actions-major:
+        patterns: ["*"]
+        update-types: ["major"]
+      github-actions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # NuGet (.NET backend)
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      nuget-major:
+        patterns: ["*"]
+        update-types: ["major"]
+      nuget-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # npm (Admin Web frontend)
+  - package-ecosystem: "npm"
+    directory: "/src/OpenIdentityStack.AdminWeb"
+    schedule:
+      interval: "daily"
+    groups:
+      npm-major:
+        patterns: ["*"]
+        update-types: ["major"]
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # npm (E2E tests)
+  - package-ecosystem: "npm"
+    directory: "/e2e"
+    schedule:
+      interval: "daily"
+    groups:
+      npm-major:
+        patterns: ["*"]
+        update-types: ["major"]
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

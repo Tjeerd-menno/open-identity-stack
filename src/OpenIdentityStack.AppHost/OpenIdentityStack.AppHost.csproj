@@ -1,0 +1,18 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.2.4">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UserSecretsId>0ada44a1-2669-4763-87a4-e34694cffe3b</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.JavaScript" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenIdentityStack.Api\OpenIdentityStack.Api.csproj" />
+    <ProjectReference Include="..\OpenIdentityStack.DbMigrator\OpenIdentityStack.DbMigrator.csproj" />
+  </ItemGroup>
+
+</Project>

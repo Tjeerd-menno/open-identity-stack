@@ -1,0 +1,141 @@
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio 2015/2017 cache/options directory
+.vs/
+
+# VS Code
+.vscode/
+
+# Rider
+.idea/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet Packages
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# MSBuild Binary and Structured Logs
+*.binlog
+
+# NuGet v3 folder-based repository location
+project.lock.json
+project.fragment.lock.json
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Tye
+.tye/
+
+# Aspire
+.aspire/
+
+# Entity Framework migrations
+*.Migrations.Design/
+
+# Environment
+*.env
+*.env.local
+*.env.*.local
+.env.*
+!.env.example
+
+# Secrets
+appsettings.Local.json
+secrets.json
+
+# Coverage
+[Cc]overage/
+coverage-report/
+*.coverage
+*.coveragexml
+coverage.json
+lcov.info
+*.cobertura.xml
+
+# Test results
+[Tt]est[Rr]esults/
+TestResults.xml
+test_output.txt
+test_results.txt
+test_e2e_output.txt
+e2e_results*.txt
+e2e_*.log
+*_failures.log
+*_failure_debug*.log
+*_fix_attempt*.log
+tests/**/*_debug.txt
+*.trx
+test_outputs/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Node (if any frontend added later)
+node_modules/
+dist/
+build/
+.cache/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.vite/
+playwright-report/
+test-results/
+
+deploy
+.acr-build
+# Squad: ignore runtime state (logs, inbox, sessions)
+.squad/orchestration-log/
+.squad/log/
+.squad/decisions/inbox/
+.squad/sessions/
+# Squad: SubSquad activation file (local to this machine)
+.squad-workstream

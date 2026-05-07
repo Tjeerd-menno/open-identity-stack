@@ -1,0 +1,75 @@
+@page "/connect/check_session"
+@model OpenIdentityStack.Api.Pages.Connect.CheckSessionModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Check Session</title>
+</head>
+<body>
+<script>
+    (function () {
+        "use strict";
+        const sessionCookieName = "@Model.SessionCookieName";
+
+        function getCookie(name) {
+            const cookies = document.cookie ? document.cookie.split(";") : [];
+            for (const cookie of cookies) {
+                const [key, ...rest] = cookie.trim().split("=");
+                if (key === name) {
+                    return decodeURIComponent(rest.join("="));
+                }
+            }
+            return null;
+        }
+
+        function base64UrlEncode(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = "";
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        }
+
+        async function computeSessionState(clientId, origin, sessionId, salt) {
+            const payload = `${clientId}${origin}${sessionId}${salt}`;
+            const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
+            return `${base64UrlEncode(hash)}.${salt}`;
+        }
+
+        window.addEventListener("message", async (event) => {
+            if (typeof event.data !== "string") {
+                return;
+            }
+
+            const parts = event.data.split(" ");
+            if (parts.length !== 2) {
+                event.source?.postMessage("error", event.origin);
+                return;
+            }
+
+            const [clientId, sessionState] = parts;
+            const salt = sessionState.split(".")[1];
+            if (!clientId || !salt) {
+                event.source?.postMessage("error", event.origin);
+                return;
+            }
+
+            const sessionId = getCookie(sessionCookieName);
+            if (!sessionId) {
+                event.source?.postMessage("changed", event.origin);
+                return;
+            }
+
+            const expected = await computeSessionState(clientId, event.origin, sessionId, salt);
+            const status = expected === sessionState ? "unchanged" : "changed";
+            event.source?.postMessage(status, event.origin);
+        });
+    })();
+</script>
+</body>
+</html>

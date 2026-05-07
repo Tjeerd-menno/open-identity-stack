@@ -1,0 +1,131 @@
+@{
+    Layout = null;
+    var redirectUri = ViewData["PostLogoutRedirectUri"] as string;
+    var iframes = ViewData["FrontChannelLogoutFrames"] as IReadOnlyList<string> ?? Array.Empty<string>();
+    var state = ViewData["State"] as string;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Logging out...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .logout-container {
+            background: white;
+            padding: 2rem 3rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @@keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        h1 {
+            color: #333;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        p {
+            color: #666;
+            margin: 0;
+        }
+        .hidden-frames {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="logout-container">
+        <div class="spinner"></div>
+        <h1>Signing out...</h1>
+        <p>Please wait while we sign you out of all applications.</p>
+    </div>
+
+    @* Hidden iframes for front-channel logout *@
+    <div class="hidden-frames">
+        @foreach (var iframeUrl in iframes)
+        {
+            <iframe src="@iframeUrl" 
+                    width="0" 
+                    height="0" 
+                    style="display:none;" 
+                    sandbox="allow-scripts allow-same-origin"
+                    aria-hidden="true"></iframe>
+        }
+    </div>
+
+    <script>
+        // Wait for all iframes to load (or timeout), then redirect
+        (function() {
+            var iframeCount = @iframes.Count;
+            var loadedCount = 0;
+            var timeoutMs = 5000; // 5 second timeout for front-channel logout
+            
+            function checkComplete() {
+                loadedCount++;
+                if (loadedCount >= iframeCount) {
+                    performRedirect();
+                }
+            }
+            
+            function performRedirect() {
+                @if (!string.IsNullOrEmpty(redirectUri))
+                {
+                    var finalUri = redirectUri;
+                    if (!string.IsNullOrEmpty(state))
+                    {
+                        var separator = redirectUri.Contains("?") ? "&" : "?";
+                        finalUri = $"{redirectUri}{separator}state={Uri.EscapeDataString(state)}";
+                    }
+                    <text>window.location.href = '@Html.Raw(finalUri)';</text>
+                }
+                else
+                {
+                    <text>document.querySelector('.logout-container').innerHTML = 
+                        '<h1>Signed out</h1><p>You have been signed out successfully.</p>';</text>
+                }
+            }
+            
+            // Add load handlers to iframes
+            var iframes = document.querySelectorAll('.hidden-frames iframe');
+            iframes.forEach(function(iframe) {
+                iframe.addEventListener('load', checkComplete);
+                iframe.addEventListener('error', checkComplete);
+            });
+            
+            // Timeout fallback
+            setTimeout(function() {
+                if (loadedCount < iframeCount) {
+                    console.warn('Front-channel logout timeout - some clients may not have received logout notification');
+                    performRedirect();
+                }
+            }, timeoutMs);
+            
+            // If no iframes, redirect immediately
+            if (iframeCount === 0) {
+                performRedirect();
+            }
+        })();
+    </script>
+</body>
+</html>

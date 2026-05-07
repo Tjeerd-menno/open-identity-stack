@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Coverage settings for OpenIdentityStack.Api.UnitTests.
+     This unit test project tests specific, isolated components of OpenIdentityStack.Api.
+     Coverage is scoped to the source files exercised by these unit tests to ensure
+     the coverage threshold reflects meaningful test completeness. -->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="Code Coverage">
+        <Configuration>
+          <CodeCoverage>
+            <ModulePaths>
+              <Include>
+                <ModulePath>.*OpenIdentityStack\.Api\.dll</ModulePath>
+                <ModulePath>.*OpenIdentityStack\.Application\.dll</ModulePath>
+              </Include>
+              <Exclude>
+                <ModulePath>.*\.Tests\.dll</ModulePath>
+                <ModulePath>.*testhost.*</ModulePath>
+              </Exclude>
+            </ModulePaths>
+            <Sources>
+              <Include>
+                <Source>.*[\\\/]OpenIdentityStack\.Api[\\\/]Configuration[\\\/].*</Source>
+                <Source>.*[\\\/]OpenIdentityStack\.Api[\\\/]Authorization[\\\/].*</Source>
+                <Source>.*[\\\/]OpenIdentityStack\.Api[\\\/]Common[\\\/].*</Source>
+                <Source>.*[\\\/]OpenIdentityStack\.Application[\\\/]Authorization[\\\/].*</Source>
+              </Include>
+            </Sources>
+          </CodeCoverage>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

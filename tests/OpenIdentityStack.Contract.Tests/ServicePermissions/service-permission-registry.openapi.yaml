@@ -1,0 +1,592 @@
+openapi: 3.1.0
+info:
+  title: OpenIdentityStack Service/API Permission Registry API
+  version: 0.1.0-planning
+  description: Admin API contract for registering services/APIs and managing exposed permissions for RBAC consumption.
+servers:
+  - url: https://localhost:7001
+security:
+  - openIddictBearer: []
+tags:
+  - name: ServicePermissionRegistry
+  - name: PermissionCatalog
+paths:
+  /api/admin/service-permissions/services:
+    get:
+      tags: [ServicePermissionRegistry]
+      operationId: listRegisteredServices
+      summary: List registered services/APIs and permission summaries
+      security:
+        - openIddictBearer: [service-permissions:read]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: search
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: ownerId
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/ServiceLifecycleStatus' }
+      responses:
+        '200':
+          description: Registered services page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredServiceListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ServicePermissionRegistry]
+      operationId: registerService
+      summary: Register a service/API and initial permissions atomically
+      security:
+        - openIddictBearer: [service-permissions:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterServiceRequest' }
+      responses:
+        '201':
+          description: Service registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredServiceResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/admin/service-permissions/services/{serviceId}:
+    get:
+      tags: [ServicePermissionRegistry]
+      operationId: getRegisteredService
+      summary: Get a registered service/API with permissions and ownership details
+      security:
+        - openIddictBearer: [service-permissions:read]
+      parameters:
+        - $ref: '#/components/parameters/ServiceId'
+        - name: includeRetiredPermissions
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Registered service details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredServiceResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [ServicePermissionRegistry]
+      operationId: updateRegisteredService
+      summary: Update mutable service/API metadata
+      security:
+        - openIddictBearer: [service-permissions:write]
+      parameters:
+        - $ref: '#/components/parameters/ServiceId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateServiceRequest' }
+      responses:
+        '200':
+          description: Updated service
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredServiceResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/service-permissions/services/{serviceId}/lifecycle:
+    post:
+      tags: [ServicePermissionRegistry]
+      operationId: changeServiceLifecycle
+      summary: Disable, retire, or restore a service after dependency review
+      security:
+        - openIddictBearer: [service-permissions:write]
+      parameters:
+        - $ref: '#/components/parameters/ServiceId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeServiceLifecycleRequest' }
+      responses:
+        '200':
+          description: Updated service lifecycle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredServiceResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/service-permissions/services/{serviceId}/ownership:
+    post:
+      tags: [ServicePermissionRegistry]
+      operationId: transferServiceOwnership
+      summary: Transfer ownership or update delegated maintainers
+      security:
+        - openIddictBearer: [service-permissions:admin]
+      parameters:
+        - $ref: '#/components/parameters/ServiceId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferOwnershipRequest' }
+      responses:
+        '200':
+          description: Ownership updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredServiceResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/service-permissions/services/{serviceId}/permissions:
+    post:
+      tags: [ServicePermissionRegistry]
+      operationId: addServicePermission
+      summary: Add a new permission to a registered service/API
+      security:
+        - openIddictBearer: [service-permissions:write]
+      parameters:
+        - $ref: '#/components/parameters/ServiceId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddPermissionRequest' }
+      responses:
+        '201':
+          description: Permission added
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServicePermissionResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/service-permissions/permissions/{permissionId}:
+    patch:
+      tags: [ServicePermissionRegistry]
+      operationId: updateServicePermission
+      summary: Update mutable permission metadata
+      security:
+        - openIddictBearer: [service-permissions:write]
+      parameters:
+        - $ref: '#/components/parameters/PermissionId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePermissionRequest' }
+      responses:
+        '200':
+          description: Permission updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServicePermissionResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/service-permissions/permissions/{permissionId}/lifecycle:
+    post:
+      tags: [ServicePermissionRegistry]
+      operationId: changePermissionLifecycle
+      summary: Deprecate, disable, retire, or restore a permission
+      security:
+        - openIddictBearer: [service-permissions:write]
+      parameters:
+        - $ref: '#/components/parameters/PermissionId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangePermissionLifecycleRequest' }
+      responses:
+        '200':
+          description: Permission lifecycle changed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServicePermissionResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/service-permissions/permissions/{permissionId}/dependencies:
+    get:
+      tags: [ServicePermissionRegistry]
+      operationId: getPermissionDependencies
+      summary: Get role and administrative dependencies for a permission
+      security:
+        - openIddictBearer: [service-permissions:read]
+      parameters:
+        - $ref: '#/components/parameters/PermissionId'
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Dependency details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionDependenciesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/service-permissions/catalog:
+    get:
+      tags: [PermissionCatalog]
+      operationId: listAssignablePermissionCatalog
+      summary: List permissions for role-management workflows grouped by service
+      security:
+        - openIddictBearer: [roles:read]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: search
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: serviceIdentifier
+          in: query
+          schema: { type: string, maxLength: 63 }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
+        - name: assignableOnly
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Permission catalog grouped by service
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionCatalogResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    openIddictBearer:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: /connect/authorize
+          tokenUrl: /connect/token
+          scopes:
+            service-permissions:read: Read registry data
+            service-permissions:write: Register and maintain owned service permissions
+            service-permissions:admin: Transfer ownership and perform administrator overrides
+            roles:read: Read role and permission catalog data
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    ServiceId:
+      name: serviceId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PermissionId:
+      name: permissionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      schema: { type: string }
+      description: Optional concurrency token.
+  responses:
+    Unauthorized:
+      description: Authentication required or invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Forbidden:
+      description: Authenticated principal lacks required RBAC permission or ownership boundary
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    NotFound:
+      description: Requested registry resource was not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Conflict:
+      description: Unique-key, lifecycle, dependency, or update conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    PreconditionFailed:
+      description: Supplied concurrency token is stale
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    ValidationProblem:
+      description: Request validation failed without partial changes
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ValidationProblemDetails' }
+  schemas:
+    ServiceLifecycleStatus:
+      type: string
+      enum: [active, disabled, retired]
+    PermissionLifecycleStatus:
+      type: string
+      enum: [active, deprecated, disabled, retired]
+    OwnerType:
+      type: string
+      enum: [user, group, externalGroup]
+    DependencyType:
+      type: string
+      enum: [role, administrativeAssignment, accessReview, tokenPolicy]
+    DependencyImpact:
+      type: string
+      enum: [blocksDeletion, blocksRetirement, warningOnly]
+    RegisterServiceRequest:
+      type: object
+      required: [serviceIdentifier, displayName, owner, permissions]
+      properties:
+        serviceIdentifier: { type: string, pattern: '^[a-z][a-z0-9-]{2,62}$' }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+        owner: { $ref: '#/components/schemas/OwnerRequest' }
+        delegatedMaintainers:
+          type: array
+          items: { $ref: '#/components/schemas/MaintainerRequest' }
+        permissions:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { $ref: '#/components/schemas/PermissionDeclarationRequest' }
+    UpdateServiceRequest:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+    OwnerRequest:
+      type: object
+      required: [ownerId, ownerType, displayName]
+      properties:
+        ownerId: { type: string, minLength: 1, maxLength: 200 }
+        ownerType: { $ref: '#/components/schemas/OwnerType' }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        contact: { type: string, maxLength: 200 }
+    MaintainerRequest:
+      type: object
+      required: [principalId, principalType]
+      properties:
+        principalId: { type: string, minLength: 1, maxLength: 200 }
+        principalType: { $ref: '#/components/schemas/OwnerType' }
+    PermissionDeclarationRequest:
+      type: object
+      required: [permissionKey, displayName]
+      properties:
+        permissionKey: { type: string, pattern: '^[a-z][a-z0-9-]{1,62}$' }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+        intendedUse: { type: string, maxLength: 1000 }
+        documentationUrl: { type: string, format: uri }
+    AddPermissionRequest:
+      allOf:
+        - $ref: '#/components/schemas/PermissionDeclarationRequest'
+    UpdatePermissionRequest:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+        intendedUse: { type: string, maxLength: 1000 }
+        documentationUrl: { type: string, format: uri }
+    ChangeServiceLifecycleRequest:
+      type: object
+      required: [status, reason]
+      properties:
+        status: { $ref: '#/components/schemas/ServiceLifecycleStatus' }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        acknowledgeDependencies: { type: boolean, default: false }
+    ChangePermissionLifecycleRequest:
+      type: object
+      required: [status, reason]
+      properties:
+        status: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        acknowledgeDependencies: { type: boolean, default: false }
+    TransferOwnershipRequest:
+      type: object
+      required: [owner, reason]
+      properties:
+        owner: { $ref: '#/components/schemas/OwnerRequest' }
+        delegatedMaintainers:
+          type: array
+          items: { $ref: '#/components/schemas/MaintainerRequest' }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    RegisteredServiceListResponse:
+      type: object
+      required: [items, totalCount, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/RegisteredServiceSummary' }
+        totalCount: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+    RegisteredServiceSummary:
+      type: object
+      required: [id, serviceIdentifier, displayName, owner, status, activePermissionCount, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        serviceIdentifier: { type: string }
+        displayName: { type: string }
+        description: { type: string }
+        owner: { $ref: '#/components/schemas/OwnerResponse' }
+        status: { $ref: '#/components/schemas/ServiceLifecycleStatus' }
+        activePermissionCount: { type: integer, minimum: 0 }
+        deprecatedPermissionCount: { type: integer, minimum: 0 }
+        disabledPermissionCount: { type: integer, minimum: 0 }
+        retiredPermissionCount: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time }
+    RegisteredServiceResponse:
+      allOf:
+        - $ref: '#/components/schemas/RegisteredServiceSummary'
+        - type: object
+          required: [createdAt, createdBy, updatedBy, concurrencyToken, permissions]
+          properties:
+            createdAt: { type: string, format: date-time }
+            createdBy: { type: string }
+            updatedBy: { type: string }
+            disabledAt: { type: string, format: date-time }
+            retiredAt: { type: string, format: date-time }
+            concurrencyToken: { type: string }
+            delegatedMaintainers:
+              type: array
+              items: { $ref: '#/components/schemas/MaintainerResponse' }
+            permissions:
+              type: array
+              items: { $ref: '#/components/schemas/ServicePermissionResponse' }
+    ServicePermissionResponse:
+      type: object
+      required: [id, serviceId, permissionKey, fullPermissionKey, displayName, status, isAssignable, createdAt, updatedAt, concurrencyToken]
+      properties:
+        id: { type: string, format: uuid }
+        serviceId: { type: string, format: uuid }
+        permissionKey: { type: string }
+        fullPermissionKey: { type: string }
+        displayName: { type: string }
+        description: { type: string }
+        intendedUse: { type: string }
+        documentationUrl: { type: string, format: uri }
+        status: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
+        isAssignable: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        createdBy: { type: string }
+        updatedAt: { type: string, format: date-time }
+        updatedBy: { type: string }
+        deprecatedAt: { type: string, format: date-time }
+        disabledAt: { type: string, format: date-time }
+        retiredAt: { type: string, format: date-time }
+        concurrencyToken: { type: string }
+    OwnerResponse:
+      type: object
+      required: [ownerId, ownerType, displayName]
+      properties:
+        ownerId: { type: string }
+        ownerType: { $ref: '#/components/schemas/OwnerType' }
+        displayName: { type: string }
+        contact: { type: string }
+    MaintainerResponse:
+      type: object
+      required: [principalId, principalType, grantedAt, grantedBy]
+      properties:
+        principalId: { type: string }
+        principalType: { $ref: '#/components/schemas/OwnerType' }
+        grantedAt: { type: string, format: date-time }
+        grantedBy: { type: string }
+    PermissionDependenciesResponse:
+      type: object
+      required: [permissionId, fullPermissionKey, dependencies]
+      properties:
+        permissionId: { type: string, format: uuid }
+        fullPermissionKey: { type: string }
+        dependencies:
+          type: array
+          items: { $ref: '#/components/schemas/PermissionDependency' }
+    PermissionDependency:
+      type: object
+      required: [dependencyType, dependentId, dependentName, isActive, impact]
+      properties:
+        dependencyType: { $ref: '#/components/schemas/DependencyType' }
+        dependentId: { type: string }
+        dependentName: { type: string }
+        isActive: { type: boolean }
+        impact: { $ref: '#/components/schemas/DependencyImpact' }
+    PermissionCatalogResponse:
+      type: object
+      required: [services, totalCount, page, pageSize]
+      properties:
+        services:
+          type: array
+          items: { $ref: '#/components/schemas/PermissionCatalogService' }
+        totalCount: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+    PermissionCatalogService:
+      type: object
+      required: [serviceIdentifier, displayName, status, permissions]
+      properties:
+        serviceIdentifier: { type: string }
+        displayName: { type: string }
+        status: { $ref: '#/components/schemas/ServiceLifecycleStatus' }
+        permissions:
+          type: array
+          items: { $ref: '#/components/schemas/ServicePermissionResponse' }
+    ProblemDetails:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        traceId: { type: string }
+    ValidationProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          properties:
+            errors:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }

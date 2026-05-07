@@ -1,0 +1,62 @@
+IDistributedApplicationBuilder builder = DistributedApplication.CreateBuilder(args);
+
+// Use a persistent data volume only when not explicitly disabled (e.g., test runs)
+bool disableDataVolume = string.Equals(
+    Environment.GetEnvironmentVariable("OPENIDENTITYSTACK_DISABLE_DATA_VOLUME"),
+    "true",
+    StringComparison.OrdinalIgnoreCase);
+
+// Add PostgreSQL with pgAdmin for development
+IResourceBuilder<PostgresServerResource> postgres = builder.AddPostgres("postgres");
+
+if (!disableDataVolume)
+{
+    postgres = postgres.WithDataVolume();
+}
+
+IResourceBuilder<PostgresDatabaseResource> openIdentityStackDb = postgres.AddDatabase("openidentitystack");
+
+// Propagate the AppHost environment name to child projects so they use the correct
+// OpenIddict configuration (dev/ephemeral certificates in Development/Testing, real
+// certificates in Production/Staging).
+string aspNetCoreEnvironment = builder.Environment.EnvironmentName;
+
+// Run database migrations/seeding outside the APIs
+// The DbMigrator is a generic Host app (not ASP.NET Core), so it reads DOTNET_ENVIRONMENT
+// rather than ASPNETCORE_ENVIRONMENT to determine IHostEnvironment.EnvironmentName.
+IResourceBuilder<ProjectResource> openIdModuleMigrator = builder.AddProject<Projects.OpenIdentityStack_DbMigrator>("openidentitystack-db-migrator")
+    .WithReference(openIdentityStackDb)
+    .WithEnvironment("DOTNET_ENVIRONMENT", aspNetCoreEnvironment)
+    .WithEnvironment("Seed__DevelopmentData", "true")
+    .WaitFor(openIdentityStackDb);
+
+// Add the API project with PostgreSQL dependency
+// Use fixed external ports for consistent OAuth configuration
+IResourceBuilder<ProjectResource> api = builder.AddProject<Projects.OpenIdentityStack_Api>("api")
+    .WithReference(openIdentityStackDb)
+    .WithEnvironment("ASPNETCORE_ENVIRONMENT", aspNetCoreEnvironment)
+    .WaitFor(openIdentityStackDb)
+    .WaitForCompletion(openIdModuleMigrator);
+
+// Add the Admin Web App (React + Vite)
+// Use a fixed port in local development, but allow dynamic ports for test runs.
+#pragma warning disable IDE0008 // Var improves fluency with Aspire builder APIs.
+var adminWeb = builder.AddJavaScriptApp("adminweb", "../OpenIdentityStack.AdminWeb")
+    .WithReference(api)
+    .WithExternalHttpEndpoints()
+    .WithEnvironment("VITE_OIDC_AUTHORITY", api.GetEndpoint("http"))
+    .WithEnvironment("VITE_API_BASE_URL", api.GetEndpoint("http"))
+    .PublishAsDockerFile();
+
+if (disableDataVolume)
+{
+    adminWeb.WithHttpEndpoint(env: "PORT");
+}
+else
+{
+    adminWeb.WithHttpEndpoint(port: 5175, env: "PORT");
+}
+
+#pragma warning restore IDE0008
+
+await builder.Build().RunAsync();

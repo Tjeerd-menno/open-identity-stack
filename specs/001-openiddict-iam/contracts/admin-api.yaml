@@ -1,0 +1,1874 @@
+openapi: 3.1.0
+info:
+  title: OpenIdentityStack Admin API
+  description: |
+    Administration API for the OpenIddict-based Identity & Access Management solution.
+    
+    ## Authentication
+    All endpoints require a valid OAuth2 access token issued by this IAM with appropriate admin permissions.
+    
+    ## Authorization
+    Endpoints enforce RBAC. Required permissions are documented per operation.
+    
+    ## Error Responses
+    All errors follow RFC 7807 Problem Details format.
+  version: 1.0.0
+  contact:
+    name: IAM Team
+
+servers:
+  - url: /api/admin
+    description: Admin API base path
+
+security:
+  - oauth2: []
+
+tags:
+  - name: Users
+    description: Local and federated user management
+  - name: Groups
+    description: Group and membership management
+  - name: Roles
+    description: Role and assignment management
+  - name: ServiceAccounts
+    description: Service account (client) management
+  - name: Sessions
+    description: Session visibility and revocation
+  - name: Providers
+    description: Upstream OIDC provider configuration
+
+paths:
+  # ============================================================================
+  # USERS
+  # ============================================================================
+  /users:
+    get:
+      tags: [Users]
+      summary: List users
+      operationId: listUsers
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageToken'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserStatus'
+        - name: search
+          in: query
+          description: Search by email or display name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      x-required-permissions: ['users:read']
+
+    post:
+      tags: [Users]
+      summary: Create a local user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-required-permissions: ['users:create']
+
+  /users/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      operationId: getUser
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['users:read']
+
+    patch:
+      tags: [Users]
+      summary: Update user
+      operationId: updateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['users:update']
+
+    delete:
+      tags: [Users]
+      summary: Delete user
+      operationId: deleteUser
+      responses:
+        '204':
+          description: User deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['users:delete']
+
+  /users/{userId}/disable:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [Users]
+      summary: Disable user
+      operationId: disableUser
+      responses:
+        '200':
+          description: User disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['users:update']
+
+  /users/{userId}/enable:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [Users]
+      summary: Enable user
+      operationId: enableUser
+      responses:
+        '200':
+          description: User enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['users:update']
+
+  /users/{userId}/reset-password:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [Users]
+      summary: Reset user password
+      operationId: resetUserPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetPasswordResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['users:update']
+
+  /users/{userId}/upstream-identities:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+
+    get:
+      tags: [Users]
+      summary: List upstream identities for user
+      operationId: listUserUpstreamIdentities
+      responses:
+        '200':
+          description: List of upstream identities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UpstreamIdentityResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['users:read']
+
+    post:
+      tags: [Users]
+      summary: Link upstream identity to user
+      operationId: linkUpstreamIdentity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkUpstreamIdentityRequest'
+      responses:
+        '201':
+          description: Identity linked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpstreamIdentityResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Identity already linked to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-required-permissions: ['users:update']
+
+  /users/{userId}/upstream-identities/{issuer}/{subject}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+      - name: issuer
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: subject
+        in: path
+        required: true
+        schema:
+          type: string
+
+    delete:
+      tags: [Users]
+      summary: Unlink upstream identity from user
+      operationId: unlinkUpstreamIdentity
+      responses:
+        '204':
+          description: Identity unlinked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['users:update']
+
+  /users/{userId}/roles:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+
+    get:
+      tags: [Users]
+      summary: List roles assigned to user
+      operationId: listUserRoles
+      responses:
+        '200':
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['users:read']
+
+    post:
+      tags: [Users]
+      summary: Assign role to user
+      operationId: assignRoleToUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRoleRequest'
+      responses:
+        '201':
+          description: Role assigned
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['roles:assign']
+
+  /users/{userId}/roles/{roleId}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/RoleId'
+
+    delete:
+      tags: [Users]
+      summary: Unassign role from user
+      operationId: unassignRoleFromUser
+      responses:
+        '204':
+          description: Role unassigned
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['roles:assign']
+
+  /users/{userId}/groups:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+
+    get:
+      tags: [Users]
+      summary: List groups user belongs to
+      operationId: listUserGroups
+      responses:
+        '200':
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['users:read']
+
+  # ============================================================================
+  # GROUPS
+  # ============================================================================
+  /groups:
+    get:
+      tags: [Groups]
+      summary: List groups
+      operationId: listGroups
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageToken'
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      x-required-permissions: ['groups:read']
+
+    post:
+      tags: [Groups]
+      summary: Create group
+      operationId: createGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Group name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-required-permissions: ['groups:create']
+
+  /groups/{groupId}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+
+    get:
+      tags: [Groups]
+      summary: Get group by ID
+      operationId: getGroup
+      responses:
+        '200':
+          description: Group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['groups:read']
+
+    patch:
+      tags: [Groups]
+      summary: Update group
+      operationId: updateGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupRequest'
+      responses:
+        '200':
+          description: Group updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['groups:update']
+
+    delete:
+      tags: [Groups]
+      summary: Delete group
+      operationId: deleteGroup
+      responses:
+        '204':
+          description: Group deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['groups:delete']
+
+  /groups/{groupId}/members:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+
+    get:
+      tags: [Groups]
+      summary: List group members
+      operationId: listGroupMembers
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageToken'
+      responses:
+        '200':
+          description: Paginated list of members
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['groups:read']
+
+    post:
+      tags: [Groups]
+      summary: Add member to group
+      operationId: addGroupMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddGroupMemberRequest'
+      responses:
+        '201':
+          description: Member added
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['groups:update']
+
+  /groups/{groupId}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/UserId'
+
+    delete:
+      tags: [Groups]
+      summary: Remove member from group
+      operationId: removeGroupMember
+      responses:
+        '204':
+          description: Member removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['groups:update']
+
+  /groups/{groupId}/mappings:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+
+    get:
+      tags: [Groups]
+      summary: List group mappings (role and claim)
+      operationId: listGroupMappings
+      responses:
+        '200':
+          description: List of mappings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupMappingResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['groups:read']
+
+    post:
+      tags: [Groups]
+      summary: Create group mapping
+      operationId: createGroupMapping
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupMappingRequest'
+      responses:
+        '201':
+          description: Mapping created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMappingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['groups:update']
+
+  /groups/{groupId}/mappings/{mappingId}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - name: mappingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    delete:
+      tags: [Groups]
+      summary: Delete group mapping
+      operationId: deleteGroupMapping
+      responses:
+        '204':
+          description: Mapping deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['groups:update']
+
+  # ============================================================================
+  # ROLES
+  # ============================================================================
+  /roles:
+    get:
+      tags: [Roles]
+      summary: List roles
+      operationId: listRoles
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageToken'
+      responses:
+        '200':
+          description: Paginated list of roles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      x-required-permissions: ['roles:read']
+
+    post:
+      tags: [Roles]
+      summary: Create role
+      operationId: createRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Role name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-required-permissions: ['roles:create']
+
+  /roles/{roleId}:
+    parameters:
+      - $ref: '#/components/parameters/RoleId'
+
+    get:
+      tags: [Roles]
+      summary: Get role by ID
+      operationId: getRole
+      responses:
+        '200':
+          description: Role details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['roles:read']
+
+    patch:
+      tags: [Roles]
+      summary: Update role
+      operationId: updateRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['roles:update']
+
+    delete:
+      tags: [Roles]
+      summary: Delete role
+      operationId: deleteRole
+      responses:
+        '204':
+          description: Role deleted
+        '400':
+          description: Cannot delete system role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['roles:delete']
+
+  # ============================================================================
+  # SERVICE ACCOUNTS
+  # ============================================================================
+  /service-accounts:
+    get:
+      tags: [ServiceAccounts]
+      summary: List service accounts
+      operationId: listServiceAccounts
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageToken'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ServiceAccountStatus'
+      responses:
+        '200':
+          description: Paginated list of service accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceAccountListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      x-required-permissions: ['clients:read']
+
+    post:
+      tags: [ServiceAccounts]
+      summary: Create service account
+      operationId: createServiceAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateServiceAccountRequest'
+      responses:
+        '201':
+          description: Service account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceAccountWithSecretResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Client ID already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-required-permissions: ['clients:create']
+
+  /service-accounts/{serviceAccountId}:
+    parameters:
+      - $ref: '#/components/parameters/ServiceAccountId'
+
+    get:
+      tags: [ServiceAccounts]
+      summary: Get service account by ID
+      operationId: getServiceAccount
+      responses:
+        '200':
+          description: Service account details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceAccountResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['clients:read']
+
+    patch:
+      tags: [ServiceAccounts]
+      summary: Update service account
+      operationId: updateServiceAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateServiceAccountRequest'
+      responses:
+        '200':
+          description: Service account updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceAccountResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['clients:update']
+
+    delete:
+      tags: [ServiceAccounts]
+      summary: Delete service account
+      operationId: deleteServiceAccount
+      responses:
+        '204':
+          description: Service account deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['clients:delete']
+
+  /service-accounts/{serviceAccountId}/credentials:
+    parameters:
+      - $ref: '#/components/parameters/ServiceAccountId'
+
+    post:
+      tags: [ServiceAccounts]
+      summary: Create new client credential (secret)
+      operationId: createClientCredential
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClientCredentialRequest'
+      responses:
+        '201':
+          description: Credential created (secret returned only once)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientCredentialWithSecretResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['clients:update']
+
+  /service-accounts/{serviceAccountId}/credentials/{credentialId}:
+    parameters:
+      - $ref: '#/components/parameters/ServiceAccountId'
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    delete:
+      tags: [ServiceAccounts]
+      summary: Revoke client credential
+      operationId: revokeClientCredential
+      responses:
+        '204':
+          description: Credential revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['clients:update']
+
+  /service-accounts/{serviceAccountId}/certificates:
+    parameters:
+      - $ref: '#/components/parameters/ServiceAccountId'
+
+    post:
+      tags: [ServiceAccounts]
+      summary: Register client certificate
+      operationId: registerClientCertificate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterClientCertificateRequest'
+      responses:
+        '201':
+          description: Certificate registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientCertificateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['clients:update']
+
+  # ============================================================================
+  # SESSIONS
+  # ============================================================================
+  /sessions:
+    get:
+      tags: [Sessions]
+      summary: List active sessions
+      operationId: listSessions
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageToken'
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/SessionStatus'
+      responses:
+        '200':
+          description: Paginated list of sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      x-required-permissions: ['sessions:read']
+
+  /sessions/{sessionId}:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags: [Sessions]
+      summary: Get session by ID
+      operationId: getSession
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['sessions:read']
+
+    delete:
+      tags: [Sessions]
+      summary: Revoke session
+      operationId: revokeSession
+      responses:
+        '204':
+          description: Session revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['sessions:revoke']
+
+  /users/{userId}/sessions:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+
+    delete:
+      tags: [Sessions]
+      summary: Revoke all sessions for user
+      operationId: revokeAllUserSessions
+      responses:
+        '204':
+          description: All sessions revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['sessions:revoke']
+
+  # ============================================================================
+  # PROVIDERS
+  # ============================================================================
+  /providers:
+    get:
+      tags: [Providers]
+      summary: List upstream OIDC providers
+      operationId: listProviders
+      responses:
+        '200':
+          description: List of providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProviderResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      x-required-permissions: ['providers:read']
+
+    post:
+      tags: [Providers]
+      summary: Create upstream provider
+      operationId: createProvider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProviderRequest'
+      responses:
+        '201':
+          description: Provider created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      x-required-permissions: ['providers:create']
+
+  /providers/{providerId}:
+    parameters:
+      - $ref: '#/components/parameters/ProviderId'
+
+    get:
+      tags: [Providers]
+      summary: Get provider by ID
+      operationId: getProvider
+      responses:
+        '200':
+          description: Provider details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['providers:read']
+
+    patch:
+      tags: [Providers]
+      summary: Update provider
+      operationId: updateProvider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProviderRequest'
+      responses:
+        '200':
+          description: Provider updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['providers:update']
+
+    delete:
+      tags: [Providers]
+      summary: Delete provider
+      operationId: deleteProvider
+      responses:
+        '204':
+          description: Provider deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['providers:delete']
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: /connect/token
+          scopes:
+            admin: Full administrative access
+
+  parameters:
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    PageToken:
+      name: pageToken
+      in: query
+      schema:
+        type: string
+
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    GroupId:
+      name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    ServiceAccountId:
+      name: serviceAccountId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    ProviderId:
+      name: providerId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    UserStatus:
+      type: string
+      enum: [PendingVerification, Active, Disabled]
+
+    ServiceAccountStatus:
+      type: string
+      enum: [Active, Disabled]
+
+    SessionStatus:
+      type: string
+      enum: [Active, Revoked, Expired]
+
+    MappingType:
+      type: string
+      enum: [Role, Claim]
+
+    TokenTarget:
+      type: string
+      enum: [AccessToken, IdToken, Both]
+
+    # User schemas
+    CreateUserRequest:
+      type: object
+      required: [email, displayName]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 256
+        displayName:
+          type: string
+          maxLength: 256
+        password:
+          type: string
+          minLength: 8
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          maxLength: 256
+        email:
+          type: string
+          format: email
+          maxLength: 256
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        displayName:
+          type: string
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        mfaEnabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+
+    UserListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        nextPageToken:
+          type: string
+
+    ResetPasswordRequest:
+      type: object
+      properties:
+        newPassword:
+          type: string
+          minLength: 8
+        requireChangeOnLogin:
+          type: boolean
+          default: false
+
+    ResetPasswordResponse:
+      type: object
+      properties:
+        temporaryPassword:
+          type: string
+          description: Only returned if newPassword not provided
+
+    LinkUpstreamIdentityRequest:
+      type: object
+      required: [issuer, subject]
+      properties:
+        issuer:
+          type: string
+        subject:
+          type: string
+
+    UpstreamIdentityResponse:
+      type: object
+      properties:
+        issuer:
+          type: string
+        subject:
+          type: string
+        linkedAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+
+    AssignRoleRequest:
+      type: object
+      required: [roleId]
+      properties:
+        roleId:
+          type: string
+          format: uuid
+
+    # Group schemas
+    CreateGroupRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 512
+        parentGroupId:
+          type: string
+          format: uuid
+
+    UpdateGroupRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 512
+
+    GroupResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        parentGroupId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    GroupListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupResponse'
+        nextPageToken:
+          type: string
+
+    AddGroupMemberRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+
+    CreateGroupMappingRequest:
+      type: object
+      required: [mappingType, tokenTarget]
+      properties:
+        mappingType:
+          $ref: '#/components/schemas/MappingType'
+        targetRoleId:
+          type: string
+          format: uuid
+        claimType:
+          type: string
+          maxLength: 256
+        claimValue:
+          type: string
+          maxLength: 1024
+        tokenTarget:
+          $ref: '#/components/schemas/TokenTarget'
+        priority:
+          type: integer
+          default: 0
+
+    GroupMappingResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        mappingType:
+          $ref: '#/components/schemas/MappingType'
+        targetRoleId:
+          type: string
+          format: uuid
+        claimType:
+          type: string
+        claimValue:
+          type: string
+        tokenTarget:
+          $ref: '#/components/schemas/TokenTarget'
+        priority:
+          type: integer
+
+    # Role schemas
+    CreateRoleRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 512
+
+    UpdateRoleRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          maxLength: 512
+
+    RoleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        isSystemRole:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleResponse'
+        nextPageToken:
+          type: string
+
+    # Service Account schemas
+    CreateServiceAccountRequest:
+      type: object
+      required: [clientId, displayName]
+      properties:
+        clientId:
+          type: string
+          maxLength: 128
+        displayName:
+          type: string
+          maxLength: 256
+        allowedScopes:
+          type: array
+          items:
+            type: string
+        allowedGrantTypes:
+          type: array
+          items:
+            type: string
+
+    UpdateServiceAccountRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          maxLength: 256
+        allowedScopes:
+          type: array
+          items:
+            type: string
+        status:
+          $ref: '#/components/schemas/ServiceAccountStatus'
+
+    ServiceAccountResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+        displayName:
+          type: string
+        status:
+          $ref: '#/components/schemas/ServiceAccountStatus'
+        allowedScopes:
+          type: array
+          items:
+            type: string
+        allowedGrantTypes:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ServiceAccountWithSecretResponse:
+      allOf:
+        - $ref: '#/components/schemas/ServiceAccountResponse'
+        - type: object
+          properties:
+            clientSecret:
+              type: string
+              description: Only returned on creation
+
+    ServiceAccountListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceAccountResponse'
+        nextPageToken:
+          type: string
+
+    CreateClientCredentialRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          maxLength: 256
+        expiresAt:
+          type: string
+          format: date-time
+
+    ClientCredentialWithSecretResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        clientSecret:
+          type: string
+          description: Only returned on creation
+
+    RegisterClientCertificateRequest:
+      type: object
+      required: [thumbprint, subject, expiresAt]
+      properties:
+        thumbprint:
+          type: string
+          maxLength: 64
+        subject:
+          type: string
+          maxLength: 512
+        expiresAt:
+          type: string
+          format: date-time
+
+    ClientCertificateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        thumbprint:
+          type: string
+        subject:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    # Session schemas
+    SessionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        userEmail:
+          type: string
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        authenticationMethod:
+          type: string
+        ipAddress:
+          type: string
+        userAgent:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    SessionListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionResponse'
+        nextPageToken:
+          type: string
+
+    # Provider schemas
+    CreateProviderRequest:
+      type: object
+      required: [name, slug, authority, clientId]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        slug:
+          type: string
+          maxLength: 64
+          pattern: ^[a-z0-9-]+$
+        authority:
+          type: string
+          format: uri
+        clientId:
+          type: string
+          maxLength: 256
+        clientSecret:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        jitProvisioningEnabled:
+          type: boolean
+          default: true
+
+    UpdateProviderRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        clientId:
+          type: string
+          maxLength: 256
+        clientSecret:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        jitProvisioningEnabled:
+          type: boolean
+        status:
+          type: string
+          enum: [Active, Disabled]
+
+    ProviderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        authority:
+          type: string
+        clientId:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        jitProvisioningEnabled:
+          type: boolean
+        status:
+          type: string
+          enum: [Active, Disabled]
+        createdAt:
+          type: string
+          format: date-time

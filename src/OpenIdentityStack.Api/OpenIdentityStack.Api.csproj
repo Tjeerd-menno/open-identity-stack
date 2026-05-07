@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
+    <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="OpenIddict.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenIdentityStack.Application\OpenIdentityStack.Application.csproj" />
+    <ProjectReference Include="..\OpenIdentityStack.Domain\OpenIdentityStack.Domain.csproj" />
+    <ProjectReference Include="..\OpenIdentityStack.Infrastructure\OpenIdentityStack.Infrastructure.csproj" />
+    <ProjectReference Include="..\OpenIdentityStack.ServiceDefaults\OpenIdentityStack.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+  Code Coverage Configuration for OpenIdentityStack
+  Used with Microsoft.Testing.Extensions.CodeCoverage
+  
+  This file excludes generated code (migrations, designer files) from coverage metrics.
+-->
+<Configuration>
+  <CodeCoverage>
+    <!-- Exclude test assemblies from coverage -->
+    <ModulePaths>
+      <Exclude>
+        <ModulePath>.*\.Tests\.dll$</ModulePath>
+        <ModulePath>.*\.E2ETests\.dll$</ModulePath>
+        <ModulePath>.*TestSeedHelpers\.dll$</ModulePath>
+      </Exclude>
+    </ModulePaths>
+    
+    <!-- Exclude generated source files from coverage -->
+    <Sources>
+      <Exclude>
+        <!-- EF Core Migrations -->
+        <Source>.*\\Migrations\\.*</Source>
+        <!-- Designer files -->
+        <Source>.*\.Designer\.cs$</Source>
+        <!-- Source generators output -->
+        <Source>.*\.g\.cs$</Source>
+        <Source>.*\.generated\.cs$</Source>
+      </Exclude>
+    </Sources>
+    
+    <!-- Exclude code with these attributes -->
+    <Attributes>
+      <Exclude>
+        <Attribute>^System\.Diagnostics\.CodeAnalysis\.ExcludeFromCodeCoverageAttribute$</Attribute>
+        <Attribute>^System\.CodeDom\.Compiler\.GeneratedCodeAttribute$</Attribute>
+        <Attribute>^System\.Runtime\.CompilerServices\.CompilerGeneratedAttribute$</Attribute>
+      </Exclude>
+    </Attributes>
+    
+    <!-- Functions to exclude (regex patterns) -->
+    <Functions>
+      <Exclude>
+        <!-- Exclude EF Core migration methods -->
+        <Function>.*Migration\.Up\(.*</Function>
+        <Function>.*Migration\.Down\(.*</Function>
+        <Function>.*Migration\.BuildTargetModel\(.*</Function>
+      </Exclude>
+    </Functions>
+  </CodeCoverage>
+</Configuration>

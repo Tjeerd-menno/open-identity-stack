@@ -1,0 +1,28 @@
+<Solution>
+  <Folder Name="/.solution-items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/OpenIdentityStack.Api/OpenIdentityStack.Api.csproj" />
+    <Project Path="src/OpenIdentityStack.AppHost/OpenIdentityStack.AppHost.csproj" />
+    <Project Path="src/OpenIdentityStack.Application/OpenIdentityStack.Application.csproj" />
+    <Project Path="src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator.csproj" />
+    <Project Path="src/OpenIdentityStack.Domain/OpenIdentityStack.Domain.csproj" />
+    <Project Path="src/OpenIdentityStack.Infrastructure/OpenIdentityStack.Infrastructure.csproj" />
+    <Project Path="src/OpenIdentityStack.ServiceDefaults/OpenIdentityStack.ServiceDefaults.csproj" />
+    <Project Path="src/SharedKernel/SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OpenIdentityStack.AdminWeb.E2ETests/OpenIdentityStack.AdminWeb.E2ETests.csproj" />
+    <Project Path="tests/OpenIdentityStack.Api.Tests/OpenIdentityStack.Api.Tests.csproj" />
+    <Project Path="tests/OpenIdentityStack.Api.UnitTests/OpenIdentityStack.Api.UnitTests.csproj" />
+    <Project Path="tests/OpenIdentityStack.Application.Tests/OpenIdentityStack.Application.Tests.csproj" />
+    <Project Path="tests/OpenIdentityStack.Contract.Tests/OpenIdentityStack.Contract.Tests.csproj" />
+    <Project Path="tests/OpenIdentityStack.Domain.Tests/OpenIdentityStack.Domain.Tests.csproj" />
+    <Project Path="tests/OpenIdentityStack.Infrastructure.Tests/OpenIdentityStack.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>
