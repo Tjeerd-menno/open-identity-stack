@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.Testing" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="Shouldly" />
@@ -18,18 +17,6 @@
     <Using Include="Xunit" />
     <Using Include="NSubstitute" />
     <Using Include="Shouldly" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\OpenIdentityStack.AppHost\OpenIdentityStack.AppHost.csproj">
-      <Aliases>AppHostProject</Aliases>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\OpenIdentityStack.Infrastructure\OpenIdentityStack.Infrastructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Include="..\TestSeedHelpers\AspireTestApplication.cs" Link="Fixtures\AspireTestApplication.cs" />
-    <Compile Include="..\TestSeedHelpers\OpenIdentityStackTestSeeder.cs" Link="Fixtures\OpenIdentityStackTestSeeder.cs" />
   </ItemGroup>
 
 </Project>

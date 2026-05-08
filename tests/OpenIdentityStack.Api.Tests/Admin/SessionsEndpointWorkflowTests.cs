@@ -2,15 +2,15 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
-using OpenIdentityStack.Contract.Tests.Fixtures;
+using OpenIdentityStack.Api.Tests.Fixtures;
 
 using SharedKernel;
-namespace OpenIdentityStack.Contract.Tests.Admin;
+namespace OpenIdentityStack.Api.Tests.Admin;
 /// <summary>
-/// Contract tests for the /api/admin/sessions endpoint.
+/// Integration tests for the /api/admin/sessions endpoint.
 /// Verifies API contract compliance for session management operations.
 /// </summary>
-public sealed class SessionsEndpointContractTests(AppHostFixture fixture) : IAsyncLifetime
+public sealed class SessionsEndpointWorkflowTests(AppHostFixture fixture) : IAsyncLifetime
 {
     private readonly AppHostFixture _fixture = fixture;
     private HttpClient _client = null!;
