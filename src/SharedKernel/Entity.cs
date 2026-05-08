@@ -71,7 +71,7 @@ public abstract class Entity<TId> : IEquatable<Entity<TId>>
     public override int GetHashCode()
     {
         return EqualityComparer<TId>.Default.Equals(this.Id, default)
-            ? 0
+            ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this)
             : EqualityComparer<TId>.Default.GetHashCode(this.Id);
     }
 
