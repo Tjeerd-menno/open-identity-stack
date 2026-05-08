@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -183,9 +181,14 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
 
     const string adminEmail = "admin@localhost.dev";
     const string adminDisplayName = "Default Admin";
-    string? configuredAdminSecret = configuration["Seed:DefaultAdmin:Password"];
-    bool generatedAdminSecret = string.IsNullOrWhiteSpace(configuredAdminSecret);
-    string adminSecret = generatedAdminSecret ? GenerateDefaultAdminSecret() : configuredAdminSecret!;
+    string? adminSecret = configuration["Seed:DefaultAdmin:Password"];
+
+    if (string.IsNullOrWhiteSpace(adminSecret))
+    {
+        logger.LogInformation(
+            "Skipping default admin user seeding. Configure Seed:DefaultAdmin:Password to enable the development admin account.");
+        return;
+    }
 
     Role? superAdminRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == "super-admin");
 
@@ -266,36 +269,6 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
         "Created default admin user '{Email}' with super-admin role (Status: {Status}). Configure Seed:DefaultAdmin:Password to set a stable development password.",
         adminEmail,
         adminUser.Status);
-    if (generatedAdminSecret)
-    {
-        logger.LogWarning("Generated one-time development password for default admin user '{Email}': {Password}", adminEmail, adminSecret);
-    }
-}
-
-static string GenerateDefaultAdminSecret()
-{
-    const string uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-    const string lowercase = "abcdefghijkmnopqrstuvwxyz";
-    const string digits = "23456789";
-    const string specials = "!@#$%^&*()-_=+";
-    const string allCharacters = uppercase + lowercase + digits + specials;
-
-    char[] secret =
-    [
-        uppercase[RandomNumberGenerator.GetInt32(uppercase.Length)],
-        lowercase[RandomNumberGenerator.GetInt32(lowercase.Length)],
-        digits[RandomNumberGenerator.GetInt32(digits.Length)],
-        specials[RandomNumberGenerator.GetInt32(specials.Length)],
-        .. Enumerable.Range(0, 28).Select(_ => allCharacters[RandomNumberGenerator.GetInt32(allCharacters.Length)])
-    ];
-
-    for (int i = secret.Length - 1; i > 0; i--)
-    {
-        int j = RandomNumberGenerator.GetInt32(i + 1);
-        (secret[i], secret[j]) = (secret[j], secret[i]);
-    }
-
-    return new string(secret);
 }
 
 static async Task SeedTraceableIsotopesWebClientAsync(IServiceProvider serviceProvider)

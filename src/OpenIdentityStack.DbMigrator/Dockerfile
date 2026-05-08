@@ -24,8 +24,11 @@ RUN dotnet publish src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
+ARG APP_UID=64198
 
 COPY --from=build /app/publish .
 
+RUN useradd --uid "${APP_UID}" --create-home --shell /usr/sbin/nologin app \
+    && chown -R "${APP_UID}":"${APP_UID}" /app
 USER $APP_UID
 ENTRYPOINT ["dotnet", "OpenIdentityStack.DbMigrator.dll"]
