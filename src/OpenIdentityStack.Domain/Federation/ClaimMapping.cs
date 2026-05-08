@@ -96,7 +96,12 @@ public sealed class ClaimMapping : IEquatable<ClaimMapping>
             TransformType.EmailPrefix => value.Contains('@') ? value.Split('@')[0] : value,
             TransformType.EmailDomain => value.Contains('@') ? value.Split('@')[1] : value,
             TransformType.Regex when !string.IsNullOrEmpty(this.TransformPattern) =>
-                System.Text.RegularExpressions.Regex.Replace(value, this.TransformPattern, string.Empty),
+                System.Text.RegularExpressions.Regex.Replace(
+                    value,
+                    this.TransformPattern,
+                    string.Empty,
+                    System.Text.RegularExpressions.RegexOptions.None,
+                    TimeSpan.FromMilliseconds(250)),
             _ => value,
         };
     }

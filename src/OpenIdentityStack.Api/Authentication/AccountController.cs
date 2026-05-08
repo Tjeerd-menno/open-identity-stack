@@ -343,8 +343,8 @@ public class AccountController : Controller
 
         var authProperties = new AuthenticationProperties
         {
-            IsPersistent = model.RememberMe,
-            ExpiresUtc = DateTimeOffset.UtcNow.AddHours(model.RememberMe ? 24 : 1)
+            IsPersistent = model.RememberMe == true,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddHours(model.RememberMe == true ? 24 : 1)
         };
 
         await this.HttpContext.SignInAsync("Cookies", claimsPrincipal, authProperties);
@@ -480,7 +480,7 @@ public sealed class LoginViewModel
     /// <summary>
     /// Gets or sets whether to remember the login.
     /// </summary>
-    public bool RememberMe { get; set; }
+    public bool? RememberMe { get; set; }
 }
 
 /// <summary>

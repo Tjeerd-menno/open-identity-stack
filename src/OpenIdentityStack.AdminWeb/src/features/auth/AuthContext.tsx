@@ -5,7 +5,7 @@
  * Provides authentication methods and user information to the app.
  */
 
-import React, { createContext, useCallback, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { User, UserManager } from 'oidc-client-ts';
 import { oidcConfig, extractPermissions, extractDisplayName } from './services/oidc-config';
 import { apiClient } from '@/lib/api/client';
@@ -94,11 +94,22 @@ export interface AuthProviderProps {
  */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   console.log('[AuthProvider] Rendering, isE2ETestMode:', isE2ETestMode);
-  
-  // E2E Test Mode: Return mock authenticated state immediately
-  if (isE2ETestMode) {
-    console.log('[AuthProvider] E2E Test Mode active - using mock auth');
-    const mockUser: AuthenticatedUser = {
+
+  return isE2ETestMode ? (
+    <MockAuthProvider>{children}</MockAuthProvider>
+  ) : (
+    <OidcAuthProvider>{children}</OidcAuthProvider>
+  );
+};
+
+const MockAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  console.log('[AuthProvider] E2E Test Mode active - using mock auth');
+
+  const mockValue = useMemo<AuthContextValue>(() => ({
+    isAuthenticated: true,
+    isLoading: false,
+    isLoggingOut: false,
+    user: {
       sub: 'e2e-test-user-id',
       email: 'admin@example.com',
       name: 'E2E Test Admin',
@@ -110,25 +121,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         'providers:read', 'providers:create', 'providers:update', 'providers:delete',
         'sessions:read', 'sessions:revoke',
       ],
-    };
+    },
+    accessToken: 'e2e-test-token',
+    error: null,
+    login: async () => { console.log('[E2E] Mock login'); },
+    logout: async () => { console.log('[E2E] Mock logout'); },
+    signinCallback: async () => { console.log('[E2E] Mock signinCallback'); },
+    signinSilentCallback: async () => { console.log('[E2E] Mock signinSilentCallback'); },
+    getAccessToken: async () => 'e2e-test-token',
+  }), []);
 
-    const mockValue: AuthContextValue = {
-      isAuthenticated: true,
-      isLoading: false,
-      isLoggingOut: false,
-      user: mockUser,
-      accessToken: 'e2e-test-token',
-      error: null,
-      login: async () => { console.log('[E2E] Mock login'); },
-      logout: async () => { console.log('[E2E] Mock logout'); },
-      signinCallback: async () => { console.log('[E2E] Mock signinCallback'); },
-      signinSilentCallback: async () => { console.log('[E2E] Mock signinSilentCallback'); },
-      getAccessToken: async () => 'e2e-test-token',
-    };
+  return <AuthContext.Provider value={mockValue}>{children}</AuthContext.Provider>;
+};
 
-    return <AuthContext.Provider value={mockValue}>{children}</AuthContext.Provider>;
-  }
-
+const OidcAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>(initialAuthState);
   const [userManager] = useState(() => new UserManager(oidcConfig));
   const forceLoginKey = 'admin_force_login';
@@ -391,14 +397,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [userManager]);
 
-  const value: AuthContextValue = {
+  const value = useMemo<AuthContextValue>(() => ({
     ...authState,
     login,
     logout,
     signinCallback,
     signinSilentCallback,
     getAccessToken,
-  };
+  }), [authState, login, logout, signinCallback, signinSilentCallback, getAccessToken]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
