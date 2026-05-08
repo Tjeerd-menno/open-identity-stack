@@ -2,14 +2,14 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
-using OpenIdentityStack.Contract.Tests.Fixtures;
+using OpenIdentityStack.Api.Tests.Fixtures;
 
 using SharedKernel;
-namespace OpenIdentityStack.Contract.Tests.Admin;
+namespace OpenIdentityStack.Api.Tests.Admin;
 /// <summary>
-/// Contract tests for the /api/admin/roles endpoint.
+/// Integration tests for the /api/admin/roles endpoint.
 /// </summary>
-public sealed class RolesEndpointContractTests(AppHostFixture fixture) : IAsyncLifetime
+public sealed class RolesEndpointWorkflowTests(AppHostFixture fixture) : IAsyncLifetime
 {
     private readonly AppHostFixture _fixture = fixture;
     private HttpClient _client = null!;

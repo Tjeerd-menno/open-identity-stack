@@ -1,14 +1,13 @@
-using OpenIdentityStack.Contract.Tests.Fixtures;
+using OpenIdentityStack.Api.Tests.Fixtures;
 using System.Net.Http.Json;
 using System.Net;
-using Aspire.Hosting.Testing;
 using System.Text.Json.Nodes;
 
-namespace OpenIdentityStack.Contract.Tests.Admin;
+namespace OpenIdentityStack.Api.Tests.Admin;
 /// <summary>
-/// Contract tests for the /api/admin/groups endpoint.
+/// Integration tests for the /api/admin/groups endpoint.
 /// </summary>
-public sealed class GroupsEndpointContractTests(AppHostFixture fixture) : IAsyncLifetime
+public sealed class GroupsEndpointWorkflowTests(AppHostFixture fixture) : IAsyncLifetime
 {
     private readonly AppHostFixture _fixture = fixture;
     private HttpClient _client = null!;
@@ -18,15 +17,15 @@ public sealed class GroupsEndpointContractTests(AppHostFixture fixture) : IAsync
 
     public async ValueTask InitializeAsync()
     {
-        this._client = this._fixture.App!.CreateHttpClient("api");
+        this._client = this._fixture.HttpClient!;
         // Authenticate before running tests
         await this.AuthenticateAsync();
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        this._client?.Dispose();
-        await ValueTask.CompletedTask;
+        // The fixture owns the shared HttpClient instance.
+        return ValueTask.CompletedTask;
     }
 
     private async Task AuthenticateAsync()

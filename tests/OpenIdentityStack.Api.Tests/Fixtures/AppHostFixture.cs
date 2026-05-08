@@ -1,6 +1,14 @@
-extern alias AppHostProject;
-using Aspire.Hosting;
-using Aspire.Hosting.Testing;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
+using OpenIdentityStack.Infrastructure.Persistence;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using OpenIdentityStack.Api.Tests.Fixtures;
@@ -11,45 +19,42 @@ using OpenIdentityStack.Testing;
 namespace OpenIdentityStack.Api.Tests.Fixtures;
 
 /// <summary>
-/// Shared fixture for Aspire-based integration tests.
-/// Uses internal test seeding to prepare data without API endpoints.
+/// Shared fixture for in-process API integration tests.
+/// Uses WebApplicationFactory with a prefilled SQLite database.
 /// </summary>
 public class AppHostFixture : IAsyncLifetime
 {
-    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
-    
-    public IDistributedApplicationTestingBuilder? Builder { get; private set; }
-    public DistributedApplication? App { get; private set; }
+    private const string ConnectionString = "Data Source=file:openidentitystack_api_tests;Mode=Memory;Cache=Shared";
+
+    private SqliteConnection? Connection { get; set; }
+    private OpenIdentityStackApiFactory? Factory { get; set; }
+    private string? PreviousConnectionString { get; set; }
+
     public HttpClient? HttpClient { get; private set; }
     private OpenIdentityStackTestSeeder? TestSeeder { get; set; }
 
     public async ValueTask InitializeAsync()
     {
-        // Reference the AppHost project type to ensure it's loaded
-        _ = typeof(AppHostProject::Projects.OpenIdentityStack_AppHost);
+        this.Connection = new SqliteConnection(ConnectionString);
+        await this.Connection.OpenAsync();
 
-        this.Builder = await AspireTestApplication.CreateBuilderAsync<AppHostProject::Projects.OpenIdentityStack_AppHost>();
+        this.PreviousConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__openidentitystack");
+        Environment.SetEnvironmentVariable(
+            "ConnectionStrings__openidentitystack",
+            ConnectionString);
 
-        this.App = await this.Builder.BuildAsync();
-
-        await this.App.StartAsync();
-
-        // Wait for the API resource to be healthy
-        using var cts = new CancellationTokenSource(DefaultTimeout);
-        await this.App.ResourceNotifications.WaitForResourceHealthyAsync("postgres", cts.Token);
-        await this.App.ResourceNotifications.WaitForResourceHealthyAsync("api", cts.Token);
-
-        this.HttpClient = this.App.CreateHttpClient("api");
+        this.Factory = new OpenIdentityStackApiFactory();
+        this.HttpClient = this.CreateClient();
         this.HttpClient.Timeout = RequestTimeout;
 
-        string connectionString = await GetRequiredConnectionStringAsync("openidentitystack");
-        this.TestSeeder = await OpenIdentityStackTestSeeder.CreateAsync(connectionString);
+        this.TestSeeder = await OpenIdentityStackTestSeeder.CreateAsync(
+            this.Factory.Services,
+            "OpenIdentityStack.Api.Tests");
     }
 
     /// <summary>
-    /// Creates a test service account using the test seeding API endpoint.
-    /// This is the proper closed-box testing approach - all seeding goes through the API.
+    /// Creates a test service account using the test seeder.
     /// </summary>
     /// <param name="clientId">The client ID for the service account.</param>
     /// <param name="clientSecret">The client secret for the service account.</param>
@@ -125,15 +130,23 @@ public class AppHostFixture : IAsyncLifetime
         await this.CreateServiceAccountAsync(clientId, clientSecret, allowedScopes);
         string token = await this.GetAccessTokenAsync(clientId, clientSecret, scope);
         
-        if (this.App is null)
-        {
-            throw new InvalidOperationException("App is not initialized.");
-        }
-
-        HttpClient client = this.App.CreateHttpClient("api");
+        HttpClient client = this.CreateClient();
         client.Timeout = RequestTimeout;
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         return client;
+    }
+
+    public HttpClient CreateClient(bool allowAutoRedirect = true)
+    {
+        if (this.Factory is null)
+        {
+            throw new InvalidOperationException("Factory is not initialized.");
+        }
+
+        return this.Factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = allowAutoRedirect
+        });
     }
 
     public async Task<Guid> CreateSessionAsync(
@@ -232,26 +245,53 @@ public class AppHostFixture : IAsyncLifetime
         {
             await TestSeeder.DisposeAsync();
         }
-        if (this.App is not null)
+        if (this.Factory is not null)
         {
-            await this.App.DisposeAsync();
+            await this.Factory.DisposeAsync();
         }
+        if (this.Connection is not null)
+        {
+            await this.Connection.DisposeAsync();
+        }
+        Environment.SetEnvironmentVariable("ConnectionStrings__openidentitystack", this.PreviousConnectionString);
         GC.SuppressFinalize(this);
     }
 
-    private async Task<string> GetRequiredConnectionStringAsync(string name)
+    private sealed class OpenIdentityStackApiFactory : WebApplicationFactory<Program>
     {
-        if (App is null)
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            throw new InvalidOperationException("App is not initialized.");
-        }
+            builder.UseEnvironment("Testing");
+            builder.ConfigureAppConfiguration((_, configurationBuilder) =>
+            {
+                configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:openidentitystack"] = ConnectionString
+                });
+            });
 
-        string? connectionString = await App.GetConnectionStringAsync(name);
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw new InvalidOperationException($"Connection string '{name}' was not found.");
-        }
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<DbContextOptions<OpenIdentityStackDbContext>>();
+                services.RemoveAll<OpenIdentityStackDbContext>();
 
-        return connectionString;
+                services.AddDbContext<OpenIdentityStackDbContext>(options =>
+                {
+                    options.UseSqlite(ConnectionString);
+                    options.UseOpenIddict();
+                });
+
+                services.PostConfigure<HealthCheckServiceOptions>(options =>
+                {
+                    HealthCheckRegistration? postgresqlHealthCheck = options.Registrations
+                        .FirstOrDefault(registration => string.Equals(registration.Name, "postgresql", StringComparison.OrdinalIgnoreCase));
+
+                    if (postgresqlHealthCheck is not null)
+                    {
+                        options.Registrations.Remove(postgresqlHealthCheck);
+                    }
+                });
+            });
+        }
     }
 }

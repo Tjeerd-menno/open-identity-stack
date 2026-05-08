@@ -9,7 +9,7 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 /// Integration tests for the OAuth 2.0 client credentials flow.
 /// These tests verify that service accounts can obtain access tokens
 /// using client_id and client_secret authentication.
-/// Uses Aspire Testing infrastructure.
+/// Uses WebApplicationFactory test infrastructure.
 /// </summary>
 [Collection("AppHost")]
 public sealed class ClientCredentialsFlowTests
