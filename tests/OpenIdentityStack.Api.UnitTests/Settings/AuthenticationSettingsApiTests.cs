@@ -225,7 +225,7 @@ public sealed class AuthenticationSettingsApiTests
 
         public Task<Result<SetDefaultProviderResult>> ExecuteAsync(SetDefaultProviderCommand command, CancellationToken cancellationToken = default)
         {
-            this.LastCommand = command;
+            LastCommand = command;
             return handler(command, cancellationToken);
         }
     }
@@ -238,7 +238,7 @@ public sealed class AuthenticationSettingsApiTests
 
         public Task<Result<SetLocalFallbackResult>> ExecuteAsync(SetLocalFallbackCommand command, CancellationToken cancellationToken = default)
         {
-            this.LastCommand = command;
+            LastCommand = command;
             return handler(command, cancellationToken);
         }
     }
