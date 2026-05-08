@@ -1,16 +1,16 @@
-name: CI
+name: PR Validation
 
 on:
-  push:
+  pull_request:
     branches: [ main, master ]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   build-test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       # Prevent DEBUG_SESSION_PORT from interfering with Aspire DCP
       # See: https://github.com/dotnet/aspire/discussions/5051
@@ -18,6 +18,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Fetch base branch for OpenAPI comparison
+        shell: pwsh
+        run: git fetch --no-tags --prune --depth=1 origin refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+
+      - name: Check OpenAPI breaking changes
+        shell: pwsh
+        run: scripts/ci/compare-openapi-breaking-changes.ps1 -BaseRef "origin/${{ github.base_ref }}"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
