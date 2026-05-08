@@ -274,7 +274,28 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
 
 static string GenerateDefaultAdminSecret()
 {
-    return $"A1!a{Convert.ToHexString(RandomNumberGenerator.GetBytes(24))}";
+    const string uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const string lowercase = "abcdefghijkmnopqrstuvwxyz";
+    const string digits = "23456789";
+    const string specials = "!@#$%^&*()-_=+";
+    const string allCharacters = uppercase + lowercase + digits + specials;
+
+    char[] secret =
+    [
+        uppercase[RandomNumberGenerator.GetInt32(uppercase.Length)],
+        lowercase[RandomNumberGenerator.GetInt32(lowercase.Length)],
+        digits[RandomNumberGenerator.GetInt32(digits.Length)],
+        specials[RandomNumberGenerator.GetInt32(specials.Length)],
+        .. Enumerable.Range(0, 28).Select(_ => allCharacters[RandomNumberGenerator.GetInt32(allCharacters.Length)])
+    ];
+
+    for (int i = secret.Length - 1; i > 0; i--)
+    {
+        int j = RandomNumberGenerator.GetInt32(i + 1);
+        (secret[i], secret[j]) = (secret[j], secret[i]);
+    }
+
+    return new string(secret);
 }
 
 static async Task SeedTraceableIsotopesWebClientAsync(IServiceProvider serviceProvider)
