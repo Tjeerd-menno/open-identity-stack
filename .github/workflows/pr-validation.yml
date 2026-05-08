@@ -39,8 +39,8 @@ jobs:
         run: dotnet build OpenIdentityStack.slnx --no-restore
 
       - name: Install Playwright browsers
-        shell: bash
-        run: bash tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.sh install --with-deps chromium
+        shell: pwsh
+        run: tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 
       - name: Test unit modules with coverage
         run: |
