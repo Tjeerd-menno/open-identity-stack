@@ -1,15 +1,14 @@
-using OpenIdentityStack.Contract.Tests.Fixtures;
+using OpenIdentityStack.Api.Tests.Fixtures;
 using System.Net.Http.Json;
 using System.Net;
-using Aspire.Hosting.Testing;
 using System.Text.Json.Nodes;
 
-namespace OpenIdentityStack.Contract.Tests.Admin;
+namespace OpenIdentityStack.Api.Tests.Admin;
 /// <summary>
-/// Contract tests for the Admin Service Accounts API endpoints.
-/// These tests verify the API contract (request/response shapes).
+/// Integration tests for the Admin Service Accounts API endpoints.
+/// These tests verify the HTTP workflow against the in-process API test host.
 /// </summary>
-public sealed class ServiceAccountsEndpointContractTests(AppHostFixture fixture) : IAsyncLifetime
+public sealed class ServiceAccountsEndpointWorkflowTests(AppHostFixture fixture) : IAsyncLifetime
 {
     private readonly AppHostFixture _fixture = fixture;
     private HttpClient _client = null!;
@@ -19,20 +18,20 @@ public sealed class ServiceAccountsEndpointContractTests(AppHostFixture fixture)
 
     public async ValueTask InitializeAsync()
     {
-        this._client = this._fixture.App!.CreateHttpClient("api");
+        this._client = this._fixture.HttpClient!;
         // Authenticate before running tests
         await this.AuthenticateAsync();
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        this._client?.Dispose();
-        await ValueTask.CompletedTask;
+        // The fixture owns the shared HttpClient instance.
+        return ValueTask.CompletedTask;
     }
 
     private async Task AuthenticateAsync()
     {
-        const string clientId = "sa-contract-tests";
+        string clientId = $"sa-workflow-{Guid.NewGuid():N}";
         const string clientSecret = "test-secret-123";
 
         await this._fixture.CreateServiceAccountAsync(clientId, clientSecret);

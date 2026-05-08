@@ -87,9 +87,11 @@ public sealed class UserRepository : IUserRepository
         if (!string.IsNullOrWhiteSpace(search))
         {
             string normalizedSearch = search.Trim().ToUpperInvariant();
+#pragma warning disable CA1304, CA1311, CA1862 // Parameterless ToUpper translates to SQL for both PostgreSQL and SQLite.
             query = query.Where(u =>
                 u.NormalizedEmail.Contains(normalizedSearch) ||
-                EF.Functions.ILike(u.DisplayName, $"%{normalizedSearch}%"));
+                u.DisplayName.ToUpper().Contains(normalizedSearch));
+#pragma warning restore CA1304, CA1311, CA1862
         }
 
         int totalCount = await query.CountAsync(cancellationToken);

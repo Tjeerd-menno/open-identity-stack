@@ -334,3 +334,5 @@ static string GetClientPartitionKey(HttpContext httpContext, string suffix)
 
     return $"{suffix}:{client}";
 }
+
+public partial class Program;
