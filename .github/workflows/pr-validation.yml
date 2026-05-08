@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   build-test:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     env:
       # Prevent DEBUG_SESSION_PORT from interfering with Aspire DCP
       # See: https://github.com/dotnet/aspire/discussions/5051
