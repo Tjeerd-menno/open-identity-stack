@@ -12,7 +12,7 @@ public sealed class DelegatedMaintainerTests
     {
         var dateTimeProvider = new TestDateTimeProvider(this.now);
 
-        DelegatedMaintainer maintainer = DelegatedMaintainer.Create(
+        var maintainer = DelegatedMaintainer.Create(
             this.serviceId,
             "principal-1",
             OwnerType.User,
@@ -33,13 +33,13 @@ public sealed class DelegatedMaintainerTests
     {
         var dateTimeProvider = new TestDateTimeProvider(this.now);
 
-        DelegatedMaintainer first = DelegatedMaintainer.Create(
+        var first = DelegatedMaintainer.Create(
             this.serviceId,
             "principal-1",
             OwnerType.Group,
             "admin-1",
             dateTimeProvider);
-        DelegatedMaintainer second = DelegatedMaintainer.Create(
+        var second = DelegatedMaintainer.Create(
             this.serviceId,
             "principal-1",
             OwnerType.Group,

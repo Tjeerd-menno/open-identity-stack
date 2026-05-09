@@ -7,7 +7,7 @@ public sealed class ServicePermissionIdsTests
     [Fact]
     public void RegisteredServiceId_Create_ReturnsNonEmptyId()
     {
-        RegisteredServiceId id = RegisteredServiceId.Create();
+        var id = RegisteredServiceId.Create();
 
         id.ShouldNotBe(RegisteredServiceId.Empty);
     }
@@ -15,7 +15,7 @@ public sealed class ServicePermissionIdsTests
     [Fact]
     public void RegisteredServiceId_TryParse_WithValidGuid_ReturnsParsedId()
     {
-        RegisteredServiceId expected = RegisteredServiceId.Create();
+        var expected = RegisteredServiceId.Create();
 
         bool isParsed = RegisteredServiceId.TryParse(expected.ToString(), out RegisteredServiceId actual);
 
@@ -38,7 +38,7 @@ public sealed class ServicePermissionIdsTests
     [Fact]
     public void ServicePermissionId_Create_ReturnsNonEmptyId()
     {
-        ServicePermissionId id = ServicePermissionId.Create();
+        var id = ServicePermissionId.Create();
 
         id.ShouldNotBe(ServicePermissionId.Empty);
     }
@@ -46,7 +46,7 @@ public sealed class ServicePermissionIdsTests
     [Fact]
     public void ServicePermissionId_TryParse_WithValidGuid_ReturnsParsedId()
     {
-        ServicePermissionId expected = ServicePermissionId.Create();
+        var expected = ServicePermissionId.Create();
 
         bool isParsed = ServicePermissionId.TryParse(expected.ToString(), out ServicePermissionId actual);
 
@@ -69,7 +69,7 @@ public sealed class ServicePermissionIdsTests
     [Fact]
     public void DelegatedMaintainerId_Create_ReturnsNonEmptyId()
     {
-        DelegatedMaintainerId id = DelegatedMaintainerId.Create();
+        var id = DelegatedMaintainerId.Create();
 
         id.ShouldNotBe(DelegatedMaintainerId.Empty);
     }
@@ -77,7 +77,7 @@ public sealed class ServicePermissionIdsTests
     [Fact]
     public void DelegatedMaintainerId_TryParse_WithValidGuid_ReturnsParsedId()
     {
-        DelegatedMaintainerId expected = DelegatedMaintainerId.Create();
+        var expected = DelegatedMaintainerId.Create();
 
         bool isParsed = DelegatedMaintainerId.TryParse(expected.ToString(), out DelegatedMaintainerId actual);
 
