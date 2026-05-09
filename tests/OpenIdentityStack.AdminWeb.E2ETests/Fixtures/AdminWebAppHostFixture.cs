@@ -32,7 +32,7 @@ public class AdminWebAppHostFixture : IAsyncLifetime
         // Reference the AppHost project type to ensure it's loaded
         _ = typeof(AppHostProject::Projects.OpenIdentityStack_AppHost);
 
-        Builder = await AspireTestApplication.CreateBuilderAsync<AppHostProject::Projects.OpenIdentityStack_AppHost>();
+        Builder = await AspireTestApplication.CreateBuilderAsync<AppHostProject::Projects.OpenIdentityStack_AppHost>(includeAdminWeb: true);
             
         App = await Builder.BuildAsync();
             

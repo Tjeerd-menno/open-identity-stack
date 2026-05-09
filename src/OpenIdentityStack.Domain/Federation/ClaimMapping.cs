@@ -88,17 +88,33 @@ public sealed class ClaimMapping : IEquatable<ClaimMapping>
             return string.Empty;
         }
 
-        return this.TransformType switch
+        try
         {
-            TransformType.Direct => value,
-            TransformType.Lowercase => value.ToLowerInvariant(),
-            TransformType.Uppercase => value.ToUpperInvariant(),
-            TransformType.EmailPrefix => value.Contains('@') ? value.Split('@')[0] : value,
-            TransformType.EmailDomain => value.Contains('@') ? value.Split('@')[1] : value,
-            TransformType.Regex when !string.IsNullOrEmpty(this.TransformPattern) =>
-                System.Text.RegularExpressions.Regex.Replace(value, this.TransformPattern, string.Empty),
-            _ => value,
-        };
+            return this.TransformType switch
+            {
+                TransformType.Direct => value,
+                TransformType.Lowercase => value.ToLowerInvariant(),
+                TransformType.Uppercase => value.ToUpperInvariant(),
+                TransformType.EmailPrefix => value.Contains('@') ? value.Split('@')[0] : value,
+                TransformType.EmailDomain => value.Contains('@') ? value.Split('@')[1] : value,
+                TransformType.Regex when !string.IsNullOrEmpty(this.TransformPattern) =>
+                    System.Text.RegularExpressions.Regex.Replace(
+                        value,
+                        this.TransformPattern,
+                        string.Empty,
+                        System.Text.RegularExpressions.RegexOptions.None,
+                        TimeSpan.FromMilliseconds(250)),
+                _ => value,
+            };
+        }
+        catch (System.ArgumentException)
+        {
+            return value;
+        }
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        {
+            return value;
+        }
     }
 
     /// <inheritdoc />

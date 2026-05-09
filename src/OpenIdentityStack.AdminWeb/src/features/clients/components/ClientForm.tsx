@@ -149,7 +149,7 @@ export function ClientForm({ client, onSubmit, isLoading }: ClientFormProps) {
                   <FormItem>
                     <FormLabel>Client Type</FormLabel>
                     <Select 
-                      onValueChange={(value) => field.onChange(parseInt(value))} 
+                      onValueChange={(value) => field.onChange(Number.parseInt(value, 10))} 
                       defaultValue={field.value?.toString()}
                     >
                       <FormControl>

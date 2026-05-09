@@ -95,8 +95,8 @@ public sealed partial class ExternalCallbackController : ControllerBase
         // 1. Create a local authentication cookie
         // 2. Or redirect back to the authorization flow with the local user identity
 
-        // For now, redirect to the return URL
-        return this.Redirect(returnUrl ?? "/");
+        // For now, redirect to the validated return URL
+        return this.RedirectToValidatedUrl(returnUrl);
     }
 
     /// <summary>
@@ -117,6 +117,16 @@ public sealed partial class ExternalCallbackController : ControllerBase
         };
 
         return this.Challenge(properties, provider);
+    }
+
+    private LocalRedirectResult RedirectToValidatedUrl(string? returnUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(returnUrl) && this.Url.IsLocalUrl(returnUrl))
+        {
+            return this.LocalRedirect(returnUrl);
+        }
+
+        return this.LocalRedirect("/");
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "External authentication failed for provider {Provider}")]

@@ -31,7 +31,7 @@ const getAuthority = (): string => {
  * Get the base URL of the application
  */
 const getBaseUrl = (): string => {
-  return window.location.origin;
+  return globalThis.location.origin;
 };
 
 /**
@@ -67,7 +67,7 @@ export const oidcConfig: UserManagerSettings = {
   // Token storage strategy
   // Access token: in-memory (UserManager handles this)
   // Refresh token: HTTPOnly cookie (managed by server)
-  userStore: new WebStorageStateStore({ store: window.sessionStorage }),
+  userStore: new WebStorageStateStore({ store: globalThis.sessionStorage }),
   
   // Token validation
   filterProtocolClaims: true,
@@ -142,7 +142,7 @@ export const extractPermissions = (user: any): string[] => {
   if (typeof user.access_token === 'string' && user.access_token.includes('.')) {
     try {
       const payload = user.access_token.split('.')[1];
-      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const normalized = payload.replaceAll('-', '+').replaceAll('_', '/');
       const padded = normalized.padEnd(normalized.length + (4 - (normalized.length % 4)) % 4, '=');
       const decoded = JSON.parse(atob(padded));
       const tokenPermissions = fromProfile(decoded);

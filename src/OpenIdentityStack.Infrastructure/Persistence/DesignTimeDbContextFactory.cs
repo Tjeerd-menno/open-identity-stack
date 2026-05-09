@@ -18,12 +18,11 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Ope
     {
         var optionsBuilder = new DbContextOptionsBuilder<OpenIdentityStackDbContext>();
 
-        // Use a placeholder connection string for migration generation
-        // The actual connection string will be provided at runtime via Aspire
-        const string designTimeConnectionString =
-            "Host=localhost;Database=openidentitystack;Username=postgres;Password=postgres";
+        // Use a local design-time connection string for migration generation.
+        // The actual connection string will be provided at runtime via Aspire.
+        const string connectionString = "Host=localhost;Database=openidentitystack;Username=postgres";
 
-        optionsBuilder.UseNpgsql(designTimeConnectionString, npgsqlOptions =>
+        optionsBuilder.UseNpgsql(connectionString, npgsqlOptions =>
         {
             npgsqlOptions.MigrationsAssembly(typeof(OpenIdentityStackDbContext).Assembly.FullName);
         });

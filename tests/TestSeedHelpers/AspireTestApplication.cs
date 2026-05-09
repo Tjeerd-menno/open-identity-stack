@@ -7,16 +7,22 @@ public static class AspireTestApplication
 {
     private static readonly string[] TestingArgs =
     [
-        "--DcpPublisher:RandomizePorts=true"
+        "--DcpPublisher:RandomizePorts=true",
+        "--DcpPublisher:DependencyCheckTimeout=120",
+        "--DcpPublisher:ContainerRuntimeInitializationTimeout=00:02:00"
     ];
 
     public static Task<IDistributedApplicationTestingBuilder> CreateBuilderAsync<TEntryPoint>(
+        bool includeAdminWeb = false,
         CancellationToken cancellationToken = default)
         where TEntryPoint : class
     {
         Environment.SetEnvironmentVariable("OPENIDENTITYSTACK_DISABLE_DATA_VOLUME", "true");
+        Environment.SetEnvironmentVariable("OPENIDENTITYSTACK_ENABLE_ADMINWEB", includeAdminWeb ? "true" : "false");
         Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", "Testing");
         Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
+        Environment.SetEnvironmentVariable("DEBUG_SESSION_PORT", null);
+        Environment.SetEnvironmentVariable("DEBUG_SESSION_TOKEN", null);
 
         return DistributedApplicationTestingBuilder.CreateAsync<TEntryPoint>(TestingArgs, cancellationToken);
     }
