@@ -11,14 +11,11 @@ namespace OpenIdentityStack.Application.Tests.Users;
 public sealed class DeleteUserUseCaseTests
 {
     private readonly IUserRepository _userRepository;
-    private readonly IDateTimeProvider _dateTimeProvider;
     private readonly DeleteUserUseCase _sut;
 
     public DeleteUserUseCaseTests()
     {
         this._userRepository = Substitute.For<IUserRepository>();
-        this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
-        this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
 
         this._sut = new DeleteUserUseCase(this._userRepository);
     }
