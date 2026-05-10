@@ -191,10 +191,10 @@ public sealed class UpdateUserUseCaseTests
         result.Error.Code.ShouldBe("Validation.User.DisplayNameTooLong");
     }
 
-    private static User CreateUser(UserId userId, string displayName)
+    private User CreateUser(UserId userId, string displayName)
     {
         IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
-        dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
+        dateTimeProvider.UtcNow.Returns(this._now);
 
         Result<User> result = User.CreateLocal(
             "test@example.com",
