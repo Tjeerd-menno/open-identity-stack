@@ -2,16 +2,16 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
-using OpenIdentityStack.Contract.Tests.Fixtures;
+using OpenIdentityStack.Api.Tests.Fixtures;
 
 using SharedKernel;
-namespace OpenIdentityStack.Contract.Tests.Admin;
+namespace OpenIdentityStack.Api.Tests.Admin;
 /// <summary>
-/// Contract tests for the Admin Users API endpoints.
-/// These tests verify the API contract (request/response shapes).
+/// Integration tests for the Admin Users API endpoints.
+/// These tests verify the HTTP workflow against the in-process API test host.
 /// Currently skipped pending authentication infrastructure fixes.
 /// </summary>
-public sealed class UsersEndpointContractTests(AppHostFixture fixture) : IAsyncLifetime
+public sealed class UsersEndpointWorkflowTests(AppHostFixture fixture) : IAsyncLifetime
 {
     private readonly AppHostFixture _fixture = fixture;
     private HttpClient _client = null!;

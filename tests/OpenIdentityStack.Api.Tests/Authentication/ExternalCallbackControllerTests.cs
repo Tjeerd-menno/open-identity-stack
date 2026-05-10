@@ -35,6 +35,21 @@ public sealed class ExternalCallbackControllerTests
         {
             HttpContext = httpContext
         };
+
+        IUrlHelper urlHelper = Substitute.For<IUrlHelper>();
+        urlHelper.IsLocalUrl(Arg.Any<string>()).Returns(callInfo =>
+        {
+            string? url = callInfo.Arg<string>();
+            if (string.IsNullOrEmpty(url))
+            {
+                return false;
+            }
+
+            return url.StartsWith('/')
+                && !url.StartsWith("//", StringComparison.Ordinal)
+                && !url.StartsWith("/\\", StringComparison.Ordinal);
+        });
+        this._controller.Url = urlHelper;
     }
 
     private IServiceProvider CreateServiceProvider()
@@ -157,7 +172,7 @@ public sealed class ExternalCallbackControllerTests
         IActionResult result = await this._controller.ExternalCallback(provider, returnUrl);
 
         // Assert
-        RedirectResult redirectResult = result.ShouldBeOfType<RedirectResult>();
+        LocalRedirectResult redirectResult = result.ShouldBeOfType<LocalRedirectResult>();
         redirectResult.Url.ShouldBe(returnUrl);
     }
 
@@ -189,7 +204,7 @@ public sealed class ExternalCallbackControllerTests
         IActionResult result = await this._controller.ExternalCallback(provider);
 
         // Assert
-        RedirectResult redirectResult = result.ShouldBeOfType<RedirectResult>();
+        LocalRedirectResult redirectResult = result.ShouldBeOfType<LocalRedirectResult>();
         redirectResult.Url.ShouldBe("/");
     }
 
@@ -222,7 +237,8 @@ public sealed class ExternalCallbackControllerTests
         IActionResult result = await this._controller.ExternalCallback(provider);
 
         // Assert
-        result.ShouldBeOfType<RedirectResult>();
+        LocalRedirectResult redirectResult = result.ShouldBeOfType<LocalRedirectResult>();
+        redirectResult.Url.ShouldBe("/");
         await this._jitProvisionUseCase.Received(1).ExecuteAsync(
             Arg.Any<JitProvisionUserCommand>(),
             Arg.Any<CancellationToken>());

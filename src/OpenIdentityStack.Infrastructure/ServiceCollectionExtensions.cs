@@ -121,13 +121,23 @@ public static class ServiceCollectionExtensions
             throw new InvalidOperationException($"Connection string '{connectionName}' not found. Ensure the Aspire AppHost is configured correctly.");
         }
 
-        // Register DbContext with Aspire-managed connection
+        bool useSqliteForTesting =
+            environment.IsEnvironment("Testing")
+            && IsSqliteConnectionString(connectionString);
+
         services.AddDbContext<OpenIdentityStackDbContext>(options =>
         {
-            options.UseNpgsql(connectionString, npgsqlOptions =>
+            if (useSqliteForTesting)
             {
-                npgsqlOptions.MigrationsAssembly(typeof(OpenIdentityStackDbContext).Assembly.FullName);
-            });
+                options.UseSqlite(connectionString);
+            }
+            else
+            {
+                options.UseNpgsql(connectionString, npgsqlOptions =>
+                {
+                    npgsqlOptions.MigrationsAssembly(typeof(OpenIdentityStackDbContext).Assembly.FullName);
+                });
+            }
 
             // Register OpenIddict entity sets
             options.UseOpenIddict();
@@ -136,6 +146,12 @@ public static class ServiceCollectionExtensions
         AddCommonServices(services, configuration, environment.EnvironmentName);
 
         return services;
+    }
+
+    private static bool IsSqliteConnectionString(string connectionString)
+    {
+        return connectionString.Contains("Data Source", StringComparison.OrdinalIgnoreCase)
+            || connectionString.Contains("DataSource", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void AddCommonServices(

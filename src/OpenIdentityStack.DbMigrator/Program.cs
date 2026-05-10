@@ -173,13 +173,22 @@ static async Task SeedAdminWebClientAsync(IServiceProvider serviceProvider)
 static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
 {
     ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+    IConfiguration configuration = serviceProvider.GetRequiredService<IConfiguration>();
     OpenIdentityStackDbContext db = serviceProvider.GetRequiredService<OpenIdentityStackDbContext>();
     IPasswordHasher passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
+    IPasswordPolicyValidator passwordPolicyValidator = serviceProvider.GetRequiredService<IPasswordPolicyValidator>();
     IDateTimeProvider dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
 
     const string adminEmail = "admin@localhost.dev";
-    const string adminPassword = "Admin123!@456";
     const string adminDisplayName = "Default Admin";
+    string? adminSecret = configuration["Seed:DefaultAdmin:Password"];
+
+    if (string.IsNullOrWhiteSpace(adminSecret))
+    {
+        logger.LogInformation(
+            "Skipping default admin user seeding. Configure Seed:DefaultAdmin:Password to enable the development admin account.");
+        return;
+    }
 
     Role? superAdminRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == "super-admin");
 
@@ -224,7 +233,13 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
         return;
     }
 
-    string passwordHash = passwordHasher.HashPassword(adminPassword);
+    Result passwordValidation = passwordPolicyValidator.ValidatePassword(adminSecret);
+    if (passwordValidation.IsFailure)
+    {
+        throw new InvalidOperationException($"Default admin password does not satisfy the password policy: {passwordValidation.Error.Description}");
+    }
+
+    string passwordHash = passwordHasher.HashPassword(adminSecret);
     Result<User> userResult = User.CreateLocal(adminEmail, adminDisplayName, passwordHash, dateTimeProvider);
 
     if (userResult.IsFailure)
@@ -250,7 +265,10 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
 
     await db.SaveChangesAsync();
 
-    logger.LogInformation("Created default admin user '{Email}' with super-admin role (Status: {Status})", adminEmail, adminUser.Status);
+    logger.LogInformation(
+        "Created default admin user '{Email}' with super-admin role (Status: {Status}). Configure Seed:DefaultAdmin:Password to set a stable development password.",
+        adminEmail,
+        adminUser.Status);
 }
 
 static async Task SeedTraceableIsotopesWebClientAsync(IServiceProvider serviceProvider)

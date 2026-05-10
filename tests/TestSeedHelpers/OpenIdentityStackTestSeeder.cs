@@ -26,6 +26,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
     private static readonly SemaphoreSlim SeedLock = new(1, 1);
     private static readonly SemaphoreSlim ScopeLock = new(1, 1);
     private static readonly HashSet<string> SeededConnections = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> SeededServiceProviders = new(StringComparer.Ordinal);
     private static readonly string[] BaseScopes =
     [
         "api",
@@ -39,11 +40,13 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         "audit:read"
     ];
 
-    private readonly ServiceProvider _serviceProvider;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly bool _disposeServiceProvider;
 
-    private OpenIdentityStackTestSeeder(ServiceProvider serviceProvider)
+    private OpenIdentityStackTestSeeder(IServiceProvider serviceProvider, bool disposeServiceProvider)
     {
         _serviceProvider = serviceProvider;
+        _disposeServiceProvider = disposeServiceProvider;
     }
 
     public static async Task<OpenIdentityStackTestSeeder> CreateAsync(string connectionString, CancellationToken cancellationToken = default)
@@ -82,7 +85,37 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
             SeedLock.Release();
         }
 
-        return new OpenIdentityStackTestSeeder(provider);
+        return new OpenIdentityStackTestSeeder(provider, disposeServiceProvider: true);
+    }
+
+    public static async Task<OpenIdentityStackTestSeeder> CreateAsync(
+        IServiceProvider serviceProvider,
+        string seedKey,
+        CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = serviceProvider.CreateScope();
+        OpenIdentityStackDbContext dbContext = scope.ServiceProvider.GetRequiredService<OpenIdentityStackDbContext>();
+        ILogger<OpenIdentityStackTestSeeder>? logger = scope.ServiceProvider.GetService<ILogger<OpenIdentityStackTestSeeder>>();
+        IOpenIddictScopeManager scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
+
+        await SeedLock.WaitAsync(cancellationToken);
+        try
+        {
+            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+
+            if (SeededServiceProviders.Add(seedKey))
+            {
+                await SeedData.SeedAsync(dbContext, logger, cancellationToken);
+            }
+
+            await EnsureScopesAsync(scopeManager, BaseScopes, cancellationToken);
+        }
+        finally
+        {
+            SeedLock.Release();
+        }
+
+        return new OpenIdentityStackTestSeeder(serviceProvider, disposeServiceProvider: false);
     }
 
     public async Task CreateServiceAccountAsync(
@@ -460,7 +493,17 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
-        return _serviceProvider.DisposeAsync();
+        if (_disposeServiceProvider && _serviceProvider is IAsyncDisposable asyncDisposable)
+        {
+            return asyncDisposable.DisposeAsync();
+        }
+
+        if (_disposeServiceProvider && _serviceProvider is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+
+        return ValueTask.CompletedTask;
     }
 
     private static async Task EnsureScopesAsync(

@@ -11,7 +11,7 @@ import { getRuntimeConfig } from '@/config/runtime-config';
  * Base API client with Axios
  */
 class ApiClient {
-  private client: AxiosInstance;
+  private readonly client: AxiosInstance;
   private tokenProvider: (() => Promise<string | null>) | null = null;
   private logoutHandler: (() => void) | null = null;
 
@@ -73,7 +73,8 @@ class ApiClient {
           }
         }
         
-        return Promise.reject(this.handleError(error));
+        const apiError = this.handleError(error);
+        return Promise.reject(Object.assign(new Error(apiError.detail ?? apiError.title), apiError));
       }
     );
   }

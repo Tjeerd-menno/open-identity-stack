@@ -143,8 +143,8 @@ public async Task ResetPassword_AllowsLoginWithNewPassword()
 ### Using AppHostFixture
 
 All integration tests use `AppHostFixture` which provides:
-- Real API running via Aspire
-- Real PostgreSQL database
+- In-process API running via `WebApplicationFactory<Program>`
+- Assembly-level in-memory SQLite database, prefilled once
 - Authentication helpers
 - Test data seeding
 
@@ -268,7 +268,7 @@ var email = "test@test.test";
 
 ### 3. Clean Up After Tests
 
-AppHostFixture handles database cleanup, but be mindful:
+AppHostFixture uses one shared in-memory SQLite database for the full test assembly. Prefer unique IDs, emails, and client IDs in tests:
 
 ```csharp
 [Fact]
@@ -278,8 +278,7 @@ public async Task TestThatCreatesUser()
     
     // Test logic...
     
-    // AppHostFixture auto-cleans database between tests
-    // No manual cleanup needed
+    // Use unique data because the SQLite database is shared across the assembly
 }
 ```
 
@@ -321,13 +320,21 @@ public async Task DeleteUser_RemovesFromDatabase()
 
 Integration tests are slower than unit tests because they:
 - Start the full application
-- Use real database
+- Use a real SQLite database
 - Execute complete request/response cycles
 
 **Optimize by:**
 - Running tests in parallel (xUnit does this automatically)
 - Reusing AppHostFixture across tests in same class
 - Not testing every edge case here (use unit tests for that)
+
+### Redirect Handling
+
+Use the fixture to create clients so requests stay inside the in-process test server:
+
+```csharp
+using HttpClient client = _fixture.CreateClient(allowAutoRedirect: false);
+```
 
 ## See Also
 

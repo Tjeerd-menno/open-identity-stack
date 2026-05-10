@@ -1,12 +1,12 @@
-name: CI
+name: PR Validation
 
 on:
-  push:
+  pull_request:
     branches: [ main, master ]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   build-test:
@@ -19,6 +19,14 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: lts/*
+
+      - name: Fetch base branch for OpenAPI comparison
+        shell: bash
+        run: git fetch --no-tags --prune --depth=1 origin refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+
+      - name: Check OpenAPI breaking changes
+        shell: bash
+        run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN bash scripts/ci/compare-openapi-breaking-changes.sh --base-ref "origin/${{ github.base_ref }}"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -50,4 +58,5 @@ jobs:
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*E2ETests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
 
       - name: Verify coverage threshold
-        run: pwsh scripts/ci/verify-coverage.ps1 -ResultsDir $GITHUB_WORKSPACE/tests -MinimumLineRate 0.10 -MinimumOverallLineRate 0.50
+        shell: bash
+        run: bash scripts/ci/verify-coverage.sh --results-dir "$GITHUB_WORKSPACE/tests" --minimum-line-rate 0.10 --minimum-overall-line-rate 0.50

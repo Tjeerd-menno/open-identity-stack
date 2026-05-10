@@ -9,7 +9,7 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 
 /// <summary>
 /// Integration tests for the authorization code flow with PKCE.
-/// Uses Aspire Testing infrastructure.
+/// Uses WebApplicationFactory test infrastructure.
 /// 
 /// NOTE: Some tests are skipped because the authorization endpoint needs proper
 /// test client registration for full OIDC flow testing.
@@ -88,9 +88,7 @@ public sealed class AuthorizationCodeFlowTests
         string codeVerifier = GenerateCodeVerifier();
         string codeChallenge = GenerateCodeChallenge(codeVerifier);
         
-        // Create a handler that doesn't follow redirects
-        var handler = new HttpClientHandler { AllowAutoRedirect = false };
-        using var client = new HttpClient(handler) { BaseAddress = this._fixture.HttpClient!.BaseAddress };
+        using HttpClient client = this._fixture.CreateClient(allowAutoRedirect: false);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"/connect/authorize?response_type=code&client_id={testClientId}&redirect_uri=https://localhost/callback&scope=openid&code_challenge={codeChallenge}&code_challenge_method=S256");
@@ -115,8 +113,7 @@ public sealed class AuthorizationCodeFlowTests
         string codeVerifier = GenerateCodeVerifier();
         string codeChallenge = GenerateCodeChallenge(codeVerifier);
         
-        var handler = new HttpClientHandler { AllowAutoRedirect = false };
-        using var client = new HttpClient(handler) { BaseAddress = this._fixture.HttpClient!.BaseAddress };
+        using HttpClient client = this._fixture.CreateClient(allowAutoRedirect: false);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"/connect/authorize?response_type=code&client_id={testClientId}&redirect_uri=https://localhost/callback&scope=openid&code_challenge={codeChallenge}&code_challenge_method=S256");
@@ -243,8 +240,7 @@ public sealed class AuthorizationCodeFlowTests
     public async Task Logout_ReturnsRedirect()
     {
         // Arrange
-        var handler = new HttpClientHandler { AllowAutoRedirect = false };
-        using var client = new HttpClient(handler) { BaseAddress = this._fixture.HttpClient!.BaseAddress };
+        using HttpClient client = this._fixture.CreateClient(allowAutoRedirect: false);
 
         // Act
         HttpResponseMessage response = await client.GetAsync("/connect/logout");
