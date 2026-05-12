@@ -52,7 +52,10 @@ jobs:
             throw "Invalid release version '$env:VERSION'. Expected vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-prerelease."
           }
           if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            git ls-remote --exit-code --tags "https://github.com/$env:GITHUB_REPOSITORY.git" "refs/tags/$env:VERSION" | Out-Null
+            git ls-remote --exit-code --tags "https://github.com/$env:GITHUB_REPOSITORY.git" "refs/tags/$env:VERSION"
+            if (-not $?) {
+              throw "Release tag '$env:VERSION' does not exist in repository '$env:GITHUB_REPOSITORY'."
+            }
           }
 
       - name: Checkout
@@ -117,7 +120,10 @@ jobs:
             throw "Invalid release version '$env:VERSION'. Expected vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-prerelease."
           }
           if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            git ls-remote --exit-code --tags "https://github.com/$env:GITHUB_REPOSITORY.git" "refs/tags/$env:VERSION" | Out-Null
+            git ls-remote --exit-code --tags "https://github.com/$env:GITHUB_REPOSITORY.git" "refs/tags/$env:VERSION"
+            if (-not $?) {
+              throw "Release tag '$env:VERSION' does not exist in repository '$env:GITHUB_REPOSITORY'."
+            }
           }
 
       - name: Checkout

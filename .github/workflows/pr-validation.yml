@@ -47,7 +47,12 @@ jobs:
 
       - name: Install Playwright browsers
         shell: pwsh
-        run: pwsh tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+        run: |
+          $playwrightScript = "tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.ps1"
+          if (-not (Test-Path $playwrightScript)) {
+            throw "Playwright install script not found at '$playwrightScript'. Ensure the E2E test project was built successfully."
+          }
+          pwsh $playwrightScript install --with-deps chromium
 
       - name: Test unit modules with coverage
         run: |
