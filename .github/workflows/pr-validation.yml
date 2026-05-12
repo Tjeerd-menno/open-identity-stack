@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -11,12 +14,15 @@ concurrency:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: lts/*
 
@@ -29,7 +35,7 @@ jobs:
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN bash scripts/ci/compare-openapi-breaking-changes.sh --base-ref "origin/${{ github.base_ref }}"
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           dotnet-version: "10.0.x"
 
@@ -40,7 +46,8 @@ jobs:
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet build OpenIdentityStack.slnx --no-restore
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        shell: pwsh
+        run: pwsh tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 
       - name: Test unit modules with coverage
         run: |
