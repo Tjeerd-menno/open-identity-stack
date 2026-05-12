@@ -38,22 +38,25 @@ network:
   - defaults
   - dotnet
   - node
+  - python
+  - rust
+  - java
 
 safe-outputs:
   add-comment:
-    max: 5
+    max: 10
     target: "*"
     hide-older-comments: true
   create-pull-request:
     draft: true
     title-prefix: "[test-improver] "
     labels: [automation, testing]
-    max: 2
+    max: 4
     protected-files: fallback-to-issue
   push-to-pull-request-branch:
     target: "*"
     title-prefix: "[test-improver] "
-    max: 2
+    max: 4
   create-issue:
     title-prefix: "[test-improver] "
     labels: [automation, testing]
@@ -67,7 +70,7 @@ tools:
   web-fetch:
   bash: true
   github:
-    toolsets: [context, repos, issues, pull_requests, actions]
+    toolsets: [all]
   repo-memory: true
 
 source: githubnext/agentics/workflows/test-improver.md@c7d030cd6d4607b90d9ac3ffc8b24aff4f251632
