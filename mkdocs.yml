@@ -56,6 +56,10 @@ nav:
   - Security checklist: security.md
   - Reference:
       - Reference index: reference/index.md
+      - Certification:
+          - OIDC negative review automation plan: certification/oidf-negative-review-automation-plan.md
+          - OpenID Connect certification scope: certification/openid-connect-certification-scope.md
+          - OIDC conformance suite: certification/run-oidf-conformance-suite.md
       - API vs Contract Testing: reference/API-VS-CONTRACT-TESTING-SUMMARY.md
       - Code coverage guide: reference/CODE_COVERAGE_GUIDE.md
       - Coverage summary: reference/CODE_COVERAGE_SUMMARY.md
