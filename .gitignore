@@ -81,6 +81,7 @@ coverage-report/
 coverage.json
 lcov.info
 *.cobertura.xml
+site/
 
 # Test results
 [Tt]est[Rr]esults/

@@ -1,0 +1,67 @@
+site_name: OpenIdentityStack
+site_url: https://tjeerd-menno.github.io/open-identity-stack/
+site_description: OpenIdentityStack documentation for identity operators and platform teams.
+repo_name: Tjeerd-menno/open-identity-stack
+repo_url: https://github.com/Tjeerd-menno/open-identity-stack
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.indexes
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: amber
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: amber
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.keys
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Overview: getting-started/overview.md
+      - Guided setup: getting-started/guided-setup.md
+      - Quick start: getting-started/quick-start.md
+  - Features:
+      - Overview: features/overview.md
+  - Installation:
+      - Local development: installation/local.md
+      - Production (Kubernetes): installation/production.md
+      - Windows service: installation/windows-service.md
+  - Troubleshooting: troubleshooting.md
+  - Security checklist: security.md
+  - Reference:
+      - Reference index: reference/index.md
+      - API vs Contract Testing: reference/API-VS-CONTRACT-TESTING-SUMMARY.md
+      - Code coverage guide: reference/CODE_COVERAGE_GUIDE.md
+      - Coverage summary: reference/CODE_COVERAGE_SUMMARY.md
+      - Contract test migration guide: reference/CONTRACT-TEST-MIGRATION-GUIDE.md
+      - GHCR publishing: reference/GHCR-PUBLISHING.md
+      - Production config guide: reference/OPENIDENTITYSTACK_PRODUCTION.md
+      - Testing strategy: reference/TESTING-STRATEGY.md
+      - Coverage interpretation: reference/UNDERSTANDING_COVERAGE.md
+
