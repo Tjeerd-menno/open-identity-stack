@@ -14,6 +14,7 @@ using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Users.Commands;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Settings;
+using OpenIddict.Abstractions;
 
 using SharedKernel;
 namespace OpenIdentityStack.Api.Tests.Authentication;
@@ -539,6 +540,42 @@ public class AccountControllerTests : IDisposable
         Assert.Equal(userId.Value.ToString(), capturedPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value);
         Assert.Equal("user@example.com", capturedPrincipal.FindFirst(ClaimTypes.Email)?.Value);
         Assert.Equal("Test User", capturedPrincipal.FindFirst(ClaimTypes.Name)?.Value);
+    }
+
+    [Fact]
+    public async Task Login_Post_WithValidCredentials_IncludesAuthenticationTimeClaim()
+    {
+        // Arrange
+        var model = new LoginViewModel { Email = "user@example.com", Password = "correct" };
+        var userId = UserId.Create();
+        var sessionId = SessionId.Create();
+        ClaimsPrincipal? capturedPrincipal = null;
+        AuthenticationProperties? capturedProperties = null;
+
+        this._validateCredentialsUseCase.ExecuteAsync(Arg.Any<ValidateUserCredentialsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new ValidateUserCredentialsResult(userId, "user@example.com", "Test User"));
+
+        this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new CreateSessionResult(sessionId));
+
+        this._authService.SignInAsync(
+                Arg.Any<HttpContext>(),
+                Arg.Any<string>(),
+                Arg.Do<ClaimsPrincipal>(p => capturedPrincipal = p),
+                Arg.Do<AuthenticationProperties>(p => capturedProperties = p))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await this._controller.Login(model);
+
+        // Assert
+        Assert.NotNull(capturedPrincipal);
+        Claim? authTimeClaim = capturedPrincipal.FindFirst(OpenIddictConstants.Claims.AuthenticationTime);
+        Assert.NotNull(authTimeClaim);
+        Assert.True(long.TryParse(authTimeClaim.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long authTime));
+        Assert.Equal(ClaimValueTypes.Integer64, authTimeClaim.ValueType);
+        Assert.NotNull(capturedProperties?.IssuedUtc);
+        Assert.Equal(authTime, capturedProperties.IssuedUtc.Value.ToUnixTimeSeconds());
     }
 
     #endregion

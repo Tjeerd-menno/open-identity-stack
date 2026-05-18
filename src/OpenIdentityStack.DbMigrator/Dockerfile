@@ -1,4 +1,7 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
+
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Build.props
@@ -22,7 +25,7 @@ COPY src/OpenIdentityStack.DbMigrator/ src/OpenIdentityStack.DbMigrator/
 
 RUN dotnet publish src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
 COPY --chown=app:app --from=build /app/publish .

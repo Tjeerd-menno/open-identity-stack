@@ -52,6 +52,19 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
             return UserErrors.EmailAlreadyExists;
         }
 
+        // Check if preferred username is already in use
+        if (!string.IsNullOrWhiteSpace(command.Profile?.PreferredUsername))
+        {
+            User? existingUser = await this.userRepository.GetByPreferredUsernameAsync(
+                command.Profile.PreferredUsername,
+                cancellationToken);
+            if (existingUser is not null)
+            {
+                this.logger.LogUserOperationFailed("CreateUser", UserErrors.PreferredUsernameAlreadyExists.Code);
+                return UserErrors.PreferredUsernameAlreadyExists;
+            }
+        }
+
         // Hash the password
         string passwordHash = this.passwordHasher.HashPassword(command.Password);
 
@@ -60,7 +73,8 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
             command.Email,
             command.DisplayName,
             passwordHash,
-            this.dateTimeProvider);
+            this.dateTimeProvider,
+            command.Profile);
 
         if (userResult.IsFailure)
         {

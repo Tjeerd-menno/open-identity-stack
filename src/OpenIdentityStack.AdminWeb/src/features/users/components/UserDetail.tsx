@@ -15,7 +15,68 @@ import { UserRolesList } from './UserRolesList';
 import { UserGroupsList } from './UserGroupsList';
 import { UpstreamIdentitiesList } from './UpstreamIdentitiesList';
 import { ResetPasswordDialog } from './ResetPasswordDialog';
-import { ArrowLeft, Edit, Key } from 'lucide-react';
+import { ArrowLeft, Edit, ExternalLink, Key } from 'lucide-react';
+import type { UserProfile } from '@/types';
+
+type ProfileField = {
+  label: string;
+  value: string | null;
+  href?: string | null;
+};
+
+const emptyProfile: UserProfile = {
+  givenName: null,
+  familyName: null,
+  middleName: null,
+  nickname: null,
+  preferredUsername: null,
+  profile: null,
+  picture: null,
+  website: null,
+  gender: null,
+  birthdate: null,
+  zoneInfo: null,
+  locale: null,
+};
+
+function getProfileFields(profile: UserProfile): ProfileField[] {
+  return [
+    { label: 'Given Name', value: profile.givenName },
+    { label: 'Family Name', value: profile.familyName },
+    { label: 'Middle Name', value: profile.middleName },
+    { label: 'Nickname', value: profile.nickname },
+    { label: 'Preferred Username', value: profile.preferredUsername },
+    { label: 'Gender', value: profile.gender },
+    { label: 'Birthdate', value: profile.birthdate },
+    { label: 'Time Zone', value: profile.zoneInfo },
+    { label: 'Locale', value: profile.locale },
+    { label: 'Profile URL', value: profile.profile, href: profile.profile },
+    { label: 'Picture URL', value: profile.picture, href: profile.picture },
+    { label: 'Website URL', value: profile.website, href: profile.website },
+  ];
+}
+
+function ProfileValue({ field }: { field: ProfileField }) {
+  if (!field.value) {
+    return <span className="text-muted-foreground">Not provided</span>;
+  }
+
+  if (field.href) {
+    return (
+      <a
+        className="inline-flex max-w-full items-center gap-1 truncate text-primary hover:underline"
+        href={field.href}
+        rel="noreferrer"
+        target="_blank"
+      >
+        <span className="truncate">{field.value}</span>
+        <ExternalLink className="h-3 w-3 shrink-0" />
+      </a>
+    );
+  }
+
+  return <span>{field.value}</span>;
+}
 
 export function UserDetail() {
   const { userId } = useParams<{ userId: string }>();
@@ -111,6 +172,24 @@ export function UserDetail() {
               <div className="text-sm font-medium text-muted-foreground">User ID</div>
               <div className="mt-1 text-xs font-mono">{user.id}</div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>OIDC Profile</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {getProfileFields(user.profile ?? emptyProfile).map((field) => (
+              <div key={field.label} className="min-w-0">
+                <div className="text-sm font-medium text-muted-foreground">{field.label}</div>
+                <div className="mt-1 min-w-0 text-sm">
+                  <ProfileValue field={field} />
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

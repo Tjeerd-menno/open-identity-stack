@@ -6,16 +6,21 @@ namespace OpenIdentityStack.Api.Users;
 /// <param name="Email">The user's email address.</param>
 /// <param name="DisplayName">The user's display name.</param>
 /// <param name="Password">The user's password.</param>
+/// <param name="Profile">Optional profile attributes.</param>
 public sealed record CreateUserRequest(
     string Email,
     string DisplayName,
-    string Password);
+    string Password,
+    UserProfileRequest? Profile = null);
 
 /// <summary>
 /// Request to update a user.
 /// </summary>
 /// <param name="DisplayName">The new display name (optional).</param>
-public sealed record UpdateUserRequest(string? DisplayName);
+/// <param name="Profile">Optional profile fields to update.</param>
+public sealed record UpdateUserRequest(
+    string? DisplayName,
+    UserProfileRequest? Profile = null);
 
 /// <summary>
 /// Request to disable a user.
@@ -39,3 +44,20 @@ public sealed record LinkUpstreamIdentityRequest(
     Guid ProviderId,
     string SubjectId,
     string? Email);
+
+/// <summary>
+/// Optional user profile attributes exposed through OpenID Connect standard profile claims.
+/// </summary>
+public sealed record UserProfileRequest(
+    string? GivenName = null,
+    string? FamilyName = null,
+    string? MiddleName = null,
+    string? Nickname = null,
+    string? PreferredUsername = null,
+    string? Profile = null,
+    string? Picture = null,
+    string? Website = null,
+    string? Gender = null,
+    string? Birthdate = null,
+    string? ZoneInfo = null,
+    string? Locale = null);

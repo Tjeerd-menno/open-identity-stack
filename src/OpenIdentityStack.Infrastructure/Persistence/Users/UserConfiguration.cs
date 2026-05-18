@@ -32,6 +32,45 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(256)
             .IsRequired();
 
+        builder.Property(u => u.GivenName)
+            .HasMaxLength(256);
+
+        builder.Property(u => u.FamilyName)
+            .HasMaxLength(256);
+
+        builder.Property(u => u.MiddleName)
+            .HasMaxLength(256);
+
+        builder.Property(u => u.Nickname)
+            .HasMaxLength(256);
+
+        builder.Property(u => u.PreferredUsername)
+            .HasMaxLength(64);
+
+        builder.Property(u => u.NormalizedPreferredUsername)
+            .HasMaxLength(64);
+
+        builder.Property(u => u.Profile)
+            .HasMaxLength(2048);
+
+        builder.Property(u => u.Picture)
+            .HasMaxLength(2048);
+
+        builder.Property(u => u.Website)
+            .HasMaxLength(2048);
+
+        builder.Property(u => u.Gender)
+            .HasMaxLength(64);
+
+        builder.Property(u => u.Birthdate)
+            .HasMaxLength(32);
+
+        builder.Property(u => u.ZoneInfo)
+            .HasMaxLength(128);
+
+        builder.Property(u => u.Locale)
+            .HasMaxLength(35);
+
         builder.Property(u => u.PasswordHash)
             .HasMaxLength(512);
 
@@ -58,6 +97,10 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasIndex(u => u.Status)
             .HasDatabaseName("IX_Users_Status");
+
+        builder.HasIndex(u => u.NormalizedPreferredUsername)
+            .IsUnique()
+            .HasDatabaseName("IX_Users_NormalizedPreferredUsername");
 
         // Configure owned UpstreamIdentities collection using navigation property and backing field
         builder.Navigation(u => u.UpstreamIdentities)

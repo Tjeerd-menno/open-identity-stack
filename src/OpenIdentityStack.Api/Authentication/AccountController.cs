@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 
 using Microsoft.AspNetCore.Authentication;
@@ -244,12 +245,15 @@ public class AccountController : Controller
         // Sign out of the external cookie
         await this.HttpContext.SignOutAsync("ExternalCookie");
 
+        DateTimeOffset authenticationTime = DateTimeOffset.UtcNow;
+
         // Create claims for the authenticated user
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id.Value.ToString()),
             new(ClaimTypes.Email, user.Email),
             new(ClaimTypes.Name, user.DisplayName),
+            new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
             new("auth_method", "external"),
             new("provider", provider)
         };
@@ -276,6 +280,7 @@ public class AccountController : Controller
         var authProperties = new AuthenticationProperties
         {
             IsPersistent = true,
+            IssuedUtc = authenticationTime,
             ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
         };
 
@@ -314,12 +319,15 @@ public class AccountController : Controller
             return this.View(model);
         }
 
+        DateTimeOffset authenticationTime = DateTimeOffset.UtcNow;
+
         // Create claims for the authenticated user
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, result.Value.UserId.Value.ToString()),
             new(ClaimTypes.Email, result.Value.Email),
-            new(ClaimTypes.Name, result.Value.DisplayName)
+            new(ClaimTypes.Name, result.Value.DisplayName),
+            new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64)
         };
 
         // Create user session
@@ -344,6 +352,7 @@ public class AccountController : Controller
         var authProperties = new AuthenticationProperties
         {
             IsPersistent = model.RememberMe == true,
+            IssuedUtc = authenticationTime,
             ExpiresUtc = DateTimeOffset.UtcNow.AddHours(model.RememberMe == true ? 24 : 1)
         };
 

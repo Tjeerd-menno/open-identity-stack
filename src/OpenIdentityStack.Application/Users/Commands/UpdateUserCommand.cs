@@ -1,3 +1,4 @@
+using OpenIdentityStack.Domain.Users;
 using SharedKernel;
 namespace OpenIdentityStack.Application.Users.Commands;
 
@@ -6,7 +7,11 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// </summary>
 /// <param name="UserId">The ID of the user to update.</param>
 /// <param name="DisplayName">The new display name (optional).</param>
-public sealed record UpdateUserCommand(UserId UserId, string? DisplayName);
+/// <param name="Profile">Optional profile fields to update.</param>
+public sealed record UpdateUserCommand(
+    UserId UserId,
+    string? DisplayName,
+    UserProfileData? Profile = null);
 
 /// <summary>
 /// Result of updating a user.

@@ -111,6 +111,36 @@ public sealed class CreateUserUseCaseTests
         await this._userRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WithProfile_PersistsProfileFields()
+    {
+        // Arrange
+        var command = new CreateUserCommand(
+            "alice@example.test",
+            "Alice Example",
+            "Password123!",
+            new UserProfileData(
+                GivenName: "Alice",
+                FamilyName: "Example",
+                PreferredUsername: "alice.example",
+                Locale: "en-NL"));
+        this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        // Act
+        Result<CreateUserResult> result = await this._useCase.ExecuteAsync(command);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        await this._userRepository.Received(1).AddAsync(
+            Arg.Is<User>(user =>
+                user.GivenName == "Alice"
+                && user.FamilyName == "Example"
+                && user.PreferredUsername == "alice.example"
+                && user.Locale == "en-NL"),
+            Arg.Any<CancellationToken>());
+    }
+
     #endregion
 
     #region Failure Cases

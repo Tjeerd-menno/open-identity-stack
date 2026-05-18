@@ -30,6 +30,7 @@ public class AppHostFixture : IAsyncLifetime
     private SqliteConnection? Connection { get; set; }
     private OpenIdentityStackApiFactory? Factory { get; set; }
     private string? PreviousConnectionString { get; set; }
+    private string? PreviousOpenIddictIssuer { get; set; }
 
     public HttpClient? HttpClient { get; private set; }
     private OpenIdentityStackTestSeeder? TestSeeder { get; set; }
@@ -40,9 +41,13 @@ public class AppHostFixture : IAsyncLifetime
         await this.Connection.OpenAsync();
 
         this.PreviousConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__openidentitystack");
+        this.PreviousOpenIddictIssuer = Environment.GetEnvironmentVariable("OpenIddict__Issuer");
         Environment.SetEnvironmentVariable(
             "ConnectionStrings__openidentitystack",
             ConnectionString);
+        Environment.SetEnvironmentVariable(
+            "OpenIddict__Issuer",
+            "https://issuer.example.com");
 
         this.Factory = new OpenIdentityStackApiFactory();
         this.HttpClient = this.CreateClient();
@@ -145,7 +150,8 @@ public class AppHostFixture : IAsyncLifetime
 
         return this.Factory.CreateClient(new WebApplicationFactoryClientOptions
         {
-            AllowAutoRedirect = allowAutoRedirect
+            AllowAutoRedirect = allowAutoRedirect,
+            BaseAddress = new Uri("https://issuer.example.com")
         });
     }
 
@@ -176,14 +182,28 @@ public class AppHostFixture : IAsyncLifetime
     /// <summary>
     /// Creates a test user via the test seeding API.
     /// </summary>
-    public async Task<Guid> CreateTestUserAsync(string email, string displayName, string password)
+    public async Task<Guid> CreateTestUserAsync(
+        string email,
+        string displayName,
+        string password,
+        OpenIdentityStack.Domain.Users.UserProfileData? profile = null)
     {
         if (this.TestSeeder is null)
         {
             throw new InvalidOperationException("TestSeeder is not initialized.");
         }
 
-        return await this.TestSeeder.CreateTestUserAsync(email, displayName, password);
+        return await this.TestSeeder.CreateTestUserAsync(email, displayName, password, profile);
+    }
+
+    public async Task DisableUserAsync(Guid userId, string reason = "Test disabled user")
+    {
+        if (this.TestSeeder is null)
+        {
+            throw new InvalidOperationException("TestSeeder is not initialized.");
+        }
+
+        await this.TestSeeder.DisableUserAsync(userId, reason);
     }
 
     /// <summary>
@@ -254,6 +274,7 @@ public class AppHostFixture : IAsyncLifetime
             await this.Connection.DisposeAsync();
         }
         Environment.SetEnvironmentVariable("ConnectionStrings__openidentitystack", this.PreviousConnectionString);
+        Environment.SetEnvironmentVariable("OpenIddict__Issuer", this.PreviousOpenIddictIssuer);
         GC.SuppressFinalize(this);
     }
 
@@ -266,7 +287,8 @@ public class AppHostFixture : IAsyncLifetime
             {
                 configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:openidentitystack"] = ConnectionString
+                    ["ConnectionStrings:openidentitystack"] = ConnectionString,
+                    ["OpenIddict:Issuer"] = "https://issuer.example.com"
                 });
             });
 

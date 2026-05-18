@@ -245,6 +245,7 @@ public sealed class AuthEndpointLatencyTests
     {
         IOpenIddictApplicationManager applicationManager = Substitute.For<IOpenIddictApplicationManager>();
         IOpenIddictScopeManager scopeManager = Substitute.For<IOpenIddictScopeManager>();
+        IUserRepository userRepository = Substitute.For<IUserRepository>();
         IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
         IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler = Substitute.For<IGetGroupClaimsForUserQueryHandler>();
         IAddClientSessionUseCase addClientSessionUseCase = Substitute.For<IAddClientSessionUseCase>();
@@ -254,6 +255,7 @@ public sealed class AuthEndpointLatencyTests
         var controller = new AuthorizationController(
             applicationManager,
             scopeManager,
+            userRepository,
             getUserEffectiveRolesQueryHandler,
             getGroupClaimsForUserQueryHandler,
             addClientSessionUseCase,

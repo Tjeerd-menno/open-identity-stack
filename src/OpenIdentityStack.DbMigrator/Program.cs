@@ -42,14 +42,24 @@ logger.LogInformation("Database migrations applied successfully.");
 await SeedData.SeedAsync(dbContext, logger);
 logger.LogInformation("Seeded base OpenIdentityStack data.");
 
-await SeedAdminWebClientAsync(services);
-await SeedTraceableIsotopesWebClientAsync(services);
-await SeedIsotopesApiResourceClientAsync(services);
-await SeedConfiguredAdminUserAsync(services);
-
+bool seedCertificationProfile = IsCertificationSeedProfile(builder.Configuration);
 bool seedDevData = builder.Environment.IsDevelopment()
     || builder.Environment.IsEnvironment("Testing")
     || builder.Configuration.GetValue<bool>("Seed:DevelopmentData");
+
+await SeedAdminWebClientAsync(services);
+if (seedCertificationProfile)
+{
+    await SeedCertificationDataAsync(services);
+}
+
+if (ShouldSeedDemoClients(builder.Configuration, builder.Environment, seedDevData, seedCertificationProfile))
+{
+    await SeedTraceableIsotopesWebClientAsync(services);
+    await SeedIsotopesApiResourceClientAsync(services);
+}
+
+await SeedConfiguredAdminUserAsync(services);
 
 if (seedDevData)
 {
@@ -60,6 +70,35 @@ if (seedDevData)
 
 
 return;
+
+static bool IsCertificationSeedProfile(IConfiguration configuration)
+{
+    return string.Equals(configuration["OPENIDENTITYSTACK_SEED_PROFILE"], "certification", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(configuration["Seed:Profile"], "certification", StringComparison.OrdinalIgnoreCase)
+        || configuration.GetValue<bool>("Seed:Certification:Enabled");
+}
+
+static bool ShouldSeedDemoClients(
+    IConfiguration configuration,
+    IHostEnvironment hostEnvironment,
+    bool seedDevData,
+    bool seedCertificationProfile)
+{
+    if (seedCertificationProfile)
+    {
+        return false;
+    }
+
+    bool? configured = configuration.GetValue<bool?>("Seed:DemoClients");
+    if (configured.HasValue)
+    {
+        return configured.Value;
+    }
+
+    return hostEnvironment.IsDevelopment()
+        || hostEnvironment.IsEnvironment("Testing")
+        || seedDevData;
+}
 
 static async Task SeedAdminWebClientAsync(IServiceProvider serviceProvider)
 {
@@ -168,6 +207,325 @@ static async Task SeedAdminWebClientAsync(IServiceProvider serviceProvider)
 
     await applicationManager.CreateAsync(descriptor);
     logger.LogInformation("Created OpenIddict public client '{ClientId}' for AdminWeb", clientId);
+}
+
+static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
+{
+    ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+    IConfiguration configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    Uri issuer = new(GetRequiredConfiguration(configuration, "OpenIddict:Issuer"), UriKind.Absolute);
+
+    logger.LogInformation("Seeding OpenID Foundation certification users and clients...");
+
+    await UpsertCertificationUserAsync(
+        serviceProvider,
+        "alice@example.test",
+        "Alice Certification",
+        CreateCertificationUserProfile(
+            issuer,
+            "alice",
+            givenName: "Alice",
+            familyName: "Certification",
+            middleName: "Marie",
+            nickname: "ally",
+            gender: "female",
+            birthdate: "1990-01-15",
+            zoneInfo: "Europe/Amsterdam",
+            locale: "en-NL"),
+        GetRequiredConfiguration(configuration, "Seed:Certification:Users:Alice:Password"),
+        resetPassword: configuration.GetValue("Seed:Certification:ResetExistingUsers", defaultValue: true));
+
+    await UpsertCertificationUserAsync(
+        serviceProvider,
+        "bob@example.test",
+        "Bob Certification",
+        CreateCertificationUserProfile(
+            issuer,
+            "bob",
+            givenName: "Bob",
+            familyName: "Certification",
+            middleName: "Jan",
+            nickname: "bobby",
+            gender: "male",
+            birthdate: "1988-07-04",
+            zoneInfo: "Europe/Amsterdam",
+            locale: "en-NL"),
+        GetRequiredConfiguration(configuration, "Seed:Certification:Users:Bob:Password"),
+        resetPassword: configuration.GetValue("Seed:Certification:ResetExistingUsers", defaultValue: true));
+
+    string[] redirectUris = GetCertificationRedirectUris(configuration);
+    IReadOnlyList<string> scopes =
+    [
+        OpenIddictConstants.Scopes.OpenId,
+        OpenIddictConstants.Scopes.Profile,
+        OpenIddictConstants.Scopes.Email,
+        OpenIddictConstants.Scopes.OfflineAccess
+    ];
+
+    await SeedCertificationClientAsync(
+        serviceProvider,
+        "oidf-code-client",
+        "OIDF Code Client",
+        GetRequiredConfiguration(configuration, "Seed:Certification:Clients:CodeClientSecret"),
+        redirectUris,
+        scopes);
+
+    await SeedCertificationClientAsync(
+        serviceProvider,
+        "oidf-code-client-post",
+        "OIDF Code Client Post",
+        GetRequiredConfiguration(configuration, "Seed:Certification:Clients:CodeClientPostSecret"),
+        redirectUris,
+        scopes);
+
+    await SeedCertificationClientAsync(
+        serviceProvider,
+        "oidf-code-client-takeover",
+        "OIDF Code Client Takeover",
+        GetRequiredConfiguration(configuration, "Seed:Certification:Clients:CodeClientTakeoverSecret"),
+        redirectUris,
+        scopes);
+
+    logger.LogInformation("OpenID Foundation certification seed profile completed.");
+}
+
+static async Task UpsertCertificationUserAsync(
+    IServiceProvider serviceProvider,
+    string email,
+    string displayName,
+    UserProfileData profile,
+    string password,
+    bool resetPassword)
+{
+    OpenIdentityStackDbContext db = serviceProvider.GetRequiredService<OpenIdentityStackDbContext>();
+    ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+    IPasswordHasher passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
+    IPasswordPolicyValidator passwordPolicyValidator = serviceProvider.GetRequiredService<IPasswordPolicyValidator>();
+    IDateTimeProvider dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
+
+    Result passwordValidation = passwordPolicyValidator.ValidatePassword(password);
+    if (passwordValidation.IsFailure)
+    {
+        throw new InvalidOperationException($"Certification user password for '{email}' does not satisfy the password policy: {passwordValidation.Error.Description}");
+    }
+
+    string normalizedEmail = email.ToUpperInvariant();
+    User? existingUser = await db.Users.FirstOrDefaultAsync(user => user.NormalizedEmail == normalizedEmail);
+    if (existingUser is not null)
+    {
+        bool needsSave = false;
+
+        if (existingUser.Status == UserStatus.PendingVerification)
+        {
+            Result verifyResult = existingUser.VerifyEmail(dateTimeProvider);
+            if (verifyResult.IsFailure)
+            {
+                throw new InvalidOperationException($"Failed to verify certification user '{email}': {verifyResult.Error.Description}");
+            }
+
+            needsSave = true;
+        }
+        else if (existingUser.Status == UserStatus.Disabled)
+        {
+            Result enableResult = existingUser.Enable(dateTimeProvider);
+            if (enableResult.IsFailure)
+            {
+                throw new InvalidOperationException($"Failed to enable certification user '{email}': {enableResult.Error.Description}");
+            }
+
+            needsSave = true;
+        }
+
+        if (!string.Equals(existingUser.DisplayName, displayName, StringComparison.Ordinal))
+        {
+            Result updateNameResult = existingUser.UpdateDisplayName(displayName, dateTimeProvider);
+            if (updateNameResult.IsFailure)
+            {
+                throw new InvalidOperationException($"Failed to update certification user '{email}': {updateNameResult.Error.Description}");
+            }
+
+            needsSave = true;
+        }
+
+        if (existingUser.GetProfileData() != profile)
+        {
+            Result updateProfileResult = existingUser.UpdateProfile(profile, dateTimeProvider);
+            if (updateProfileResult.IsFailure)
+            {
+                throw new InvalidOperationException($"Failed to update certification user profile for '{email}': {updateProfileResult.Error.Description}");
+            }
+
+            needsSave = true;
+        }
+
+        if (resetPassword || !existingUser.HasPassword())
+        {
+            Result setPasswordResult = existingUser.SetPassword(passwordHasher.HashPassword(password), dateTimeProvider);
+            if (setPasswordResult.IsFailure)
+            {
+                throw new InvalidOperationException($"Failed to set certification user password for '{email}': {setPasswordResult.Error.Description}");
+            }
+
+            needsSave = true;
+        }
+
+        if (needsSave)
+        {
+            await db.SaveChangesAsync();
+            logger.LogInformation("Updated certification user '{Email}'.", email);
+        }
+
+        return;
+    }
+
+    Result<User> userResult = User.CreateLocal(
+        email,
+        displayName,
+        passwordHasher.HashPassword(password),
+        dateTimeProvider,
+        profile);
+    if (userResult.IsFailure)
+    {
+        throw new InvalidOperationException($"Failed to create certification user '{email}': {userResult.Error.Description}");
+    }
+
+    User user = userResult.Value;
+    Result activationResult = user.VerifyEmail(dateTimeProvider);
+    if (activationResult.IsFailure)
+    {
+        throw new InvalidOperationException($"Failed to activate certification user '{email}': {activationResult.Error.Description}");
+    }
+
+    db.Users.Add(user);
+    await db.SaveChangesAsync();
+    logger.LogInformation("Created certification user '{Email}'.", email);
+}
+
+static UserProfileData CreateCertificationUserProfile(
+    Uri issuer,
+    string preferredUsername,
+    string givenName,
+    string familyName,
+    string middleName,
+    string nickname,
+    string gender,
+    string birthdate,
+    string zoneInfo,
+    string locale)
+{
+    string profilePath = $"profiles/{preferredUsername}";
+    string avatarPath = $"{profilePath}/avatar.svg";
+
+    return new UserProfileData(
+        GivenName: givenName,
+        FamilyName: familyName,
+        MiddleName: middleName,
+        Nickname: nickname,
+        PreferredUsername: preferredUsername,
+        Profile: new Uri(issuer, profilePath).AbsoluteUri,
+        Picture: new Uri(issuer, avatarPath).AbsoluteUri,
+        Website: new Uri(issuer, profilePath).AbsoluteUri,
+        Gender: gender,
+        Birthdate: birthdate,
+        ZoneInfo: zoneInfo,
+        Locale: locale);
+}
+
+static async Task SeedCertificationClientAsync(
+    IServiceProvider serviceProvider,
+    string clientId,
+    string displayName,
+    string clientSecret,
+    IReadOnlyList<string> redirectUris,
+    IReadOnlyList<string> scopes)
+{
+    ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+    IOpenIddictApplicationManager applicationManager = serviceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+    IOpenIddictScopeManager scopeManager = serviceProvider.GetRequiredService<IOpenIddictScopeManager>();
+
+    foreach (string scopeName in scopes)
+    {
+        if (await scopeManager.FindByNameAsync(scopeName) is null)
+        {
+            await scopeManager.CreateAsync(new OpenIddictScopeDescriptor
+            {
+                Name = scopeName,
+                DisplayName = $"{scopeName} Scope"
+            });
+        }
+    }
+
+    var descriptor = new OpenIddictApplicationDescriptor
+    {
+        ClientId = clientId,
+        ClientSecret = clientSecret,
+        ClientType = OpenIddictConstants.ClientTypes.Confidential,
+        ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
+        DisplayName = displayName,
+        Permissions =
+        {
+            OpenIddictConstants.Permissions.Endpoints.Authorization,
+            OpenIddictConstants.Permissions.Endpoints.Token,
+            OpenIddictConstants.Permissions.Endpoints.EndSession,
+            OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+            OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+            OpenIddictConstants.Permissions.ResponseTypes.Code,
+        }
+    };
+
+    foreach (string redirectUri in redirectUris)
+    {
+        descriptor.RedirectUris.Add(new Uri(redirectUri, UriKind.Absolute));
+    }
+
+    foreach (string scopeName in scopes)
+    {
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + scopeName);
+    }
+
+    object? existingApplication = await applicationManager.FindByClientIdAsync(clientId);
+    if (existingApplication is not null)
+    {
+        await applicationManager.UpdateAsync(existingApplication, descriptor);
+        logger.LogInformation("Updated certification OpenIddict client '{ClientId}'.", clientId);
+        return;
+    }
+
+    await applicationManager.CreateAsync(descriptor);
+    logger.LogInformation("Created certification OpenIddict client '{ClientId}'.", clientId);
+}
+
+static string[] GetCertificationRedirectUris(IConfiguration configuration)
+{
+    string[] configuredRedirectUris = GetConfiguredUris(configuration, "Seed:Certification:RedirectUris");
+    if (configuredRedirectUris.Length > 0)
+    {
+        return configuredRedirectUris;
+    }
+
+    string alias = GetRequiredConfiguration(configuration, "Seed:Certification:Alias");
+    List<string> redirectUris =
+    [
+        $"https://www.certification.openid.net/test/a/{alias}/callback"
+    ];
+
+    if (configuration.GetValue("Seed:Certification:IncludeStagingRedirectUri", defaultValue: true))
+    {
+        redirectUris.Add($"https://staging.certification.openid.net/test/a/{alias}/callback");
+    }
+
+    return redirectUris.ToArray();
+}
+
+static string GetRequiredConfiguration(IConfiguration configuration, string key)
+{
+    string? value = configuration[key]?.Trim();
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        throw new InvalidOperationException($"Configuration value '{key}' is required for the certification seed profile.");
+    }
+
+    return value;
 }
 
 static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)

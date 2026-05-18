@@ -1,10 +1,15 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Security.Claims;
+using System.Text.Json;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Primitives;
+using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
@@ -26,8 +31,14 @@ namespace OpenIdentityStack.Api.Authentication;
 [ApiController]
 public class AuthorizationController : ControllerBase
 {
+    private const string legacySessionIdClaim = "session_id";
+    private const string requestedUserInfoClaim = "requested_userinfo_claim";
+    private const string authenticationContextClassReferenceClaim = "acr";
+    private const string supportedAcrValue = "1";
+
     private readonly IOpenIddictApplicationManager applicationManager;
     private readonly IOpenIddictScopeManager scopeManager;
+    private readonly IUserRepository userRepository;
     private readonly IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler;
     private readonly IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler;
     private readonly IAddClientSessionUseCase addClientSessionUseCase;
@@ -38,6 +49,7 @@ public class AuthorizationController : ControllerBase
     public AuthorizationController(
         IOpenIddictApplicationManager applicationManager,
         IOpenIddictScopeManager scopeManager,
+        IUserRepository userRepository,
         IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler,
         IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler,
         IAddClientSessionUseCase addClientSessionUseCase,
@@ -47,6 +59,7 @@ public class AuthorizationController : ControllerBase
     {
         this.applicationManager = applicationManager;
         this.scopeManager = scopeManager;
+        this.userRepository = userRepository;
         this.getUserEffectiveRolesQueryHandler = getUserEffectiveRolesQueryHandler;
         this.getGroupClaimsForUserQueryHandler = getGroupClaimsForUserQueryHandler;
         this.addClientSessionUseCase = addClientSessionUseCase;
@@ -65,17 +78,39 @@ public class AuthorizationController : ControllerBase
         OpenIddictRequest request = this.requestService.GetRequest(this.HttpContext) ??
             throw new InvalidOperationException("The OpenID Connect request cannot be retrieved.");
 
+        AuthenticateResult cookieAuthentication = await this.HttpContext.AuthenticateAsync("Cookies");
+        ClaimsPrincipal? authenticatedUser = cookieAuthentication is { Succeeded: true, Principal: { Identity.IsAuthenticated: true } }
+            ? cookieAuthentication.Principal
+            : this.User.Identity?.IsAuthenticated == true ? this.User : null;
+
+        DateTimeOffset? authenticationTime = GetAuthenticationTime(cookieAuthentication.Properties, authenticatedUser);
+        bool isAuthenticated = authenticatedUser?.Identity?.IsAuthenticated == true;
+
         // Check if prompt=login was requested - this forces re-authentication
         bool forceLogin = request.HasPromptValue("login");
 
-        // Check max_age - if 0, treat as force login
-        if (request.MaxAge == 0)
+        if (request.MaxAge is long maxAge)
         {
-            forceLogin = true;
+            forceLogin |= authenticationTime is null
+                || DateTimeOffset.UtcNow - authenticationTime.Value > TimeSpan.FromSeconds(maxAge);
+        }
+
+        bool promptNone = request.HasPromptValue("none");
+
+        if (promptNone && (forceLogin || !isAuthenticated))
+        {
+            return this.Forbid(
+                authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
+                properties: new AuthenticationProperties(new Dictionary<string, string?>
+                {
+                    [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.LoginRequired,
+                    [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] =
+                        "The user is not currently authenticated."
+                }));
         }
 
         // If prompt=login is requested, sign out current session and force fresh login
-        if (forceLogin && this.User.Identity?.IsAuthenticated == true)
+        if (forceLogin && isAuthenticated)
         {
             await this.HttpContext.SignOutAsync("Cookies");
             await this.HttpContext.SignOutAsync("ExternalCookie");
@@ -83,13 +118,14 @@ public class AuthorizationController : ControllerBase
             // Preserve the full authorization request in the return URL
             string returnUrl = this.Request.PathBase + this.Request.Path + QueryString.Create(
                 this.Request.HasFormContentType ? this.Request.Form.ToList() : this.Request.Query.ToList());
+            returnUrl = ConsumeFreshLoginParameters(returnUrl, request);
 
             // Pass fresh=true to indicate we need a fresh external login
             return this.Redirect($"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}&fresh=true");
         }
 
         // If the user is not authenticated, redirect to login page
-        if (this.User.Identity?.IsAuthenticated != true)
+        if (!isAuthenticated)
         {
             // Preserve the full authorization request in the return URL
             string returnUrl = this.Request.PathBase + this.Request.Path + QueryString.Create(
@@ -104,21 +140,62 @@ public class AuthorizationController : ControllerBase
             nameType: Claims.Name,
             roleType: Claims.Role);
 
+        ClaimsPrincipal user = authenticatedUser ?? throw new InvalidOperationException("The authenticated user cannot be resolved.");
+
         // Add the claims that will be persisted in the tokens
-        string userIdString = this.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("Subject claim not found.");
+        string userIdString = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("Subject claim not found.");
         identity.AddClaim(new System.Security.Claims.Claim(Claims.Subject, userIdString));
 
-        if (this.User.FindFirstValue(ClaimTypes.Name) is { } name)
+        UserId? userId = TryParseUserId(userIdString);
+        Domain.Users.User? persistedUser = userId is { } parsedUserId
+            ? await this.userRepository.GetByIdAsync(parsedUserId)
+            : null;
+
+        if (persistedUser?.DisplayName is { Length: > 0 } persistedDisplayName)
+        {
+            identity.AddClaim(new Claim(Claims.Name, persistedDisplayName));
+        }
+        else if (user.FindFirstValue(ClaimTypes.Name) is { } name)
         {
             identity.AddClaim(new Claim(Claims.Name, name));
         }
 
-        if (this.User.FindFirstValue(ClaimTypes.Email) is { } email)
+        if (!string.IsNullOrWhiteSpace(persistedUser?.Email))
+        {
+            identity.AddClaim(new Claim(Claims.Email, persistedUser.Email));
+            identity.AddClaim(new Claim(Claims.EmailVerified, "true", ClaimValueTypes.Boolean));
+        }
+        else if (user.FindFirstValue(ClaimTypes.Email) is { } email)
         {
             identity.AddClaim(new Claim(Claims.Email, email));
+            identity.AddClaim(new Claim(Claims.EmailVerified, "true", ClaimValueTypes.Boolean));
         }
 
-        if (this.User.FindFirstValue("sid") is { } sessionIdStr && Guid.TryParse(sessionIdStr, out Guid sessionIdGuid))
+        if (persistedUser is not null)
+        {
+            AddPersistedProfileClaims(identity, persistedUser);
+        }
+        else
+        {
+            AddPrincipalProfileClaims(identity, user);
+        }
+
+        if (authenticationTime is { } authTime)
+        {
+            SetAuthenticationTimeClaim(identity, authTime);
+        }
+
+        if (GetSupportedAcrValue(request) is { } acr)
+        {
+            identity.AddClaim(new Claim(authenticationContextClassReferenceClaim, acr));
+        }
+
+        foreach (string requestedClaim in GetRequestedUserInfoClaims(request))
+        {
+            identity.AddClaim(new Claim(requestedUserInfoClaim, requestedClaim));
+        }
+
+        if (user.FindFirstValue("sid") is { } sessionIdStr && Guid.TryParse(sessionIdStr, out Guid sessionIdGuid))
         {
             var sessionId = new SessionId(sessionIdGuid);
 
@@ -130,9 +207,9 @@ public class AuthorizationController : ControllerBase
             }
 
             identity.AddClaim(new Claim("sid", sessionIdStr));
-            identity.AddClaim(new Claim("session_id", sessionIdStr));
+            identity.AddClaim(new Claim(legacySessionIdClaim, sessionIdStr));
         }
-        else if (this.User.FindFirstValue("session_id") is { } legacySessionIdStr && Guid.TryParse(legacySessionIdStr, out Guid legacySessionIdGuid))
+        else if (user.FindFirstValue(legacySessionIdClaim) is { } legacySessionIdStr && Guid.TryParse(legacySessionIdStr, out Guid legacySessionIdGuid))
         {
             var sessionId = new SessionId(legacySessionIdGuid);
 
@@ -144,16 +221,14 @@ public class AuthorizationController : ControllerBase
             }
 
             identity.AddClaim(new Claim("sid", legacySessionIdStr));
-            identity.AddClaim(new Claim("session_id", legacySessionIdStr));
+            identity.AddClaim(new Claim(legacySessionIdClaim, legacySessionIdStr));
         }
 
         // Add role claims (direct + group mapped)
-        if (Guid.TryParse(userIdString, out Guid userIdGuid))
+        if (userId is { } resolvedUserId)
         {
-             var userId = new UserId(userIdGuid);
-
             // 1. Roles and Permissions
-            Result<IReadOnlyList<RoleDto>> rolesResult = await this.getUserEffectiveRolesQueryHandler.HandleAsync(userId);
+            Result<IReadOnlyList<RoleDto>> rolesResult = await this.getUserEffectiveRolesQueryHandler.HandleAsync(resolvedUserId);
              if (rolesResult.IsSuccess)
              {
                  foreach (RoleDto role in rolesResult.Value)
@@ -169,7 +244,7 @@ public class AuthorizationController : ControllerBase
              }
 
             // 2. Group Claims
-            Result<IReadOnlyList<GroupClaimDto>> groupClaimsResult = await this.getGroupClaimsForUserQueryHandler.HandleAsync(userId);
+            Result<IReadOnlyList<GroupClaimDto>> groupClaimsResult = await this.getGroupClaimsForUserQueryHandler.HandleAsync(resolvedUserId);
              if (groupClaimsResult.IsSuccess)
              {
                  foreach (GroupClaimDto groupClaim in groupClaimsResult.Value)
@@ -204,7 +279,10 @@ public class AuthorizationController : ControllerBase
 
         identity.SetDestinations(GetDestinations);
 
-        return this.SignIn(new ClaimsPrincipal(identity), OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        return this.SignIn(
+            new ClaimsPrincipal(identity),
+            CreateOpenIddictAuthenticationProperties(authenticationTime),
+            OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
 
     /// <summary>
@@ -296,7 +374,7 @@ public class AuthorizationController : ControllerBase
             }
 
             string? sessionIdStr = result.Principal.FindFirst("sid")?.Value
-                ?? result.Principal.FindFirst("session_id")?.Value;
+                ?? result.Principal.FindFirst(legacySessionIdClaim)?.Value;
 
             if (sessionIdStr is not null && Guid.TryParse(sessionIdStr, out Guid sessionIdGuid))
             {
@@ -318,14 +396,28 @@ public class AuthorizationController : ControllerBase
                 }
             }
 
-            var identity = new ClaimsIdentity(result.Principal!.Claims,
+            var identity = new ClaimsIdentity(result.Principal!.Claims.Where(claim =>
+                    !string.Equals(claim.Type, legacySessionIdClaim, StringComparison.Ordinal)
+                    && !string.Equals(claim.Type, Claims.AuthenticationTime, StringComparison.Ordinal)),
                 authenticationType: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
                 nameType: Claims.Name,
                 roleType: Claims.Role);
 
-            identity.SetDestinations(GetDestinations);
+            identity.SetScopes(result.Principal.GetScopes());
+            identity.SetResources(result.Principal.GetResources());
 
-            return this.SignIn(new ClaimsPrincipal(identity), OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            DateTimeOffset? authenticationTime = GetAuthenticationTime(result.Properties, result.Principal!);
+
+            if (authenticationTime is { } authTime)
+            {
+                SetAuthenticationTimeClaim(identity, authTime);
+            }
+
+            identity.SetDestinations(GetDestinations);
+            return this.SignIn(
+                new ClaimsPrincipal(identity),
+                CreateOpenIddictAuthenticationProperties(authenticationTime),
+                OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         }
 
         throw new InvalidOperationException("The specified grant type is not supported.");
@@ -356,14 +448,32 @@ public class AuthorizationController : ControllerBase
             [Claims.Subject] = result.Principal!.GetClaim(Claims.Subject)!
         };
 
-        if (result.Principal.GetClaim(Claims.Name) is { } name)
-        {
-            claims[Claims.Name] = name;
-        }
+        ImmutableHashSet<string> requestedUserInfoClaims = GetRequestedUserInfoClaims(result.Principal);
 
-        if (result.Principal.GetClaim(Claims.Email) is { } email)
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Name, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.GivenName, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.FamilyName, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.MiddleName, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Nickname, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.PreferredUsername, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Profile, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Picture, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Website, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Gender, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Birthdate, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Zoneinfo, Scopes.Profile);
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Locale, Scopes.Profile);
+        AddUserInfoIntegerClaim(claims, result.Principal, requestedUserInfoClaims, Claims.UpdatedAt, Scopes.Profile);
+
+        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Email, Scopes.Email);
+
+        if (result.Principal.HasScope(Scopes.Email)
+            || requestedUserInfoClaims.Contains(Claims.EmailVerified))
         {
-            claims[Claims.Email] = email;
+            if (result.Principal.GetClaim(Claims.EmailVerified) is { } emailVerified)
+            {
+                claims[Claims.EmailVerified] = string.Equals(emailVerified, "true", StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         return this.Ok(claims);
@@ -374,6 +484,11 @@ public class AuthorizationController : ControllerBase
 
     private static IEnumerable<string> GetDestinations(Claim claim)
     {
+        if (IsInternalTokenStateClaim(claim.Type))
+        {
+            yield break;
+        }
+
         // Custom destinations support
         if (claim.Properties.TryGetValue("destinations", out string? destinations))
         {
@@ -392,8 +507,29 @@ public class AuthorizationController : ControllerBase
 
         switch (claim.Type)
         {
-            case Claims.Name or Claims.PreferredUsername:
+            case requestedUserInfoClaim:
                 yield return Destinations.AccessToken;
+                yield break;
+
+            case Claims.Name
+                or Claims.PreferredUsername
+                or Claims.GivenName
+                or Claims.FamilyName
+                or Claims.MiddleName
+                or Claims.Nickname
+                or Claims.Profile
+                or Claims.Picture
+                or Claims.Website
+                or Claims.Gender
+                or Claims.Birthdate
+                or Claims.Zoneinfo
+                or Claims.Locale
+                or Claims.UpdatedAt:
+                if (claim.Subject?.HasScope(Scopes.Profile) == true
+                    || claim.Subject?.HasClaim(requestedUserInfoClaim, claim.Type) == true)
+                {
+                    yield return Destinations.AccessToken;
+                }
 
                 if (claim.Subject?.HasScope(Scopes.Profile) == true)
                 {
@@ -402,8 +538,12 @@ public class AuthorizationController : ControllerBase
 
                 yield break;
 
-            case Claims.Email:
-                yield return Destinations.AccessToken;
+            case Claims.Email or Claims.EmailVerified:
+                if (claim.Subject?.HasScope(Scopes.Email) == true
+                    || claim.Subject?.HasClaim(requestedUserInfoClaim, claim.Type) == true)
+                {
+                    yield return Destinations.AccessToken;
+                }
 
                 if (claim.Subject?.HasScope(Scopes.Email) == true)
                 {
@@ -423,7 +563,22 @@ public class AuthorizationController : ControllerBase
                 yield break;
 
             case "sid":
-            case "session_id":
+                if (claim.Subject?.HasScope(Scopes.OpenId) == true)
+                {
+                    yield return Destinations.IdentityToken;
+                }
+
+                yield break;
+
+            case Claims.AuthenticationTime:
+                if (claim.Subject?.HasScope(Scopes.OpenId) == true)
+                {
+                    yield return Destinations.IdentityToken;
+                }
+
+                yield break;
+
+            case authenticationContextClassReferenceClaim:
                 if (claim.Subject?.HasScope(Scopes.OpenId) == true)
                 {
                     yield return Destinations.IdentityToken;
@@ -439,5 +594,255 @@ public class AuthorizationController : ControllerBase
                 yield return Destinations.AccessToken;
                 yield break;
         }
+    }
+
+    private static bool IsInternalTokenStateClaim(string claimType) =>
+        claimType is legacySessionIdClaim or "oi_au_id" or "oi_tkn_id"
+        || claimType.StartsWith("oi_", StringComparison.Ordinal);
+
+    private static ImmutableHashSet<string> GetRequestedUserInfoClaims(OpenIddictRequest request)
+    {
+        if (!request.TryGetParameter(Parameters.Claims, out OpenIddictParameter parameter)
+            || OpenIddictParameter.IsNullOrEmpty(parameter))
+        {
+            return ImmutableHashSet<string>.Empty;
+        }
+
+        return ParseRequestedClaims(parameter, "userinfo");
+    }
+
+    private static ImmutableHashSet<string> GetRequestedUserInfoClaims(ClaimsPrincipal principal) =>
+        principal.FindAll(requestedUserInfoClaim)
+            .Select(claim => claim.Value)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .ToImmutableHashSet(StringComparer.Ordinal);
+
+    private static UserId? TryParseUserId(string rawUserId) =>
+        Guid.TryParse(rawUserId, out Guid userId) ? new UserId(userId) : null;
+
+    private static void AddPersistedProfileClaims(ClaimsIdentity identity, Domain.Users.User user)
+    {
+        AddStringClaim(identity, Claims.GivenName, user.GivenName);
+        AddStringClaim(identity, Claims.FamilyName, user.FamilyName);
+        AddStringClaim(identity, Claims.MiddleName, user.MiddleName);
+        AddStringClaim(identity, Claims.Nickname, user.Nickname);
+        AddStringClaim(identity, Claims.PreferredUsername, user.PreferredUsername);
+        AddStringClaim(identity, Claims.Profile, user.Profile);
+        AddStringClaim(identity, Claims.Picture, user.Picture);
+        AddStringClaim(identity, Claims.Website, user.Website);
+        AddStringClaim(identity, Claims.Gender, user.Gender);
+        AddStringClaim(identity, Claims.Birthdate, user.Birthdate);
+        AddStringClaim(identity, Claims.Zoneinfo, user.ZoneInfo);
+        AddStringClaim(identity, Claims.Locale, user.Locale);
+
+        DateTimeOffset updatedAt = user.ModifiedAt ?? user.CreatedAt;
+        identity.AddClaim(new Claim(
+            Claims.UpdatedAt,
+            updatedAt.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
+            ClaimValueTypes.Integer64));
+    }
+
+    private static void AddPrincipalProfileClaims(ClaimsIdentity identity, ClaimsPrincipal principal)
+    {
+        AddStringClaim(identity, Claims.GivenName, principal.FindFirstValue(Claims.GivenName));
+        AddStringClaim(identity, Claims.FamilyName, principal.FindFirstValue(Claims.FamilyName));
+        AddStringClaim(identity, Claims.MiddleName, principal.FindFirstValue(Claims.MiddleName));
+        AddStringClaim(identity, Claims.Nickname, principal.FindFirstValue(Claims.Nickname));
+        AddStringClaim(identity, Claims.PreferredUsername, principal.FindFirstValue(Claims.PreferredUsername));
+        AddStringClaim(identity, Claims.Profile, principal.FindFirstValue(Claims.Profile));
+        AddStringClaim(identity, Claims.Picture, principal.FindFirstValue(Claims.Picture));
+        AddStringClaim(identity, Claims.Website, principal.FindFirstValue(Claims.Website));
+        AddStringClaim(identity, Claims.Gender, principal.FindFirstValue(Claims.Gender));
+        AddStringClaim(identity, Claims.Birthdate, principal.FindFirstValue(Claims.Birthdate));
+        AddStringClaim(identity, Claims.Zoneinfo, principal.FindFirstValue(Claims.Zoneinfo));
+        AddStringClaim(identity, Claims.Locale, principal.FindFirstValue(Claims.Locale));
+
+        if (principal.FindFirstValue(Claims.UpdatedAt) is { Length: > 0 } updatedAt)
+        {
+            identity.AddClaim(new Claim(Claims.UpdatedAt, updatedAt, ClaimValueTypes.Integer64));
+        }
+    }
+
+    private static void AddStringClaim(ClaimsIdentity identity, string claimType, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            identity.AddClaim(new Claim(claimType, value));
+        }
+    }
+
+    private static void AddUserInfoStringClaim(
+        Dictionary<string, object> claims,
+        ClaimsPrincipal principal,
+        ImmutableHashSet<string> requestedClaims,
+        string claimType,
+        string requiredScope)
+    {
+        if ((principal.HasScope(requiredScope) || requestedClaims.Contains(claimType))
+            && principal.GetClaim(claimType) is { } value)
+        {
+            claims[claimType] = value;
+        }
+    }
+
+    private static void AddUserInfoIntegerClaim(
+        Dictionary<string, object> claims,
+        ClaimsPrincipal principal,
+        ImmutableHashSet<string> requestedClaims,
+        string claimType,
+        string requiredScope)
+    {
+        if (!(principal.HasScope(requiredScope) || requestedClaims.Contains(claimType)))
+        {
+            return;
+        }
+
+        if (principal.GetClaim(claimType) is { } value
+            && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long number))
+        {
+            claims[claimType] = number;
+        }
+    }
+
+    private static string? GetSupportedAcrValue(OpenIddictRequest request)
+    {
+        if (!request.TryGetParameter(Parameters.AcrValues, out OpenIddictParameter parameter)
+            || OpenIddictParameter.IsNullOrEmpty(parameter)
+            || parameter.ToString() is not { Length: > 0 } acrValues)
+        {
+            return null;
+        }
+
+        return acrValues
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault(value => string.Equals(value, supportedAcrValue, StringComparison.Ordinal));
+    }
+
+    private static ImmutableHashSet<string> ParseRequestedClaims(OpenIddictParameter parameter, string sectionName)
+    {
+        JsonElement? root = GetJsonElement(parameter);
+        if (root is not { ValueKind: JsonValueKind.Object } documentRoot
+            || !documentRoot.TryGetProperty(sectionName, out JsonElement section)
+            || section.ValueKind != JsonValueKind.Object)
+        {
+            return ImmutableHashSet<string>.Empty;
+        }
+
+        return section.EnumerateObject()
+            .Select(property => property.Name)
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .ToImmutableHashSet(StringComparer.Ordinal);
+    }
+
+    private static JsonElement? GetJsonElement(OpenIddictParameter parameter)
+    {
+        object? rawValue = parameter.GetRawValue();
+        if (rawValue is JsonElement element)
+        {
+            return element;
+        }
+
+        if (parameter.ToString() is not { Length: > 0 } rawText)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(rawText);
+            return document.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static DateTimeOffset? GetAuthenticationTime(AuthenticationProperties? properties, ClaimsPrincipal? principal)
+    {
+        if (properties?.IssuedUtc is { } issuedUtc)
+        {
+            return issuedUtc;
+        }
+
+        return principal is null ? null : GetAuthenticationTime(principal);
+    }
+
+    private static DateTimeOffset? GetAuthenticationTime(ClaimsPrincipal principal)
+    {
+        string? rawValue = principal.FindFirstValue(Claims.AuthenticationTime);
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            return null;
+        }
+
+        return TryParseUnixTime(rawValue);
+    }
+
+    private static DateTimeOffset? TryParseUnixTime(string? rawValue) =>
+        long.TryParse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out long unixSeconds)
+            ? DateTimeOffset.FromUnixTimeSeconds(unixSeconds)
+            : null;
+
+    private static void SetAuthenticationTimeClaim(ClaimsIdentity identity, DateTimeOffset authenticationTime)
+    {
+        foreach (Claim claim in identity.FindAll(Claims.AuthenticationTime).ToList())
+        {
+            identity.RemoveClaim(claim);
+        }
+
+        identity.AddClaim(new Claim(
+            Claims.AuthenticationTime,
+            authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
+            ClaimValueTypes.Integer64));
+    }
+
+    private static AuthenticationProperties CreateOpenIddictAuthenticationProperties(DateTimeOffset? authenticationTime)
+    {
+        AuthenticationProperties properties = new();
+        properties.IssuedUtc = authenticationTime;
+        return properties;
+    }
+
+    private static string ConsumeFreshLoginParameters(string returnUrl, OpenIddictRequest request)
+    {
+        int queryStart = returnUrl.IndexOf('?', StringComparison.Ordinal);
+        if (queryStart < 0)
+        {
+            return returnUrl;
+        }
+
+        string path = returnUrl[..queryStart];
+        string query = returnUrl[(queryStart + 1)..];
+        Dictionary<string, StringValues> parameters = new(
+            QueryHelpers.ParseQuery(query),
+            StringComparer.OrdinalIgnoreCase);
+
+        if (request.HasPromptValue("login") && parameters.TryGetValue(Parameters.Prompt, out StringValues promptValues))
+        {
+            string[] remainingPrompts = promptValues
+                .SelectMany(value => value?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>())
+                .Where(value => !string.Equals(value, "login", StringComparison.Ordinal))
+                .ToArray();
+
+            if (remainingPrompts.Length == 0)
+            {
+                parameters.Remove(Parameters.Prompt);
+            }
+            else
+            {
+                parameters[Parameters.Prompt] = string.Join(' ', remainingPrompts);
+            }
+        }
+
+        if (request.MaxAge == 0)
+        {
+            parameters.Remove(Parameters.MaxAge);
+        }
+
+        IEnumerable<KeyValuePair<string, string?>> queryParameters = parameters
+            .SelectMany(parameter => parameter.Value, (parameter, value) => new KeyValuePair<string, string?>(parameter.Key, value));
+
+        return path + QueryString.Create(queryParameters);
     }
 }

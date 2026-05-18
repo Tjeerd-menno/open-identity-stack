@@ -26,6 +26,14 @@ public interface IUserRepository
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a user by their preferred username.
+    /// </summary>
+    /// <param name="preferredUsername">The preferred username.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The user if found, null otherwise.</returns>
+    Task<User?> GetByPreferredUsernameAsync(string preferredUsername, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Checks if a user with the given email exists.
     /// </summary>
     /// <param name="email">The email address.</param>

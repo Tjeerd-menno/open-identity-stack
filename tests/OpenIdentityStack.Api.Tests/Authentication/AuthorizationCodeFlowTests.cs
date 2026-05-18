@@ -2,7 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.WebUtilities;
 using OpenIdentityStack.Api.Tests.Fixtures;
 
 namespace OpenIdentityStack.Api.Tests.Authentication;
@@ -124,6 +127,45 @@ public sealed class AuthorizationCodeFlowTests
         location.ShouldContain("returnUrl");;
     }
 
+    [Fact]
+    public async Task Authorize_WithUnsupportedRequestObject_RedirectsBackWithRequestNotSupportedError()
+    {
+        // Arrange
+        string clientId = $"request-object-{Guid.NewGuid():N}";
+        const string redirectUri = "https://localhost/callback";
+        const string state = "request-object-state";
+
+        await this._fixture.CreateServiceAccountAsync(
+            clientId,
+            "test-secret",
+            allowedScopes: ["openid"],
+            allowedGrantTypes: ["authorization_code"],
+            redirectUris: [redirectUri]);
+
+        using HttpClient client = this._fixture.CreateClient(allowAutoRedirect: false);
+
+        string requestObject = CreateUnsignedRequestObject(clientId, redirectUri, state);
+        string authorizeUrl =
+            $"/connect/authorize?client_id={Uri.EscapeDataString(clientId)}" +
+            $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+            $"&request={Uri.EscapeDataString(requestObject)}" +
+            "&response_type=code&scope=openid";
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(authorizeUrl);
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        response.Headers.Location.ShouldNotBeNull();
+        response.Headers.Location.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
+
+        Dictionary<string, Microsoft.Extensions.Primitives.StringValues> query =
+            QueryHelpers.ParseQuery(response.Headers.Location.Query);
+
+        query["error"].Single().ShouldBe("request_not_supported");
+        query["state"].Single().ShouldBe(state);
+    }
+
     #endregion
 
     #region Login Endpoint
@@ -144,6 +186,91 @@ public sealed class AuthorizationCodeFlowTests
     #endregion
 
     #region Token Endpoint
+
+    [Fact]
+    public async Task AuthorizationCodeFlow_WithMaxAge_IncludesNumericAuthTimeInIdToken()
+    {
+        // Arrange
+        string clientId = $"max-age-client-{Guid.NewGuid():N}";
+        string clientSecret = "test-secret-123!";
+        string redirectUri = "https://localhost/callback";
+        string email = $"max-age-{Guid.NewGuid():N}@example.test";
+        string password = "Password123!@#";
+
+        await this._fixture.CreateTestUserAsync(email, "Max Age User", password);
+        await this._fixture.CreateServiceAccountAsync(
+            clientId,
+            clientSecret,
+            allowedScopes: ["openid"],
+            allowedGrantTypes: ["authorization_code"],
+            redirectUris: [redirectUri]);
+
+        string codeVerifier = GenerateCodeVerifier();
+        string codeChallenge = GenerateCodeChallenge(codeVerifier);
+
+        using HttpClient client = this._fixture.CreateClient(allowAutoRedirect: false);
+
+        string authorizeQuery = await new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["response_type"] = "code",
+            ["client_id"] = clientId,
+            ["redirect_uri"] = redirectUri,
+            ["scope"] = "openid",
+            ["state"] = "state-123",
+            ["nonce"] = "nonce-123",
+            ["max_age"] = "300",
+            ["code_challenge"] = codeChallenge,
+            ["code_challenge_method"] = "S256"
+        }).ReadAsStringAsync();
+        string authorizeUrl = "/connect/authorize?" + authorizeQuery;
+
+        // Act
+        HttpResponseMessage authorizeResponse = await client.GetAsync(authorizeUrl);
+        authorizeResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        authorizeResponse.Headers.Location.ShouldNotBeNull();
+        Uri loginUri = authorizeResponse.Headers.Location;
+
+        HttpResponseMessage loginPageResponse = await client.GetAsync(loginUri);
+        loginPageResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        string loginPage = await loginPageResponse.Content.ReadAsStringAsync();
+        string antiForgeryToken = ExtractAntiForgeryToken(loginPage);
+
+        HttpResponseMessage loginResponse = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email,
+            ["Password"] = password,
+            ["RememberMe"] = "false",
+            ["returnUrl"] = QueryHelpers.ParseQuery(GetQuery(loginUri))["returnUrl"].Single()!,
+            ["__RequestVerificationToken"] = antiForgeryToken
+        }));
+        loginResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+
+        HttpResponseMessage callbackResponse = await client.GetAsync(loginResponse.Headers.Location);
+        callbackResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        callbackResponse.Headers.Location.ShouldNotBeNull();
+        Uri callbackUri = callbackResponse.Headers.Location;
+        string code = QueryHelpers.ParseQuery(callbackUri.Query)["code"].Single()!;
+
+        HttpResponseMessage tokenResponse = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["grant_type"] = "authorization_code",
+            ["code"] = code,
+            ["redirect_uri"] = redirectUri,
+            ["code_verifier"] = codeVerifier,
+            ["client_id"] = clientId,
+            ["client_secret"] = clientSecret
+        }));
+
+        // Assert
+        tokenResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        JsonNode? tokenJson = await tokenResponse.Content.ReadFromJsonAsync<JsonNode>();
+        string idToken = tokenJson?["id_token"]?.GetValue<string>() ?? throw new InvalidOperationException("ID token not returned.");
+        JsonNode payload = ReadJwtPayload(idToken);
+
+        payload["auth_time"].ShouldNotBeNull();
+        payload["auth_time"]!.GetValue<JsonElement>().ValueKind.ShouldBe(JsonValueKind.Number);
+        payload["auth_time"]!.GetValue<long>().ShouldBeGreaterThan(0);
+    }
 
     [Fact]
     public async Task Token_WithInvalidGrant_ReturnsError()
@@ -303,6 +430,59 @@ public sealed class AuthorizationCodeFlowTests
             .Replace('+', '-')
             .Replace('/', '_')
             .TrimEnd('=');
+    }
+
+    private static string ExtractAntiForgeryToken(string html)
+    {
+        Match match = Regex.Match(
+            html,
+            "<input[^>]+name=\"__RequestVerificationToken\"[^>]+value=\"(?<value>[^\"]+)\"",
+            RegexOptions.IgnoreCase);
+
+        match.Success.ShouldBeTrue("The login form should render an anti-forgery token.");
+        return WebUtility.HtmlDecode(match.Groups["value"].Value);
+    }
+
+    private static string GetQuery(Uri uri)
+    {
+        if (uri.IsAbsoluteUri)
+        {
+            return uri.Query;
+        }
+
+        int queryStart = uri.OriginalString.IndexOf('?', StringComparison.Ordinal);
+        return queryStart < 0 ? string.Empty : uri.OriginalString[queryStart..];
+    }
+
+    private static JsonNode ReadJwtPayload(string token)
+    {
+        string[] parts = token.Split('.');
+        parts.Length.ShouldBeGreaterThanOrEqualTo(2);
+
+        byte[] payloadBytes = WebEncoders.Base64UrlDecode(parts[1]);
+        return JsonNode.Parse(Encoding.UTF8.GetString(payloadBytes)) ?? throw new InvalidOperationException("The JWT payload could not be parsed.");
+    }
+
+    private static string CreateUnsignedRequestObject(string clientId, string redirectUri, string state)
+    {
+        static string Encode(object value)
+        {
+            byte[] jsonBytes = JsonSerializer.SerializeToUtf8Bytes(value);
+            return WebEncoders.Base64UrlEncode(jsonBytes);
+        }
+
+        string header = Encode(new { alg = "none" });
+        string payload = Encode(new
+        {
+            scope = "openid",
+            response_type = "code",
+            redirect_uri = redirectUri,
+            state,
+            nonce = "nonce-request-object",
+            client_id = clientId
+        });
+
+        return $"{header}.{payload}.";
     }
 
     #endregion

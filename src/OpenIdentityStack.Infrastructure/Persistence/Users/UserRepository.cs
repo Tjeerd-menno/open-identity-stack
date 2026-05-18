@@ -40,6 +40,21 @@ public sealed class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<User?> GetByPreferredUsernameAsync(string preferredUsername, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(preferredUsername))
+        {
+            return null;
+        }
+
+        string normalizedPreferredUsername = preferredUsername.Trim().ToUpperInvariant();
+        return await this.dbContext.Users
+            .FirstOrDefaultAsync(
+                u => u.NormalizedPreferredUsername == normalizedPreferredUsername,
+                cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(email))

@@ -1,3 +1,4 @@
+using OpenIdentityStack.Domain.Users;
 using SharedKernel;
 namespace OpenIdentityStack.Application.Users.Commands;
 
@@ -7,10 +8,12 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// <param name="Email">The user's email address.</param>
 /// <param name="DisplayName">The user's display name.</param>
 /// <param name="Password">The user's password (plain text).</param>
+/// <param name="Profile">Optional profile attributes.</param>
 public sealed record CreateUserCommand(
     string Email,
     string DisplayName,
-    string Password);
+    string Password,
+    UserProfileData? Profile = null);
 
 /// <summary>
 /// Result of creating a user.
