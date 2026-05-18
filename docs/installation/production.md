@@ -1,6 +1,6 @@
 # Production deployment
 
-Use this guide for production planning and rollout. The repository includes a Kubernetes deployment example and container images for the API, admin web, and database migrator.
+Use this guide for production planning and rollout. The repository provides container images for the API, admin web, and database migrator.
 
 ## Deployment model
 
@@ -13,30 +13,30 @@ Production deployments should treat these as separate concerns:
 - signing and encryption certificate delivery
 - ingress, DNS, and browser origin policy
 
-## Kubernetes path
+## Kubernetes deployment
 
-The repository includes a kustomize deployment under `deploy/open-identity-stack` with:
+For Kubernetes deployments, you'll need to create manifests that include:
 
 - an `open-identity-stack` namespace
-- a CNPG PostgreSQL cluster
+- a PostgreSQL cluster (e.g., using CNPG or another operator)
 - a database migrator job
 - API and admin web deployments
-- cert-manager resources for OpenIddict signing and encryption certificates
+- certificate resources for OpenIddict signing and encryption (e.g., using cert-manager)
 
-### Create required secrets
+### Required secrets
 
 At minimum, create:
 
-- `open-identity-stack-db-app`
-- `open-identity-stack-app`
+- `open-identity-stack-db-app` - PostgreSQL connection string
+- `open-identity-stack-app` - Application secrets
 
-The included deployment README also documents an optional `open-identity-stack-admin-seed` secret for first-run admin bootstrapping.
+You may also want an `open-identity-stack-admin-seed` secret for first-run admin bootstrapping.
 
-### Apply and verify
+### Example deployment flow
 
 ```text
-kubectl apply -k deploy/open-identity-stack
-kubectl wait --for=condition=Ready cluster/open-identity-stack-db -n open-identity-stack --timeout=10m
+kubectl apply -k <your-kustomize-directory>
+kubectl wait --for=condition=Ready <your-postgres-resource> -n open-identity-stack --timeout=10m
 kubectl wait --for=condition=complete job/open-identity-stack-db-migrator -n open-identity-stack --timeout=10m
 kubectl rollout status deployment/open-identity-stack-api -n open-identity-stack --timeout=10m
 kubectl rollout status deployment/open-identity-stack-adminweb -n open-identity-stack --timeout=10m
