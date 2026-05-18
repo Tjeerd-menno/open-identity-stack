@@ -1,24 +1,38 @@
-# Windows service deployment (optional)
+# Windows service deployment
 
-If your infrastructure requires a Windows service mode, package artifacts are published from the release pipeline.
+Use this path only when your environment requires a Windows-hosted API instead of the container deployment model.
 
-## What is included
+## What is packaged
 
-- Published API binaries for `win-x64`
-- Install/uninstall scripts in `deploy/windows-service`
+Release artifacts include:
 
-## Install flow
+- published API binaries for `win-x64`
+- PowerShell install and uninstall scripts from `deploy/windows-service`
 
-1. Download the Windows service zip from a release.
-2. Run the provided install script.
-3. Configure connection settings and service account details.
-4. Start and verify service health.
+## Installation flow
 
-## Validation
+1. download the Windows service zip from a release
+2. extract it on the target host
+3. run the provided install script with the intended service account
+4. provide configuration for database connectivity, proxy behavior, and certificates
+5. start the service and verify health
 
-- API service starts and exposes expected endpoints.
-- Admin UI or reverse proxy target resolves to API.
-- Logs are captured and rotated according to host policy.
+## Runtime considerations
 
-If this path is not required for your environment, prefer container deployment.
+A Windows service deployment still needs the same production inputs as the container path:
 
+- PostgreSQL connection string
+- OpenIddict signing and encryption material
+- admin web hosting strategy or reverse proxy plan
+- log collection and service recovery policy
+
+## Validation checklist
+
+Confirm:
+
+1. the service starts cleanly
+2. `/health` and `/alive` respond through the host or reverse proxy path
+3. token issuance works with the configured certificates
+4. the admin web can still reach the API authority you published
+
+If your environment supports containers, the Kubernetes or container path is usually easier to operate and upgrade.

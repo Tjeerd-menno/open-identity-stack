@@ -1,6 +1,6 @@
 # Local installation
 
-This path is for evaluation, development, and local integration testing.
+Use this path for evaluation, development, and integration testing.
 
 ## Prerequisites
 
@@ -8,7 +8,9 @@ This path is for evaluation, development, and local integration testing.
 - Node.js LTS
 - Git
 
-## Run locally
+PostgreSQL client tooling is optional but useful for diagnostics.
+
+## Run locally with Aspire
 
 ```bash
 git clone https://github.com/Tjeerd-menno/open-identity-stack.git
@@ -19,22 +21,38 @@ cd src/OpenIdentityStack.AppHost
 dotnet run
 ```
 
-AppHost manages all required services for local use.
+The AppHost composes:
 
-## First run defaults
+- PostgreSQL
+- the database migrator
+- the API
+- the admin web app
 
-- PostgreSQL is provisioned/managed through Aspire.
-- DbMigrator runs automatically from local composition.
-- Admin UI and API are started together with the AppHost model.
+## Local runtime behavior
 
-## Optional settings for local experiments
+- PostgreSQL uses a persistent data volume by default
+- `Seed__DevelopmentData=true` is set for the local migrator path
+- the admin web receives `VITE_OIDC_AUTHORITY` and `VITE_API_BASE_URL` from the API endpoint
 
-- `OPENIDENTITYSTACK_DISABLE_DATA_VOLUME=true`
-  - Use this to avoid persistent PostgreSQL state between runs.
+## Useful local toggles
 
-## Environment notes
+### Clean state between runs
 
-- If you run into certificate issues in local development, use a dedicated development
-  certificate workflow before switching to production secret-backed certificates.
-- Keep local secrets in environment files outside source control.
+```text
+OPENIDENTITYSTACK_DISABLE_DATA_VOLUME=true
+```
 
+### Skip the admin web
+
+```text
+OPENIDENTITYSTACK_ENABLE_ADMINWEB=false
+```
+
+## First-run checklist
+
+1. confirm the migrator completes
+2. open the admin web
+3. confirm the API root or health endpoints respond
+4. sign in and verify that an admin page loads
+
+Continue with [Quick start](../getting-started/quick-start.md) if you want the fastest end-to-end path.

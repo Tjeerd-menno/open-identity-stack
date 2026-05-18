@@ -1,47 +1,36 @@
 # Production deployment
 
-Use this section for production planning and rollout.
+Use this guide for production planning and rollout. The repository includes a Kubernetes deployment example and container images for the API, admin web, and database migrator.
 
 ## Deployment model
 
-OpenIdentityStack has container images for:
+Production deployments should treat these as separate concerns:
 
-- API
-- admin web
-- database migrator
+- API runtime
+- admin web runtime
+- database migrator job
+- PostgreSQL
+- signing and encryption certificate delivery
+- ingress, DNS, and browser origin policy
 
-## Kubernetes example
+## Kubernetes path
 
-The repository includes a Kubernetes manifest set under `deploy/open-identity-stack`.
+The repository includes a kustomize deployment under `deploy/open-identity-stack` with:
 
-### Required secrets
+- an `open-identity-stack` namespace
+- a CNPG PostgreSQL cluster
+- a database migrator job
+- API and admin web deployments
+- cert-manager resources for OpenIddict signing and encryption certificates
 
-Create database and application secrets in the namespace you deploy into before applying resources.
+### Create required secrets
 
-```text
-kubectl create namespace open-identity-stack
+At minimum, create:
 
-kubectl create secret generic open-identity-stack-db-app \
-  --namespace open-identity-stack \
-  --from-literal=username=openidentitystack \
-  --from-literal=password=<replace-with-strong-password> \
-  --dry-run=client -o yaml | kubectl apply -f -
+- `open-identity-stack-db-app`
+- `open-identity-stack-app`
 
-kubectl create secret generic open-identity-stack-app \
-  --namespace open-identity-stack \
-  --from-literal=connection-string="Host=open-identity-stack-db-rw;Port=5432;Database=openidentitystack;Username=openidentitystack;Password=<replace-with-password>;SSL Mode=Disable;Trust Server Certificate=true" \
-  --dry-run=client -o yaml | kubectl apply -f -
-```
-
-### Production certificates
-
-Production requires signing and encryption material for OpenIddict. Store those securely and mount them as
-configured in your deployment manifests.
-
-If your cluster is already using cert-manager, use dedicated certificate secrets for:
-
-- OpenIddict signing certificate
-- OpenIddict encryption certificate
+The included deployment README also documents an optional `open-identity-stack-admin-seed` secret for first-run admin bootstrapping.
 
 ### Apply and verify
 
@@ -53,14 +42,40 @@ kubectl rollout status deployment/open-identity-stack-api -n open-identity-stack
 kubectl rollout status deployment/open-identity-stack-adminweb -n open-identity-stack --timeout=10m
 ```
 
-### Image location note
+## Container responsibilities
 
-These manifests reference container images in `deploy/open-identity-stack` and may reference image registries
-outside your environment. Update registry names and credentials to match your GitHub Container Registry
-or internal registry strategy.
+### API
 
-## Optional production seed
+The API deployment expects:
 
-For initial onboarding, create an admin seed secret according to your secret management policy
-and use it to create an initial super-admin user.
+- `ConnectionStrings__openidentitystack`
+- `AllowedCorsOrigins`
+- mounted certificate and private key files for signing and encryption
 
+### Admin web
+
+The admin web deployment reads its browser-facing configuration from the shared config map. It should point at the public authority and API paths that your users will actually reach.
+
+### Database migrator
+
+The migrator runs schema updates and can seed:
+
+- admin web client redirect URIs
+- an initial admin account through the optional seed secret
+
+## Production readiness checklist
+
+Before first login, confirm:
+
+1. certificate and key rotation ownership is defined
+2. backup and restore for PostgreSQL is in place
+3. admin bootstrap credentials are protected
+4. browser origins are explicitly configured
+5. health endpoints and logs are wired into operations tooling
+
+## Related guides
+
+- [Container installation notes](containers.md)
+- [Configuration overview](../configuration/index.md)
+- [Operations overview](../operations/index.md)
+- [Hardening checklist](../security/hardening-checklist.md)

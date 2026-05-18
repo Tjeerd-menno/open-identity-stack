@@ -1,51 +1,20 @@
-# Troubleshooting
+# Troubleshooting overview
 
-Use this playbook when deployment or login flow does not behave as expected.
+Use this section as a playbook when deployment or sign-in behavior does not match expectations.
 
-## AppHost or startup failures
+## Start with the symptom
 
-- **Container or service fails immediately**
-  1. Confirm local ports are not already in use.
-  2. Confirm `.NET` and Node prerequisites are installed.
-  3. Review AppHost terminal output for stack trace details.
-- **Long startup or hanging migrations**
-  1. Verify PostgreSQL container is healthy and accepting connections.
-  2. Retry with `OPENIDENTITYSTACK_DISABLE_DATA_VOLUME=true` if migration state is corrupted.
+- [Startup failures](troubleshooting/startup-failures.md)
+- [Database and migration issues](troubleshooting/database-and-migration-issues.md)
+- [Login and token issues](troubleshooting/login-and-token-issues.md)
+- [Certificates and key issues](troubleshooting/certificates-and-key-issues.md)
+- [Reverse proxy and CORS issues](troubleshooting/reverse-proxy-and-cors-issues.md)
+- [Clients and service accounts](troubleshooting/clients-and-service-accounts.md)
 
-## DB and migration issues
+## What to collect before escalating
 
-- **Migration did not run**
-  - Confirm DbMigrator is in the composition.
-  - Check startup order and database credentials.
-  - Retry after recreating database credentials.
-
-## Auth and certificate issues
-
-- **Token validation or sign-in fails**
-  - Confirm signing/encryption material is configured.
-  - Verify token issuer/audience settings in your deployment.
-- **Certificate password errors**
-  - Re-check secret names and value encoding.
-
-## Reverse proxy and CORS
-
-- If calls work in local mode but fail behind load balancer / ingress:
-  - check `ForwardedHeaders` handling
-  - confirm `AllowedCorsOrigins` includes the admin/API origins
-  - confirm TLS termination path and headers are preserved
-
-## Client registration and service accounts
-
-- Confirm client IDs and secrets are set in the expected environment.
-- Recheck callback URLs and grant types for each client.
-- Validate the secret is current and not expired.
-
-## Escalation checklist
-
-When opening an issue, include:
-
-- deployment target and compose path used
-- exact error output block
-- environment variables marked secret-safe
-- steps already performed from this document
-
+- deployment target and environment
+- exact error text
+- recent configuration changes
+- health check results
+- relevant logs from API, admin web, or migrator

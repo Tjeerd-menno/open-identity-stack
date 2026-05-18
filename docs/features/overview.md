@@ -1,22 +1,40 @@
-# Features
+# Features overview
 
-OpenIdentityStack gives product teams a practical identity and access-management platform.
+OpenIdentityStack gives platform teams a self-hosted identity service with administrator tooling and application-facing standards support.
 
-## What teams use it for
+## Identity and login
 
-- Centralizing identity across multiple applications
-- Managing administrators and tenant-aware role assignment
-- Integrating external providers
-- Issuing OAuth 2.0 and OpenID Connect tokens
-- Running service-to-service authentication via client credentials
-- Operating a secure admin UI for governance and audits
-- Running versioned DB migrations and controlled deployment updates
+- OpenID Connect and OAuth 2.0 authority built on OpenIddict
+- authorization code with PKCE for interactive applications
+- client credentials for service-to-service workloads
+- refresh token support for longer-lived signed-in sessions
+- local user accounts and external identity provider federation
 
-## What it is not
+## Administration
 
-- A low-touch identity SaaS
-- A replacement for product-level authorization logic
-- A service mesh or API gateway replacement
+- user lifecycle management
+- role-based access control
+- group membership and delegated permission boundaries
+- client registration and redirect URI management
+- service account creation, secret rotation, and certificate association
+- session visibility and revocation
 
-This project is self-contained and intended to be integrated by platform and backend teams.
+## Operations
 
+- separate database migrator for schema and seed work
+- container images for API, admin web, and migrator
+- Kubernetes deployment manifests with CNPG and cert-manager examples
+- Windows service packaging for API-hosted environments
+- readiness and liveness endpoints for operational checks
+
+## Security posture
+
+- signing and encryption certificate support for production tokens
+- database-backed data-protection keys
+- forwarded header validation support
+- rate limiting on login and token endpoints
+- environment-specific CORS behavior for admin web access
+
+## Product boundaries
+
+OpenIdentityStack is meant to be the identity system of record and token issuer for your applications. It does not replace application-specific authorization rules, edge routing, or API gateway policy.
