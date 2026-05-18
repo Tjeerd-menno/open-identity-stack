@@ -35,7 +35,7 @@ The API and migrator consume certificate and private key file paths for:
 - OpenIddict signing
 - OpenIddict encryption
 
-In the Kubernetes example, PEM material is projected into `/var/run/openiddict-certs`.
+For Kubernetes deployments, a common convention is to project PEM material into `/var/run/openiddict-certs`.
 
 ## Local composition toggles
 
