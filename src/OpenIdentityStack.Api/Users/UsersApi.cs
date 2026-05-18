@@ -11,6 +11,7 @@ using OpenIdentityStack.Application.Users.Commands;
 using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Federation;
+using OpenIdentityStack.Domain.Users;
 
 using SharedKernel;
 namespace OpenIdentityStack.Api.Users;
@@ -145,7 +146,11 @@ internal static class UsersApi
         [FromServices] ICreateUserUseCase createUserUseCase,
         [FromBody] CreateUserRequest request)
     {
-        var command = new CreateUserCommand(request.Email, request.DisplayName, request.Password);
+        var command = new CreateUserCommand(
+            request.Email,
+            request.DisplayName,
+            request.Password,
+            request.Profile is null ? null : ToUserProfileData(request.Profile));
         Result<CreateUserResult> result = await createUserUseCase.ExecuteAsync(command);
 
         if (result.IsFailure)
@@ -183,7 +188,8 @@ internal static class UsersApi
             result.Value.MfaEnabled,
             result.Value.LastLoginAt,
             result.Value.CreatedAt,
-            result.Value.ModifiedAt);
+            result.Value.ModifiedAt,
+            ToUserProfileResponse(result.Value.Profile));
 
         return TypedResults.Ok(response);
     }
@@ -225,6 +231,10 @@ internal static class UsersApi
         [FromBody] UpdateUserRequest request)
     {
         var command = new UpdateUserCommand(new UserId(id), request.DisplayName);
+        if (request.Profile is not null)
+        {
+            command = command with { Profile = ToUserProfileData(request.Profile) };
+        }
         Result<UpdateUserResult> result = await updateUserUseCase.ExecuteAsync(command);
 
         if (result.IsFailure)
@@ -440,5 +450,33 @@ internal static class UsersApi
 
         return TypedResults.NoContent();
     }
+
+    private static UserProfileData ToUserProfileData(UserProfileRequest request) => new(
+        request.GivenName,
+        request.FamilyName,
+        request.MiddleName,
+        request.Nickname,
+        request.PreferredUsername,
+        request.Profile,
+        request.Picture,
+        request.Website,
+        request.Gender,
+        request.Birthdate,
+        request.ZoneInfo,
+        request.Locale);
+
+    private static UserProfileResponse ToUserProfileResponse(UserProfileData profile) => new(
+        profile.GivenName,
+        profile.FamilyName,
+        profile.MiddleName,
+        profile.Nickname,
+        profile.PreferredUsername,
+        profile.Profile,
+        profile.Picture,
+        profile.Website,
+        profile.Gender,
+        profile.Birthdate,
+        profile.ZoneInfo,
+        profile.Locale);
 
 }

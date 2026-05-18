@@ -216,6 +216,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         string email,
         string displayName,
         string password,
+        UserProfileData? profile = null,
         CancellationToken cancellationToken = default)
     {
         using IServiceScope scope = _serviceProvider.CreateScope();
@@ -235,7 +236,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
             return existingUser.Id.Value;
         }
 
-        var command = new CreateUserCommand(email, displayName, password);
+        var command = new CreateUserCommand(email, displayName, password, profile);
         Result<CreateUserResult> result = await createUserUseCase.ExecuteAsync(command, cancellationToken);
         if (result.IsFailure)
         {
@@ -250,6 +251,32 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         }
 
         return result.Value.UserId.Value;
+    }
+
+    public async Task DisableUserAsync(Guid userId, string reason = "Test disabled user", CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        IUserRepository userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+        IDateTimeProvider dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+
+        User? user = await userRepository.GetByIdAsync(new UserId(userId), cancellationToken);
+        if (user is null)
+        {
+            throw new InvalidOperationException("User not found.");
+        }
+
+        if (user.Status == UserStatus.PendingVerification)
+        {
+            user.VerifyEmail(dateTimeProvider);
+        }
+
+        Result result = user.Disable(reason, dateTimeProvider);
+        if (result.IsFailure)
+        {
+            throw new InvalidOperationException(result.Error.Description);
+        }
+
+        await userRepository.SaveChangesAsync(cancellationToken);
     }
 
     public async Task VerifyUserAsync(Guid userId, CancellationToken cancellationToken = default)

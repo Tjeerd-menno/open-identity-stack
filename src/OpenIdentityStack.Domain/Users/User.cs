@@ -30,6 +30,71 @@ public sealed partial class User : AggregateRoot<UserId>
     public string DisplayName { get; private set; } = string.Empty;
 
     /// <summary>
+    /// Gets the user's given name.
+    /// </summary>
+    public string? GivenName { get; private set; }
+
+    /// <summary>
+    /// Gets the user's family name.
+    /// </summary>
+    public string? FamilyName { get; private set; }
+
+    /// <summary>
+    /// Gets the user's middle name.
+    /// </summary>
+    public string? MiddleName { get; private set; }
+
+    /// <summary>
+    /// Gets the user's nickname.
+    /// </summary>
+    public string? Nickname { get; private set; }
+
+    /// <summary>
+    /// Gets the user's preferred username.
+    /// </summary>
+    public string? PreferredUsername { get; private set; }
+
+    /// <summary>
+    /// Gets the normalized (uppercase) preferred username for case-insensitive lookups.
+    /// </summary>
+    public string? NormalizedPreferredUsername { get; private set; }
+
+    /// <summary>
+    /// Gets the user's profile page URL.
+    /// </summary>
+    public string? Profile { get; private set; }
+
+    /// <summary>
+    /// Gets the user's profile picture URL.
+    /// </summary>
+    public string? Picture { get; private set; }
+
+    /// <summary>
+    /// Gets the user's website URL.
+    /// </summary>
+    public string? Website { get; private set; }
+
+    /// <summary>
+    /// Gets the user's gender.
+    /// </summary>
+    public string? Gender { get; private set; }
+
+    /// <summary>
+    /// Gets the user's birthdate.
+    /// </summary>
+    public string? Birthdate { get; private set; }
+
+    /// <summary>
+    /// Gets the user's time zone identifier.
+    /// </summary>
+    public string? ZoneInfo { get; private set; }
+
+    /// <summary>
+    /// Gets the user's locale.
+    /// </summary>
+    public string? Locale { get; private set; }
+
+    /// <summary>
     /// Gets the hashed password. Null for federated-only users.
     /// </summary>
     public string? PasswordHash { get; private set; }
@@ -72,11 +137,13 @@ public sealed partial class User : AggregateRoot<UserId>
         string email,
         string displayName,
         string? passwordHash,
+        UserProfileData? profile,
         DateTimeOffset createdAt) : base(id)
     {
         this.Email = email;
         this.NormalizedEmail = email.ToUpperInvariant();
         this.DisplayName = displayName;
+        ApplyProfileData(profile);
         this.PasswordHash = passwordHash;
         this.Status = passwordHash is null ? UserStatus.Active : UserStatus.PendingVerification;
         this.MfaEnabled = false;
@@ -92,9 +159,10 @@ public sealed partial class User : AggregateRoot<UserId>
         string email,
         string displayName,
         string passwordHash,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        UserProfileData? profile = null)
     {
-        Result validationResult = ValidateUserInput(email, displayName);
+        Result validationResult = ValidateUserInput(email, displayName, profile);
         if (validationResult.IsFailure)
         {
             return validationResult.Error;
@@ -110,6 +178,7 @@ public sealed partial class User : AggregateRoot<UserId>
             email.Trim(),
             displayName.Trim(),
             passwordHash,
+            profile,
             dateTimeProvider.UtcNow);
 
         user.RaiseDomainEvent(new UserDomainEvents.UserCreated(
@@ -127,9 +196,10 @@ public sealed partial class User : AggregateRoot<UserId>
     public static Result<User> CreateFederated(
         string email,
         string displayName,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        UserProfileData? profile = null)
     {
-        Result validationResult = ValidateUserInput(email, displayName);
+        Result validationResult = ValidateUserInput(email, displayName, profile);
         if (validationResult.IsFailure)
         {
             return validationResult.Error;
@@ -140,6 +210,7 @@ public sealed partial class User : AggregateRoot<UserId>
             email.Trim(),
             displayName.Trim(),
             passwordHash: null,
+            profile,
             dateTimeProvider.UtcNow);
 
         user.RaiseDomainEvent(new UserDomainEvents.UserCreated(
@@ -159,9 +230,10 @@ public sealed partial class User : AggregateRoot<UserId>
         string displayName,
         UpstreamProviderId providerId,
         string providerName,
-        string subjectId)
+        string subjectId,
+        UserProfileData? profile = null)
     {
-        Result validationResult = ValidateFederatedUserInput(email, displayName);
+        Result validationResult = ValidateFederatedUserInput(email, displayName, profile);
         if (validationResult.IsFailure)
         {
             return validationResult.Error;
@@ -178,6 +250,7 @@ public sealed partial class User : AggregateRoot<UserId>
             email?.Trim() ?? string.Empty,
             displayName?.Trim() ?? email?.Split('@')[0] ?? "User",
             passwordHash: null,
+            profile,
             DateTimeOffset.UtcNow);
 
         user.upstreamIdentities.Add(identityResult.Value);
@@ -295,6 +368,39 @@ public sealed partial class User : AggregateRoot<UserId>
     }
 
     /// <summary>
+    /// Replaces the user's optional profile attributes.
+    /// </summary>
+    public Result UpdateProfile(UserProfileData profile, IDateTimeProvider dateTimeProvider)
+    {
+        Result validationResult = ValidateProfileData(profile);
+        if (validationResult.IsFailure)
+        {
+            return validationResult.Error;
+        }
+
+        ApplyProfileData(profile);
+        this.SetModified(dateTimeProvider.UtcNow);
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Returns the user's optional profile attributes.
+    /// </summary>
+    public UserProfileData GetProfileData() => new(
+        this.GivenName,
+        this.FamilyName,
+        this.MiddleName,
+        this.Nickname,
+        this.PreferredUsername,
+        this.Profile,
+        this.Picture,
+        this.Website,
+        this.Gender,
+        this.Birthdate,
+        this.ZoneInfo,
+        this.Locale);
+
+    /// <summary>
     /// Checks if the user can authenticate.
     /// </summary>
     public bool CanAuthenticate() => this.Status == UserStatus.Active;
@@ -355,7 +461,7 @@ public sealed partial class User : AggregateRoot<UserId>
         return Result.Success();
     }
 
-    private static Result ValidateUserInput(string email, string displayName)
+    private static Result ValidateUserInput(string email, string displayName, UserProfileData? profile)
     {
         if (string.IsNullOrWhiteSpace(email))
         {
@@ -384,10 +490,10 @@ public sealed partial class User : AggregateRoot<UserId>
             return UserErrors.DisplayNameTooLong;
         }
 
-        return Result.Success();
+        return ValidateProfileData(profile);
     }
 
-    private static Result ValidateFederatedUserInput(string? email, string? displayName)
+    private static Result ValidateFederatedUserInput(string? email, string? displayName, UserProfileData? profile)
     {
         // Email is optional for federated users
         if (!string.IsNullOrWhiteSpace(email))
@@ -410,7 +516,168 @@ public sealed partial class User : AggregateRoot<UserId>
             return UserErrors.DisplayNameTooLong;
         }
 
+        return ValidateProfileData(profile);
+    }
+
+    private static Result ValidateProfileData(UserProfileData? profile)
+    {
+        if (profile is null)
+        {
+            return Result.Success();
+        }
+
+        Result validationResult = ValidateMaxLength(profile.GivenName, nameof(User.GivenName), 256);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(profile.FamilyName, nameof(User.FamilyName), 256);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(profile.MiddleName, nameof(User.MiddleName), 256);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(profile.Nickname, nameof(User.Nickname), 256);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidatePreferredUsername(profile.PreferredUsername);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateAbsoluteUri(profile.Profile, nameof(User.Profile));
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateAbsoluteUri(profile.Picture, nameof(User.Picture));
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateAbsoluteUri(profile.Website, nameof(User.Website));
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(profile.Gender, nameof(User.Gender), 64);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(profile.Birthdate, nameof(User.Birthdate), 32);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(profile.ZoneInfo, nameof(User.ZoneInfo), 128);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(profile.Locale, nameof(User.Locale), 35);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
         return Result.Success();
+    }
+
+    private static Result ValidateMaxLength(string? value, string fieldName, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Result.Success();
+        }
+
+        return value.Trim().Length <= maxLength
+            ? Result.Success()
+            : Result.Failure(UserErrors.ProfileFieldTooLong(fieldName, maxLength));
+    }
+
+    private static Result ValidatePreferredUsername(string? preferredUsername)
+    {
+        if (string.IsNullOrWhiteSpace(preferredUsername))
+        {
+            return Result.Success();
+        }
+
+        string trimmed = preferredUsername.Trim();
+        if (trimmed.Length > 64)
+        {
+            return Result.Failure(UserErrors.ProfileFieldTooLong(nameof(User.PreferredUsername), 64));
+        }
+
+        foreach (char character in trimmed)
+        {
+            if (char.IsLetterOrDigit(character) || character is '-' or '_' or '.')
+            {
+                continue;
+            }
+
+            return Result.Failure(UserErrors.PreferredUsernameInvalid);
+        }
+
+        return Result.Success();
+    }
+
+    private static Result ValidateAbsoluteUri(string? value, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Result.Success();
+        }
+
+        if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out Uri? uri))
+        {
+            return Result.Failure(UserErrors.ProfileUriInvalid(fieldName));
+        }
+
+        // Only allow HTTP and HTTPS schemes to prevent XSS vectors like javascript: or data:
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+        {
+            return Result.Failure(UserErrors.ProfileUriInvalid(fieldName));
+        }
+
+        return Result.Success();
+    }
+
+    private static string? NormalizeOptionalValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private void ApplyProfileData(UserProfileData? profile)
+    {
+        this.GivenName = NormalizeOptionalValue(profile?.GivenName);
+        this.FamilyName = NormalizeOptionalValue(profile?.FamilyName);
+        this.MiddleName = NormalizeOptionalValue(profile?.MiddleName);
+        this.Nickname = NormalizeOptionalValue(profile?.Nickname);
+        this.PreferredUsername = NormalizeOptionalValue(profile?.PreferredUsername);
+        this.NormalizedPreferredUsername = this.PreferredUsername?.ToUpperInvariant();
+        this.Profile = NormalizeOptionalValue(profile?.Profile);
+        this.Picture = NormalizeOptionalValue(profile?.Picture);
+        this.Website = NormalizeOptionalValue(profile?.Website);
+        this.Gender = NormalizeOptionalValue(profile?.Gender);
+        this.Birthdate = NormalizeOptionalValue(profile?.Birthdate);
+        this.ZoneInfo = NormalizeOptionalValue(profile?.ZoneInfo);
+        this.Locale = NormalizeOptionalValue(profile?.Locale);
     }
 
     [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
@@ -475,6 +742,17 @@ public static class UserErrors
     public static readonly DomainError DisplayNameTooLong =
         DomainError.Validation("User.DisplayNameTooLong", "Display name cannot exceed 256 characters.");
 
+    public static DomainError ProfileFieldTooLong(string fieldName, int maxLength) =>
+        DomainError.Validation($"User.{fieldName}TooLong", $"{fieldName} cannot exceed {maxLength} characters.");
+
+    public static DomainError ProfileUriInvalid(string fieldName) =>
+        DomainError.Validation($"User.{fieldName}Invalid", $"{fieldName} must be an absolute URI.");
+
+    public static readonly DomainError PreferredUsernameInvalid =
+        DomainError.Validation(
+            "User.PreferredUsernameInvalid",
+            "PreferredUsername may only contain letters, digits, hyphens, underscores, and periods.");
+
     public static readonly DomainError PasswordRequired =
         DomainError.Validation("User.PasswordRequired", "Password is required for local users.");
 
@@ -486,6 +764,9 @@ public static class UserErrors
 
     public static readonly DomainError EmailAlreadyExists =
         DomainError.Conflict("User.EmailAlreadyExists", "A user with this email already exists.");
+
+    public static readonly DomainError PreferredUsernameAlreadyExists =
+        DomainError.Conflict("User.PreferredUsernameAlreadyExists", "A user with this preferred username already exists.");
 
     public static readonly DomainError NotFound =
         DomainError.NotFound("User.NotFound", "User not found.");

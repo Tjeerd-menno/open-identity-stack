@@ -64,6 +64,7 @@ export interface User {
   lastLoginAt: string | null;
   createdAt: string;
   modifiedAt: string | null;
+  profile: UserProfile;
 }
 
 export interface UserListItem {
@@ -78,10 +79,42 @@ export interface CreateUserRequest {
   email: string;
   displayName: string;
   password: string;
+  profile?: UserProfileRequest;
 }
 
 export interface UpdateUserRequest {
   displayName?: string;
+  profile?: UserProfileRequest;
+}
+
+export interface UserProfile {
+  givenName: string | null;
+  familyName: string | null;
+  middleName: string | null;
+  nickname: string | null;
+  preferredUsername: string | null;
+  profile: string | null;
+  picture: string | null;
+  website: string | null;
+  gender: string | null;
+  birthdate: string | null;
+  zoneInfo: string | null;
+  locale: string | null;
+}
+
+export interface UserProfileRequest {
+  givenName?: string | null;
+  familyName?: string | null;
+  middleName?: string | null;
+  nickname?: string | null;
+  preferredUsername?: string | null;
+  profile?: string | null;
+  picture?: string | null;
+  website?: string | null;
+  gender?: string | null;
+  birthdate?: string | null;
+  zoneInfo?: string | null;
+  locale?: string | null;
 }
 
 export interface DisableUserRequest {

@@ -35,6 +35,7 @@ public sealed class GetUserQueryHandler : IGetUserQueryHandler
             user.MfaEnabled,
             user.LastLoginAt,
             user.CreatedAt,
-            user.ModifiedAt);
+            user.ModifiedAt,
+            user.GetProfileData());
     }
 }

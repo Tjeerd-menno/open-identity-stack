@@ -12,6 +12,7 @@ namespace OpenIdentityStack.Api.Users;
 /// <param name="LastLoginAt">The last login time.</param>
 /// <param name="CreatedAt">When the user was created.</param>
 /// <param name="ModifiedAt">When the user was last modified.</param>
+/// <param name="Profile">Optional profile attributes.</param>
 public sealed record UserResponse(
     Guid Id,
     string Email,
@@ -20,7 +21,8 @@ public sealed record UserResponse(
     bool MfaEnabled,
     DateTimeOffset? LastLoginAt,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? ModifiedAt);
+    DateTimeOffset? ModifiedAt,
+    UserProfileResponse Profile);
 
 /// <summary>
 /// Response for a user in a list.
@@ -121,3 +123,20 @@ public sealed record LinkUpstreamIdentityResponse(
     Guid ProviderId,
     string SubjectId,
     DateTimeOffset LinkedAt);
+
+/// <summary>
+/// User profile attributes exposed as OpenID Connect standard profile claims.
+/// </summary>
+public sealed record UserProfileResponse(
+    string? GivenName,
+    string? FamilyName,
+    string? MiddleName,
+    string? Nickname,
+    string? PreferredUsername,
+    string? Profile,
+    string? Picture,
+    string? Website,
+    string? Gender,
+    string? Birthdate,
+    string? ZoneInfo,
+    string? Locale);

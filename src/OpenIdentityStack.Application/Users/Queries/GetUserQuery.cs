@@ -20,6 +20,7 @@ public sealed record GetUserQuery(UserId UserId);
 /// <param name="LastLoginAt">The last login time.</param>
 /// <param name="CreatedAt">When the user was created.</param>
 /// <param name="ModifiedAt">When the user was last modified.</param>
+/// <param name="Profile">Optional profile attributes.</param>
 public sealed record GetUserResult(
     UserId Id,
     string Email,
@@ -28,7 +29,8 @@ public sealed record GetUserResult(
     bool MfaEnabled,
     DateTimeOffset? LastLoginAt,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? ModifiedAt);
+    DateTimeOffset? ModifiedAt,
+    UserProfileData Profile);
 
 /// <summary>
 /// Interface for the get user query handler.

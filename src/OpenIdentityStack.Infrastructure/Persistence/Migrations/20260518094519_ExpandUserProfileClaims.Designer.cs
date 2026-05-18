@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OpenIdentityStack.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using OpenIdentityStack.Infrastructure.Persistence;
 namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(OpenIdentityStackDbContext))]
-    partial class OpenIdentityStackDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260518094519_ExpandUserProfileClaims")]
+    partial class ExpandUserProfileClaims
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -972,10 +975,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<string>("NormalizedPreferredUsername")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
@@ -1009,9 +1008,9 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_Users_NormalizedEmail");
 
-                    b.HasIndex("NormalizedPreferredUsername")
+                    b.HasIndex("PreferredUsername")
                         .IsUnique()
-                        .HasDatabaseName("IX_Users_NormalizedPreferredUsername");
+                        .HasDatabaseName("IX_Users_PreferredUsername");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("IX_Users_Status");

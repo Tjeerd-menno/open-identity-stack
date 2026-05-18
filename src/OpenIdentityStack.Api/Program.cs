@@ -16,6 +16,7 @@ using OpenIdentityStack.Api.Sessions;
 using OpenIdentityStack.Api.ServiceAccounts;
 using OpenIdentityStack.Api.Federation;
 using OpenIdentityStack.Api.Settings;
+using OpenIdentityStack.Infrastructure.Identity;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Hosting.WindowsServices;
@@ -272,6 +273,8 @@ app.UseSecurityHeaders();
 
 app.UseRateLimiter();
 
+app.UseAuthorizationErrorRedirects();
+
 // Debug logging for authorization headers (development only)
 if (app.Environment.IsDevelopment())
 {
@@ -308,6 +311,7 @@ app.MapControllers();
 // Map Minimal API endpoints
 app.MapClientsApi();
 app.MapUsersApi();
+app.MapPublicProfilesApi();
 app.MapRolesApi();
 app.MapGroupsApi();
 app.MapSessionsApi();

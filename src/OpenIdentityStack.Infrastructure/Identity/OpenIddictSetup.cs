@@ -2,6 +2,7 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using OpenIddict.Abstractions;
 using OpenIdentityStack.Infrastructure.Persistence;
 
 namespace OpenIdentityStack.Infrastructure.Identity;
@@ -37,25 +38,73 @@ public static class OpenIddictSetup
             // Register the OpenIddict server components
             .AddServer(options =>
             {
-                // Enable the authorization, token, userinfo, introspection, and revocation endpoints
-                options.SetAuthorizationEndpointUris("connect/authorize")
-                    .SetTokenEndpointUris("connect/token")
-                    .SetUserInfoEndpointUris("connect/userinfo")
-                    .SetIntrospectionEndpointUris("connect/introspect")
-                    .SetRevocationEndpointUris("connect/revoke")
-                    .SetEndSessionEndpointUris("connect/logout")
-                    .SetConfigurationEndpointUris(".well-known/openid-configuration")
-                    .SetJsonWebKeySetEndpointUris(".well-known/jwks");
+                string? configuredIssuer = configuration["OpenIddict:Issuer"];
+                Uri? issuer = null;
+                if (!string.IsNullOrWhiteSpace(configuredIssuer))
+                {
+                    issuer = new Uri(configuredIssuer, UriKind.Absolute);
+                    options.SetIssuer(issuer);
+                }
 
-                // Enable the authorization code flow with PKCE
-                options.AllowAuthorizationCodeFlow()
-                    .RequireProofKeyForCodeExchange();
+                // Enable the authorization, token, userinfo, introspection, and revocation endpoints
+                if (issuer is not null)
+                {
+                    options.SetAuthorizationEndpointUris(new Uri(issuer, "connect/authorize"))
+                        .SetTokenEndpointUris(new Uri(issuer, "connect/token"))
+                        .SetUserInfoEndpointUris(new Uri(issuer, "connect/userinfo"))
+                        .SetIntrospectionEndpointUris(new Uri(issuer, "connect/introspect"))
+                        .SetRevocationEndpointUris(new Uri(issuer, "connect/revoke"))
+                        .SetEndSessionEndpointUris(new Uri(issuer, "connect/logout"))
+                        .SetConfigurationEndpointUris(new Uri(issuer, ".well-known/openid-configuration"))
+                        .SetJsonWebKeySetEndpointUris(new Uri(issuer, ".well-known/jwks"));
+                }
+                else
+                {
+                    options.SetAuthorizationEndpointUris("connect/authorize")
+                        .SetTokenEndpointUris("connect/token")
+                        .SetUserInfoEndpointUris("connect/userinfo")
+                        .SetIntrospectionEndpointUris("connect/introspect")
+                        .SetRevocationEndpointUris("connect/revoke")
+                        .SetEndSessionEndpointUris("connect/logout")
+                        .SetConfigurationEndpointUris(".well-known/openid-configuration")
+                        .SetJsonWebKeySetEndpointUris(".well-known/jwks");
+                }
+
+                // Enable the authorization code flow. PKCE is enforced per client
+                // so confidential certification clients can still exercise the
+                // non-PKCE Basic OP conformance path.
+                options.AllowAuthorizationCodeFlow();
 
                 // Enable the client credentials flow for service accounts
                 options.AllowClientCredentialsFlow();
 
                 // Enable the refresh token flow
                 options.AllowRefreshTokenFlow();
+
+                options.RegisterScopes(
+                    OpenIddictConstants.Scopes.Profile,
+                    OpenIddictConstants.Scopes.Email,
+                    OpenIddictConstants.Scopes.Roles,
+                    "api");
+
+                options.RegisterClaims(
+                    OpenIddictConstants.Claims.AuthenticationTime,
+                    OpenIddictConstants.Claims.Name,
+                    OpenIddictConstants.Claims.GivenName,
+                    OpenIddictConstants.Claims.FamilyName,
+                    OpenIddictConstants.Claims.MiddleName,
+                    OpenIddictConstants.Claims.Nickname,
+                    OpenIddictConstants.Claims.PreferredUsername,
+                    OpenIddictConstants.Claims.Profile,
+                    OpenIddictConstants.Claims.Picture,
+                    OpenIddictConstants.Claims.Website,
+                    OpenIddictConstants.Claims.Gender,
+                    OpenIddictConstants.Claims.Birthdate,
+                    OpenIddictConstants.Claims.Zoneinfo,
+                    OpenIddictConstants.Claims.Locale,
+                    OpenIddictConstants.Claims.UpdatedAt,
+                    OpenIddictConstants.Claims.Email,
+                    OpenIddictConstants.Claims.EmailVerified);
 
                 string? signingBase64 = configuration["OpenIddict:Certificates:Signing:Base64"];
                 string? signingPath = configuration["OpenIddict:Certificates:Signing:Path"];
@@ -90,9 +139,6 @@ public static class OpenIddictSetup
                     throw new InvalidOperationException("OpenIddict signing and encryption certificates must be configured outside Development/Testing.");
                 }
 
-                // Force client applications to use Proof Key for Code Exchange (PKCE)
-                options.RequireProofKeyForCodeExchange();
-
                 // Register the ASP.NET Core host and configure the authorization endpoint
                 // to allow the /authorize minimal API endpoint to handle authorization requests
                 OpenIddictServerAspNetCoreBuilder aspNetCoreBuilder = options.UseAspNetCore()
@@ -114,6 +160,12 @@ public static class OpenIddictSetup
 
                 // Add ServiceAccount validation handler for custom client validation
                 options.AddServiceAccountValidation();
+
+                // Keep OpenIddict's storage identifiers out of public ID tokens.
+                options.AddInternalTokenClaimTrimming();
+
+                // Redirect request-object capability errors back to validated clients.
+                options.AddAuthorizationErrorRedirects();
 
                 // Add session management handlers (session_state + check_session_iframe)
                 options.AddSessionManagement();

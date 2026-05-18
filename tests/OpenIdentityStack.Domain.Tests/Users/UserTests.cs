@@ -189,6 +189,62 @@ public sealed class UserTests
         result.Value.DisplayName.ShouldBe("Test User");
     }
 
+    [Fact]
+    public void CreateLocal_WithProfileData_SetsAndTrimsProfileFields()
+    {
+        // Arrange
+        UserProfileData profile = new(
+            GivenName: "  Alice  ",
+            FamilyName: "  Example ",
+            PreferredUsername: " alice.example ",
+            Profile: " https://profiles.example.test/alice ",
+            Picture: " https://profiles.example.test/alice/avatar.svg ",
+            Website: " https://profiles.example.test/alice ",
+            Gender: " female ",
+            Birthdate: " 1990-01-15 ",
+            ZoneInfo: " Europe/Amsterdam ",
+            Locale: " en-NL ");
+
+        // Act
+        Result<User> result = User.CreateLocal("alice@example.test", "Alice Example", "password", this._dateTimeProvider, profile);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.GivenName.ShouldBe("Alice");
+        result.Value.FamilyName.ShouldBe("Example");
+        result.Value.PreferredUsername.ShouldBe("alice.example");
+        result.Value.Profile.ShouldBe("https://profiles.example.test/alice");
+        result.Value.Picture.ShouldBe("https://profiles.example.test/alice/avatar.svg");
+        result.Value.Website.ShouldBe("https://profiles.example.test/alice");
+        result.Value.Gender.ShouldBe("female");
+        result.Value.Birthdate.ShouldBe("1990-01-15");
+        result.Value.ZoneInfo.ShouldBe("Europe/Amsterdam");
+        result.Value.Locale.ShouldBe("en-NL");
+    }
+
+    [Theory]
+    [InlineData("alice example", null, "Validation.User.PreferredUsernameInvalid")]
+    [InlineData(null, "/profiles/alice", "Validation.User.ProfileInvalid")]
+    [InlineData(null, "javascript:alert('xss')", "Validation.User.ProfileInvalid")]
+    [InlineData(null, "data:text/html,<script>alert('xss')</script>", "Validation.User.ProfileInvalid")]
+    public void CreateLocal_WithInvalidProfileData_ReturnsFailure(
+        string? invalidPreferredUsername,
+        string? invalidProfileUri,
+        string expectedErrorCode)
+    {
+        // Arrange
+        UserProfileData profile = new(
+            PreferredUsername: invalidPreferredUsername,
+            Profile: invalidProfileUri);
+
+        // Act
+        Result<User> result = User.CreateLocal("alice@example.test", "Alice Example", "password", this._dateTimeProvider, profile);
+
+        // Assert
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe(expectedErrorCode);
+    }
+
     #endregion
 
     #region CreateFederated Tests
@@ -417,6 +473,29 @@ public sealed class UserTests
         // Assert
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Validation.User.DisplayNameTooLong");
+    }
+
+    [Fact]
+    public void UpdateProfile_WithValidValues_UpdatesProfileAndModifiedAt()
+    {
+        // Arrange
+        User user = User.CreateLocal("alice@example.test", "Alice Example", "password", this._dateTimeProvider).Value;
+        UserProfileData profile = new(
+            GivenName: "Alice",
+            FamilyName: "Example",
+            PreferredUsername: "alice.example",
+            Locale: "en-NL");
+
+        // Act
+        Result result = user.UpdateProfile(profile, this._dateTimeProvider);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        user.GivenName.ShouldBe("Alice");
+        user.FamilyName.ShouldBe("Example");
+        user.PreferredUsername.ShouldBe("alice.example");
+        user.Locale.ShouldBe("en-NL");
+        user.ModifiedAt.ShouldBe(this._now);
     }
 
     #endregion
