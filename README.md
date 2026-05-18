@@ -17,6 +17,15 @@ OpenIdentityStack is an OpenIddict-based identity and access management stack bu
 - React/Vite admin web UI.
 - Dedicated database migrator for schema updates and development seeding.
 
+## Documentation
+
+User documentation now lives at:
+
+- [OpenIdentityStack Docs](https://tjeerd-menno.github.io/open-identity-stack/)
+
+Use this site for installation, quick start, and operations guidance.
+Developers can still find implementation and engineering notes in the repo's `docs/reference` section.
+
 ## Repository layout
 
 ```text

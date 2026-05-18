@@ -67,7 +67,7 @@ dotnet test tests/OpenIdentityStack.Infrastructure.Tests
 
 - [📊 Full Coverage Analysis](CODE_COVERAGE_ANALYSIS.md)
 - [📖 Coverage Guide & Examples](CODE_COVERAGE_GUIDE.md)
-- [🔧 Scripts](../scripts/)
+- [🔧 Scripts](../../scripts/)
 
 ## Test Execution Status
 

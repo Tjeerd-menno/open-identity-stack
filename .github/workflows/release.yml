@@ -16,7 +16,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/tjeerd-menno/open-identity-stack
-  VERSION: ${{ github.event.inputs.version || github.ref_name }}
+  RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
 
 jobs:
   publish-containers:
@@ -45,23 +45,26 @@ jobs:
             context: src/OpenIdentityStack.AdminWeb
             dockerfile: src/OpenIdentityStack.AdminWeb/Dockerfile
     steps:
-      - name: Validate release version
+      - name: Resolve and validate release version
         shell: pwsh
         run: |
-          if ($env:VERSION -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') {
-            throw "Invalid release version '$env:VERSION'. Expected vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-prerelease."
+          $tag = "${{ env.RELEASE_TAG }}"
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') {
+            throw "Invalid release version '$tag'. Expected vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-prerelease."
           }
           if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            git ls-remote --exit-code --tags "https://github.com/$env:GITHUB_REPOSITORY.git" "refs/tags/$env:VERSION"
+            git ls-remote --exit-code --tags "https://github.com/$env:GITHUB_REPOSITORY.git" "refs/tags/$tag"
             if (-not $?) {
-              throw "Release tag '$env:VERSION' does not exist in repository '$env:GITHUB_REPOSITORY'."
+              throw "Release tag '$tag' does not exist in repository '$env:GITHUB_REPOSITORY'."
             }
           }
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PACKAGE_VERSION=$($tag.TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ env.VERSION }}
+          ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
 
       - name: Set up Docker Buildx
@@ -80,7 +83,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
           tags: |
-            type=raw,value=${{ env.VERSION }}
+            type=raw,value=${{ env.RELEASE_TAG }}
             type=sha,prefix=sha-
           labels: |
             org.opencontainers.image.title=OpenIdentityStack ${{ matrix.name }}
@@ -113,23 +116,26 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Validate release version
+      - name: Resolve and validate release version
         shell: pwsh
         run: |
-          if ($env:VERSION -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') {
-            throw "Invalid release version '$env:VERSION'. Expected vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-prerelease."
+          $tag = "${{ env.RELEASE_TAG }}"
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') {
+            throw "Invalid release version '$tag'. Expected vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-prerelease."
           }
           if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            git ls-remote --exit-code --tags "https://github.com/$env:GITHUB_REPOSITORY.git" "refs/tags/$env:VERSION"
+            git ls-remote --exit-code --tags "https://github.com/$env:GITHUB_REPOSITORY.git" "refs/tags/$tag"
             if (-not $?) {
-              throw "Release tag '$env:VERSION' does not exist in repository '$env:GITHUB_REPOSITORY'."
+              throw "Release tag '$tag' does not exist in repository '$env:GITHUB_REPOSITORY'."
             }
           }
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PACKAGE_VERSION=$($tag.TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ env.VERSION }}
+          ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
 
       - name: Setup .NET
@@ -140,8 +146,8 @@ jobs:
       - name: Publish Windows service
         shell: pwsh
         run: |
-          $version = "${{ env.VERSION }}"
-          dotnet publish src\OpenIdentityStack.Api\OpenIdentityStack.Api.csproj -c Release -r win-x64 --self-contained false -o artifacts\publish
+          $version = "${{ env.RELEASE_TAG }}"
+          dotnet publish src\OpenIdentityStack.Api\OpenIdentityStack.Api.csproj -c Release -r win-x64 --self-contained false /p:Version="${{ env.PACKAGE_VERSION }}" -o artifacts\publish
           Copy-Item deploy\windows-service\*.ps1 artifacts\
           Compress-Archive -Path artifacts\publish, artifacts\*.ps1 -DestinationPath "open-identity-stack-api-win-x64-$version.zip"
           Get-FileHash "open-identity-stack-api-win-x64-$version.zip" -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $($_.Path | Split-Path -Leaf)" } | Set-Content "open-identity-stack-api-win-x64-$version.zip.sha256"
@@ -150,6 +156,6 @@ jobs:
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
           files: |
-            open-identity-stack-api-win-x64-${{ env.VERSION }}.zip
-            open-identity-stack-api-win-x64-${{ env.VERSION }}.zip.sha256
-          tag_name: ${{ env.VERSION }}
+            open-identity-stack-api-win-x64-${{ env.RELEASE_TAG }}.zip
+            open-identity-stack-api-win-x64-${{ env.RELEASE_TAG }}.zip.sha256
+          tag_name: ${{ env.RELEASE_TAG }}

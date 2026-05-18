@@ -348,7 +348,7 @@ When in doubt, err on the side of moving it to Api.Tests. Integration tests are 
 
 ## Further Reading
 
-- [Testing Strategy Documentation](../../../docs/TESTING-STRATEGY.md)
-- [Contract Tests README](../OpenIdentityStack.Contract.Tests/README.md)
-- [Integration Tests README](../OpenIdentityStack.Api.Tests/README.md)
-- [Example Contract Tests](../OpenIdentityStack.Contract.Tests/Examples/UserContractExamples.cs)
+- [Testing Strategy Documentation](TESTING-STRATEGY.md)
+- [Contract Tests README](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/tests/OpenIdentityStack.Contract.Tests/README.md)
+- [Integration Tests README](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/tests/OpenIdentityStack.Api.Tests/README.md)
+- [Example Contract Tests](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/tests/OpenIdentityStack.Contract.Tests/Examples/UserContractExamples.cs)

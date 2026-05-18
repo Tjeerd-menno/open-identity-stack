@@ -1,0 +1,114 @@
+site_name: OpenIdentityStack
+site_url: https://tjeerd-menno.github.io/open-identity-stack/
+site_description: OpenIdentityStack documentation for identity operators and platform teams.
+repo_name: Tjeerd-menno/open-identity-stack
+repo_url: https://github.com/Tjeerd-menno/open-identity-stack
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.indexes
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: amber
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: amber
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.keys
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Overview: getting-started/overview.md
+      - Guided setup: getting-started/guided-setup.md
+      - Quick start: getting-started/quick-start.md
+  - Features:
+      - Overview: features/overview.md
+  - Installation:
+      - Local development: installation/local.md
+      - Containers: installation/containers.md
+      - Production (Kubernetes): installation/production.md
+      - Windows service: installation/windows-service.md
+  - Configuration:
+      - Overview: configuration/index.md
+      - Runtime settings: configuration/runtime-settings.md
+      - Environment variables: configuration/environment-variables.md
+  - Operations:
+      - Overview: operations/index.md
+      - Health and observability: operations/health-and-observability.md
+      - Database operations: operations/database-operations.md
+      - Upgrades: operations/upgrades.md
+  - Administration:
+      - Overview: administration/index.md
+      - Users and roles: administration/users-and-roles.md
+      - Groups and delegation: administration/groups-and-delegation.md
+      - Client applications: administration/clients.md
+      - Service accounts: administration/service-accounts.md
+      - Federation providers: administration/federation.md
+      - Sessions: administration/sessions.md
+  - Integrations:
+      - Overview: integrations/index.md
+      - Web app OIDC integration: integrations/web-app-oidc.md
+      - API protection: integrations/api-protection.md
+      - Machine-to-machine access: integrations/machine-to-machine.md
+      - Verify an integration: integrations/verify-integration.md
+  - Troubleshooting:
+      - Overview: troubleshooting.md
+      - Startup failures: troubleshooting/startup-failures.md
+      - Database and migration issues: troubleshooting/database-and-migration-issues.md
+      - Login and token issues: troubleshooting/login-and-token-issues.md
+      - Certificates and key issues: troubleshooting/certificates-and-key-issues.md
+      - Reverse proxy and CORS issues: troubleshooting/reverse-proxy-and-cors-issues.md
+      - Clients and service accounts: troubleshooting/clients-and-service-accounts.md
+  - Security:
+      - Overview: security.md
+      - Hardening checklist: security/hardening-checklist.md
+      - Secrets management: security/secrets-management.md
+      - Certificates and keys: security/certificates-and-keys.md
+      - Backup and recovery: security/backup-and-recovery.md
+  - Reference:
+      - Reference index: reference/index.md
+      - Product reference:
+          - Configuration reference: reference/configuration-reference.md
+          - Endpoint reference: reference/endpoint-reference.md
+          - Standards and flows: reference/standards-and-flows.md
+          - Glossary: reference/glossary.md
+      - Internal reference:
+          - API vs Contract Testing: reference/API-VS-CONTRACT-TESTING-SUMMARY.md
+          - Code coverage guide: reference/CODE_COVERAGE_GUIDE.md
+          - Coverage summary: reference/CODE_COVERAGE_SUMMARY.md
+          - Coverage analysis: reference/CODE_COVERAGE_ANALYSIS.md
+          - Contract test migration guide: reference/CONTRACT-TEST-MIGRATION-GUIDE.md
+          - Testing strategy: reference/TESTING-STRATEGY.md
+          - Coverage interpretation: reference/UNDERSTANDING_COVERAGE.md
+          - GHCR publishing: reference/GHCR-PUBLISHING.md
+          - Production config guide: reference/OPENIDENTITYSTACK_PRODUCTION.md
+      - Certification workbench:
+          - OIDC negative review automation plan: certification/oidf-negative-review-automation-plan.md
+          - OpenID Connect certification scope: certification/openid-connect-certification-scope.md
+          - OIDC conformance suite: certification/run-oidf-conformance-suite.md
+
