@@ -1,6 +1,7 @@
 # OpenIdentityStack
 
 [![CI](https://github.com/Tjeerd-menno/open-identity-stack/actions/workflows/ci.yml/badge.svg)](https://github.com/Tjeerd-menno/open-identity-stack/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-openidentitystack-blue)](https://tjeerd-menno.github.io/open-identity-stack/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 OpenIdentityStack is an OpenIddict-based identity and access management stack built with .NET 10, .NET Aspire, PostgreSQL, and React.
