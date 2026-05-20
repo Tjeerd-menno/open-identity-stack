@@ -62,11 +62,19 @@ jobs:
           restore-keys: ${{ runner.os }}-sonar-scanner
 
       - name: Install SonarQube scanner
-        if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          New-Item -Path "${{ runner.temp }}/scanner" -ItemType Directory -Force | Out-Null
-          dotnet tool update dotnet-sonarscanner --tool-path "${{ runner.temp }}/scanner"
+          $scannerPath = "${{ runner.temp }}/scanner"
+          $scannerExecutable = Join-Path $scannerPath "dotnet-sonarscanner"
+
+          New-Item -Path $scannerPath -ItemType Directory -Force | Out-Null
+
+          if (Test-Path $scannerExecutable) {
+            dotnet tool update dotnet-sonarscanner --tool-path $scannerPath
+          }
+          else {
+            dotnet tool install dotnet-sonarscanner --tool-path $scannerPath
+          }
 
       - name: Begin SonarQube analysis
         env:
