@@ -26,7 +26,7 @@ These have **no tests at all** and represent the highest risk areas.
 
 - [X] T001 [P] Create tests for `ExternalAuthenticationExtensions` in `tests/OpenIdentityStack.Api.Tests/Authentication/ExternalAuthenticationSetupTests.cs`
 - [X] T002 [P] Create tests for `ExternalAuthenticationSetup` in `tests/OpenIdentityStack.Api.Tests/Authentication/ExternalAuthenticationSetupTests.cs`
-- [X] T003 [P] Create tests for `ExternalCallbackController` in `tests/OpenIdentityStack.Api.Tests/Authentication/ExternalCallbackControllerTests.cs`
+- [X] T003 [P] Cover external login callback behavior through `AccountController`; the legacy `ExternalCallbackController` route set has been removed
 - [X] T004 [P] Create tests for `RequireAllPermissionsAttribute` in `tests/OpenIdentityStack.Api.Tests/Authorization/RequireAllPermissionsAttributeTests.cs`
 - [X] T005 [P] Create tests for `RequireAnyPermissionAttribute` in `tests/OpenIdentityStack.Api.Tests/Authorization/RequireAnyPermissionAttributeTests.cs`
 - [X] T006 [P] Create tests for `PagedRequest`, `PagedResponse<T>`, `PagedResponseFactory` in `tests/OpenIdentityStack.Api.Tests/Common/PaginationTests.cs`
@@ -230,7 +230,7 @@ The external authentication flow has 0% coverage. Add integration tests.
 
 - [X] T066 Add coverage threshold to CI pipeline (80% minimum)
 - [X] T067 Create coverage badge for README.md
-- [ ] T068 Run final coverage report and verify 85%+ overall coverage
+- [ ] T068 Run final coverage report and verify 85%+ overall coverage locally and in CI
 
 ---
 

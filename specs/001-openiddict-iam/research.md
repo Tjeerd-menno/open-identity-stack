@@ -164,11 +164,11 @@ app.MapPost("/api/admin/users", async (
 
 ## 1. OpenIddict Configuration & Best Practices
 
-### Decision: Use OpenIddict 7.2.0 with Server + Validation packages
+### Decision: Use OpenIddict 7.5.0 with Server + Validation packages
 
 **Rationale:**
 - OpenIddict is the de facto standard for OIDC/OAuth2 in ASP.NET Core
-- Version 7.2.0 is the latest stable release with full .NET 10 support
+- Version 7.5.0 is the implemented package version in the codebase and is the source of truth for this spec
 - Provides both server (token issuance) and validation (token verification) components
 - Supports EF Core for application/authorization/scope/token storage
 - Includes FAPI 2.0 support and improved performance
@@ -259,9 +259,9 @@ OpenIdentityStack.Infrastructure
 
 ---
 
-## 2a. .NET Aspire 13.1 Integration
+## 2a. .NET Aspire 13.3.x Integration
 
-### Decision: Use .NET Aspire 13.1 for local development orchestration
+### Decision: Use .NET Aspire 13.3.x for local development orchestration
 
 **Rationale:**
 - Simplifies local development with automatic service discovery
@@ -734,8 +734,8 @@ dotnet run --project tests/OpenIdentityStack.Domain.Tests -- --filter "FullyQual
 
 | Area | Decision | Confidence |
 |------|----------|------------|
-| OIDC Framework | OpenIddict 7.2.0 | High |
-| Orchestration | .NET Aspire 13.1 | High |
+| OIDC Framework | OpenIddict 7.5.0 | High |
+| Orchestration | .NET Aspire 13.3.x | High |
 | Architecture | Hexagonal (4 projects) | High |
 | CQRS | Usecase/Query classes | High |
 | ORM | EF Core 10 code-first | High |

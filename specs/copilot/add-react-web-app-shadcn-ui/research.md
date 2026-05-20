@@ -7,7 +7,7 @@
 
 ## 1. React + Vite + TypeScript Setup
 
-### Decision: Use Vite 6+ with React 18+ Template
+### Decision: Use the implemented Vite 8+ with React 19+ TypeScript application
 
 **Rationale**: 
 - Vite provides lightning-fast HMR (Hot Module Replacement)
@@ -16,10 +16,7 @@
 - Excellent development experience with instant server start
 - Native ES modules support
 
-**Setup Approach**:
-```bash
-npm create vite@latest OpenIdentityStack.AdminWeb -- --template react-ts
-```
+**Setup Approach**: The application now lives in `src/OpenIdentityStack.AdminWeb` and uses the checked-in Vite configuration, package manifest, runtime config script, and Aspire integration. Do not recreate the project from a template.
 
 **Key Configuration**:
 
@@ -169,7 +166,7 @@ npx shadcn@latest add input
 
 **Token Storage** (Security-Critical):
 - ✅ **Access Token**: In-memory only (React state/context)
-- ✅ **Refresh Token**: HTTPOnly cookie (set by backend after token exchange)
+- **OIDC state**: session storage via `oidc-client-ts`; access tokens are exposed through the auth context and API interceptor
 - ❌ **NOT in localStorage**: Vulnerable to XSS attacks (per NFR2.1)
 
 **Flow**:
@@ -178,7 +175,7 @@ npx shadcn@latest add input
 3. User authenticates → authorization code returned
 4. Frontend exchanges code for tokens at `/token` endpoint
 5. **Access token**: Stored in memory (React context)
-6. **Refresh token**: Backend sets as HTTPOnly cookie
+6. **OIDC state**: Client stores OIDC state in session storage and passes access tokens through the API interceptor
 7. Access token expires (15-60 min) → silent refresh using cookie
 
 **Configuration**:
@@ -423,7 +420,7 @@ axios.interceptors.response.use(
 ### Decision: Use `AddNpmApp()` Resource Type
 
 **Rationale**:
-- .NET Aspire 13.1.0 has native support for Node.js applications
+- .NET Aspire 13.3.x has native support for Node.js applications
 - Seamless integration with existing AppHost orchestration
 - Automatic environment variable passing
 - Service discovery for API URL resolution
@@ -548,7 +545,7 @@ export default defineConfig({
 
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
-| **Build Tool** | Vite 6+ | Fast HMR, optimal DX, modern ES modules |
+| **Build Tool** | Vite 8+ | Fast HMR, optimal DX, modern ES modules |
 | **UI Library** | Shadcn UI + Tailwind CSS | Accessible, customizable, admin-ready components |
 | **Authentication** | oidc-client-ts | PKCE support, OpenIddict compatibility, secure |
 | **API State** | TanStack Query v5 | Best-in-class data sync, caching, optimistic updates |

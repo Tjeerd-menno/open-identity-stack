@@ -554,3 +554,115 @@ export interface SetDefaultProviderRequest {
 export interface SetLocalFallbackRequest {
   enabled: boolean;
 }
+
+// ============================================================================
+// Service Permission Registry
+// ============================================================================
+
+export interface ServicePermission {
+  id: string;
+  permissionKey: string;
+  fullPermissionKey: string;
+  displayName: string;
+  description: string | null;
+  intendedUse: string | null;
+  documentationUrl: string | null;
+  status: string;
+  isAssignable: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+  deprecatedAt: string | null;
+  disabledAt: string | null;
+  retiredAt: string | null;
+}
+
+export interface DelegatedMaintainer {
+  id: string;
+  principalId: string;
+  principalType: string;
+  grantedBy: string;
+  grantedAt: string;
+}
+
+export interface RegisteredService {
+  id: string;
+  serviceIdentifier: string;
+  displayName: string;
+  description: string | null;
+  ownerId: string;
+  ownerType: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string | null;
+  concurrencyToken: number;
+  permissions: ServicePermission[];
+  maintainers: DelegatedMaintainer[];
+}
+
+export interface RegisteredServiceListItem {
+  id: string;
+  serviceIdentifier: string;
+  displayName: string;
+  ownerId: string;
+  status: string;
+  permissionCount: number;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface RegisterServicePermissionInput {
+  permissionKey: string;
+  displayName: string;
+  description?: string | null;
+  intendedUse?: string | null;
+  documentationUrl?: string | null;
+}
+
+export interface RegisterServiceRequest {
+  serviceIdentifier: string;
+  displayName: string;
+  description?: string | null;
+  ownerId: string;
+  ownerType: string;
+  permissions: RegisterServicePermissionInput[];
+}
+
+export interface UpdateRegisteredServiceRequest {
+  displayName: string;
+  description?: string | null;
+  concurrencyToken?: number;
+}
+
+export interface AddServicePermissionRequest extends RegisterServicePermissionInput {
+  concurrencyToken?: number;
+}
+
+export interface ChangeLifecycleRequest {
+  status: string;
+  acknowledgeDependencies: boolean;
+  concurrencyToken?: number;
+}
+
+export interface TransferServiceOwnershipRequest {
+  ownerId: string;
+  ownerType: string;
+  concurrencyToken?: number;
+}
+
+export interface AddDelegatedMaintainerRequest {
+  principalId: string;
+  principalType: string;
+  concurrencyToken?: number;
+}
+
+export interface RoleAssignmentDependency {
+  permissionKey: string;
+  dependencyType: string;
+  dependentId: string;
+  dependentName: string;
+  isActive: boolean;
+  impact: string;
+}
+
+export type RegisteredServiceListResponse = PaginatedResponse<RegisteredServiceListItem>;
+export type AssignablePermissionCatalogResponse = PaginatedResponse<ServicePermission>;

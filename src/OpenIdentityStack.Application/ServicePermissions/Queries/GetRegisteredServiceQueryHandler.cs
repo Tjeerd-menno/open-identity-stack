@@ -43,7 +43,17 @@ public sealed class GetRegisteredServiceQueryHandler : IGetRegisteredServiceQuer
             p.Status.ToString(),
             p.IsAssignable,
             p.CreatedAt,
-            p.ModifiedAt)).ToList();
+            p.ModifiedAt,
+            p.DeprecatedAt,
+            p.DisabledAt,
+            p.RetiredAt)).ToList();
+
+        var maintainers = service.Maintainers.Select(m => new DelegatedMaintainerDto(
+            m.Id.Value,
+            m.PrincipalId,
+            m.PrincipalType.ToString(),
+            m.GrantedBy,
+            m.GrantedAt)).ToList();
 
         return new RegisteredServiceDto(
             service.Id.Value,
@@ -55,6 +65,8 @@ public sealed class GetRegisteredServiceQueryHandler : IGetRegisteredServiceQuer
             service.Status.ToString(),
             service.CreatedAt,
             service.ModifiedAt,
-            permissions);
+            service.ConcurrencyToken,
+            permissions,
+            maintainers);
     }
 }

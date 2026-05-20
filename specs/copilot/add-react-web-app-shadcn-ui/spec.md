@@ -131,7 +131,7 @@ Add a modern React-based web application with Shadcn UI component library to pro
 ## Technical Constraints
 
 ### TC1: Technology Stack
-- **React 18+** with TypeScript
+- **React 19+** with TypeScript 6+
 - **Vite** as build tool
 - **Shadcn UI** component library
 - **TanStack Query** (React Query) for API state management
@@ -139,8 +139,8 @@ Add a modern React-based web application with Shadcn UI component library to pro
 - **OAuth2/OIDC client library** for authentication
 
 ### TC2: Integration
-- Must integrate with existing .NET Aspire 13.1.0 AppHost
-- Must work with existing OpenIddict 7.2.0 server
+- Must integrate with existing .NET Aspire 13.3.x AppHost
+- Must work with existing OpenIddict 7.5.0 server
 - Must consume existing admin API endpoints without modification
 
 ### TC3: Development

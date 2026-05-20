@@ -37,6 +37,12 @@ public sealed partial class ServicePermission : Entity<ServicePermissionId>
 
     public string UpdatedBy { get; private set; } = string.Empty;
 
+    public DateTimeOffset? DisabledAt { get; private set; }
+
+    public DateTimeOffset? DeprecatedAt { get; private set; }
+
+    public DateTimeOffset? RetiredAt { get; private set; }
+
     private ServicePermission()
     {
     }
@@ -102,6 +108,69 @@ public sealed partial class ServicePermission : Entity<ServicePermissionId>
     internal void RecalculateAssignability(ServiceLifecycleStatus serviceStatus)
     {
         this.IsAssignable = serviceStatus == ServiceLifecycleStatus.Active && this.Status == PermissionLifecycleStatus.Active;
+    }
+
+    internal Result UpdateMetadata(
+        string displayName,
+        string? description,
+        string? intendedUse,
+        string? documentationUrl,
+        string updatedBy,
+        IDateTimeProvider dateTimeProvider)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            return DisplayNameRequired;
+        }
+
+        if (displayName.Length > 120)
+        {
+            return DisplayNameTooLong;
+        }
+
+        if (description?.Length > 1000)
+        {
+            return DescriptionTooLong;
+        }
+
+        this.DisplayName = displayName.Trim();
+        this.Description = description?.Trim();
+        this.IntendedUse = intendedUse?.Trim();
+        this.DocumentationUrl = documentationUrl?.Trim();
+        this.UpdatedBy = updatedBy;
+        this.SetModified(dateTimeProvider.UtcNow);
+        return Result.Success();
+    }
+
+    internal Result ChangeStatus(
+        PermissionLifecycleStatus status,
+        bool hasBlockingDependencies,
+        string updatedBy,
+        IDateTimeProvider dateTimeProvider)
+    {
+        if (status == PermissionLifecycleStatus.Retired && hasBlockingDependencies)
+        {
+            return DomainError.Conflict("ServicePermission.HasBlockingDependencies", "Permission cannot be retired while blocking dependencies exist.");
+        }
+
+        this.Status = status;
+        this.UpdatedBy = updatedBy;
+        this.SetModified(dateTimeProvider.UtcNow);
+
+        if (status == PermissionLifecycleStatus.Deprecated)
+        {
+            this.DeprecatedAt ??= dateTimeProvider.UtcNow;
+        }
+        else if (status == PermissionLifecycleStatus.Disabled)
+        {
+            this.DisabledAt ??= dateTimeProvider.UtcNow;
+        }
+        else if (status == PermissionLifecycleStatus.Retired)
+        {
+            this.RetiredAt ??= dateTimeProvider.UtcNow;
+        }
+
+        return Result.Success();
     }
 
     [GeneratedRegex(@"^[a-z][a-z0-9-]{1,62}$")]

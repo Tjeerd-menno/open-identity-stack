@@ -13,10 +13,10 @@ Build an OpenIddict-based Identity & Access Management (IAM) solution supporting
 
 **Language/Version**: C# 13 / .NET 10.0  
 **Primary Dependencies**:
-- OpenIddict 7.2.0 (OIDC/OAuth2 server)
+- OpenIddict 7.5.0 (OIDC/OAuth2 server)
 - ASP.NET Core 10.0
 - EF Core 10.0
-- .NET Aspire 13.1 (orchestration)
+- .NET Aspire 13.3.x (orchestration)
 - Microsoft.AspNetCore.OpenApi (OpenAPI document generation)
 - Scalar.AspNetCore (API reference UI - replaces Swagger UI)
 - FluentValidation 11.11.0 (input validation)

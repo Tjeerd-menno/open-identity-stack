@@ -12,7 +12,7 @@ Replace hard-coded service permission definitions with a persisted, auditable Se
 ## Technical Context
 
 **Language/Version**: C# latest on .NET 10 (`net10.0`, nullable enabled, warnings as errors)  
-**Primary Dependencies**: ASP.NET Core Minimal APIs, OpenIddict 7.2.0, EF Core 10.0.3, Npgsql.EntityFrameworkCore.PostgreSQL 10.0.0, .NET Aspire 13.1.2, FluentValidation 12.1.1, Scalar OpenAPI, xUnit v3, Shouldly, NSubstitute, PactNet  
+**Primary Dependencies**: ASP.NET Core Minimal APIs, OpenIddict 7.5.0, EF Core 10.x, Npgsql.EntityFrameworkCore.PostgreSQL 10.x, .NET Aspire 13.3.x, Scalar OpenAPI, xUnit v3, Shouldly, NSubstitute, PactNet  
 **Storage**: PostgreSQL via EF Core/Npgsql in `OpenIdentityStackDbContext`; existing in-memory/SQLite test providers may continue where already used  
 **Testing**: TDD with xUnit v3; domain unit tests, application use-case tests with NSubstitute, infrastructure integration tests, API integration tests, and OpenAPI/Pact contract tests  
 **Target Platform**: Linux-hosted ASP.NET Core API orchestrated by .NET Aspire with PostgreSQL and OpenIddict-backed OAuth2/OIDC  
