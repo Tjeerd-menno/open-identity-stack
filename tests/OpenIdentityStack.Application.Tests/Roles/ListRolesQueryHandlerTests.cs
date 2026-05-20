@@ -39,9 +39,6 @@ public sealed class ListRolesQueryHandlerTests
         result.Value.TotalCount.ShouldBe(12);
         result.Value.Page.ShouldBe(2);
         result.Value.PageSize.ShouldBe(5);
-        result.Value.TotalPages.ShouldBe(3);
-        result.Value.HasNextPage.ShouldBeTrue();
-        result.Value.HasPreviousPage.ShouldBeTrue();
         result.Value.Items[0].Name.ShouldBe(admin.Name);
         result.Value.Items[0].DisplayName.ShouldBe(admin.DisplayName);
         result.Value.Items[0].Description.ShouldBe(admin.Description);

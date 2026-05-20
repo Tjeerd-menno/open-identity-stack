@@ -72,8 +72,9 @@ public sealed class CreateSessionUseCaseTests
     public async Task ExecuteAsync_WithInvalidUserId_ReturnsValidationError()
     {
         var command = new CreateSessionCommand(UserId.Empty, "203.0.113.10", "Mozilla/5.0");
+        User user = this.CreateUser("user@example.com");
         this.userRepository.GetByIdAsync(UserId.Empty, Arg.Any<CancellationToken>())
-            .Returns(this.CreateUser("user@example.com"));
+            .Returns(user);
 
         Result<CreateSessionResult> result = await this.useCase.ExecuteAsync(command);
 
