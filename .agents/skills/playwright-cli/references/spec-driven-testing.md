@@ -220,7 +220,7 @@ Rules:
 
 ### 2.3 Generate multiple scenarios
 
-Loop 2.2 over the targeted scenarios one at a time, restarting the seed between each so every test starts from a clean page. This is safe to parallelise due to unique generated session names - just make sure each test run is stopped.
+Loop 2.2 over the targeted scenarios one at a time, restarting the seed between each so every test starts from a clean page. Do not parallelise scenario generation: close the CLI session and stop the current `--debug=cli` run before starting the next scenario so each run stays isolated.
 
 ### 2.4 Run generated tests
 
