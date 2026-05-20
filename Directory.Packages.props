@@ -4,7 +4,7 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Aspire 13.3.3 -->
+    <!-- Aspire 13.3.4 -->
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.3.4" />
     <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.3.4" />
