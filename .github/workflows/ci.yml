@@ -67,7 +67,6 @@ jobs:
           restore-keys: ${{ runner.os }}-sonar-scanner
 
       - name: Install SonarQube scanner
-        if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           New-Item -Path "${{ runner.temp }}/scanner" -ItemType Directory -Force | Out-Null
