@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.ServicePermissions;
 
 public sealed class PermissionAssignmentValidator : IPermissionAssignmentValidator
 {
-    private static readonly HashSet<string> BuiltInPermissions = new(Permissions.GetAllPermissions(), StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> builtInPermissions = new(Permissions.GetAllPermissions(), StringComparer.OrdinalIgnoreCase)
     {
         Permissions.All,
         Permissions.Users.All,
@@ -39,7 +39,7 @@ public sealed class PermissionAssignmentValidator : IPermissionAssignmentValidat
                 return DomainError.Validation("PermissionAssignment.PermissionRequired", "Permission is required.");
             }
 
-            if (BuiltInPermissions.Contains(normalized))
+            if (builtInPermissions.Contains(normalized))
             {
                 continue;
             }

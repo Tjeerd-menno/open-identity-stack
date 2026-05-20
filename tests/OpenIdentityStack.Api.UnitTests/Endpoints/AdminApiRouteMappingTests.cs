@@ -152,7 +152,16 @@ public sealed class AdminApiRouteMappingTests
                 new("RegisterServicePermissions", "api/admin/service-permissions/services", "POST", Permissions.ServicePermissions.Write),
                 new("ListRegisteredServices", "api/admin/service-permissions/services", "GET", Permissions.ServicePermissions.Read),
                 new("GetRegisteredService", "api/admin/service-permissions/services/{id:guid}", "GET", Permissions.ServicePermissions.Read),
-                new("ListAssignablePermissionCatalog", "api/admin/service-permissions/catalog", "GET", Permissions.ServicePermissions.Read)
+                new("ListAssignablePermissionCatalog", "api/admin/service-permissions/catalog", "GET", Permissions.ServicePermissions.Read),
+                new("UpdateRegisteredService", "api/admin/service-permissions/services/{id:guid}", "PATCH", Permissions.ServicePermissions.Write),
+                new("AddRegisteredServicePermission", "api/admin/service-permissions/services/{id:guid}/permissions", "POST", Permissions.ServicePermissions.Write),
+                new("UpdateRegisteredServicePermission", "api/admin/service-permissions/permissions/{permissionId:guid}", "PATCH", Permissions.ServicePermissions.Write),
+                new("ChangeRegisteredServiceLifecycle", "api/admin/service-permissions/services/{id:guid}/lifecycle", "POST", Permissions.ServicePermissions.Write),
+                new("ChangeRegisteredServicePermissionLifecycle", "api/admin/service-permissions/permissions/{permissionId:guid}/lifecycle", "POST", Permissions.ServicePermissions.Write),
+                new("GetRegisteredServicePermissionDependencies", "api/admin/service-permissions/permissions/{permissionId:guid}/dependencies", "GET", Permissions.ServicePermissions.Read),
+                new("TransferRegisteredServiceOwnership", "api/admin/service-permissions/services/{id:guid}/ownership", "POST", Permissions.ServicePermissions.Admin),
+                new("AddRegisteredServiceMaintainer", "api/admin/service-permissions/services/{id:guid}/maintainers", "POST", Permissions.ServicePermissions.Admin),
+                new("RemoveRegisteredServiceMaintainer", "api/admin/service-permissions/services/{id:guid}/maintainers/{principalId}", "DELETE", Permissions.ServicePermissions.Admin)
             ])];
 
         yield return [new ApiExpectation(
