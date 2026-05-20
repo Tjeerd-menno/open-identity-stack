@@ -1,5 +1,5 @@
 {
   "appHost": {
-    "path": "OpenIdentityStack.AppHost.csproj"
+    "path": "../src/OpenIdentityStack.AppHost/OpenIdentityStack.AppHost.csproj"
   }
 }
