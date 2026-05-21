@@ -2,18 +2,25 @@ using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Roles;
+using SharedKernel;
 
 namespace OpenIdentityStack.Application.Tests.Roles;
 
 public sealed class CreateRoleUseCaseTests
 {
     private readonly IRoleRepository roleRepository;
+    private readonly IPermissionAssignmentValidator permissionAssignmentValidator;
     private readonly CreateRoleUseCase useCase;
 
     public CreateRoleUseCaseTests()
     {
         this.roleRepository = Substitute.For<IRoleRepository>();
-        this.useCase = new CreateRoleUseCase(this.roleRepository);
+        this.permissionAssignmentValidator = Substitute.For<IPermissionAssignmentValidator>();
+        
+        // By default, allow all permissions for existing tests
+        this.permissionAssignmentValidator.ValidateAssignableAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
+        
+        this.useCase = new CreateRoleUseCase(this.roleRepository, this.permissionAssignmentValidator);
     }
 
     [Fact]

@@ -33,7 +33,10 @@ public sealed class ListAssignablePermissionCatalogQueryHandler : IListAssignabl
             p.Status.ToString(),
             p.IsAssignable,
             p.CreatedAt,
-            p.ModifiedAt)).ToList();
+            p.ModifiedAt,
+            p.DeprecatedAt,
+            p.DisabledAt,
+            p.RetiredAt)).ToList();
         return PagedResult<ServicePermissionDto>.Create(dtos, result.Page, result.PageSize, result.TotalCount);
     }
 }

@@ -20,6 +20,7 @@ using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.ServiceAccounts.Commands;
 using OpenIdentityStack.Application.ServiceAccounts.Queries;
+using OpenIdentityStack.Application.ServicePermissions;
 using OpenIdentityStack.Application.ServicePermissions.Commands;
 using OpenIdentityStack.Application.ServicePermissions.Queries;
 using OpenIdentityStack.Application.Users.Commands;
@@ -37,6 +38,7 @@ using OpenIdentityStack.Infrastructure.Persistence.ServicePermissions;
 using OpenIdentityStack.Infrastructure.Persistence.Sessions;
 using OpenIdentityStack.Infrastructure.Persistence.Settings;
 using OpenIdentityStack.Infrastructure.Persistence.Users;
+using OpenIdentityStack.Infrastructure.ServicePermissions;
 
 using SharedKernel;
 namespace OpenIdentityStack.Infrastructure;
@@ -173,6 +175,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IServiceAccountRepository, ServiceAccountRepository>();
         services.AddScoped<IServicePermissionRegistryRepository, ServicePermissionRegistryRepository>();
+        services.AddScoped<IRolePermissionDependencyReader, RolePermissionDependencyReader>();
+        services.AddScoped<IServicePermissionAuthorizationService, ServicePermissionAuthorizationService>();
+        services.AddScoped<IServicePermissionAuditWriter, ServicePermissionAuditWriter>();
+        services.AddScoped<IPermissionAssignmentValidator, PermissionAssignmentValidator>();
         services.AddScoped<IUpstreamProviderRepository, UpstreamProviderRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IPermissionChecker, PermissionChecker>();
@@ -243,6 +249,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IListRegisteredServicesQueryHandler, ListRegisteredServicesQueryHandler>();
         services.AddScoped<IGetRegisteredServiceQueryHandler, GetRegisteredServiceQueryHandler>();
         services.AddScoped<IListAssignablePermissionCatalogQueryHandler, ListAssignablePermissionCatalogQueryHandler>();
+        services.AddScoped<ServicePermissionMaintenanceUseCases>();
+        services.AddScoped<IUpdateRegisteredServiceUseCase>(provider => provider.GetRequiredService<ServicePermissionMaintenanceUseCases>());
+        services.AddScoped<IAddServicePermissionUseCase>(provider => provider.GetRequiredService<ServicePermissionMaintenanceUseCases>());
+        services.AddScoped<IUpdateServicePermissionUseCase>(provider => provider.GetRequiredService<ServicePermissionMaintenanceUseCases>());
+        services.AddScoped<IChangeRegisteredServiceLifecycleUseCase>(provider => provider.GetRequiredService<ServicePermissionMaintenanceUseCases>());
+        services.AddScoped<IChangeServicePermissionLifecycleUseCase>(provider => provider.GetRequiredService<ServicePermissionMaintenanceUseCases>());
+        services.AddScoped<ITransferRegisteredServiceOwnershipUseCase>(provider => provider.GetRequiredService<ServicePermissionMaintenanceUseCases>());
+        services.AddScoped<IAddDelegatedMaintainerUseCase>(provider => provider.GetRequiredService<ServicePermissionMaintenanceUseCases>());
+        services.AddScoped<IRemoveDelegatedMaintainerUseCase>(provider => provider.GetRequiredService<ServicePermissionMaintenanceUseCases>());
+        services.AddScoped<IGetPermissionDependenciesQueryHandler, GetPermissionDependenciesQueryHandler>();
 
         // Register session use cases
         services.AddScoped<ISessionRepository, SessionRepository>();

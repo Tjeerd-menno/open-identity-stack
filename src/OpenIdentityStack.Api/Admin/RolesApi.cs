@@ -300,6 +300,7 @@ internal static class RolesApi
 
     private static async Task<IResult> SetPermissions(
         [FromServices] IRoleRepository roleRepository,
+        [FromServices] IPermissionAssignmentValidator permissionAssignmentValidator,
         Guid id,
         [FromBody] SetRolePermissionsRequest request,
         CancellationToken cancellationToken = default)
@@ -312,6 +313,12 @@ internal static class RolesApi
             return TypedResults.NotFound(new { error = "Role not found." });
         }
 
+        Result validationResult = await permissionAssignmentValidator.ValidateAssignableAsync(request.Permissions, cancellationToken);
+        if (validationResult.IsFailure)
+        {
+            return TypedResults.BadRequest(new { error = validationResult.Error.Description });
+        }
+
         role.SetPermissions(request.Permissions);
         await roleRepository.SaveChangesAsync(cancellationToken);
 
@@ -320,6 +327,7 @@ internal static class RolesApi
 
     private static async Task<IResult> AddPermission(
         [FromServices] IRoleRepository roleRepository,
+        [FromServices] IPermissionAssignmentValidator permissionAssignmentValidator,
         Guid id,
         [FromBody] AddPermissionRequest request,
         CancellationToken cancellationToken = default)
@@ -330,6 +338,12 @@ internal static class RolesApi
         if (role is null)
         {
             return TypedResults.NotFound(new { error = "Role not found." });
+        }
+
+        Result validationResult = await permissionAssignmentValidator.ValidateAssignableAsync([request.Permission], cancellationToken);
+        if (validationResult.IsFailure)
+        {
+            return TypedResults.BadRequest(new { error = validationResult.Error.Description });
         }
 
         Result result = role.AddPermission(request.Permission);

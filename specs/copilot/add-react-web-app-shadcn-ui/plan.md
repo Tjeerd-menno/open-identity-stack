@@ -11,9 +11,9 @@ Create a modern React-based administrative web application with Shadcn UI compon
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.7+, React 18+, Node.js 22+ LTS  
+**Language/Version**: TypeScript 6+, React 19+, Node.js 24+ LTS  
 **Primary Dependencies**: 
-  - Vite 6+ (build tool and dev server)
+  - Vite 8+ (build tool and dev server)
   - Shadcn UI (component library based on Radix UI + Tailwind CSS)
   - TanStack Query v5 (API state management)
   - React Router v7 (client-side routing)
@@ -34,9 +34,9 @@ Create a modern React-based administrative web application with Shadcn UI compon
   - API call response feedback: < 100ms
   
 **Constraints**: 
-  - Must integrate with .NET Aspire 13.1.0 AppHost
+  - Must integrate with .NET Aspire 13.3.x AppHost
   - Must consume existing admin API without modifications
-  - Must authenticate via existing OpenIddict 7.2.0 server
+  - Must authenticate via existing OpenIddict 7.5.0 server
   - Admin API requires OpenIddict JWT access tokens with specific permissions
   
 **Scale/Scope**: 
@@ -220,7 +220,7 @@ No violations requiring justification. All constitution principles are satisfied
 **Output**: [research.md](research.md)
 
 **Key Decisions Made**:
-1. **Build Tool**: Vite 6+ for fast HMR and optimal developer experience
+1. **Build Tool**: Vite 8+ for fast HMR and optimal developer experience
 2. **UI Library**: Shadcn UI + Tailwind CSS for accessible, customizable components
 3. **Authentication**: oidc-client-ts for OAuth2/OIDC with PKCE support
 4. **API State**: TanStack Query v5 for data synchronization and caching
@@ -228,7 +228,7 @@ No violations requiring justification. All constitution principles are satisfied
 
 **Security Approach**:
 - Access tokens: In-memory storage (React state)
-- Refresh tokens: HTTPOnly cookies (backend-managed)
+- OIDC client state: session storage through `oidc-client-ts`; API access tokens are supplied through the auth context and bearer-token interceptor
 - PKCE enabled for all auth flows
 
 ---
@@ -284,7 +284,7 @@ No violations requiring justification. All constitution principles are satisfied
 
 **IV. Security by Design**: ✅ PASS
 - PKCE for OAuth2 flows confirmed
-- Token storage strategy: memory + HTTPOnly cookies
+- Token storage strategy: session-scoped OIDC client state with auth-context/API-interceptor access token flow
 - Zod validation schemas for all inputs
 - Permission-based authorization at UI layer
 

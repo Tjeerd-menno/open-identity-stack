@@ -105,9 +105,7 @@ export async function deleteRole(id: string): Promise<void> {
  * @returns Array of permission strings
  */
 export async function getAvailablePermissions(): Promise<string[]> {
-  // This might need to be adjusted based on actual API endpoint
-  // For now, returning a static list based on the spec
-  return [
+  const builtInPermissions = [
     // User permissions
     'users:read',
     'users:create',
@@ -142,4 +140,15 @@ export async function getAvailablePermissions(): Promise<string[]> {
     'providers:update',
     'providers:delete',
   ];
+
+  try {
+    const catalog = await apiClient.get<{ items: { fullPermissionKey: string }[] }>('/api/admin/service-permissions/catalog', {
+      page: 1,
+      pageSize: 100,
+      assignableOnly: true,
+    });
+    return Array.from(new Set([...builtInPermissions, ...catalog.items.map((item) => item.fullPermissionKey)]));
+  } catch {
+    return builtInPermissions;
+  }
 }

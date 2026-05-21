@@ -22,7 +22,7 @@
 - [X] T001 Create solution structure with `dotnet new sln -n OpenIdentityStack` in repository root
 - [X] T002 Create global.json pinning SDK version 10.0.100 in repository root
 - [X] T003 [P] Create Directory.Build.props with common settings (net10.0, C# 13, nullable, analyzers) in repository root
-- [X] T004 [P] Create Directory.Packages.props with Central Package Management (OpenIddict 7.2.0, EF Core 10, xunit.v3.mtp-v2, NSubstitute, Shouldly) in repository root
+- [X] T004 [P] Create Directory.Packages.props with Central Package Management (OpenIddict 7.5.0, EF Core 10, xunit.v3.mtp-v2, NSubstitute, Shouldly) in repository root
 - [X] T005 Create src/OpenIdentityStack.AppHost project using `dotnet new aspire-apphost`
 - [X] T006 [P] Create src/OpenIdentityStack.ServiceDefaults project using `dotnet new aspire-servicedefaults`
 - [X] T007 [P] Create src/OpenIdentityStack.Domain class library project
@@ -247,7 +247,7 @@
 - [X] T116 [US4] Implement UpstreamProviderRepository in src/OpenIdentityStack.Infrastructure/Persistence/Federation/UpstreamProviderRepository.cs
 - [X] T117 [US4] Create OidcProviderAdapter for upstream communication in src/OpenIdentityStack.Infrastructure/ExternalProviders/OidcProviderAdapter.cs
 - [X] T118 [US4] Configure ASP.NET Core external authentication handlers in src/OpenIdentityStack.Api/Authentication/ExternalAuthenticationSetup.cs
-- [X] T119 [US4] Implement external callback with JIT provisioning in src/OpenIdentityStack.Api/Authentication/ExternalCallbackController.cs
+- [X] T119 [US4] Implement external callback with JIT provisioning in src/OpenIdentityStack.Api/Authentication/AccountController.cs
 - [X] T120 [US4] Add entities to DbContext and create migration
 
 **Checkpoint**: User can authenticate via upstream IdP, JIT provisioned user receives local tokens

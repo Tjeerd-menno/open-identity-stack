@@ -10,7 +10,9 @@ public sealed record RegisteredServiceDto(
     string Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
-    IReadOnlyList<ServicePermissionDto> Permissions);
+    uint ConcurrencyToken,
+    IReadOnlyList<ServicePermissionDto> Permissions,
+    IReadOnlyList<DelegatedMaintainerDto> Maintainers);
 
 public sealed record ServicePermissionDto(
     Guid Id,
@@ -23,7 +25,17 @@ public sealed record ServicePermissionDto(
     string Status,
     bool IsAssignable,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt);
+    DateTimeOffset? UpdatedAt,
+    DateTimeOffset? DeprecatedAt,
+    DateTimeOffset? DisabledAt,
+    DateTimeOffset? RetiredAt);
+
+public sealed record DelegatedMaintainerDto(
+    Guid Id,
+    string PrincipalId,
+    string PrincipalType,
+    string GrantedBy,
+    DateTimeOffset GrantedAt);
 
 public sealed record RegisteredServiceSummaryDto(
     Guid Id,

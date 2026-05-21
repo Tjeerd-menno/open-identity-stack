@@ -2,8 +2,10 @@
 
 **Feature Branch**: `copilot/add-permission-registration-feature`  
 **Created**: 2026-04-28  
-**Status**: Planned  
+**Status**: Implemented and code-aligned  
 **Input**: User description: "Currently permissions are hard coded. But the Open Id module should be usable within various service based systems. We need a way to register services/API's and the permissions they expose. The spec should cover registering services/APIs, declaring and updating exposed permissions, validation/ownership/security expectations, how registered permissions relate to RBAC/admin APIs, and key user scenarios/acceptance criteria."
+
+**Implementation Note**: The codebase now implements the registry as Minimal APIs under `/api/admin/service-permissions`, EF Core aggregate persistence, role dependency reads, role-assignment validation against assignable registered permissions, audit logging through the existing audit log abstraction, and AdminWeb registry screens. Built-in platform permissions remain code-defined; service-owned permissions are registered dynamically and exposed through the assignable catalog.
 
 ## User Scenarios & Testing *(mandatory)*
 
