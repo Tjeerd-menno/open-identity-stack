@@ -30,7 +30,7 @@ public sealed class CreateRoleUseCase : ICreateRoleUseCase
     /// Initializes a new instance of the <see cref="CreateRoleUseCase"/> class.
     /// </summary>
     /// <param name="roleRepository">The role repository.</param>
-    public CreateRoleUseCase(IRoleRepository roleRepository)
+    internal CreateRoleUseCase(IRoleRepository roleRepository)
         : this(roleRepository, new AllowAllPermissionAssignmentValidator())
     {
     }

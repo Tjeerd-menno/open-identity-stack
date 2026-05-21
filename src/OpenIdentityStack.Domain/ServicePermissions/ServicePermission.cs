@@ -14,6 +14,8 @@ public sealed partial class ServicePermission : Entity<ServicePermissionId>
     public static readonly DomainError DisplayNameRequired = DomainError.Validation("ServicePermission.DisplayNameRequired", "Display name is required.");
     public static readonly DomainError DisplayNameTooLong = DomainError.Validation("ServicePermission.DisplayNameTooLong", "Display name must not exceed 120 characters.");
     public static readonly DomainError DescriptionTooLong = DomainError.Validation("ServicePermission.DescriptionTooLong", "Description must not exceed 1000 characters.");
+    public static readonly DomainError IntendedUseTooLong = DomainError.Validation("ServicePermission.IntendedUseTooLong", "Intended use must not exceed 1000 characters.");
+    public static readonly DomainError DocumentationUrlTooLong = DomainError.Validation("ServicePermission.DocumentationUrlTooLong", "Documentation URL must not exceed 2048 characters.");
 
     public RegisteredServiceId RegisteredServiceId { get; private set; }
 
@@ -85,6 +87,16 @@ public sealed partial class ServicePermission : Entity<ServicePermissionId>
             return DescriptionTooLong;
         }
 
+        if (intendedUse?.Length > 1000)
+        {
+            return IntendedUseTooLong;
+        }
+
+        if (documentationUrl?.Length > 2048)
+        {
+            return DocumentationUrlTooLong;
+        }
+
         var permission = new ServicePermission
         {
             Id = ServicePermissionId.Create(),
@@ -131,6 +143,16 @@ public sealed partial class ServicePermission : Entity<ServicePermissionId>
         if (description?.Length > 1000)
         {
             return DescriptionTooLong;
+        }
+
+        if (intendedUse?.Length > 1000)
+        {
+            return IntendedUseTooLong;
+        }
+
+        if (documentationUrl?.Length > 2048)
+        {
+            return DocumentationUrlTooLong;
         }
 
         this.DisplayName = displayName.Trim();

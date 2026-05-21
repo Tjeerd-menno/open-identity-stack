@@ -17,7 +17,7 @@ public sealed class RegisterServiceUseCase : IRegisterServiceUseCase
     private readonly IServicePermissionAuditWriter auditWriter;
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public RegisterServiceUseCase(IServicePermissionRegistryRepository repository, IDateTimeProvider dateTimeProvider)
+    internal RegisterServiceUseCase(IServicePermissionRegistryRepository repository, IDateTimeProvider dateTimeProvider)
         : this(repository, new AllowAllServicePermissionAuthorizationService(), new NoopServicePermissionAuditWriter(), dateTimeProvider)
     {
     }

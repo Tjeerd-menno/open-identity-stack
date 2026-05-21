@@ -17,7 +17,7 @@ public sealed class ServicePermissionAuthorizationService : IServicePermissionAu
     {
         if (!Guid.TryParse(actorId, out _))
         {
-            return !string.IsNullOrWhiteSpace(actorId);
+            return false;
         }
 
         return await this.HasRegistryPermissionAsync(actorId, Permissions.ServicePermissions.Write, cancellationToken).ConfigureAwait(false);

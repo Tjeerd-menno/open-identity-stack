@@ -24,16 +24,14 @@ public sealed class RolePermissionDependencyReader : IRolePermissionDependencyRe
             ? normalized[..normalized.IndexOf(':', StringComparison.Ordinal)] + ":*"
             : normalized;
 
-        List<Role> roles = await this.dbContext.Roles
+        // Use PostgreSQL JSONB containment operator to filter in the database
+        // The @> operator checks if the left JSONB value contains the right JSONB value
+        List<RoleAssignmentDependency> dependencies = await this.dbContext.Roles
             .AsNoTracking()
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        return roles
-            .Where(role => role.Permissions.Any(permission =>
-                string.Equals(permission, normalized, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(permission, serviceWildcard, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(permission, "*", StringComparison.OrdinalIgnoreCase)))
+            .Where(role =>
+                EF.Functions.JsonContains(role.Permissions, $"[\"{normalized}\"]") ||
+                EF.Functions.JsonContains(role.Permissions, $"[\"{serviceWildcard}\"]") ||
+                EF.Functions.JsonContains(role.Permissions, "[\"*\"]"))
             .Select(role => new RoleAssignmentDependency(
                 normalized,
                 DependencyType.Role,
@@ -41,6 +39,9 @@ public sealed class RolePermissionDependencyReader : IRolePermissionDependencyRe
                 role.DisplayName,
                 role.IsActive,
                 role.IsActive ? DependencyImpact.BlocksRetirement : DependencyImpact.WarningOnly))
-            .ToList();
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return dependencies;
     }
 }
