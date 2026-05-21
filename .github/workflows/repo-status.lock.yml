@@ -1289,6 +1289,11 @@ jobs:
           GH_HOST="${GITHUB_SERVER_URL#https://}"
           GH_HOST="${GH_HOST#http://}"
           echo "GH_HOST=${GH_HOST}" >> "$GITHUB_ENV"
+      - name: Ensure workflow install note exists
+        shell: bash
+        run: |
+          mkdir -p "${RUNNER_TEMP}/gh-aw/md"
+          touch "${RUNNER_TEMP}/gh-aw/md/workflow_install_note.md"
       - name: Process Safe Outputs
         id: process_safe_outputs
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
