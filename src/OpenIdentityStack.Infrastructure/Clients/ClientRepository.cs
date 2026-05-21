@@ -36,8 +36,7 @@ public sealed class ClientRepository : IClientRepository
         CancellationToken cancellationToken = default)
     {
         IQueryable<Client> query = this.dbContext.Clients
-            .AsNoTracking()
-            .AsQueryable();
+            .AsNoTracking();
 
         int totalCount = await query.CountAsync(cancellationToken);
 

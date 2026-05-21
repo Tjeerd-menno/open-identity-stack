@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 
 namespace OpenIdentityStack.Api.Common;
 
@@ -8,6 +9,10 @@ namespace OpenIdentityStack.Api.Common;
 public class ValidationEndpointFilter : IEndpointFilter
 {
     /// <inheritdoc />
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026",
+        Justification = "All API request DTOs are rooted in OpenIdentityStackApiJsonContext for the Native AOT publish path.")]
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         foreach (object? argument in context.Arguments)

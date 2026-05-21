@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,9 +24,18 @@ public static class DatabaseExtensions
     /// <param name="app">The web application.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [RequiresDynamicCode("EnsureCreated builds an EF model dynamically and is only intended for development/testing helpers, not Native AOT API runtime startup.")]
+    [RequiresUnreferencedCode("EnsureCreated builds an EF model dynamically and is only intended for development/testing helpers, not Native AOT API runtime startup.")]
     public static async Task EnsureDatabaseCreatedAsync<TDbContext>(
         this WebApplication app,
         CancellationToken cancellationToken = default) where TDbContext : DbContext
+        => await EnsureDatabaseCreatedCoreAsync<TDbContext>(app, cancellationToken);
+
+    [RequiresDynamicCode("EnsureCreated builds an EF model dynamically and is only intended for development/testing helpers, not Native AOT API runtime startup.")]
+    [RequiresUnreferencedCode("EnsureCreated builds an EF model dynamically and is only intended for development/testing helpers, not Native AOT API runtime startup.")]
+    private static async Task EnsureDatabaseCreatedCoreAsync<TDbContext>(
+        WebApplication app,
+        CancellationToken cancellationToken) where TDbContext : DbContext
     {
         if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment(TestingEnvironmentName))
         {

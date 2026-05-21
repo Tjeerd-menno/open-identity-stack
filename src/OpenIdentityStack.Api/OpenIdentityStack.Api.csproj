@@ -1,5 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup Condition="'$(IsAotPublish)' == 'true'">
+    <PublishAot>true</PublishAot>
+    <SelfContained>true</SelfContained>
+    <DefineConstants>$(DefineConstants);OPENIDENTITYSTACK_NATIVEAOT</DefineConstants>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL2070;IL2072;IL2087;IL2090;IL2091;IL2111;IL2116;IL3050</WarningsAsErrors>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />

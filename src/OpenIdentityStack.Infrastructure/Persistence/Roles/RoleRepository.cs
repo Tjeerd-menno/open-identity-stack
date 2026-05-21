@@ -46,7 +46,7 @@ internal sealed class RoleRepository : IRoleRepository
         string? search = null,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<Role> query = this.dbContext.Roles.AsQueryable();
+        IQueryable<Role> query = this.dbContext.Roles;
 
         if (!includeInactive)
         {
@@ -73,7 +73,7 @@ internal sealed class RoleRepository : IRoleRepository
     /// <inheritdoc />
     public async Task<int> GetCountAsync(bool includeInactive = false, string? search = null, CancellationToken cancellationToken = default)
     {
-        IQueryable<Role> query = this.dbContext.Roles.AsQueryable();
+        IQueryable<Role> query = this.dbContext.Roles;
 
         if (!includeInactive)
         {

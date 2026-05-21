@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.DataProtection;
 using OpenIdentityStack.Infrastructure;
 using OpenIdentityStack.Application;
 using OpenIdentityStack.Api.Configuration;
+using OpenIdentityStack.Api.Serialization;
 using OpenIdentityStack.Api.Authentication;
 using Scalar.AspNetCore;
 using Microsoft.Extensions.Primitives;
@@ -20,7 +21,16 @@ using OpenIdentityStack.Infrastructure.Identity;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Hosting.WindowsServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using OpenIdentityStack.Domain.Clients;
+using OpenIdentityStack.Domain.Federation;
+using OpenIdentityStack.Domain.Groups;
+using OpenIdentityStack.Domain.ServiceAccounts;
+using OpenIdentityStack.Domain.ServicePermissions;
+using OpenIdentityStack.Domain.Sessions;
+using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure.Persistence;
  
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -49,10 +59,14 @@ if (builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
 }
 
 // Add API services with camelCase JSON serialization for frontend compatibility
+#if !OPENIDENTITYSTACK_NATIVEAOT
 builder.Services.AddControllersWithViews()
-    .AddDefaultJsonOptions();
-builder.Services.AddDefaultHttpJsonOptions(); // Also configure Minimal API JSON serialization
+    .AddDefaultJsonOptions(ConfigureApiJsonOptions);
+#endif
+builder.Services.AddDefaultHttpJsonOptions(ConfigureApiJsonOptions); // Also configure Minimal API JSON serialization
+#if !OPENIDENTITYSTACK_NATIVEAOT
 builder.Services.AddRazorPages();
+#endif
 builder.Services.AddOpenApi();
 bool disableRateLimiting = builder.Environment.IsEnvironment("Testing") || builder.Environment.IsDevelopment();
 builder.Services.AddRateLimiter(options =>
@@ -306,7 +320,9 @@ app.UseAuthorization();
 
 // Map MVC Controllers for authentication endpoints (/connect/*, /Account/*)
 // These handle OpenIddict OAuth2/OIDC flows and login UI
+#if !OPENIDENTITYSTACK_NATIVEAOT
 app.MapControllers();
+#endif
 
 // Map Minimal API endpoints
 app.MapClientsApi();
@@ -321,7 +337,9 @@ app.MapProvidersApi();
 app.MapAuthenticationSettingsApi();
 
 // Map Razor Pages for login UI
+#if !OPENIDENTITYSTACK_NATIVEAOT
 app.MapRazorPages();
+#endif
 
 // Map Aspire default endpoints (health, alive)
 app.MapDefaultEndpoints();
@@ -337,6 +355,25 @@ static string GetClientPartitionKey(HttpContext httpContext, string suffix)
         ?? "unknown";
 
     return $"{suffix}:{client}";
+}
+
+static void ConfigureApiJsonOptions(JsonSerializerOptions options)
+{
+    options.TypeInfoResolverChain.Insert(0, OpenIdentityStackApiJsonContext.Default);
+    options.Converters.Add(new JsonStringEnumConverter<ClientType>());
+    options.Converters.Add(new JsonStringEnumConverter<DependencyImpact>());
+    options.Converters.Add(new JsonStringEnumConverter<DependencyType>());
+    options.Converters.Add(new JsonStringEnumConverter<LogoutStatus>());
+    options.Converters.Add(new JsonStringEnumConverter<MappingType>());
+    options.Converters.Add(new JsonStringEnumConverter<OwnerType>());
+    options.Converters.Add(new JsonStringEnumConverter<PermissionLifecycleStatus>());
+    options.Converters.Add(new JsonStringEnumConverter<ProviderStatus>());
+    options.Converters.Add(new JsonStringEnumConverter<ServiceAccountStatus>());
+    options.Converters.Add(new JsonStringEnumConverter<ServiceLifecycleStatus>());
+    options.Converters.Add(new JsonStringEnumConverter<SessionStatus>());
+    options.Converters.Add(new JsonStringEnumConverter<TokenTarget>());
+    options.Converters.Add(new JsonStringEnumConverter<TransformType>());
+    options.Converters.Add(new JsonStringEnumConverter<UserStatus>());
 }
 
 public partial class Program;

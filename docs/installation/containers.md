@@ -36,6 +36,25 @@ At a minimum, a container deployment needs:
 3. start the admin web
 4. verify sign-in and a first client flow
 
+## Native AOT publish
+
+The API service has opt-in Native AOT publish profiles for local validation:
+
+```powershell
+dotnet publish src\OpenIdentityStack.Api\OpenIdentityStack.Api.csproj -c Release -r linux-x64 -p:IsAotPublish=true -p:PublishAot=true
+dotnet publish src\OpenIdentityStack.Api\OpenIdentityStack.Api.csproj -c Release -r win-x64 -p:IsAotPublish=true -p:PublishAot=true
+```
+
+The AOT container target uses `linux-x64` and the `runtime-deps` base image. The default release image remains the framework-dependent API image until the MVC/Razor OIDC endpoints are fully moved to AOT-compatible Minimal API handlers. The database migrator remains a separate non-AOT process and must finish before the API starts.
+
+The current native profile excludes MVC and Razor endpoint registration because those ASP.NET Core components are not Native AOT compatible. Keep `/connect/*` and `/Account/*` sign-in flow validation in the release checklist until those endpoints are fully moved to AOT-compatible Minimal API handlers.
+
+Podman build example:
+
+```powershell
+podman build --network host --target native-aot -f src\OpenIdentityStack.Api\Dockerfile -t openidentitystack-api:aot .
+```
+
 ## What to keep out of the image
 
 - production secrets

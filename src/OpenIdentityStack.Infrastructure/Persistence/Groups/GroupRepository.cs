@@ -52,7 +52,7 @@ internal sealed class GroupRepository : IGroupRepository
 
     public async Task<(IReadOnlyList<Group> Items, int TotalCount)> ListAsync(int page, int pageSize, string? search, CancellationToken cancellationToken = default)
     {
-        IQueryable<Group> query = this.dbContext.Groups.AsQueryable();
+        IQueryable<Group> query = this.dbContext.Groups;
 
         if (!string.IsNullOrWhiteSpace(search))
         {

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Roles;
+using OpenIdentityStack.Infrastructure.Serialization;
 
 namespace OpenIdentityStack.Infrastructure.Persistence.Roles;
 /// <summary>
@@ -47,8 +48,8 @@ internal sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
         builder.Property(r => r.Permissions)
             .HasColumnName("Permissions")
             .HasConversion(
-                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>(),
+                v => JsonSerializer.Serialize(v.ToList(), InfrastructureJsonContext.Default.ListString),
+                v => JsonSerializer.Deserialize(v, InfrastructureJsonContext.Default.ListString) ?? new List<string>(),
                 new ValueComparer<IReadOnlyList<string>>(
                     (c1, c2) => c1 != null && c2 != null && c1.SequenceEqual(c2),
                     c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),

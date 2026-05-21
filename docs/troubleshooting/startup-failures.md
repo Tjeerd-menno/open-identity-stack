@@ -12,6 +12,7 @@
 - PostgreSQL is not reachable
 - the migrator failed before the API became ready
 - ports are already in use
+- a Native AOT package was built without the required platform toolchain or without rerunning the migrator first
 
 ## Checks
 
@@ -26,6 +27,7 @@
 - use `OPENIDENTITYSTACK_DISABLE_DATA_VOLUME=true` for a clean local run when state is corrupted
 - repair the database connection string or secret reference
 - fix container startup ordering so the migrator finishes first
+- rebuild Native AOT artifacts on a host with the platform linker and C++ toolchain installed
 
 ## When to escalate
 

@@ -97,7 +97,7 @@ public sealed class UserRepository : IUserRepository
         string? search = null,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<User> query = this.dbContext.Users.AsQueryable();
+        IQueryable<User> query = this.dbContext.Users;
 
         if (!string.IsNullOrWhiteSpace(search))
         {

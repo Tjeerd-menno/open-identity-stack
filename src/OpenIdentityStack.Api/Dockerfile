@@ -27,6 +27,26 @@ COPY src/OpenIdentityStack.Api/ src/OpenIdentityStack.Api/
 
 RUN dotnet publish src/OpenIdentityStack.Api/OpenIdentityStack.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
+FROM build AS native-aot-build
+RUN dotnet publish src/OpenIdentityStack.Api/OpenIdentityStack.Api.csproj \
+    -c Release \
+    -r linux-x64 \
+    --self-contained true \
+    -o /app/native-aot \
+    /p:IsAotPublish=true \
+    /p:PublishAot=true
+
+FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/runtime-deps:10.0 AS native-aot
+WORKDIR /app
+
+COPY --chown=app:app --from=native-aot-build /app/native-aot .
+
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+
+USER app
+ENTRYPOINT ["./OpenIdentityStack.Api"]
+
 FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 

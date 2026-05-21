@@ -6,6 +6,8 @@ OpenIdentityStack uses PostgreSQL for application data and persisted data-protec
 
 Schema updates are handled by the dedicated DbMigrator rather than by the API process itself. In the bundled Kubernetes deployment, the migrator runs as a job before the API rollout is considered complete.
 
+Native AOT API deployments keep the same migration model. Do not run EF migration or schema creation APIs from the native API process; run `OpenIdentityStack.DbMigrator` or an approved migration bundle before starting the API artifact.
+
 ## Backup and restore expectations
 
 Your database runbook should include:

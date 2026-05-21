@@ -63,8 +63,7 @@ public sealed class ServiceAccountRepository : IServiceAccountRepository
         IQueryable<ServiceAccount> query = this.dbContext.ServiceAccounts
             .Include(s => s.Credentials)
             .Include(s => s.Certificates)
-            .AsNoTracking()
-            .AsQueryable();
+            .AsNoTracking();
 
         if (status.HasValue)
         {

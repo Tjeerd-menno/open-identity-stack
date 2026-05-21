@@ -26,6 +26,14 @@ A Windows service deployment still needs the same production inputs as the conta
 - admin web hosting strategy or reverse proxy plan
 - log collection and service recovery policy
 
+An opt-in Native AOT Windows publish can be produced with:
+
+```powershell
+dotnet publish src\OpenIdentityStack.Api\OpenIdentityStack.Api.csproj -c Release -r win-x64 --self-contained true -p:IsAotPublish=true -p:PublishAot=true
+```
+
+Windows hosts used to build an AOT package need the Native AOT toolchain prerequisites, including the Visual Studio C++ desktop workload. Keep the framework-dependent release package as the default service artifact until `/connect/*` and `/Account/*` are fully migrated away from MVC/Razor.
+
 ## Validation checklist
 
 Confirm:

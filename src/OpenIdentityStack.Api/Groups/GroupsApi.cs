@@ -272,21 +272,6 @@ internal static class GroupsApi
         return TypedResults.NoContent();
     }
 
-    /// <summary>
-    /// Frontend-compatible response item for group mappings.
-    /// </summary>
-    private sealed record GroupMappingItem(
-        string Id,
-        string Type,
-        string Value,
-        string CreatedAt);
-
-    /// <summary>
-    /// Frontend-compatible response wrapper for group mappings list.
-    /// </summary>
-    private sealed record GroupMappingsListResponse(
-        List<GroupMappingItem> Items);
-
     private static async Task<IResult> ListGroupMappings(
         [FromServices] IListGroupMappingsQueryHandler listGroupMappingsQueryHandler,
         [FromServices] IRoleRepository roleRepository,
@@ -343,14 +328,6 @@ internal static class GroupsApi
 
         return TypedResults.Ok(new GroupMappingsListResponse(items));
     }
-
-    /// <summary>
-    /// Frontend-compatible request for adding a group mapping.
-    /// Maps to the internal CreateGroupMappingRequest format.
-    /// </summary>
-    private sealed record AddMappingRequest(
-        string Type,
-        string Value);
 
     private static async Task<IResult> AddGroupMapping(
         [FromServices] IAddGroupMappingUseCase addGroupMappingUseCase,
@@ -415,3 +392,26 @@ internal static class GroupsApi
         return TypedResults.NoContent();
     }
 }
+
+/// <summary>
+/// Frontend-compatible response item for group mappings.
+/// </summary>
+internal sealed record GroupMappingItem(
+    string Id,
+    string Type,
+    string Value,
+    string CreatedAt);
+
+/// <summary>
+/// Frontend-compatible response wrapper for group mappings list.
+/// </summary>
+internal sealed record GroupMappingsListResponse(
+    List<GroupMappingItem> Items);
+
+/// <summary>
+/// Frontend-compatible request for adding a group mapping.
+/// Maps to the internal CreateGroupMappingRequest format.
+/// </summary>
+internal sealed record AddMappingRequest(
+    string Type,
+    string Value);

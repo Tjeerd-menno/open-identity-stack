@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using OpenIdentityStack.Domain.Clients;
 using OpenIdentityStack.Domain.Common;
@@ -14,7 +15,16 @@ using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Settings;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure.Audit;
+using OpenIdentityStack.Infrastructure.Persistence.Clients;
 using OpenIdentityStack.Infrastructure.Persistence.Converters;
+using OpenIdentityStack.Infrastructure.Persistence.Federation;
+using OpenIdentityStack.Infrastructure.Persistence.Groups;
+using OpenIdentityStack.Infrastructure.Persistence.Roles;
+using OpenIdentityStack.Infrastructure.Persistence.ServiceAccounts;
+using OpenIdentityStack.Infrastructure.Persistence.ServicePermissions;
+using OpenIdentityStack.Infrastructure.Persistence.Sessions;
+using OpenIdentityStack.Infrastructure.Persistence.Settings;
+using OpenIdentityStack.Infrastructure.Persistence.Users;
 
 using SharedKernel;
 namespace OpenIdentityStack.Infrastructure.Persistence;
@@ -25,6 +35,14 @@ namespace OpenIdentityStack.Infrastructure.Persistence;
 /// </summary>
 public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
 {
+    [UnconditionalSuppressMessage(
+        "AOT",
+        "IL2026",
+        Justification = "Native AOT publishing is validated separately; migrations remain outside the API runtime path.")]
+    [UnconditionalSuppressMessage(
+        "AOT",
+        "IL3050",
+        Justification = "Native AOT publishing is validated separately; migrations remain outside the API runtime path.")]
     public OpenIdentityStackDbContext(DbContextOptions<OpenIdentityStackDbContext> options)
         : base(options)
     {
@@ -140,8 +158,22 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
             }
         }
 
-        // Apply all configurations from this assembly
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(OpenIdentityStackDbContext).Assembly);
+        modelBuilder.ApplyConfiguration(new AuthenticationSettingsConfiguration());
+        modelBuilder.ApplyConfiguration(new AuditLogEntryConfiguration());
+        modelBuilder.ApplyConfiguration(new ClientConfiguration());
+        modelBuilder.ApplyConfiguration(new ClientCredentialConfiguration());
+        modelBuilder.ApplyConfiguration(new ClientCertificateConfiguration());
+        modelBuilder.ApplyConfiguration(new DelegatedMaintainerConfiguration());
+        modelBuilder.ApplyConfiguration(new GroupConfiguration());
+        modelBuilder.ApplyConfiguration(new GroupMembershipConfiguration());
+        modelBuilder.ApplyConfiguration(new RegisteredServiceConfiguration());
+        modelBuilder.ApplyConfiguration(new RoleAssignmentConfiguration());
+        modelBuilder.ApplyConfiguration(new RoleConfiguration());
+        modelBuilder.ApplyConfiguration(new ServiceAccountConfiguration());
+        modelBuilder.ApplyConfiguration(new ServicePermissionConfiguration());
+        modelBuilder.ApplyConfiguration(new UpstreamProviderConfiguration());
+        modelBuilder.ApplyConfiguration(new UserConfiguration());
+        modelBuilder.ApplyConfiguration(new UserSessionConfiguration());
 
         // OpenIddict entity sets are configured via UseOpenIddict() in OnConfiguring or AddDbContext
     }

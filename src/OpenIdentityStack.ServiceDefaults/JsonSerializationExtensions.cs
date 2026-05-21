@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,13 +14,15 @@ public static class JsonSerializationExtensions
     /// </summary>
     /// <param name="builder">The MVC builder.</param>
     /// <returns>The MVC builder for chaining.</returns>
-    public static IMvcBuilder AddDefaultJsonOptions(this IMvcBuilder builder)
+    public static IMvcBuilder AddDefaultJsonOptions(
+        this IMvcBuilder builder,
+        Action<JsonSerializerOptions>? configure = null)
     {
         return builder.AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
             options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-            options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            configure?.Invoke(options.JsonSerializerOptions);
         });
     }
 
@@ -30,13 +31,15 @@ public static class JsonSerializationExtensions
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddDefaultHttpJsonOptions(this IServiceCollection services)
+    public static IServiceCollection AddDefaultHttpJsonOptions(
+        this IServiceCollection services,
+        Action<JsonSerializerOptions>? configure = null)
     {
         return services.ConfigureHttpJsonOptions(options =>
         {
             options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
             options.SerializerOptions.PropertyNameCaseInsensitive = true;
-            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            configure?.Invoke(options.SerializerOptions);
         });
     }
 }
