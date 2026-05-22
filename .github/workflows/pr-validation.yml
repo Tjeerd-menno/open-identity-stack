@@ -102,7 +102,7 @@ jobs:
 
       - name: Install AdminWeb dependencies
         working-directory: src/OpenIdentityStack.AdminWeb
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Test AdminWeb with coverage
         working-directory: src/OpenIdentityStack.AdminWeb

@@ -31,7 +31,10 @@ if: needs.pre_activation.outputs.check_result == 'success'
 
 timeout-minutes: 30
 
-permissions: read-all
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
 
 network:
   allowed:
