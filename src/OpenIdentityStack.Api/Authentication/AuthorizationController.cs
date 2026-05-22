@@ -423,6 +423,8 @@ public class AuthorizationController : ControllerBase
         throw new InvalidOperationException("The specified grant type is not supported.");
     }
 
+
+
     /// <summary>
     /// Handles the userinfo endpoint.
     /// </summary>
@@ -481,6 +483,75 @@ public class AuthorizationController : ControllerBase
 
     // NOTE: Logout endpoint is handled by LogoutController which implements
     // full Single Logout (SLO) with front-channel and back-channel support.
+
+    private async Task<IReadOnlyList<string>> ResolveIntrospectionPermissionsAsync(
+        ClaimsPrincipal principal,
+        string? subject,
+        string? requestingClientId,
+        CancellationToken cancellationToken)
+    {
+        var permissions = new List<string>();
+        bool resolvedFromFreshRoles = false;
+
+        if (Guid.TryParse(subject, out Guid userId))
+        {
+            Result<IReadOnlyList<RoleDto>> rolesResult =
+                await this.getUserEffectiveRolesQueryHandler.HandleAsync(new UserId(userId), cancellationToken);
+
+            if (rolesResult.IsSuccess)
+            {
+                resolvedFromFreshRoles = true;
+                foreach (RoleDto role in rolesResult.Value)
+                {
+                    permissions.AddRange(role.Permissions);
+                }
+            }
+        }
+
+        if (!resolvedFromFreshRoles)
+        {
+            permissions.AddRange(GetPermissionClaims(principal));
+        }
+
+        return FilterPermissionsForCaller(permissions, requestingClientId);
+    }
+
+    private static List<string> FilterPermissionsForCaller(
+        IEnumerable<string> permissions,
+        string? requestingClientId)
+    {
+        if (string.IsNullOrWhiteSpace(requestingClientId))
+        {
+            return [];
+        }
+
+        var filtered = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string permission in permissions)
+        {
+            if (!IsPermissionRelevantToCaller(permission, requestingClientId)
+                || !seen.Add(permission))
+            {
+                continue;
+            }
+
+            filtered.Add(permission);
+        }
+
+        return filtered;
+    }
+
+    private static bool IsPermissionRelevantToCaller(string permission, string requestingClientId) =>
+        string.Equals(permission, OpenIdentityStack.Application.Authorization.Permissions.All, StringComparison.Ordinal)
+        || permission.StartsWith($"{requestingClientId}:", StringComparison.OrdinalIgnoreCase);
+
+    private static IEnumerable<string> GetPermissionClaims(ClaimsPrincipal principal) =>
+        principal.FindAll("permission")
+            .Concat(principal.FindAll("permissions"))
+            .SelectMany(static claim => claim.Value.Split(
+                [' ', ','],
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
     private static IEnumerable<string> GetDestinations(Claim claim)
     {

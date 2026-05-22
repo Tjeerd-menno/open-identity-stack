@@ -175,7 +175,12 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
             ClientId = clientId,
             ClientSecret = clientSecret,
             DisplayName = $"Test Service Account - {clientId}",
-            Permissions = { OpenIddictConstants.Permissions.Endpoints.Token }
+            Permissions =
+            {
+                OpenIddictConstants.Permissions.Endpoints.Token,
+                OpenIddictConstants.Permissions.Endpoints.Introspection,
+                OpenIddictConstants.Permissions.Endpoints.Revocation
+            }
         };
 
         foreach (string grantType in resolvedGrantTypes)
