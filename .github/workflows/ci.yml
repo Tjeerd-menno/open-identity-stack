@@ -82,14 +82,23 @@ jobs:
             /o:"tjeerdmenno" `
             /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
             /d:sonar.cs.cobertura.reportsPaths="tests/**/coverage.cobertura.xml" `
-            /d:sonar.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**" `
-            /d:sonar.coverage.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**"
+            /d:sonar.javascript.lcov.reportPaths="src/OpenIdentityStack.AdminWeb/coverage/lcov.info" `
+            /d:sonar.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.AdminWeb/coverage/**,src/OpenIdentityStack.AdminWeb/dist/**" `
+            /d:sonar.coverage.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.AdminWeb/src/main.tsx"
 
       - name: Restore
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet restore OpenIdentityStack.slnx
 
       - name: Build
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet build OpenIdentityStack.slnx --no-restore
+
+      - name: Install AdminWeb dependencies
+        working-directory: src/OpenIdentityStack.AdminWeb
+        run: npm ci
+
+      - name: Test AdminWeb with coverage
+        working-directory: src/OpenIdentityStack.AdminWeb
+        run: npm run test:coverage
 
       - name: Install Playwright browsers
         shell: pwsh
