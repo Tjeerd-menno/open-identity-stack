@@ -74,9 +74,8 @@ public sealed class OpenIddictSetupTests
         ISchedulerFactory schedulerFactory = provider.GetRequiredService<ISchedulerFactory>();
         schedulerFactory.ShouldNotBeNull();
 
-        services.Any(descriptor =>
-                descriptor.ServiceType == typeof(IHostedService)
-                && descriptor.ImplementationType?.Name.Contains("QuartzHostedService", StringComparison.Ordinal) == true)
+        provider.GetServices<IHostedService>()
+            .Any(service => service is QuartzHostedService)
             .ShouldBeTrue();
     }
 
