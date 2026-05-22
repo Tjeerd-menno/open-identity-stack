@@ -35,14 +35,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence;
 /// </summary>
 public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
 {
-    [UnconditionalSuppressMessage(
-        "AOT",
-        "IL2026",
-        Justification = "Native AOT publishing is validated separately; migrations remain outside the API runtime path.")]
-    [UnconditionalSuppressMessage(
-        "AOT",
-        "IL3050",
-        Justification = "Native AOT publishing is validated separately; migrations remain outside the API runtime path.")]
     public OpenIdentityStackDbContext(DbContextOptions<OpenIdentityStackDbContext> options)
         : base(options)
     {
