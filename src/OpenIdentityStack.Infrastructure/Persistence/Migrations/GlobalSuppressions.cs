@@ -4,9 +4,6 @@
 
 using System.Diagnostics.CodeAnalysis;
 
-// Exclude all migrations from code coverage
-[assembly: ExcludeFromCodeCoverage]
-
 [assembly: SuppressMessage(
     "Performance",
     "CA1861:Avoid constant arrays as arguments",

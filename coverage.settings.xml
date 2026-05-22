@@ -20,7 +20,7 @@
     <Sources>
       <Exclude>
         <!-- EF Core Migrations -->
-        <Source>.*\\Migrations\\.*</Source>
+        <Source>.*[\\/]Migrations[\\/].*</Source>
         <!-- Designer files -->
         <Source>.*\.Designer\.cs$</Source>
         <!-- Source generators output -->
