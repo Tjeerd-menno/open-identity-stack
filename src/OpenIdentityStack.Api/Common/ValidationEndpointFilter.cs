@@ -9,10 +9,7 @@ namespace OpenIdentityStack.Api.Common;
 public class ValidationEndpointFilter : IEndpointFilter
 {
     /// <inheritdoc />
-    [UnconditionalSuppressMessage(
-        "Trimming",
-        "IL2026",
-        Justification = "All API request DTOs are rooted in OpenIdentityStackApiJsonContext for the Native AOT publish path.")]
+    [RequiresUnreferencedCode("Endpoint request validation uses Validator.TryValidateObject, which reflects over DataAnnotations metadata that may be removed by trimming.")]
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         foreach (object? argument in context.Arguments)
