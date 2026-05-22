@@ -71,7 +71,7 @@ Start with:
 To preview documentation locally:
 
 ```bash
-python -m pip install -r docs/requirements.txt
+python -m pip install --require-hashes --only-binary :all: -r docs/requirements.txt
 mkdocs serve
 ```
 
