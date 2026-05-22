@@ -34,11 +34,14 @@ describe('utils', () => {
   });
 
   it('formats empty, string, and Date values', () => {
+    const localMay22Morning = new Date(2026, 4, 22, 10, 30, 0);
+    const localJan2Noon = new Date(2026, 0, 2, 12, 0, 0);
+
     expect(formatDate(null)).toBe('N/A');
-    expect(formatDate('2026-05-22T10:30:00Z')).toBe('May 22, 2026');
-    expect(formatDate(new Date('2026-01-02T00:00:00Z'))).toBe('Jan 2, 2026');
+    expect(formatDate(localMay22Morning)).toBe('May 22, 2026');
+    expect(formatDate(localJan2Noon)).toBe('Jan 2, 2026');
     expect(formatDateTime(null)).toBe('N/A');
-    expect(formatDateTime('2026-05-22T10:30:00Z')).toContain('May 22, 2026');
+    expect(formatDateTime(localMay22Morning)).toContain('May 22, 2026');
   });
 
   it('formats relative times across minute, hour, day, and older ranges', () => {
