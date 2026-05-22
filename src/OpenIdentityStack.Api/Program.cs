@@ -59,14 +59,8 @@ if (builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
 }
 
 // Add API services with camelCase JSON serialization for frontend compatibility
-#if !OPENIDENTITYSTACK_NATIVEAOT
-builder.Services.AddControllersWithViews()
-    .AddDefaultJsonOptions(ConfigureApiJsonOptions);
-#endif
-builder.Services.AddDefaultHttpJsonOptions(ConfigureApiJsonOptions); // Also configure Minimal API JSON serialization
-#if !OPENIDENTITYSTACK_NATIVEAOT
-builder.Services.AddRazorPages();
-#endif
+builder.Services.AddDefaultHttpJsonOptions(ConfigureApiJsonOptions); // Configure Minimal API JSON serialization
+builder.Services.AddAntiforgery();
 builder.Services.AddOpenApi();
 bool disableRateLimiting = builder.Environment.IsEnvironment("Testing") || builder.Environment.IsDevelopment();
 builder.Services.AddRateLimiter(options =>
@@ -217,13 +211,6 @@ builder.Services.AddAuthentication(options =>
 })
 .AddExternalCookie(builder.Environment); // Add external cookie for OAuth callback flow
 
-// NOTE: Rate limiting for authentication endpoints
-// Implemented via EnableRateLimiting attribute on AccountController methods
-// Configuration:
-// - Login endpoint: 5 concurrent requests
-// - External login: 10 concurrent requests
-// Additional protection should be implemented at infrastructure layer (reverse proxy/WAF)
-
 // Add dynamic external authentication (loads providers from database at startup)
 builder.Services.AddDynamicExternalAuthentication();
 
@@ -333,13 +320,12 @@ if (app.Environment.IsDevelopment())
 
 // Authentication and Authorization middleware
 app.UseAuthentication();
+app.UseAntiforgery();
 app.UseAuthorization();
 
-// Map MVC Controllers for authentication endpoints (/connect/*, /Account/*)
-// These handle OpenIddict OAuth2/OIDC flows and login UI
-#if !OPENIDENTITYSTACK_NATIVEAOT
-app.MapControllers();
-#endif
+// Map Minimal API endpoints for authentication (/connect/*, /Account/*)
+app.MapConnectApi();
+app.MapAccountApi();
 
 // Map Minimal API endpoints
 app.MapClientsApi();
@@ -352,11 +338,6 @@ app.MapServiceAccountsApi();
 app.MapServicePermissionsApi();
 app.MapProvidersApi();
 app.MapAuthenticationSettingsApi();
-
-// Map Razor Pages for login UI
-#if !OPENIDENTITYSTACK_NATIVEAOT
-app.MapRazorPages();
-#endif
 
 // Map Aspire default endpoints (health, alive)
 app.MapDefaultEndpoints();

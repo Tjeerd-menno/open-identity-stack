@@ -9,7 +9,6 @@ namespace OpenIdentityStack.Api.Common;
 public class ValidationEndpointFilter : IEndpointFilter
 {
     /// <inheritdoc />
-    [RequiresUnreferencedCode("Endpoint request validation uses Validator.TryValidateObject, which reflects over DataAnnotations metadata that may be removed by trimming.")]
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         foreach (object? argument in context.Arguments)
@@ -19,10 +18,23 @@ public class ValidationEndpointFilter : IEndpointFilter
                 continue;
             }
 
-            var validationContext = new ValidationContext(argument);
+            var validationContext = new ValidationContext(
+                argument,
+                displayName: argument.GetType().Name,
+                serviceProvider: null,
+                items: null);
             var validationResults = new List<ValidationResult>();
 
-            if (!Validator.TryValidateObject(argument, validationContext, validationResults, validateAllProperties: true))
+            // Validator.TryValidateObject uses reflection over DataAnnotations attributes.
+            // All request DTO types that reach this filter are registered in
+            // OpenIdentityStackApiJsonContext, which roots them and their attribute metadata
+            // so they are not removed by the trimmer.
+            [UnconditionalSuppressMessage("Trimming", "IL2026",
+                Justification = "All validated DTO types are registered in OpenIdentityStackApiJsonContext, preserving their DataAnnotations metadata.")]
+            static bool TryValidate(object obj, ValidationContext vc, List<ValidationResult> results) =>
+                Validator.TryValidateObject(obj, vc, results, validateAllProperties: true);
+
+            if (!TryValidate(argument, validationContext, validationResults))
             {
                 IDictionary<string, string[]> errors = validationResults
                     .GroupBy(r => r.MemberNames.FirstOrDefault() ?? string.Empty)

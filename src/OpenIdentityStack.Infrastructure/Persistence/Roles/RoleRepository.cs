@@ -144,10 +144,9 @@ internal sealed class RoleRepository : IRoleRepository
         bool activeOnly = true,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<Role> query = from ra in this.dbContext.RoleAssignments
-                join r in this.dbContext.Roles on ra.RoleId equals r.Id
-                    where ra.UserId == userId
-                    select r;
+        // Use method syntax to avoid anonymous-type Expression.New which is RequiresUnreferencedCode.
+        IQueryable<Role> query = this.dbContext.Roles
+            .Where(r => this.dbContext.RoleAssignments.Any(ra => ra.UserId == userId && ra.RoleId == r.Id));
 
         if (activeOnly)
         {

@@ -49,9 +49,9 @@ internal static class ConnectEndpoints
         app.MapMethods("connect/authorize", ["GET", "POST"], Authorize);
 
         app.MapPost("connect/token", Exchange)
-            .EnableRateLimiting("TokenEndpoint");
+            .RequireRateLimiting("TokenEndpoint");
 
-        app.MapMethods("connect/userinfo", ["GET", "POST"], UserInfo);
+        app.MapMethods("connect/userinfo", ["GET", "POST"], (Delegate)UserInfo);
 
         app.MapMethods("connect/logout", ["GET", "POST"], Logout)
             .AllowAnonymous();
@@ -356,7 +356,8 @@ internal static class ConnectEndpoints
 
             return Results.SignIn(
                 new ClaimsPrincipal(identity),
-                OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+                properties: null,
+                authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         }
 
         if (request.IsAuthorizationCodeGrantType() || request.IsRefreshTokenGrantType())
@@ -625,10 +626,10 @@ internal static class ConnectEndpoints
         {
             if (result.Error.Code.Contains("NotFound"))
             {
-                return Results.NotFound(new { error = result.Error.Description });
+                return Results.NotFound(new ConnectErrorResponse(result.Error.Description));
             }
 
-            return Results.BadRequest(new { error = result.Error.Description });
+            return Results.BadRequest(new ConnectErrorResponse(result.Error.Description));
         }
 
         return Results.Ok(new LogoutResponse(true, "Session terminated", null, []));
@@ -1028,3 +1029,7 @@ internal static class ConnectEndpoints
         return QueryHelpers.AddQueryString(redirectUri, "state", state);
     }
 }
+
+/// <summary>Error response for Connect API endpoints.</summary>
+/// <param name="Error">The error description.</param>
+public sealed record ConnectErrorResponse(string Error);

@@ -35,6 +35,8 @@ namespace OpenIdentityStack.Infrastructure.Persistence;
 /// </summary>
 public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
 {
+    [RequiresUnreferencedCode("EF Core's DbContext constructor uses reflection internally. Use a compiled model (dotnet ef dbcontext optimize) to make this AOT-safe.")]
+    [RequiresDynamicCode("EF Core's DbContext constructor requires dynamic code. Use a compiled model (dotnet ef dbcontext optimize) to make this AOT-safe.")]
     public OpenIdentityStackDbContext(DbContextOptions<OpenIdentityStackDbContext> options)
         : base(options)
     {

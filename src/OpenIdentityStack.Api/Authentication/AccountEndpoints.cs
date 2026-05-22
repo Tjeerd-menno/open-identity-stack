@@ -36,17 +36,17 @@ internal static class AccountEndpoints
 
         app.MapPost("/Account/Login", PostLogin)
             .AllowAnonymous()
-            .EnableRateLimiting("InteractiveLogin")
+            .RequireRateLimiting("InteractiveLogin")
             .DisableAntiforgery();   // we validate the token manually inside the handler
 
         app.MapGet("/Account/ExternalLogin", ExternalLogin)
             .AllowAnonymous()
-            .EnableRateLimiting("InteractiveLogin");
+            .RequireRateLimiting("InteractiveLogin");
 
         app.MapGet("/Account/ExternalLoginCallback", ExternalLoginCallback)
             .AllowAnonymous();
 
-        app.MapPost("/Account/Logout", Logout)
+        app.MapPost("/Account/Logout", (Delegate)Logout)
             .AllowAnonymous()
             .DisableAntiforgery();
 
@@ -544,7 +544,7 @@ internal static class AccountEndpoints
         bool showLocalForm = isLocalDefault || localFallbackEnabled;
 
         var sb = new StringBuilder();
-        sb.Append($$"""
+        sb.Append(CultureInfo.InvariantCulture, $$"""
             <!DOCTYPE html>
             <html lang="en">
             <head>
@@ -563,7 +563,7 @@ internal static class AccountEndpoints
 
         if (!string.IsNullOrEmpty(errorMessage))
         {
-            sb.Append($"""
+            sb.Append(CultureInfo.InvariantCulture, $"""
 
                 <div class="validation-summary"><ul><li>{HtmlEncode(errorMessage)}</li></ul></div>
             """);
@@ -572,7 +572,7 @@ internal static class AccountEndpoints
         if (showExternalProvider)
         {
             string externalHref = $"/Account/ExternalLogin?provider={Uri.EscapeDataString(defaultProviderName!)}&returnUrl={Uri.EscapeDataString(returnUrl ?? "/")}&fresh={fresh}";
-            sb.Append($"""
+            sb.Append(CultureInfo.InvariantCulture, $"""
 
                 <div class="external-provider-section">
                   <a href="{HtmlEncode(externalHref)}" class="btn-primary btn-external">
@@ -597,7 +597,7 @@ internal static class AccountEndpoints
             string emailValue = HtmlEncode(email ?? string.Empty);
             string returnUrlValue = HtmlEncode(returnUrl ?? string.Empty);
 
-            sb.Append($$"""
+            sb.Append(CultureInfo.InvariantCulture, $$"""
 
                 <form method="post" action="/Account/Login">
                   <input type="hidden" name="returnUrl" value="{{returnUrlValue}}" />

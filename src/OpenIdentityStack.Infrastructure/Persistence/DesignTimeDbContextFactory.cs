@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -14,6 +15,8 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Ope
     /// </summary>
     /// <param name="args">Command-line arguments (unused).</param>
     /// <returns>A configured DbContext instance.</returns>
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "This factory is only used by the EF Core CLI tooling at design time; it is never invoked in the AOT-published runtime binary.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Same as IL2026: design-time only; not reachable from the AOT-published binary.")]
     public OpenIdentityStackDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<OpenIdentityStackDbContext>();

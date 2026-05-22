@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,6 +81,8 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="connectionString">The database connection string.</param>
     /// <returns>The service collection for chaining.</returns>
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "EF Core infrastructure is registered via explicit IEntityTypeConfiguration classes; no assembly-scanning or reflection-based model discovery is used at runtime.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Same as IL2026: only explicit EF model configurations are used.")]
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         string connectionString,
@@ -110,6 +113,8 @@ public static class ServiceCollectionExtensions
     /// <param name="configuration">The configuration.</param>
     /// <param name="connectionName">The Aspire connection name for the database.</param>
     /// <returns>The service collection for chaining.</returns>
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "EF Core infrastructure is registered via explicit IEntityTypeConfiguration classes; no assembly-scanning or reflection-based model discovery is used at runtime.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Same as IL2026: only explicit EF model configurations are used.")]
     public static IServiceCollection AddInfrastructureWithAspire(
         this IServiceCollection services,
         IConfiguration configuration,

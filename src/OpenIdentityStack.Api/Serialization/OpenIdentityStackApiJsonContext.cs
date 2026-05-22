@@ -1,9 +1,11 @@
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using OpenIdentityStack.Api.Admin.Requests;
 using OpenIdentityStack.Api.Admin.Requests.ServicePermissions;
 using OpenIdentityStack.Api.Admin.Responses;
 using OpenIdentityStack.Api.Admin.Responses.ServicePermissions;
+using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Api.Clients;
 using OpenIdentityStack.Api.Federation;
 using OpenIdentityStack.Api.Groups;
@@ -29,9 +31,12 @@ namespace OpenIdentityStack.Api.Serialization;
 [JsonSerializable(typeof(AssignablePermissionCatalogResponse))]
 [JsonSerializable(typeof(AuthenticationProviderResponse))]
 [JsonSerializable(typeof(AuthenticationSettingsResponse))]
+[JsonSerializable(typeof(CanAccessLocalLoginRequest))]
+[JsonSerializable(typeof(CanAccessLocalLoginResponse))]
 [JsonSerializable(typeof(ClientCreatedResponse))]
 [JsonSerializable(typeof(ClientListItemResponse))]
 [JsonSerializable(typeof(ClientResponse))]
+[JsonSerializable(typeof(ConnectErrorResponse))]
 [JsonSerializable(typeof(CreateClientRequest))]
 [JsonSerializable(typeof(CreateGroupRequest))]
 [JsonSerializable(typeof(CreateProviderRequest))]
@@ -40,15 +45,18 @@ namespace OpenIdentityStack.Api.Serialization;
 [JsonSerializable(typeof(CreateUserRequest))]
 [JsonSerializable(typeof(CreateUserResponse))]
 [JsonSerializable(typeof(DisableUserRequest))]
+[JsonSerializable(typeof(FrontChannelLogoutIframe))]
 [JsonSerializable(typeof(GroupListResponse))]
 [JsonSerializable(typeof(GroupMappingItem))]
 [JsonSerializable(typeof(GroupMappingResponse))]
 [JsonSerializable(typeof(GroupMappingsListResponse))]
 [JsonSerializable(typeof(GroupResponse))]
+[JsonSerializable(typeof(JsonObject))]
 [JsonSerializable(typeof(LinkUpstreamIdentityRequest))]
 [JsonSerializable(typeof(LinkUpstreamIdentityResponse))]
 [JsonSerializable(typeof(ListClientsResponse))]
 [JsonSerializable(typeof(ListServiceAccountsResponse))]
+[JsonSerializable(typeof(LogoutResponse))]
 [JsonSerializable(typeof(PasswordResetResponse))]
 [JsonSerializable(typeof(ProviderResponse))]
 [JsonSerializable(typeof(RegisteredServiceDto))]

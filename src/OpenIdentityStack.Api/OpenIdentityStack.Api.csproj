@@ -7,6 +7,13 @@
     <InvariantGlobalization>false</InvariantGlobalization>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL2070;IL2072;IL2087;IL2090;IL2091;IL2111;IL2116;IL3050</WarningsAsErrors>
+    <!-- Suppress ILC-level warnings emitted by third-party assemblies (EF Core, Quartz,
+         Npgsql, OpenIddict) that are not yet fully Native AOT-compatible.
+         IL2026/IL3050 from our own code are still caught by the Roslyn trim analyzer
+         during dotnet build (TreatWarningsAsErrors + WarningsAsErrors above apply there).
+         IL2104/IL3053 = assembly-level trim/AOT warning aggregates.
+         IL3002 = RequiresAssemblyFiles on SpatialiteLoader (EF Core spatial, unused). -->
+    <NoWarn>$(NoWarn);IL2026;IL2104;IL3050;IL3053;IL3002</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
