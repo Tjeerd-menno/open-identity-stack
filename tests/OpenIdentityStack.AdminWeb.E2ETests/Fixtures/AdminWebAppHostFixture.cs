@@ -117,7 +117,7 @@ public class AdminWebAppHostFixture : IAsyncLifetime
             "admin-web-client",
             "Admin Web Client",
             new[] { $"{baseUrl}/auth/callback" },
-            new[] { $"{baseUrl}/login" });
+            new[] { $"{baseUrl}/" });
     }
 
     public async ValueTask DisposeAsync()
