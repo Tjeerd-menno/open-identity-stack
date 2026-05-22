@@ -28,13 +28,19 @@ COPY src/OpenIdentityStack.Api/ src/OpenIdentityStack.Api/
 RUN dotnet publish src/OpenIdentityStack.Api/OpenIdentityStack.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 FROM build AS native-aot-build
-RUN dotnet publish src/OpenIdentityStack.Api/OpenIdentityStack.Api.csproj \
-    -c Release \
-    -r linux-x64 \
-    --self-contained true \
-    -o /app/native-aot \
-    /p:IsAotPublish=true \
-    /p:PublishAot=true
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+        amd64) RID=linux-x64 ;; \
+        arm64) RID=linux-arm64 ;; \
+        *) echo "Unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+    && dotnet publish src/OpenIdentityStack.Api/OpenIdentityStack.Api.csproj \
+        -c Release \
+        -r "$RID" \
+        --self-contained true \
+        -o /app/native-aot \
+        /p:IsAotPublish=true \
+        /p:PublishAot=true
 
 FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/runtime-deps:10.0 AS native-aot
 WORKDIR /app
