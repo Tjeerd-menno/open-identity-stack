@@ -15,6 +15,8 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -47,6 +49,7 @@ jobs:
           distribution: zulu
 
       - name: Cache SonarQube packages
+        if: ${{ env.SONAR_TOKEN != '' }}
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.sonar/cache
@@ -54,6 +57,7 @@ jobs:
           restore-keys: ${{ runner.os }}-sonar
 
       - name: Cache SonarQube scanner
+        if: ${{ env.SONAR_TOKEN != '' }}
         id: cache-sonar-scanner
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
@@ -62,6 +66,7 @@ jobs:
           restore-keys: ${{ runner.os }}-sonar-scanner
 
       - name: Install SonarQube scanner
+        if: ${{ env.SONAR_TOKEN != '' }}
         shell: pwsh
         run: |
           $scannerPath = "${{ runner.temp }}/scanner"
@@ -77,14 +82,13 @@ jobs:
           }
 
       - name: Begin SonarQube analysis
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        if: ${{ env.SONAR_TOKEN != '' }}
         shell: pwsh
         run: |
           & "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin `
             /k:"Tjeerd-menno_open-identity-stack" `
             /o:"tjeerdmenno" `
-            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
+            /d:sonar.token="$env:SONAR_TOKEN" `
             /d:sonar.cs.cobertura.reportsPaths="tests/**/coverage.cobertura.xml" `
             /d:sonar.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**" `
             /d:sonar.coverage.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**"
@@ -124,9 +128,8 @@ jobs:
         run: bash scripts/ci/verify-coverage.sh --results-dir "$GITHUB_WORKSPACE/tests" --minimum-line-rate 0.10 --minimum-overall-line-rate 0.50
 
       - name: End SonarQube analysis
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        if: ${{ env.SONAR_TOKEN != '' }}
         shell: pwsh
         run: |
           & "${{ runner.temp }}/scanner/dotnet-sonarscanner" end `
-            /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+            /d:sonar.token="$env:SONAR_TOKEN"
