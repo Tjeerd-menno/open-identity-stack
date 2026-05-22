@@ -28,7 +28,7 @@ RUN dotnet publish src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator
 FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
-COPY --chown=app:app --from=build /app/publish .
+COPY --chown=root:root --chmod=555 --from=build /app/publish .
 
 USER app
 ENTRYPOINT ["dotnet", "OpenIdentityStack.DbMigrator.dll"]
