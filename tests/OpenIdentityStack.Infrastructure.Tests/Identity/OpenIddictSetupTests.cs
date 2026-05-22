@@ -77,6 +77,21 @@ public sealed class OpenIddictSetupTests
         provider.GetServices<IHostedService>()
             .Any(service => service is QuartzHostedService)
             .ShouldBeTrue();
+
+        provider.GetRequiredService<IOptions<QuartzHostedServiceOptions>>()
+            .Value.WaitForJobsToComplete.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AddOpenIddictConfiguration_AppliesQuartzHostedServiceSettings()
+    {
+        using ServiceProvider provider = BuildProvider(new Dictionary<string, string?>
+        {
+            ["Quartz:HostedService:WaitForJobsToComplete"] = "false"
+        });
+
+        provider.GetRequiredService<IOptions<QuartzHostedServiceOptions>>()
+            .Value.WaitForJobsToComplete.ShouldBeFalse();
     }
 
     [Fact]
@@ -112,7 +127,21 @@ public sealed class OpenIddictSetupTests
             .Build();
 
         var services = new ServiceCollection();
+        services.AddSingleton<IHostApplicationLifetime, TestHostApplicationLifetime>();
         services.AddOpenIddictConfiguration(configuration, "Testing");
         return services;
+    }
+
+    private sealed class TestHostApplicationLifetime : IHostApplicationLifetime
+    {
+        public CancellationToken ApplicationStarted => CancellationToken.None;
+
+        public CancellationToken ApplicationStopping => CancellationToken.None;
+
+        public CancellationToken ApplicationStopped => CancellationToken.None;
+
+        public void StopApplication()
+        {
+        }
     }
 }

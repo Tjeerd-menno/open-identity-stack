@@ -35,7 +35,15 @@ public static class OpenIddictSetup
             options.UseSimpleTypeLoader();
         });
 
-        services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
+        IConfigurationSection quartzHostedServiceSection = configuration.GetSection("Quartz:HostedService");
+
+        services.AddQuartzHostedService(options =>
+        {
+            quartzHostedServiceSection.Bind(options);
+            options.WaitForJobsToComplete =
+                quartzHostedServiceSection.GetValue<bool?>(nameof(QuartzHostedServiceOptions.WaitForJobsToComplete))
+                ?? true;
+        });
 
         services.AddOpenIddict()
             // Register the OpenIddict core components
