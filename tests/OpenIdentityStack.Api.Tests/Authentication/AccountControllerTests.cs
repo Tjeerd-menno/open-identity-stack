@@ -622,6 +622,26 @@ public class AccountControllerTests : IDisposable
 
     #endregion
 
+    #region CanAccessLocalLogin Tests
+
+    [Fact]
+    public async Task CanAccessLocalLogin_WithInvalidModelState_ReturnsNoAccess()
+    {
+        // Arrange
+        this._controller.ModelState.AddModelError("Email", "Invalid email");
+        var request = new CanAccessLocalLoginRequest { Email = "admin@example.com" };
+
+        // Act
+        IActionResult result = await this._controller.CanAccessLocalLogin(request);
+
+        // Assert
+        JsonResult jsonResult = Assert.IsType<JsonResult>(result);
+        Assert.False(GetCanAccessValue(jsonResult));
+        await this._authSettingsRepository.DidNotReceive().GetOrCreateAsync(Arg.Any<CancellationToken>());
+    }
+
+    #endregion
+
     #region Edge Cases
 
     [Fact]
@@ -709,4 +729,13 @@ public class AccountControllerTests : IDisposable
     }
 
     #endregion
+
+    private static bool GetCanAccessValue(JsonResult jsonResult)
+    {
+        Assert.NotNull(jsonResult.Value);
+        object value = jsonResult.Value;
+        Type valueType = value.GetType();
+        object? canAccess = valueType.GetProperty("canAccess")?.GetValue(value);
+        return Assert.IsType<bool>(canAccess);
+    }
 }

@@ -26,10 +26,6 @@ theme:
 
 plugins:
   - search
-  - minify:
-      minify_html: true
-      minify_js: true
-      minify_css: true
 
 markdown_extensions:
   - admonition
@@ -111,4 +107,3 @@ nav:
           - OIDC negative review automation plan: certification/oidf-negative-review-automation-plan.md
           - OpenID Connect certification scope: certification/openid-connect-certification-scope.md
           - OIDC conformance suite: certification/run-oidf-conformance-suite.md
-
