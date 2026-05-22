@@ -3,7 +3,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenIddict.Abstractions;
+using OpenIddict.Quartz;
 using OpenIdentityStack.Infrastructure.Persistence;
+using Quartz;
 
 namespace OpenIdentityStack.Infrastructure.Identity;
 
@@ -26,6 +28,15 @@ public static class OpenIddictSetup
             string.Equals(environmentName, Environments.Development, StringComparison.OrdinalIgnoreCase)
             || string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase);
 
+        services.AddQuartz(options =>
+        {
+            options.UseMicrosoftDependencyInjectionJobFactory();
+            options.UseSimpleTypeLoader();
+            options.UseInMemoryStore();
+        });
+
+        services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
+
         services.AddOpenIddict()
             // Register the OpenIddict core components
             .AddCore(options =>
@@ -33,6 +44,9 @@ public static class OpenIddictSetup
                 // Configure OpenIddict to use the Entity Framework Core stores and models
                 options.UseEntityFrameworkCore()
                     .UseDbContext<OpenIdentityStackDbContext>();
+
+                OpenIddictQuartzBuilder quartzBuilder = options.UseQuartz();
+                ConfigureQuartzPruning(quartzBuilder, configuration);
             })
 
             // Register the OpenIddict server components
@@ -186,6 +200,42 @@ public static class OpenIddictSetup
             });
 
         return services;
+    }
+
+    private static void ConfigureQuartzPruning(OpenIddictQuartzBuilder quartzBuilder, IConfiguration configuration)
+    {
+        if (configuration.GetValue<bool?>("OpenIddict:Quartz:DisableAuthorizationPruning") is true)
+        {
+            quartzBuilder.DisableAuthorizationPruning();
+        }
+
+        if (configuration.GetValue<bool?>("OpenIddict:Quartz:DisableTokenPruning") is true)
+        {
+            quartzBuilder.DisableTokenPruning();
+        }
+
+        TimeSpan? minimumAuthorizationLifespan =
+            configuration.GetValue<TimeSpan?>("OpenIddict:Quartz:MinimumAuthorizationLifespan");
+
+        if (minimumAuthorizationLifespan is not null)
+        {
+            quartzBuilder.SetMinimumAuthorizationLifespan(minimumAuthorizationLifespan.Value);
+        }
+
+        TimeSpan? minimumTokenLifespan =
+            configuration.GetValue<TimeSpan?>("OpenIddict:Quartz:MinimumTokenLifespan");
+
+        if (minimumTokenLifespan is not null)
+        {
+            quartzBuilder.SetMinimumTokenLifespan(minimumTokenLifespan.Value);
+        }
+
+        int? maximumRefireCount = configuration.GetValue<int?>("OpenIddict:Quartz:MaximumRefireCount");
+
+        if (maximumRefireCount is not null)
+        {
+            quartzBuilder.SetMaximumRefireCount(maximumRefireCount.Value);
+        }
     }
 
     private static bool HasCertificateConfiguration(string? base64, string? pkcs12Path, string? certificatePath, string? privateKeyPath)

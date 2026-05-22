@@ -1,10 +1,13 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
+using OpenIddict.Quartz;
 using OpenIddict.Server;
 using OpenIddict.Server.AspNetCore;
 using OpenIdentityStack.Infrastructure.Identity;
+using Quartz;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace OpenIdentityStack.Infrastructure.Tests.Identity;
@@ -60,6 +63,40 @@ public sealed class OpenIddictSetupTests
         options.EnableUserInfoEndpointPassthrough.ShouldBeTrue();
         options.EnableEndSessionEndpointPassthrough.ShouldBeTrue();
         options.DisableTransportSecurityRequirement.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AddOpenIddictConfiguration_RegistersQuartzCleanupServices()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        ISchedulerFactory schedulerFactory = provider.GetRequiredService<ISchedulerFactory>();
+        schedulerFactory.ShouldNotBeNull();
+
+        IEnumerable<IHostedService> hostedServices = provider.GetServices<IHostedService>();
+        hostedServices.Any(service => service.GetType().Name.Contains("QuartzHostedService", StringComparison.Ordinal))
+            .ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AddOpenIddictConfiguration_AppliesQuartzAdvancedSettings()
+    {
+        using ServiceProvider provider = BuildProvider(new Dictionary<string, string?>
+        {
+            ["OpenIddict:Quartz:DisableAuthorizationPruning"] = "true",
+            ["OpenIddict:Quartz:DisableTokenPruning"] = "true",
+            ["OpenIddict:Quartz:MinimumAuthorizationLifespan"] = "7.00:00:00",
+            ["OpenIddict:Quartz:MinimumTokenLifespan"] = "00:30:00",
+            ["OpenIddict:Quartz:MaximumRefireCount"] = "4"
+        });
+
+        OpenIddictQuartzOptions options = provider.GetRequiredService<IOptions<OpenIddictQuartzOptions>>().Value;
+
+        options.DisableAuthorizationPruning.ShouldBeTrue();
+        options.DisableTokenPruning.ShouldBeTrue();
+        options.MinimumAuthorizationLifespan.ShouldBe(TimeSpan.FromDays(7));
+        options.MinimumTokenLifespan.ShouldBe(TimeSpan.FromMinutes(30));
+        options.MaximumRefireCount.ShouldBe(4);
     }
 
     private static ServiceProvider BuildProvider(IReadOnlyDictionary<string, string?>? values = null)
