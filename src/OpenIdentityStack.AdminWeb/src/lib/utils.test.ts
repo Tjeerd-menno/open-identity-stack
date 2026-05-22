@@ -78,7 +78,10 @@ describe('utils', () => {
 
   it('copies to the clipboard when available', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
 
     await expect(copyToClipboard('secret')).resolves.toBe(true);
 
@@ -88,7 +91,10 @@ describe('utils', () => {
   it('returns false when clipboard writes fail', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'));
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
 
     await expect(copyToClipboard('secret')).resolves.toBe(false);
 
