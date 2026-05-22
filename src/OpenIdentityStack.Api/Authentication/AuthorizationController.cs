@@ -423,49 +423,7 @@ public class AuthorizationController : ControllerBase
         throw new InvalidOperationException("The specified grant type is not supported.");
     }
 
-    /// <summary>
-    /// Handles the token introspection endpoint.
-    /// </summary>
-    [HttpPost("~/connect/introspect")]
-    [EnableRateLimiting("IntrospectionEndpoint")]
-    public async Task<IActionResult> Introspect()
-    {
-        OpenIddictRequest request = this.requestService.GetRequest(this.HttpContext) ??
-            throw new InvalidOperationException("The OpenID Connect request cannot be retrieved.");
 
-        AuthenticateResult result = await this.HttpContext.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
-
-        if (!result.Succeeded || result.Principal is null)
-        {
-            return this.Challenge(
-                authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
-                properties: new AuthenticationProperties(new Dictionary<string, string?>
-                {
-                    [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.InvalidToken,
-                    [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The access token is not valid."
-                }));
-        }
-
-        string? subject = result.Principal.GetClaim(Claims.Subject);
-        IReadOnlyList<string> permissions = await this.ResolveIntrospectionPermissionsAsync(
-            result.Principal,
-            subject,
-            request.ClientId,
-            this.HttpContext.RequestAborted);
-
-        var response = new Dictionary<string, object>(StringComparer.Ordinal)
-        {
-            ["active"] = true,
-            ["permissions"] = permissions
-        };
-
-        if (!string.IsNullOrWhiteSpace(subject))
-        {
-            response[Claims.Subject] = subject;
-        }
-
-        return this.Ok(response);
-    }
 
     /// <summary>
     /// Handles the userinfo endpoint.
