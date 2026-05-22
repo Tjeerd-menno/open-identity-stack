@@ -80,7 +80,7 @@ builder.Services.AddRateLimiter(options =>
 
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
     {
-        if (httpContext.Request.Path.Equals("/connect/introspect", StringComparison.OrdinalIgnoreCase))
+        if (httpContext.Request.Path.StartsWithSegments("/connect/introspect", StringComparison.OrdinalIgnoreCase))
         {
             return RateLimitPartition.GetFixedWindowLimiter(
                 GetClientPartitionKey(httpContext, "introspection"),
