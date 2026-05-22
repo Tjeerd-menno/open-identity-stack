@@ -68,13 +68,15 @@ public sealed class OpenIddictSetupTests
     [Fact]
     public void AddOpenIddictConfiguration_RegistersQuartzCleanupServices()
     {
-        using ServiceProvider provider = BuildProvider();
+        ServiceCollection services = BuildServices();
+        using ServiceProvider provider = services.BuildServiceProvider();
 
         ISchedulerFactory schedulerFactory = provider.GetRequiredService<ISchedulerFactory>();
         schedulerFactory.ShouldNotBeNull();
 
-        IEnumerable<IHostedService> hostedServices = provider.GetServices<IHostedService>();
-        hostedServices.Any(service => service.GetType().Name.Contains("QuartzHostedService", StringComparison.Ordinal))
+        services.Any(descriptor =>
+                descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType?.Name.Contains("QuartzHostedService", StringComparison.Ordinal) == true)
             .ShouldBeTrue();
     }
 
@@ -101,12 +103,17 @@ public sealed class OpenIddictSetupTests
 
     private static ServiceProvider BuildProvider(IReadOnlyDictionary<string, string?>? values = null)
     {
+        return BuildServices(values).BuildServiceProvider();
+    }
+
+    private static ServiceCollection BuildServices(IReadOnlyDictionary<string, string?>? values = null)
+    {
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(values ?? new Dictionary<string, string?>())
             .Build();
 
         var services = new ServiceCollection();
         services.AddOpenIddictConfiguration(configuration, "Testing");
-        return services.BuildServiceProvider();
+        return services;
     }
 }
