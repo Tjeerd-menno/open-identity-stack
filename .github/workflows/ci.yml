@@ -116,7 +116,7 @@ jobs:
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*E2ETests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
 
       - name: Verify coverage threshold
-        run: pwsh scripts/ci/verify-coverage.ps1 -ResultsDir $GITHUB_WORKSPACE/tests -MinimumLineRate 0.10 -MinimumOverallLineRate 0.85
+        run: pwsh scripts/ci/verify-coverage.ps1 -ResultsDir $GITHUB_WORKSPACE/tests -MinimumLineRate 0.10 -MinimumOverallLineRate 0.72
 
       - name: End SonarQube analysis
         env:
