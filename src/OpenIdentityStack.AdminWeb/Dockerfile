@@ -22,4 +22,4 @@ RUN mkdir -p /var/cache/nginx /var/run \
     && chown -R nginx:nginx /usr/share/nginx/html /docker-entrypoint.d /var/cache/nginx /var/run
 USER nginx
 EXPOSE 8080
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["nginx", "-g", "pid /tmp/nginx.pid; daemon off;"]
