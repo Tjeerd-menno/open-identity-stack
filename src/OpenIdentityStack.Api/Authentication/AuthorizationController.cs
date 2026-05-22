@@ -424,6 +424,50 @@ public class AuthorizationController : ControllerBase
     }
 
     /// <summary>
+    /// Handles the token introspection endpoint.
+    /// </summary>
+    [HttpPost("~/connect/introspect")]
+    [EnableRateLimiting("IntrospectionEndpoint")]
+    public async Task<IActionResult> Introspect()
+    {
+        OpenIddictRequest request = this.requestService.GetRequest(this.HttpContext) ??
+            throw new InvalidOperationException("The OpenID Connect request cannot be retrieved.");
+
+        AuthenticateResult result = await this.HttpContext.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+
+        if (!result.Succeeded || result.Principal is null)
+        {
+            return this.Challenge(
+                authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
+                properties: new AuthenticationProperties(new Dictionary<string, string?>
+                {
+                    [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.InvalidToken,
+                    [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The access token is not valid."
+                }));
+        }
+
+        string? subject = result.Principal.GetClaim(Claims.Subject);
+        IReadOnlyList<string> permissions = await this.ResolveIntrospectionPermissionsAsync(
+            result.Principal,
+            subject,
+            request.ClientId,
+            this.HttpContext.RequestAborted);
+
+        var response = new Dictionary<string, object>(StringComparer.Ordinal)
+        {
+            ["active"] = true,
+            ["permissions"] = permissions
+        };
+
+        if (!string.IsNullOrWhiteSpace(subject))
+        {
+            response[Claims.Subject] = subject;
+        }
+
+        return this.Ok(response);
+    }
+
+    /// <summary>
     /// Handles the userinfo endpoint.
     /// </summary>
     [HttpGet("~/connect/userinfo")]
@@ -481,6 +525,75 @@ public class AuthorizationController : ControllerBase
 
     // NOTE: Logout endpoint is handled by LogoutController which implements
     // full Single Logout (SLO) with front-channel and back-channel support.
+
+    private async Task<IReadOnlyList<string>> ResolveIntrospectionPermissionsAsync(
+        ClaimsPrincipal principal,
+        string? subject,
+        string? requestingClientId,
+        CancellationToken cancellationToken)
+    {
+        var permissions = new List<string>();
+        bool resolvedFromFreshRoles = false;
+
+        if (Guid.TryParse(subject, out Guid userId))
+        {
+            Result<IReadOnlyList<RoleDto>> rolesResult =
+                await this.getUserEffectiveRolesQueryHandler.HandleAsync(new UserId(userId), cancellationToken);
+
+            if (rolesResult.IsSuccess)
+            {
+                resolvedFromFreshRoles = true;
+                foreach (RoleDto role in rolesResult.Value)
+                {
+                    permissions.AddRange(role.Permissions);
+                }
+            }
+        }
+
+        if (!resolvedFromFreshRoles)
+        {
+            permissions.AddRange(GetPermissionClaims(principal));
+        }
+
+        return FilterPermissionsForCaller(permissions, requestingClientId);
+    }
+
+    private static List<string> FilterPermissionsForCaller(
+        IEnumerable<string> permissions,
+        string? requestingClientId)
+    {
+        if (string.IsNullOrWhiteSpace(requestingClientId))
+        {
+            return [];
+        }
+
+        var filtered = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string permission in permissions)
+        {
+            if (!IsPermissionRelevantToCaller(permission, requestingClientId)
+                || !seen.Add(permission))
+            {
+                continue;
+            }
+
+            filtered.Add(permission);
+        }
+
+        return filtered;
+    }
+
+    private static bool IsPermissionRelevantToCaller(string permission, string requestingClientId) =>
+        string.Equals(permission, OpenIdentityStack.Application.Authorization.Permissions.All, StringComparison.Ordinal)
+        || permission.StartsWith($"{requestingClientId}:", StringComparison.OrdinalIgnoreCase);
+
+    private static IEnumerable<string> GetPermissionClaims(ClaimsPrincipal principal) =>
+        principal.FindAll("permission")
+            .Concat(principal.FindAll("permissions"))
+            .SelectMany(static claim => claim.Value.Split(
+                [' ', ','],
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
     private static IEnumerable<string> GetDestinations(Claim claim)
     {

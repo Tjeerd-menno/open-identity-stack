@@ -77,6 +77,16 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+
+    options.AddPolicy("IntrospectionEndpoint", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext, "introspection"),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = disableRateLimiting ? int.MaxValue : 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 builder.Services.AddProblemDetails(options =>
 {

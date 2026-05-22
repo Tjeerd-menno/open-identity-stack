@@ -35,6 +35,7 @@ public sealed class OidcControllerRouteTests
         yield return [new OidcEndpointExpectation("Authorization", "Authorize", "GET", "connect/authorize")];
         yield return [new OidcEndpointExpectation("Authorization", "Authorize", "POST", "connect/authorize")];
         yield return [new OidcEndpointExpectation("Authorization", "Exchange", "POST", "connect/token")];
+        yield return [new OidcEndpointExpectation("Authorization", "Introspect", "POST", "connect/introspect")];
         yield return [new OidcEndpointExpectation("Authorization", "UserInfo", "GET", "connect/userinfo")];
         yield return [new OidcEndpointExpectation("Authorization", "UserInfo", "POST", "connect/userinfo")];
         yield return [new OidcEndpointExpectation("Logout", "Logout", "GET", "connect/logout")];

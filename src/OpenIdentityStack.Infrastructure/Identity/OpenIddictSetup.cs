@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenIddict.Abstractions;
+using OpenIddict.Server;
 using OpenIdentityStack.Infrastructure.Persistence;
 
 namespace OpenIdentityStack.Infrastructure.Identity;
@@ -160,6 +161,12 @@ public static class OpenIddictSetup
 
                 // Add ServiceAccount validation handler for custom client validation
                 options.AddServiceAccountValidation();
+
+                // Enrich successful token introspection responses with caller-filtered
+                // permission metadata while keeping OpenIddict's client authentication
+                // and token activity checks in the built-in endpoint pipeline.
+                options.AddEventHandler<OpenIddictServerEvents.HandleIntrospectionRequestContext>(builder =>
+                    builder.UseScopedHandler<IntrospectionPermissionsHandler>());
 
                 // Keep OpenIddict's storage identifiers out of public ID tokens.
                 options.AddInternalTokenClaimTrimming();
