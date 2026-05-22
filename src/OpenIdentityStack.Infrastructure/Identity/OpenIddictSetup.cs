@@ -28,10 +28,11 @@ public static class OpenIddictSetup
             string.Equals(environmentName, Environments.Development, StringComparison.OrdinalIgnoreCase)
             || string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase);
 
+        services.Configure<QuartzOptions>(configuration.GetSection("Quartz"));
+
         services.AddQuartz(options =>
         {
             options.UseSimpleTypeLoader();
-            options.UseInMemoryStore();
         });
 
         services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
