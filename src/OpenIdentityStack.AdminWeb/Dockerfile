@@ -18,8 +18,9 @@ COPY --chown=nginx:nginx public/config.template.js /usr/share/nginx/html/config.
 COPY --chown=nginx:nginx public/config.template.js /usr/share/nginx/html/config.js
 COPY --chown=nginx:nginx --from=build /app/docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-RUN mkdir -p /var/cache/nginx /var/run \
+RUN sed -i 's#pid /run/nginx.pid;#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
+    && mkdir -p /var/cache/nginx /var/run \
     && chown -R nginx:nginx /usr/share/nginx/html /docker-entrypoint.d /var/cache/nginx /var/run
 USER nginx
 EXPOSE 8080
-CMD ["nginx", "-g", "pid /tmp/nginx.pid; daemon off;"]
+CMD ["nginx", "-g", "daemon off;"]
