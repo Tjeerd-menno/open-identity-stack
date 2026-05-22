@@ -78,15 +78,22 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    options.AddPolicy("IntrospectionEndpoint", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            GetClientPartitionKey(httpContext, "introspection"),
-            _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = disableRateLimiting ? int.MaxValue : 60,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0
-            }));
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        if (httpContext.Request.Path.Equals("/connect/introspect", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetFixedWindowLimiter(
+                GetClientPartitionKey(httpContext, "introspection"),
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = disableRateLimiting ? int.MaxValue : 60,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                });
+        }
+
+        return RateLimitPartition.GetNoLimiter("default");
+    });
 });
 builder.Services.AddProblemDetails(options =>
 {
