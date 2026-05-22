@@ -94,8 +94,7 @@ internal sealed class IntrospectionPermissionsHandler :
     }
 
     private static bool IsPermissionRelevantToCaller(string permission, string requestingClientId) =>
-        string.Equals(permission, OpenIdentityStack.Application.Authorization.Permissions.All, StringComparison.Ordinal)
-        || permission.StartsWith($"{requestingClientId}:", StringComparison.OrdinalIgnoreCase);
+        permission.StartsWith($"{requestingClientId}:", StringComparison.OrdinalIgnoreCase);
 
     private static IEnumerable<string> GetPermissionClaims(ClaimsPrincipal principal) =>
         principal.FindAll("permission")
