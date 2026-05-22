@@ -397,6 +397,11 @@ public class AccountController : Controller
     [HttpPost("~/Account/CanAccessLocalLogin")]
     public async Task<IActionResult> CanAccessLocalLogin([FromBody] CanAccessLocalLoginRequest? request)
     {
+        if (!this.ModelState.IsValid)
+        {
+            return this.Json(new { canAccess = false });
+        }
+
         // If no email provided, we can't determine admin status
         if (request is null || string.IsNullOrWhiteSpace(request.Email))
         {
