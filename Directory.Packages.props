@@ -43,6 +43,8 @@
     <PackageVersion Include="OpenIddict" Version="7.5.0" />
     <PackageVersion Include="OpenIddict.AspNetCore" Version="7.5.0" />
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="7.5.0" />
+    <PackageVersion Include="OpenIddict.Quartz" Version="7.5.0" />
+    <PackageVersion Include="Quartz.Extensions.Hosting" Version="3.18.1" />
     <!-- Validation -->
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <!-- Testing -->
