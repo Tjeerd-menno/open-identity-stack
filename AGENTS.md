@@ -23,3 +23,8 @@ The repo uses Microsoft.Testing.Platform, xUnit-style .NET tests, Vitest for the
 
 ## Commit & Pull Request Guidelines
 Recent history favors short, imperative subjects such as `Add SonarQube scanning to CI workflows` or focused `Bump ...` dependency updates. Keep commits scoped and descriptive. Pull requests should explain the user-visible or operational impact, list validation performed, and link the relevant issue or spec when one exists. Include screenshots for `AdminWeb` UI changes, and call out doc or deployment updates when behavior changes.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->
