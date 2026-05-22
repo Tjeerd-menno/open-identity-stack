@@ -270,9 +270,9 @@ public interface IGetUserQuery
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| Orchestration | .NET Aspire 13.1 | Local dev orchestration |
+| Orchestration | .NET Aspire 13.3.x | Local dev orchestration |
 | Framework | ASP.NET Core 10 | Web API host |
-| OIDC/OAuth2 | OpenIddict 7.2.0 | Token issuance, validation |
+| OIDC/OAuth2 | OpenIddict 7.5.0 | Token issuance, validation |
 | API Docs | Scalar.AspNetCore + Microsoft.AspNetCore.OpenApi | Interactive API reference |
 | JSON | System.Text.Json (built-in) | JSON serialization |
 | ORM | EF Core 10 | Database access |

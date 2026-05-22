@@ -1,10 +1,13 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
+using OpenIddict.Quartz;
 using OpenIddict.Server;
 using OpenIddict.Server.AspNetCore;
 using OpenIdentityStack.Infrastructure.Identity;
+using Quartz;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace OpenIdentityStack.Infrastructure.Tests.Identity;
@@ -62,14 +65,83 @@ public sealed class OpenIddictSetupTests
         options.DisableTransportSecurityRequirement.ShouldBeTrue();
     }
 
+    [Fact]
+    public void AddOpenIddictConfiguration_RegistersQuartzCleanupServices()
+    {
+        ServiceCollection services = BuildServices();
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        ISchedulerFactory schedulerFactory = provider.GetRequiredService<ISchedulerFactory>();
+        schedulerFactory.ShouldNotBeNull();
+
+        provider.GetServices<IHostedService>()
+            .Any(service => service is QuartzHostedService)
+            .ShouldBeTrue();
+
+        provider.GetRequiredService<IOptions<QuartzHostedServiceOptions>>()
+            .Value.WaitForJobsToComplete.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AddOpenIddictConfiguration_AppliesQuartzHostedServiceSettings()
+    {
+        using ServiceProvider provider = BuildProvider(new Dictionary<string, string?>
+        {
+            ["Quartz:HostedService:WaitForJobsToComplete"] = "false"
+        });
+
+        provider.GetRequiredService<IOptions<QuartzHostedServiceOptions>>()
+            .Value.WaitForJobsToComplete.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void AddOpenIddictConfiguration_AppliesQuartzAdvancedSettings()
+    {
+        using ServiceProvider provider = BuildProvider(new Dictionary<string, string?>
+        {
+            ["OpenIddict:Quartz:DisableAuthorizationPruning"] = "true",
+            ["OpenIddict:Quartz:DisableTokenPruning"] = "true",
+            ["OpenIddict:Quartz:MinimumAuthorizationLifespan"] = "7.00:00:00",
+            ["OpenIddict:Quartz:MinimumTokenLifespan"] = "00:30:00",
+            ["OpenIddict:Quartz:MaximumRefireCount"] = "4"
+        });
+
+        OpenIddictQuartzOptions options = provider.GetRequiredService<IOptions<OpenIddictQuartzOptions>>().Value;
+
+        options.DisableAuthorizationPruning.ShouldBeTrue();
+        options.DisableTokenPruning.ShouldBeTrue();
+        options.MinimumAuthorizationLifespan.ShouldBe(TimeSpan.FromDays(7));
+        options.MinimumTokenLifespan.ShouldBe(TimeSpan.FromMinutes(30));
+        options.MaximumRefireCount.ShouldBe(4);
+    }
+
     private static ServiceProvider BuildProvider(IReadOnlyDictionary<string, string?>? values = null)
+    {
+        return BuildServices(values).BuildServiceProvider();
+    }
+
+    private static ServiceCollection BuildServices(IReadOnlyDictionary<string, string?>? values = null)
     {
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(values ?? new Dictionary<string, string?>())
             .Build();
 
         var services = new ServiceCollection();
+        services.AddSingleton<IHostApplicationLifetime, TestHostApplicationLifetime>();
         services.AddOpenIddictConfiguration(configuration, "Testing");
-        return services.BuildServiceProvider();
+        return services;
+    }
+
+    private sealed class TestHostApplicationLifetime : IHostApplicationLifetime
+    {
+        public CancellationToken ApplicationStarted => CancellationToken.None;
+
+        public CancellationToken ApplicationStopping => CancellationToken.None;
+
+        public CancellationToken ApplicationStopped => CancellationToken.None;
+
+        public void StopApplication()
+        {
+        }
     }
 }

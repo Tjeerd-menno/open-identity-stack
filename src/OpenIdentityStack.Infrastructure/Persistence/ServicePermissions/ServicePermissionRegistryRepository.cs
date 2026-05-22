@@ -45,6 +45,22 @@ public sealed class ServicePermissionRegistryRepository : IServicePermissionRegi
             .FirstOrDefaultAsync(s => s.ServiceIdentifier == normalized, cancellationToken);
     }
 
+    public async Task<RegisteredService?> GetByPermissionIdAsync(ServicePermissionId permissionId, CancellationToken cancellationToken = default)
+    {
+        return await this.dbContext.RegisteredServices
+            .Include(s => s.Permissions)
+            .Include(s => s.Maintainers)
+            .FirstOrDefaultAsync(s => s.Permissions.Any(p => p.Id == permissionId), cancellationToken);
+    }
+
+    public async Task<ServicePermission?> GetPermissionByFullKeyAsync(string fullPermissionKey, CancellationToken cancellationToken = default)
+    {
+        string normalized = fullPermissionKey.Trim().ToLowerInvariant();
+        return await this.dbContext.ServicePermissions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.FullPermissionKey == normalized, cancellationToken);
+    }
+
     public async Task<PagedResult<RegisteredServiceSummaryDto>> ListServicesAsync(ListRegisteredServicesQuery query, CancellationToken cancellationToken = default)
     {
         int page = Math.Max(query.Page, 1);
@@ -118,6 +134,13 @@ public sealed class ServicePermissionRegistryRepository : IServicePermissionRegi
             .ToListAsync(cancellationToken);
 
         return PagedResult<ServicePermission>.Create(items, page, pageSize, totalCount);
+    }
+
+    public async Task<bool> IsPermissionAssignableAsync(string fullPermissionKey, CancellationToken cancellationToken = default)
+    {
+        string normalized = fullPermissionKey.Trim().ToLowerInvariant();
+        return await this.dbContext.ServicePermissions
+            .AnyAsync(p => p.FullPermissionKey == normalized && p.IsAssignable, cancellationToken);
     }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)

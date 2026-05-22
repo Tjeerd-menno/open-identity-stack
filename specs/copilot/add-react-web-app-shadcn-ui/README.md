@@ -2,14 +2,14 @@
 
 **Feature**: Add React-based admin web application with Shadcn UI  
 **Branch**: `copilot/add-react-web-app-shadcn-ui`  
-**Status**: ✅ Planning Complete (Phases 0-1)  
+**Status**: Implemented and code-aligned  
 **Date**: 2026-01-18
 
 ---
 
 ## Overview
 
-This directory contains the complete implementation plan for adding a modern React-based administrative web application to the OpenIdentityStack. The app will provide a comprehensive UI for managing users, roles, groups, service accounts, sessions, and identity providers.
+This directory captures the implemented React-based administrative web application for OpenIdentityStack. The app provides a comprehensive UI for managing users, roles, groups, service accounts, service permission registrations, clients, sessions, settings, and identity providers.
 
 ---
 
@@ -56,8 +56,8 @@ Run the `/speckit.tasks` command to generate implementation tasks based on this 
 ## Technology Stack
 
 ### Frontend
-- **Framework**: React 18+ with TypeScript 5.7+
-- **Build Tool**: Vite 6+
+- **Framework**: React 19+ with TypeScript 6+
+- **Build Tool**: Vite 8+
 - **UI Library**: Shadcn UI (Radix UI + Tailwind CSS)
 - **State Management**: TanStack Query v5
 - **Routing**: React Router v7
@@ -67,24 +67,27 @@ Run the `/speckit.tasks` command to generate implementation tasks based on this 
 
 ### Backend Integration
 - **API**: Existing OpenIdentityStack.Api (no changes required)
-- **Auth Server**: OpenIddict 7.2.0
-- **Orchestration**: .NET Aspire 13.1.0 AppHost
+- **Auth Server**: OpenIddict 7.5.0
+- **Orchestration**: .NET Aspire 13.3.x AppHost
 
 ---
 
 ## Key Features
 
-### Admin Modules (6 total)
+### Admin Modules
 1. **Users** - Create, list, update, disable, delete users
 2. **Roles** - Manage roles and permissions
 3. **Groups** - Organize users into groups with role mappings
 4. **Service Accounts** - Manage OAuth2 clients for machine-to-machine auth
-5. **Sessions** - View and revoke active user sessions
-6. **Providers** - Configure external identity providers (Google, Azure AD, etc.)
+5. **Service Permission Registry** - Register service-owned permissions, lifecycle, ownership, and maintainers
+6. **Clients** - Manage OAuth2/OIDC application clients
+7. **Sessions** - View and revoke active user sessions
+8. **Settings** - Configure authentication defaults and fallback behavior
+9. **Providers** - Configure external identity providers
 
 ### Authentication Flow
 - OAuth2 Authorization Code Flow with PKCE
-- Secure token storage (memory + HTTPOnly cookies)
+- OIDC client state uses session storage; access tokens are still provided through the auth context and API interceptor
 - Automatic token refresh
 - Protected routes with permission checks
 
@@ -100,7 +103,7 @@ Run the `/speckit.tasks` command to generate implementation tasks based on this 
 
 ### ✅ Security
 - **PKCE**: Always enabled for OAuth2 flows (required for SPAs)
-- **Token Storage**: Access tokens in memory, refresh tokens in HTTPOnly cookies
+- **Token Storage**: OIDC client state in session storage; access tokens flow through the auth context and API interceptor
 - **Input Validation**: Client-side Zod validation + server-side validation
 - **CORS**: Whitelisted origins only
 
@@ -238,4 +241,4 @@ All core principles from the project constitution are satisfied:
 
 **Last Updated**: 2026-01-18  
 **Version**: 1.0  
-**Status**: Planning Complete - Ready for Implementation
+**Status**: Implemented; keep this spec aligned to the codebase when dependencies or admin modules change.

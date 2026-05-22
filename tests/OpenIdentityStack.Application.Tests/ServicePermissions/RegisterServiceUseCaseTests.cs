@@ -8,15 +8,23 @@ namespace OpenIdentityStack.Application.Tests.ServicePermissions;
 public sealed class RegisterServiceUseCaseTests
 {
     private readonly IServicePermissionRegistryRepository repository;
+    private readonly IServicePermissionAuthorizationService authorizationService;
+    private readonly IServicePermissionAuditWriter auditWriter;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly RegisterServiceUseCase useCase;
 
     public RegisterServiceUseCaseTests()
     {
         this.repository = Substitute.For<IServicePermissionRegistryRepository>();
+        this.authorizationService = Substitute.For<IServicePermissionAuthorizationService>();
+        this.auditWriter = Substitute.For<IServicePermissionAuditWriter>();
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.dateTimeProvider.UtcNow.Returns(new DateTimeOffset(2026, 1, 18, 12, 0, 0, TimeSpan.Zero));
-        this.useCase = new RegisterServiceUseCase(this.repository, this.dateTimeProvider);
+        
+        // By default, allow all operations for existing tests
+        this.authorizationService.CanRegisterServiceAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
+        
+        this.useCase = new RegisterServiceUseCase(this.repository, this.authorizationService, this.auditWriter, this.dateTimeProvider);
     }
 
     [Fact]

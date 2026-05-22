@@ -15,9 +15,15 @@ public interface IServicePermissionRegistryRepository
 
     Task<RegisteredService?> GetByIdentifierAsync(string serviceIdentifier, CancellationToken cancellationToken = default);
 
+    Task<RegisteredService?> GetByPermissionIdAsync(ServicePermissionId permissionId, CancellationToken cancellationToken = default);
+
+    Task<ServicePermission?> GetPermissionByFullKeyAsync(string fullPermissionKey, CancellationToken cancellationToken = default);
+
     Task<PagedResult<RegisteredServiceSummaryDto>> ListServicesAsync(ListRegisteredServicesQuery query, CancellationToken cancellationToken = default);
 
     Task<PagedResult<ServicePermission>> ListAssignablePermissionsAsync(ListAssignablePermissionCatalogQuery query, CancellationToken cancellationToken = default);
+
+    Task<bool> IsPermissionAssignableAsync(string fullPermissionKey, CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

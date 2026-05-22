@@ -24,14 +24,23 @@ public interface ICreateRoleUseCase
 public sealed class CreateRoleUseCase : ICreateRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
+    private readonly IPermissionAssignmentValidator permissionAssignmentValidator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CreateRoleUseCase"/> class.
     /// </summary>
     /// <param name="roleRepository">The role repository.</param>
-    public CreateRoleUseCase(IRoleRepository roleRepository)
+    internal CreateRoleUseCase(IRoleRepository roleRepository)
+        : this(roleRepository, new AllowAllPermissionAssignmentValidator())
+    {
+    }
+
+    public CreateRoleUseCase(
+        IRoleRepository roleRepository,
+        IPermissionAssignmentValidator permissionAssignmentValidator)
     {
         this.roleRepository = roleRepository;
+        this.permissionAssignmentValidator = permissionAssignmentValidator;
     }
 
     /// <inheritdoc />
@@ -58,6 +67,14 @@ public sealed class CreateRoleUseCase : ICreateRoleUseCase
         // Set permissions if provided
         if (command.Permissions is { Count: > 0 })
         {
+            Result validationResult = await this.permissionAssignmentValidator
+                .ValidateAssignableAsync(command.Permissions, cancellationToken)
+                .ConfigureAwait(false);
+            if (validationResult.IsFailure)
+            {
+                return validationResult.Error;
+            }
+
             role.SetPermissions(command.Permissions);
         }
 
@@ -71,5 +88,13 @@ public sealed class CreateRoleUseCase : ICreateRoleUseCase
             role.DisplayName,
             role.Description,
             role.IsActive);
+    }
+
+    private sealed class AllowAllPermissionAssignmentValidator : IPermissionAssignmentValidator
+    {
+        public Task<Result> ValidateAssignableAsync(IEnumerable<string> permissions, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result.Success());
+        }
     }
 }

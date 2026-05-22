@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAssignablePermissionCatalog } from '@/features/service-permissions/hooks';
 
 interface PermissionSelectorProps {
   /**
@@ -31,30 +31,22 @@ export function PermissionSelector({
   onChange,
   disabled = false,
 }: PermissionSelectorProps) {
-  const [selected, setSelected] = useState<Set<string>>(
-    new Set(selectedPermissions)
-  );
-
-  // Sync with external changes
-  useEffect(() => {
-    setSelected(new Set(selectedPermissions));
-  }, [selectedPermissions]);
+  const { data: catalog } = useAssignablePermissionCatalog({ page: 1, pageSize: 100 });
+  const selected = new Set(selectedPermissions);
 
   const handleToggle = (permission: string, checked: boolean) => {
-    const newSelected = new Set(selected);
+    const newSelected = new Set(selectedPermissions);
     
     if (checked) {
       newSelected.add(permission);
     } else {
       newSelected.delete(permission);
     }
-    
-    setSelected(newSelected);
     onChange(Array.from(newSelected));
   };
 
   // Group permissions by resource
-  const permissionGroups = {
+  const permissionGroups: Record<string, { value: string; label: string }[]> = {
     Users: [
       { value: 'users:read', label: 'Read Users' },
       { value: 'users:create', label: 'Create Users' },
@@ -90,6 +82,15 @@ export function PermissionSelector({
       { value: 'providers:delete', label: 'Delete Providers' },
     ],
   };
+
+  const registeredPermissions = catalog?.items.map((permission) => ({
+    value: permission.fullPermissionKey,
+    label: permission.displayName,
+  })) ?? [];
+
+  if (registeredPermissions.length > 0) {
+    permissionGroups['Registered Services'] = registeredPermissions;
+  }
 
   return (
     <div className="space-y-4" data-testid="permission-selector">

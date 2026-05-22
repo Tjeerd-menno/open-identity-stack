@@ -59,6 +59,9 @@ public sealed class ServicePermissionConfiguration : IEntityTypeConfiguration<Se
 
         builder.Property(p => p.CreatedAt).IsRequired();
         builder.Property(p => p.ModifiedAt);
+        builder.Property(p => p.DisabledAt);
+        builder.Property(p => p.DeprecatedAt);
+        builder.Property(p => p.RetiredAt);
 
         builder.HasIndex(p => p.FullPermissionKey)
             .IsUnique()
@@ -70,5 +73,8 @@ public sealed class ServicePermissionConfiguration : IEntityTypeConfiguration<Se
 
         builder.HasIndex(p => p.IsAssignable)
             .HasDatabaseName("IX_ServicePermissions_IsAssignable");
+
+        builder.HasIndex(p => p.Status)
+            .HasDatabaseName("IX_ServicePermissions_Status");
     }
 }

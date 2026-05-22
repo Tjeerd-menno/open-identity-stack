@@ -17,7 +17,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -760,9 +760,15 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<DateTimeOffset?>("DeprecatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("DisabledAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
@@ -796,6 +802,9 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("RegisteredServiceId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("RetiredAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -814,6 +823,9 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IsAssignable")
                         .HasDatabaseName("IX_ServicePermissions_IsAssignable");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_ServicePermissions_Status");
 
                     b.HasIndex("RegisteredServiceId", "PermissionKey")
                         .IsUnique()
