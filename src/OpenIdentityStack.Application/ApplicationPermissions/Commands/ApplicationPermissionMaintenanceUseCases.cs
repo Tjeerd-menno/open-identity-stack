@@ -24,11 +24,6 @@ public interface IChangeRegisteredApplicationLifecycleUseCase
     Task<Result<RegisteredApplicationDto>> ExecuteAsync(ChangeRegisteredApplicationLifecycleCommand command, CancellationToken cancellationToken = default);
 }
 
-public interface IChangeApplicationPermissionLifecycleUseCase
-{
-    Task<Result<RegisteredApplicationDto>> ExecuteAsync(ChangeApplicationPermissionLifecycleCommand command, CancellationToken cancellationToken = default);
-}
-
 public interface ITransferRegisteredApplicationOwnershipUseCase
 {
     Task<Result<RegisteredApplicationDto>> ExecuteAsync(TransferRegisteredApplicationOwnershipCommand command, CancellationToken cancellationToken = default);
@@ -49,7 +44,6 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
     IAddApplicationPermissionUseCase,
     IUpdateApplicationPermissionUseCase,
     IChangeRegisteredApplicationLifecycleUseCase,
-    IChangeApplicationPermissionLifecycleUseCase,
     ITransferRegisteredApplicationOwnershipUseCase,
     IAddDelegatedMaintainerUseCase,
     IRemoveDelegatedMaintainerUseCase
@@ -158,37 +152,6 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
             cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<Result<RegisteredApplicationDto>> ExecuteAsync(ChangeApplicationPermissionLifecycleCommand command, CancellationToken cancellationToken = default)
-    {
-        RegisteredApplication? application = await this.repository
-            .GetByPermissionIdAsync(new ApplicationPermissionId(command.PermissionId), cancellationToken)
-            .ConfigureAwait(false);
-        if (application is null)
-        {
-            return DomainError.NotFound("ApplicationPermission.NotFound", $"Permission '{command.PermissionId}' not found.");
-        }
-
-        ApplicationPermission? permission = application.Permissions.FirstOrDefault(p => p.Id.Value == command.PermissionId);
-        if (permission is null)
-        {
-            return DomainError.NotFound("ApplicationPermission.NotFound", $"Permission '{command.PermissionId}' not found.");
-        }
-
-        bool hasBlockingDependencies = await this.HasBlockingDependenciesAsync(permission.FullPermissionKey, cancellationToken).ConfigureAwait(false);
-        return await this.UpdateLoadedApplicationAsync(
-            application,
-            command.ActorId,
-            command.ExpectedConcurrencyToken,
-            "ChangePermissionLifecycle",
-            current => current.ChangePermissionStatus(
-                new ApplicationPermissionId(command.PermissionId),
-                command.Status,
-                hasBlockingDependencies && !command.AcknowledgeDependencies,
-                command.ActorId,
-                this.dateTimeProvider),
-            cancellationToken).ConfigureAwait(false);
-    }
-
     public async Task<Result<RegisteredApplicationDto>> ExecuteAsync(TransferRegisteredApplicationOwnershipCommand command, CancellationToken cancellationToken = default)
     {
         return await this.UpdateApplicationAsync(
@@ -288,13 +251,11 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
             p.DisplayName,
             p.Description,
             p.Category,
-            p.Status.ToString(),
-            p.IsAssignable,
             p.CreatedAt,
             p.ModifiedAt,
-            p.DeprecatedAt,
-            p.DisabledAt,
-            p.RetiredAt)).ToList();
+            application.ApplicationIdentifier,
+            application.DisplayName,
+            application.Description)).ToList();
 
         var maintainers = application.Maintainers.Select(m => new DelegatedMaintainerDto(
             m.Id.Value,

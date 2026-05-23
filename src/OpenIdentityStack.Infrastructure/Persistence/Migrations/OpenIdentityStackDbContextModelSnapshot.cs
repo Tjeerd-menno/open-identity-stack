@@ -760,15 +760,9 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<DateTimeOffset?>("DeprecatedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
-
-                    b.Property<DateTimeOffset?>("DisabledAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
@@ -784,9 +778,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasMaxLength(127)
                         .HasColumnType("character varying(127)");
 
-                    b.Property<bool>("IsAssignable")
-                        .HasColumnType("boolean");
-
                     b.Property<DateTimeOffset?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -798,14 +789,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("RegisteredApplicationId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset?>("RetiredAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
                     b.Property<string>("UpdatedBy")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -816,12 +799,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.HasIndex("FullPermissionKey")
                         .IsUnique()
                         .HasDatabaseName("IX_ApplicationPermissions_FullPermissionKey");
-
-                    b.HasIndex("IsAssignable")
-                        .HasDatabaseName("IX_ApplicationPermissions_IsAssignable");
-
-                    b.HasIndex("Status")
-                        .HasDatabaseName("IX_ApplicationPermissions_Status");
 
                     b.HasIndex("RegisteredApplicationId", "PermissionKey")
                         .IsUnique()

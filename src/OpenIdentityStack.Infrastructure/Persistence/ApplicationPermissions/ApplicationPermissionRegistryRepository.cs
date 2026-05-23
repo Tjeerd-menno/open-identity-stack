@@ -105,39 +105,6 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
         return PagedResult<RegisteredApplicationSummaryDto>.Create(items, page, pageSize, totalCount);
     }
 
-    public async Task<PagedResult<ApplicationPermission>> ListAssignablePermissionsAsync(ListAssignablePermissionCatalogQuery query, CancellationToken cancellationToken = default)
-    {
-        int page = Math.Max(query.Page, 1);
-        int pageSize = Math.Clamp(query.PageSize, 1, 100);
-        IQueryable<ApplicationPermission> permissions = this.dbContext.ApplicationPermissions.AsNoTracking();
-
-        if (query.AssignableOnly)
-        {
-            permissions = permissions.Where(p => p.IsAssignable);
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.ApplicationIdentifier))
-        {
-            string prefix = query.ApplicationIdentifier.Trim().ToLowerInvariant() + ":";
-            permissions = permissions.Where(p => p.FullPermissionKey.StartsWith(prefix));
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
-        {
-            string search = $"%{query.SearchTerm.Trim()}%";
-            permissions = permissions.Where(p => EF.Functions.Like(p.FullPermissionKey, search) || EF.Functions.Like(p.DisplayName, search));
-        }
-
-        int totalCount = await permissions.CountAsync(cancellationToken);
-        List<ApplicationPermission> items = await permissions
-            .OrderBy(p => p.FullPermissionKey)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        return PagedResult<ApplicationPermission>.Create(items, page, pageSize, totalCount);
-    }
-
     public async Task<PagedResult<ApplicationPermissionDto>> ListAssignablePermissionCatalogAsync(ListAssignablePermissionCatalogQuery query, CancellationToken cancellationToken = default)
     {
         int page = Math.Max(query.Page, 1);
@@ -150,10 +117,7 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
                 application => application.Id,
                 (permission, application) => new { Permission = permission, Application = application });
 
-        if (query.AssignableOnly)
-        {
-            catalog = catalog.Where(item => item.Permission.IsAssignable);
-        }
+        catalog = catalog.Where(item => item.Application.Status == ApplicationLifecycleStatus.Active);
 
         if (!string.IsNullOrWhiteSpace(query.ApplicationIdentifier))
         {
@@ -183,13 +147,8 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
                 item.Permission.DisplayName,
                 item.Permission.Description,
                 item.Permission.Category,
-                item.Permission.Status.ToString(),
-                item.Permission.IsAssignable,
                 item.Permission.CreatedAt,
                 item.Permission.ModifiedAt,
-                item.Permission.DeprecatedAt,
-                item.Permission.DisabledAt,
-                item.Permission.RetiredAt,
                 item.Application.ApplicationIdentifier,
                 item.Application.DisplayName,
                 item.Application.Description))
@@ -202,7 +161,14 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
     {
         string normalized = fullPermissionKey.Trim().ToLowerInvariant();
         return await this.dbContext.ApplicationPermissions
-            .AnyAsync(p => p.FullPermissionKey == normalized && p.IsAssignable, cancellationToken);
+            .Join(
+                this.dbContext.RegisteredApplications,
+                permission => permission.RegisteredApplicationId,
+                application => application.Id,
+                (permission, application) => new { Permission = permission, Application = application })
+            .AnyAsync(
+                item => item.Permission.FullPermissionKey == normalized && item.Application.Status == ApplicationLifecycleStatus.Active,
+                cancellationToken);
     }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)

@@ -66,24 +66,47 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                 newName: "IX_ApplicationPermissions_FullPermissionKey");
 
             migrationBuilder.RenameIndex(
-                name: "IX_ServicePermissions_IsAssignable",
-                table: "ApplicationPermissions",
-                newName: "IX_ApplicationPermissions_IsAssignable");
-
-            migrationBuilder.RenameIndex(
                 name: "IX_ServicePermissions_ServiceId_PermissionKey",
                 table: "ApplicationPermissions",
                 newName: "IX_ApplicationPermissions_ApplicationId_PermissionKey");
+
+            migrationBuilder.RenameIndex(
+                name: "IX_DelegatedMaintainers_Service_Principal",
+                table: "DelegatedMaintainers",
+                newName: "IX_DelegatedMaintainers_Application_Principal");
 
             migrationBuilder.RenameIndex(
                 name: "IX_ServicePermissions_Status",
                 table: "ApplicationPermissions",
                 newName: "IX_ApplicationPermissions_Status");
 
-            migrationBuilder.RenameIndex(
-                name: "IX_DelegatedMaintainers_Service_Principal",
-                table: "DelegatedMaintainers",
-                newName: "IX_DelegatedMaintainers_Application_Principal");
+            migrationBuilder.DropIndex(
+                name: "IX_ApplicationPermissions_Status",
+                table: "ApplicationPermissions");
+
+            migrationBuilder.DropIndex(
+                name: "IX_ApplicationPermissions_IsAssignable",
+                table: "ApplicationPermissions");
+
+            migrationBuilder.DropColumn(
+                name: "DeprecatedAt",
+                table: "ApplicationPermissions");
+
+            migrationBuilder.DropColumn(
+                name: "DisabledAt",
+                table: "ApplicationPermissions");
+
+            migrationBuilder.DropColumn(
+                name: "IsAssignable",
+                table: "ApplicationPermissions");
+
+            migrationBuilder.DropColumn(
+                name: "RetiredAt",
+                table: "ApplicationPermissions");
+
+            migrationBuilder.DropColumn(
+                name: "Status",
+                table: "ApplicationPermissions");
 
             migrationBuilder.Sql("""ALTER TABLE "RegisteredApplications" RENAME CONSTRAINT "PK_RegisteredServices" TO "PK_RegisteredApplications";""");
             migrationBuilder.Sql("""ALTER TABLE "ApplicationPermissions" RENAME CONSTRAINT "PK_ServicePermissions" TO "PK_ApplicationPermissions";""");
@@ -105,19 +128,9 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                 newName: "IX_DelegatedMaintainers_Service_Principal");
 
             migrationBuilder.RenameIndex(
-                name: "IX_ApplicationPermissions_Status",
-                table: "ApplicationPermissions",
-                newName: "IX_ServicePermissions_Status");
-
-            migrationBuilder.RenameIndex(
                 name: "IX_ApplicationPermissions_ApplicationId_PermissionKey",
                 table: "ApplicationPermissions",
                 newName: "IX_ServicePermissions_ServiceId_PermissionKey");
-
-            migrationBuilder.RenameIndex(
-                name: "IX_ApplicationPermissions_IsAssignable",
-                table: "ApplicationPermissions",
-                newName: "IX_ServicePermissions_IsAssignable");
 
             migrationBuilder.RenameIndex(
                 name: "IX_ApplicationPermissions_FullPermissionKey",
@@ -156,6 +169,39 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                 maxLength: 2048,
                 nullable: true);
 
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "DeprecatedAt",
+                table: "ApplicationPermissions",
+                type: "timestamp with time zone",
+                nullable: true);
+
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "DisabledAt",
+                table: "ApplicationPermissions",
+                type: "timestamp with time zone",
+                nullable: true);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "IsAssignable",
+                table: "ApplicationPermissions",
+                type: "boolean",
+                nullable: false,
+                defaultValue: true);
+
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "RetiredAt",
+                table: "ApplicationPermissions",
+                type: "timestamp with time zone",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "Status",
+                table: "ApplicationPermissions",
+                type: "character varying(32)",
+                maxLength: 32,
+                nullable: false,
+                defaultValue: "Active");
+
             migrationBuilder.RenameColumn(
                 name: "Category",
                 table: "ApplicationPermissions",
@@ -173,6 +219,16 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
             migrationBuilder.RenameTable(
                 name: "RegisteredApplications",
                 newName: "RegisteredServices");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServicePermissions_IsAssignable",
+                table: "ServicePermissions",
+                column: "IsAssignable");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServicePermissions_Status",
+                table: "ServicePermissions",
+                column: "Status");
         }
     }
 }

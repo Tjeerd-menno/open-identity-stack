@@ -60,10 +60,9 @@ export function RegisteredApplicationDetail({ id }: { id: string }) {
               permissionKey: permissionDraft.name,
               displayName: permissionDraft.name,
               description: permissionDraft.description,
-              intendedUse: permissionDraft.category,
-              documentationUrl: null,
-              concurrencyToken: application.concurrencyToken,
-            })}
+                  category: permissionDraft.category,
+                  concurrencyToken: application.concurrencyToken,
+                })}
           >
             Add
           </Button>
@@ -83,11 +82,10 @@ export function RegisteredApplicationDetail({ id }: { id: string }) {
                   {permission.description && (
                     <div className="text-sm text-muted-foreground">{permission.description}</div>
                   )}
-                  {permission.intendedUse && (
-                    <div className="mt-1 text-xs text-muted-foreground">{permission.intendedUse}</div>
+                  {permission.category && (
+                    <div className="mt-1 text-xs text-muted-foreground">{permission.category}</div>
                   )}
                 </div>
-                <ApplicationPermissionStatusBadge status={permission.status} />
               </div>
             ))}
           </div>

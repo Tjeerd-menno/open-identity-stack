@@ -39,13 +39,11 @@ public sealed class GetRegisteredApplicationQueryHandler : IGetRegisteredApplica
             p.DisplayName,
             p.Description,
             p.Category,
-            p.Status.ToString(),
-            p.IsAssignable,
             p.CreatedAt,
             p.ModifiedAt,
-            p.DeprecatedAt,
-            p.DisabledAt,
-            p.RetiredAt)).ToList();
+            application.ApplicationIdentifier,
+            application.DisplayName,
+            application.Description)).ToList();
 
         var maintainers = application.Maintainers.Select(m => new DelegatedMaintainerDto(
             m.Id.Value,

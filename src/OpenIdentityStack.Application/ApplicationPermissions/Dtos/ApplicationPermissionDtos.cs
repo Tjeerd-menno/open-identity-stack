@@ -21,13 +21,8 @@ public sealed record ApplicationPermissionDto(
     string DisplayName,
     string? Description,
     string? Category,
-    string Status,
-    bool IsAssignable,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
-    DateTimeOffset? DeprecatedAt,
-    DateTimeOffset? DisabledAt,
-    DateTimeOffset? RetiredAt,
     string? ApplicationId = null,
     string? ApplicationName = null,
     string? ApplicationVersion = null);

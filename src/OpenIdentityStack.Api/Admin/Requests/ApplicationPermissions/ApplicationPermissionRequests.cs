@@ -39,11 +39,6 @@ public sealed record ChangeApplicationLifecycleRequest(
     bool AcknowledgeDependencies,
     uint? ConcurrencyToken);
 
-public sealed record ChangePermissionLifecycleRequest(
-    string Status,
-    bool AcknowledgeDependencies,
-    uint? ConcurrencyToken);
-
 public sealed record TransferApplicationOwnershipRequest(
     string OwnerId,
     string OwnerType,

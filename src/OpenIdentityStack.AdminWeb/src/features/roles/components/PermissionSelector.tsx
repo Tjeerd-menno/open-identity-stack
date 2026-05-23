@@ -101,7 +101,7 @@ export function PermissionSelector({
   for (const permission of catalog?.items ?? []) {
     const applicationId = permission.applicationId ?? 'registered-applications';
     const applicationName = permission.applicationName ?? 'Registered Applications';
-    const category = permission.category ?? permission.intendedUse ?? 'Permissions';
+    const category = permission.category ?? 'Permissions';
     const existing = applicationTabs.get(applicationId) ?? {
       id: `application-${applicationId}`,
       label: applicationName,

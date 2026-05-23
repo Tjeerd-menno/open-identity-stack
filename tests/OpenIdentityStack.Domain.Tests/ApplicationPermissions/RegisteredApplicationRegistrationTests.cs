@@ -25,7 +25,6 @@ public sealed class RegisteredApplicationRegistrationTests
         result.Value.Status.ShouldBe(ApplicationLifecycleStatus.Active);
         result.Value.Permissions.Count.ShouldBe(2);
         result.Value.Permissions[0].FullPermissionKey.ShouldBe("orders-api:read-orders");
-        result.Value.Permissions[0].IsAssignable.ShouldBeTrue();
     }
 
     [Fact]

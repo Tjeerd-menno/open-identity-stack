@@ -205,11 +205,9 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
             return permissionResult.Error;
         }
 
-        ApplicationPermission permission = permissionResult.Value;
-        permission.RecalculateAssignability(this.Status);
-        this.permissions.Add(permission);
+        this.permissions.Add(permissionResult.Value);
         this.Touch(createdBy, dateTimeProvider);
-        return permission;
+        return permissionResult.Value;
     }
 
     public Result UpdatePermission(
@@ -258,35 +256,6 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
             this.RetiredAt ??= dateTimeProvider.UtcNow;
         }
 
-        foreach (ApplicationPermission permission in this.permissions)
-        {
-            permission.RecalculateAssignability(this.Status);
-        }
-
-        return Result.Success();
-    }
-
-    public Result ChangePermissionStatus(
-        ApplicationPermissionId permissionId,
-        PermissionLifecycleStatus status,
-        bool hasBlockingDependencies,
-        string updatedBy,
-        IDateTimeProvider dateTimeProvider)
-    {
-        ApplicationPermission? permission = this.permissions.FirstOrDefault(p => p.Id == permissionId);
-        if (permission is null)
-        {
-            return PermissionNotFound;
-        }
-
-        Result result = permission.ChangeStatus(status, hasBlockingDependencies, updatedBy, dateTimeProvider);
-        if (result.IsFailure)
-        {
-            return result;
-        }
-
-        permission.RecalculateAssignability(this.Status);
-        this.Touch(updatedBy, dateTimeProvider);
         return Result.Success();
     }
 

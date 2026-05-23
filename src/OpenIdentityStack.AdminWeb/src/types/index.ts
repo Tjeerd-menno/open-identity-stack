@@ -565,19 +565,12 @@ export interface ApplicationPermission {
   fullPermissionKey: string;
   displayName: string;
   description: string | null;
-  intendedUse: string | null;
-  documentationUrl: string | null;
-  status: string;
-  isAssignable: boolean;
+  category: string | null;
   createdAt: string;
   updatedAt: string | null;
-  deprecatedAt: string | null;
-  disabledAt: string | null;
-  retiredAt: string | null;
   applicationId?: string | null;
   applicationName?: string | null;
   applicationVersion?: string | null;
-  category?: string | null;
 }
 
 export interface DelegatedMaintainer {
@@ -618,8 +611,7 @@ export interface ApplicationPermissionInput {
   permissionKey: string;
   displayName: string;
   description?: string | null;
-  intendedUse?: string | null;
-  documentationUrl?: string | null;
+  category?: string | null;
 }
 
 export interface PermissionManifestApplication {

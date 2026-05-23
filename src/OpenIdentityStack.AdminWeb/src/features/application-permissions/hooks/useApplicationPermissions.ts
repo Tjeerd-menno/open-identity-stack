@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   addDelegatedMaintainer,
   addApplicationPermission,
-  changePermissionLifecycle,
   changeApplicationLifecycle,
   getAssignablePermissionCatalog,
   getPermissionDependencies,
@@ -102,16 +101,6 @@ export function useChangeApplicationLifecycle(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: ChangeLifecycleRequest) => changeApplicationLifecycle(id, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: [APPLICATION_PERMISSIONS_QUERY_KEY] });
-    },
-  });
-}
-
-export function useChangePermissionLifecycle(permissionId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: ChangeLifecycleRequest) => changePermissionLifecycle(permissionId, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [APPLICATION_PERMISSIONS_QUERY_KEY] });
     },

@@ -158,7 +158,6 @@ public sealed class AdminApiRouteMappingTests
                 new("AddRegisteredApplicationPermission", "api/admin/application-permissions/applications/{id:guid}/permissions", "POST", Permissions.ApplicationPermissions.Write),
                 new("UpdateRegisteredApplicationPermission", "api/admin/application-permissions/permissions/{permissionId:guid}", "PATCH", Permissions.ApplicationPermissions.Write),
                 new("ChangeRegisteredApplicationLifecycle", "api/admin/application-permissions/applications/{id:guid}/lifecycle", "POST", Permissions.ApplicationPermissions.Write),
-                new("ChangeRegisteredApplicationPermissionLifecycle", "api/admin/application-permissions/permissions/{permissionId:guid}/lifecycle", "POST", Permissions.ApplicationPermissions.Write),
                 new("GetRegisteredApplicationPermissionDependencies", "api/admin/application-permissions/permissions/{permissionId:guid}/dependencies", "GET", Permissions.ApplicationPermissions.Read),
                 new("TransferRegisteredApplicationOwnership", "api/admin/application-permissions/applications/{id:guid}/ownership", "POST", Permissions.ApplicationPermissions.Admin),
                 new("AddRegisteredApplicationMaintainer", "api/admin/application-permissions/applications/{id:guid}/maintainers", "POST", Permissions.ApplicationPermissions.Admin),

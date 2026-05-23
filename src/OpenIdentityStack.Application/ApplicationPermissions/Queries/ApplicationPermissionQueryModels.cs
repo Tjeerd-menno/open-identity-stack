@@ -13,5 +13,4 @@ public sealed record ListAssignablePermissionCatalogQuery(
     int Page = 1,
     int PageSize = 50,
     string? ApplicationIdentifier = null,
-    string? SearchTerm = null,
-    bool AssignableOnly = true);
+    string? SearchTerm = null);

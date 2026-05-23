@@ -234,33 +234,6 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
-  /api/admin/application-permissions/permissions/{permissionId}/lifecycle:
-    post:
-      tags: [ApplicationPermissionRegistry]
-      operationId: changePermissionLifecycle
-      summary: Deprecate, disable, retire, or restore a permission
-      security:
-        - openIddictBearer: [application-permissions:write]
-      parameters:
-        - $ref: '#/components/parameters/PermissionId'
-        - $ref: '#/components/parameters/IfMatch'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ChangePermissionLifecycleRequest' }
-      responses:
-        '200':
-          description: Permission lifecycle changed
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApplicationPermissionResponse' }
-        '400': { $ref: '#/components/responses/ValidationProblem' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '412': { $ref: '#/components/responses/PreconditionFailed' }
   /api/admin/application-permissions/permissions/{permissionId}/dependencies:
     get:
       tags: [ApplicationPermissionRegistry]
@@ -298,12 +271,6 @@ paths:
         - name: applicationIdentifier
           in: query
           schema: { type: string, maxLength: 63 }
-        - name: status
-          in: query
-          schema: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
-        - name: assignableOnly
-          in: query
-          schema: { type: boolean, default: true }
       responses:
         '200':
           description: Permission catalog grouped by application
@@ -385,9 +352,6 @@ components:
     ApplicationLifecycleStatus:
       type: string
       enum: [active, disabled, retired]
-    PermissionLifecycleStatus:
-      type: string
-      enum: [active, deprecated, disabled, retired]
     OwnerType:
       type: string
       enum: [user, group, externalGroup]
@@ -457,8 +421,7 @@ components:
         permissionKey: { type: string, pattern: '^[a-z][a-z0-9-]{1,62}$' }
         displayName: { type: string, minLength: 1, maxLength: 120 }
         description: { type: string, maxLength: 1000 }
-        intendedUse: { type: string, maxLength: 1000 }
-        documentationUrl: { type: string, format: uri }
+        category: { type: string, maxLength: 1000 }
     AddPermissionRequest:
       allOf:
         - $ref: '#/components/schemas/PermissionDeclarationRequest'
@@ -467,20 +430,12 @@ components:
       properties:
         displayName: { type: string, minLength: 1, maxLength: 120 }
         description: { type: string, maxLength: 1000 }
-        intendedUse: { type: string, maxLength: 1000 }
-        documentationUrl: { type: string, format: uri }
+        category: { type: string, maxLength: 1000 }
     ChangeApplicationLifecycleRequest:
       type: object
       required: [status, reason]
       properties:
         status: { $ref: '#/components/schemas/ApplicationLifecycleStatus' }
-        reason: { type: string, minLength: 1, maxLength: 500 }
-        acknowledgeDependencies: { type: boolean, default: false }
-    ChangePermissionLifecycleRequest:
-      type: object
-      required: [status, reason]
-      properties:
-        status: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
         reason: { type: string, minLength: 1, maxLength: 500 }
         acknowledgeDependencies: { type: boolean, default: false }
     TransferOwnershipRequest:
@@ -504,32 +459,26 @@ components:
         pageSize: { type: integer, minimum: 1 }
     RegisteredApplicationSummary:
       type: object
-      required: [id, applicationIdentifier, displayName, owner, status, activePermissionCount, updatedAt]
+      required: [id, applicationIdentifier, displayName, ownerId, status, permissionCount, createdAt]
       properties:
         id: { type: string, format: uuid }
         applicationIdentifier: { type: string }
         displayName: { type: string }
-        description: { type: string }
-        owner: { $ref: '#/components/schemas/OwnerResponse' }
+        ownerId: { type: string }
         status: { $ref: '#/components/schemas/ApplicationLifecycleStatus' }
-        activePermissionCount: { type: integer, minimum: 0 }
-        deprecatedPermissionCount: { type: integer, minimum: 0 }
-        disabledPermissionCount: { type: integer, minimum: 0 }
-        retiredPermissionCount: { type: integer, minimum: 0 }
+        permissionCount: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     RegisteredApplicationResponse:
       allOf:
         - $ref: '#/components/schemas/RegisteredApplicationSummary'
         - type: object
-          required: [createdAt, createdBy, updatedBy, concurrencyToken, permissions]
+          required: [description, ownerType, concurrencyToken, permissions, maintainers]
           properties:
-            createdAt: { type: string, format: date-time }
-            createdBy: { type: string }
-            updatedBy: { type: string }
-            disabledAt: { type: string, format: date-time }
-            retiredAt: { type: string, format: date-time }
+            description: { type: string }
+            ownerType: { type: string }
             concurrencyToken: { type: string }
-            delegatedMaintainers:
+            maintainers:
               type: array
               items: { $ref: '#/components/schemas/MaintainerResponse' }
             permissions:
@@ -537,26 +486,19 @@ components:
               items: { $ref: '#/components/schemas/ApplicationPermissionResponse' }
     ApplicationPermissionResponse:
       type: object
-      required: [id, applicationId, permissionKey, fullPermissionKey, displayName, status, isAssignable, createdAt, updatedAt, concurrencyToken]
+      required: [id, permissionKey, fullPermissionKey, displayName, createdAt]
       properties:
         id: { type: string, format: uuid }
-        applicationId: { type: string, format: uuid }
+        applicationId: { type: string }
+        applicationName: { type: string }
+        applicationVersion: { type: string }
         permissionKey: { type: string }
         fullPermissionKey: { type: string }
         displayName: { type: string }
         description: { type: string }
-        intendedUse: { type: string }
-        documentationUrl: { type: string, format: uri }
-        status: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
-        isAssignable: { type: boolean }
+        category: { type: string }
         createdAt: { type: string, format: date-time }
-        createdBy: { type: string }
         updatedAt: { type: string, format: date-time }
-        updatedBy: { type: string }
-        deprecatedAt: { type: string, format: date-time }
-        disabledAt: { type: string, format: date-time }
-        retiredAt: { type: string, format: date-time }
-        concurrencyToken: { type: string }
     OwnerResponse:
       type: object
       required: [ownerId, ownerType, displayName]

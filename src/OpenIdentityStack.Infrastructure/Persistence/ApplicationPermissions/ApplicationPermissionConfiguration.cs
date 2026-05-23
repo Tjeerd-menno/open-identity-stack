@@ -38,14 +38,6 @@ public sealed class ApplicationPermissionConfiguration : IEntityTypeConfiguratio
         builder.Property(p => p.Category)
             .HasMaxLength(1000);
 
-        builder.Property(p => p.Status)
-            .HasConversion<string>()
-            .HasMaxLength(32)
-            .IsRequired();
-
-        builder.Property(p => p.IsAssignable)
-            .IsRequired();
-
         builder.Property(p => p.CreatedBy)
             .HasMaxLength(256)
             .IsRequired();
@@ -56,9 +48,6 @@ public sealed class ApplicationPermissionConfiguration : IEntityTypeConfiguratio
 
         builder.Property(p => p.CreatedAt).IsRequired();
         builder.Property(p => p.ModifiedAt);
-        builder.Property(p => p.DisabledAt);
-        builder.Property(p => p.DeprecatedAt);
-        builder.Property(p => p.RetiredAt);
 
         builder.HasIndex(p => p.FullPermissionKey)
             .IsUnique()
@@ -67,11 +56,5 @@ public sealed class ApplicationPermissionConfiguration : IEntityTypeConfiguratio
         builder.HasIndex(p => new { p.RegisteredApplicationId, p.PermissionKey })
             .IsUnique()
             .HasDatabaseName("IX_ApplicationPermissions_ApplicationId_PermissionKey");
-
-        builder.HasIndex(p => p.IsAssignable)
-            .HasDatabaseName("IX_ApplicationPermissions_IsAssignable");
-
-        builder.HasIndex(p => p.Status)
-            .HasDatabaseName("IX_ApplicationPermissions_Status");
     }
 }

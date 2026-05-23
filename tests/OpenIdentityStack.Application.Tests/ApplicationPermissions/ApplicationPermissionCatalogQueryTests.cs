@@ -30,13 +30,8 @@ public sealed class ApplicationPermissionCatalogQueryTests
             permission.DisplayName,
             permission.Description,
             permission.Category,
-            permission.Status.ToString(),
-            permission.IsAssignable,
             permission.CreatedAt,
             permission.ModifiedAt,
-            permission.DeprecatedAt,
-            permission.DisabledAt,
-            permission.RetiredAt,
             "orders-api",
             "Orders API",
             null);
@@ -48,7 +43,7 @@ public sealed class ApplicationPermissionCatalogQueryTests
 
         result.TotalCount.ShouldBe(1);
         result.Items[0].FullPermissionKey.ShouldBe("orders-api:read-orders");
-        result.Items[0].IsAssignable.ShouldBeTrue();
+        result.Items[0].Category.ShouldBeNull();
     }
 
     [Fact]

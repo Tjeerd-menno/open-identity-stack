@@ -47,10 +47,6 @@ export async function changeApplicationLifecycle(id: string, data: ChangeLifecyc
   return await apiClient.post<RegisteredApplication>(`${BASE_PATH}/applications/${id}/lifecycle`, data);
 }
 
-export async function changePermissionLifecycle(permissionId: string, data: ChangeLifecycleRequest): Promise<RegisteredApplication> {
-  return await apiClient.post<RegisteredApplication>(`${BASE_PATH}/permissions/${permissionId}/lifecycle`, data);
-}
-
 export async function getPermissionDependencies(permissionId: string): Promise<RoleAssignmentDependency[]> {
   return await apiClient.get<RoleAssignmentDependency[]>(`${BASE_PATH}/permissions/${permissionId}/dependencies`);
 }

@@ -33,13 +33,6 @@ public sealed record ChangeRegisteredApplicationLifecycleCommand(
     bool AcknowledgeDependencies,
     uint? ExpectedConcurrencyToken);
 
-public sealed record ChangeApplicationPermissionLifecycleCommand(
-    Guid PermissionId,
-    PermissionLifecycleStatus Status,
-    string ActorId,
-    bool AcknowledgeDependencies,
-    uint? ExpectedConcurrencyToken);
-
 public sealed record TransferRegisteredApplicationOwnershipCommand(
     Guid ApplicationId,
     string OwnerId,

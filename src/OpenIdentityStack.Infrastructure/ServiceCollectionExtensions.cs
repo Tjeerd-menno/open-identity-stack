@@ -256,7 +256,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAddApplicationPermissionUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
         services.AddScoped<IUpdateApplicationPermissionUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
         services.AddScoped<IChangeRegisteredApplicationLifecycleUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IChangeApplicationPermissionLifecycleUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
         services.AddScoped<ITransferRegisteredApplicationOwnershipUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
         services.AddScoped<IAddDelegatedMaintainerUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
         services.AddScoped<IRemoveDelegatedMaintainerUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());

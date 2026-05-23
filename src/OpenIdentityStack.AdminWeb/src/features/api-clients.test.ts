@@ -49,7 +49,6 @@ import {
 import {
   addDelegatedMaintainer,
   addApplicationPermission,
-  changePermissionLifecycle,
   changeApplicationLifecycle,
   getAssignablePermissionCatalog,
   getPermissionDependencies,
@@ -382,7 +381,6 @@ describe('admin API clients', () => {
       expect(apiClient.get).toHaveBeenCalledWith('/api/admin/application-permissions/catalog', {
         page: 1,
         pageSize: 100,
-        assignableOnly: true,
       });
     });
 
@@ -596,7 +594,7 @@ describe('admin API clients', () => {
       );
     });
 
-    it('maps application permission lifecycle, ownership, and maintainer actions', async () => {
+    it('maps application ownership and maintainer actions', async () => {
       apiClient.post.mockResolvedValue({ id: 'application-1' });
       apiClient.delete.mockResolvedValue({ id: 'application-1' });
       apiClient.get.mockResolvedValue({ items: [] });
@@ -605,10 +603,6 @@ describe('admin API clients', () => {
         status: 'Disabled',
         acknowledgeDependencies: true,
         concurrencyToken: 4,
-      });
-      await changePermissionLifecycle('permission-1', {
-        status: 'Deprecated',
-        acknowledgeDependencies: false,
       });
       await getPermissionDependencies('permission-1');
       await transferApplicationOwnership('application-1', {
@@ -627,22 +621,17 @@ describe('admin API clients', () => {
         '/api/admin/application-permissions/applications/application-1/lifecycle',
         { status: 'Disabled', acknowledgeDependencies: true, concurrencyToken: 4 }
       );
-      expect(apiClient.post).toHaveBeenNthCalledWith(
-        2,
-        '/api/admin/application-permissions/permissions/permission-1/lifecycle',
-        { status: 'Deprecated', acknowledgeDependencies: false }
-      );
       expect(apiClient.get).toHaveBeenNthCalledWith(
         1,
         '/api/admin/application-permissions/permissions/permission-1/dependencies'
       );
       expect(apiClient.post).toHaveBeenNthCalledWith(
-        3,
+        2,
         '/api/admin/application-permissions/applications/application-1/ownership',
         { ownerId: 'owner-2', ownerType: 'Group' }
       );
       expect(apiClient.post).toHaveBeenNthCalledWith(
-        4,
+        3,
         '/api/admin/application-permissions/applications/application-1/maintainers',
         { principalId: 'maintainer-1', principalType: 'User' }
       );

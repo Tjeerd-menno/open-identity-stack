@@ -28,19 +28,9 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
 
     public string? Category { get; private set; }
 
-    public PermissionLifecycleStatus Status { get; private set; }
-
-    public bool IsAssignable { get; private set; }
-
     public string CreatedBy { get; private set; } = string.Empty;
 
     public string UpdatedBy { get; private set; } = string.Empty;
-
-    public DateTimeOffset? DisabledAt { get; private set; }
-
-    public DateTimeOffset? DeprecatedAt { get; private set; }
-
-    public DateTimeOffset? RetiredAt { get; private set; }
 
     private ApplicationPermission()
     {
@@ -97,19 +87,12 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
             DisplayName = displayName.Trim(),
             Description = description?.Trim(),
             Category = category?.Trim(),
-            Status = PermissionLifecycleStatus.Active,
-            IsAssignable = true,
             CreatedBy = createdBy,
             UpdatedBy = createdBy,
             CreatedAt = dateTimeProvider.UtcNow,
         };
 
         return permission;
-    }
-
-    internal void RecalculateAssignability(ApplicationLifecycleStatus applicationStatus)
-    {
-        this.IsAssignable = applicationStatus == ApplicationLifecycleStatus.Active && this.Status == PermissionLifecycleStatus.Active;
     }
 
     internal Result UpdateMetadata(
@@ -144,37 +127,6 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
         this.Category = category?.Trim();
         this.UpdatedBy = updatedBy;
         this.SetModified(dateTimeProvider.UtcNow);
-        return Result.Success();
-    }
-
-    internal Result ChangeStatus(
-        PermissionLifecycleStatus status,
-        bool hasBlockingDependencies,
-        string updatedBy,
-        IDateTimeProvider dateTimeProvider)
-    {
-        if (status == PermissionLifecycleStatus.Retired && hasBlockingDependencies)
-        {
-            return DomainError.Conflict("ApplicationPermission.HasBlockingDependencies", "Permission cannot be retired while blocking dependencies exist.");
-        }
-
-        this.Status = status;
-        this.UpdatedBy = updatedBy;
-        this.SetModified(dateTimeProvider.UtcNow);
-
-        if (status == PermissionLifecycleStatus.Deprecated)
-        {
-            this.DeprecatedAt ??= dateTimeProvider.UtcNow;
-        }
-        else if (status == PermissionLifecycleStatus.Disabled)
-        {
-            this.DisabledAt ??= dateTimeProvider.UtcNow;
-        }
-        else if (status == PermissionLifecycleStatus.Retired)
-        {
-            this.RetiredAt ??= dateTimeProvider.UtcNow;
-        }
-
         return Result.Success();
     }
 

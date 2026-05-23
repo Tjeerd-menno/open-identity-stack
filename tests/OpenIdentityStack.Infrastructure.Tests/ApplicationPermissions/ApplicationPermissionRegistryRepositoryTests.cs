@@ -42,8 +42,8 @@ public sealed class ApplicationPermissionRegistryRepositoryTests : IClassFixture
         RegisteredApplication application = CreateApplication(
             "orders-api",
             [
-                ("read-orders", "Read orders", null, null, null),
-                ("write-orders", "Write orders", null, null, null),
+                ("read-orders", "Read orders", null, null),
+                ("write-orders", "Write orders", null, null),
             ]);
         await this.repository.AddAsync(application);
         await this.repository.SaveChangesAsync();

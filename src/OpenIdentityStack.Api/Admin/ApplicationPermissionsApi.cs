@@ -79,12 +79,6 @@ internal static class ApplicationPermissionsApi
             .WithName("ChangeRegisteredApplicationLifecycle")
             .WithSummary("Changes registered application lifecycle status");
 
-        group.MapPost("permissions/{permissionId:guid}/lifecycle", ChangePermissionLifecycle)
-            .RequireAuthorization(Permissions.ApplicationPermissions.Write)
-            .Produces<RegisteredApplicationDto>(StatusCodes.Status200OK)
-            .WithName("ChangeRegisteredApplicationPermissionLifecycle")
-            .WithSummary("Changes registered permission lifecycle status");
-
         group.MapGet("permissions/{permissionId:guid}/dependencies", GetPermissionDependencies)
             .RequireAuthorization(Permissions.ApplicationPermissions.Read)
             .Produces<IReadOnlyList<RoleAssignmentDependency>>(StatusCodes.Status200OK)
@@ -205,11 +199,10 @@ internal static class ApplicationPermissionsApi
         [FromQuery] int pageSize = 50,
         [FromQuery] string? applicationIdentifier = null,
         [FromQuery] string? search = null,
-        [FromQuery] bool assignableOnly = true,
         CancellationToken cancellationToken = default)
     {
         PagedResult<ApplicationPermissionDto> result = await handler.HandleAsync(
-            new ListAssignablePermissionCatalogQuery(page, pageSize, applicationIdentifier, search, assignableOnly),
+            new ListAssignablePermissionCatalogQuery(page, pageSize, applicationIdentifier, search),
             cancellationToken);
         return TypedResults.Ok(new AssignablePermissionCatalogResponse(result.Items, result.Page, result.PageSize, result.TotalCount, result.TotalPages));
     }
@@ -267,24 +260,6 @@ internal static class ApplicationPermissionsApi
 
         Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
             new ChangeRegisteredApplicationLifecycleCommand(id, status, GetActorId(context), request.AcknowledgeDependencies, request.ConcurrencyToken),
-            cancellationToken);
-        return ToResult(result);
-    }
-
-    private static async Task<IResult> ChangePermissionLifecycle(
-        [FromServices] IChangeApplicationPermissionLifecycleUseCase useCase,
-        HttpContext context,
-        Guid permissionId,
-        [FromBody] ChangePermissionLifecycleRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (!Enum.TryParse(request.Status, ignoreCase: true, out PermissionLifecycleStatus status))
-        {
-            return TypedResults.BadRequest(new { error = "Invalid permission lifecycle status." });
-        }
-
-        Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new ChangeApplicationPermissionLifecycleCommand(permissionId, status, GetActorId(context), request.AcknowledgeDependencies, request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
