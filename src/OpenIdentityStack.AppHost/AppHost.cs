@@ -10,6 +10,8 @@ bool enableAdminWeb = !string.Equals(
     "false",
     StringComparison.OrdinalIgnoreCase);
 
+IResourceBuilder<ParameterResource> defaultAdminPassword = builder.AddParameter("default-admin-password", secret: true);
+
 // Add PostgreSQL with pgAdmin for development
 IResourceBuilder<PostgresServerResource> postgres = builder.AddPostgres("postgres");
 
@@ -32,6 +34,7 @@ IResourceBuilder<ProjectResource> openIdModuleMigrator = builder.AddProject<Proj
     .WithReference(openIdentityStackDb)
     .WithEnvironment("DOTNET_ENVIRONMENT", aspNetCoreEnvironment)
     .WithEnvironment("Seed__DevelopmentData", "true")
+    .WithEnvironment("Seed__DefaultAdmin__Password", defaultAdminPassword)
     .WaitFor(openIdentityStackDb);
 
 // Add the API project with PostgreSQL dependency
