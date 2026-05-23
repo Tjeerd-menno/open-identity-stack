@@ -21,6 +21,7 @@ public static class AspireTestApplication
         Environment.SetEnvironmentVariable("OPENIDENTITYSTACK_ENABLE_ADMINWEB", includeAdminWeb ? "true" : "false");
         Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", "Testing");
         Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
+        Environment.SetEnvironmentVariable("Parameters__default-admin-password", "Test1234@Test1234");
         Environment.SetEnvironmentVariable("DEBUG_SESSION_PORT", null);
         Environment.SetEnvironmentVariable("DEBUG_SESSION_TOKEN", null);
 

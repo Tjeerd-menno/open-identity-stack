@@ -85,7 +85,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                 table: "ApplicationPermissions");
 
             migrationBuilder.DropIndex(
-                name: "IX_ApplicationPermissions_IsAssignable",
+                name: "IX_ServicePermissions_IsAssignable",
                 table: "ApplicationPermissions");
 
             migrationBuilder.DropColumn(
