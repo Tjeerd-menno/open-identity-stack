@@ -1,4 +1,4 @@
-using OpenIdentityStack.Domain.ServicePermissions;
+using OpenIdentityStack.Domain.ApplicationPermissions;
 
 namespace OpenIdentityStack.Application.Abstractions;
 

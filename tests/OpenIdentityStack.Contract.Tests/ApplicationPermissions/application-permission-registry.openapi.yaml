@@ -1,0 +1,632 @@
+openapi: 3.1.0
+info:
+  title: OpenIdentityStack Application Permission Registry API
+  version: 0.1.0-planning
+  description: Admin API contract for registering applications and managing exposed permissions for RBAC consumption.
+servers:
+  - url: https://localhost:7001
+security:
+  - openIddictBearer: []
+tags:
+  - name: ApplicationPermissionRegistry
+  - name: PermissionCatalog
+paths:
+  /api/admin/application-permissions/applications:
+    get:
+      tags: [ApplicationPermissionRegistry]
+      operationId: listRegisteredApplications
+      summary: List registered applications/APIs and permission summaries
+      security:
+        - openIddictBearer: [application-permissions:read]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: search
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: ownerId
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/ApplicationLifecycleStatus' }
+      responses:
+        '200':
+          description: Registered applications page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredApplicationListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ApplicationPermissionRegistry]
+      operationId: registerApplicationPermissionManifest
+      summary: Register an application permission manifest
+      security:
+        - openIddictBearer: [application-permissions:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PermissionManifestRequest' }
+      responses:
+        '201':
+          description: Application registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterApplicationResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/admin/application-permissions/applications/import:
+    post:
+      tags: [ApplicationPermissionRegistry]
+      operationId: importApplicationPermissionManifest
+      summary: Import an application permission manifest from .well-known/permissions
+      security:
+        - openIddictBearer: [application-permissions:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ImportPermissionManifestRequest' }
+      responses:
+        '201':
+          description: Application registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterApplicationResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/admin/application-permissions/applications/{applicationId}:
+    get:
+      tags: [ApplicationPermissionRegistry]
+      operationId: getRegisteredApplication
+      summary: Get a registered application/API with permissions and ownership details
+      security:
+        - openIddictBearer: [application-permissions:read]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - name: includeRetiredPermissions
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Registered application details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredApplicationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [ApplicationPermissionRegistry]
+      operationId: updateRegisteredApplication
+      summary: Update mutable application metadata
+      security:
+        - openIddictBearer: [application-permissions:write]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateRegisteredApplicationRequest' }
+      responses:
+        '200':
+          description: Updated application
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredApplicationResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/application-permissions/applications/{applicationId}/lifecycle:
+    post:
+      tags: [ApplicationPermissionRegistry]
+      operationId: changeApplicationLifecycle
+      summary: Disable, retire, or restore an application after dependency review
+      security:
+        - openIddictBearer: [application-permissions:write]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeApplicationLifecycleRequest' }
+      responses:
+        '200':
+          description: Updated application lifecycle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredApplicationResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/application-permissions/applications/{applicationId}/ownership:
+    post:
+      tags: [ApplicationPermissionRegistry]
+      operationId: transferApplicationOwnership
+      summary: Transfer ownership or update delegated maintainers
+      security:
+        - openIddictBearer: [application-permissions:admin]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferOwnershipRequest' }
+      responses:
+        '200':
+          description: Ownership updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredApplicationResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/application-permissions/applications/{applicationId}/permissions:
+    post:
+      tags: [ApplicationPermissionRegistry]
+      operationId: addApplicationPermission
+      summary: Add a new permission to a registered application/API
+      security:
+        - openIddictBearer: [application-permissions:write]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddPermissionRequest' }
+      responses:
+        '201':
+          description: Permission added
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationPermissionResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/application-permissions/permissions/{permissionId}:
+    patch:
+      tags: [ApplicationPermissionRegistry]
+      operationId: updateApplicationPermission
+      summary: Update mutable permission metadata
+      security:
+        - openIddictBearer: [application-permissions:write]
+      parameters:
+        - $ref: '#/components/parameters/PermissionId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePermissionRequest' }
+      responses:
+        '200':
+          description: Permission updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationPermissionResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/application-permissions/permissions/{permissionId}/lifecycle:
+    post:
+      tags: [ApplicationPermissionRegistry]
+      operationId: changePermissionLifecycle
+      summary: Deprecate, disable, retire, or restore a permission
+      security:
+        - openIddictBearer: [application-permissions:write]
+      parameters:
+        - $ref: '#/components/parameters/PermissionId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangePermissionLifecycleRequest' }
+      responses:
+        '200':
+          description: Permission lifecycle changed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationPermissionResponse' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /api/admin/application-permissions/permissions/{permissionId}/dependencies:
+    get:
+      tags: [ApplicationPermissionRegistry]
+      operationId: getPermissionDependencies
+      summary: Get role and administrative dependencies for a permission
+      security:
+        - openIddictBearer: [application-permissions:read]
+      parameters:
+        - $ref: '#/components/parameters/PermissionId'
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Dependency details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionDependenciesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/application-permissions/catalog:
+    get:
+      tags: [PermissionCatalog]
+      operationId: listAssignablePermissionCatalog
+      summary: List permissions for role-management workflows grouped by application
+      security:
+        - openIddictBearer: [roles:read]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: search
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: applicationIdentifier
+          in: query
+          schema: { type: string, maxLength: 63 }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
+        - name: assignableOnly
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Permission catalog grouped by application
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionCatalogResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    openIddictBearer:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: /connect/authorize
+          tokenUrl: /connect/token
+          scopes:
+            application-permissions:read: Read registry data
+            application-permissions:write: Register and maintain owned application permissions
+            application-permissions:admin: Transfer ownership and perform administrator overrides
+            roles:read: Read role and permission catalog data
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    ApplicationId:
+      name: applicationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PermissionId:
+      name: permissionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      schema: { type: string }
+      description: Optional concurrency token.
+  responses:
+    Unauthorized:
+      description: Authentication required or invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Forbidden:
+      description: Authenticated principal lacks required RBAC permission or ownership boundary
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    NotFound:
+      description: Requested registry resource was not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Conflict:
+      description: Unique-key, lifecycle, dependency, or update conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    PreconditionFailed:
+      description: Supplied concurrency token is stale
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    ValidationProblem:
+      description: Request validation failed without partial changes
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ValidationProblemDetails' }
+  schemas:
+    ApplicationLifecycleStatus:
+      type: string
+      enum: [active, disabled, retired]
+    PermissionLifecycleStatus:
+      type: string
+      enum: [active, deprecated, disabled, retired]
+    OwnerType:
+      type: string
+      enum: [user, group, externalGroup]
+    DependencyType:
+      type: string
+      enum: [role, administrativeAssignment, accessReview, tokenPolicy]
+    DependencyImpact:
+      type: string
+      enum: [blocksDeletion, blocksRetirement, warningOnly]
+    PermissionManifestRequest:
+      type: object
+      required: [application, permissions]
+      properties:
+        application: { $ref: '#/components/schemas/PermissionManifestApplication' }
+        permissions:
+          type: array
+          items: { $ref: '#/components/schemas/PermissionManifestPermission' }
+    PermissionManifestApplication:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, pattern: '^[a-z][a-z0-9-]{2,62}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        version: { type: string, maxLength: 1000 }
+    PermissionManifestPermission:
+      type: object
+      required: [name, description]
+      properties:
+        name: { type: string, pattern: '^(?=.{2,63}$)[a-z][a-z0-9-]{1,62}(:[a-z][a-z0-9-]{1,62})?$' }
+        description: { type: string, minLength: 1, maxLength: 1000 }
+        category: { type: string, maxLength: 1000 }
+    ImportPermissionManifestRequest:
+      type: object
+      required: [endpoint]
+      properties:
+        endpoint: { type: string, format: uri }
+    RegisterApplicationResponse:
+      type: object
+      required: [applicationId, applicationIdentifier, permissionsRegistered]
+      properties:
+        applicationId: { type: string, format: uuid }
+        applicationIdentifier: { type: string }
+        permissionsRegistered: { type: integer, minimum: 0 }
+    UpdateRegisteredApplicationRequest:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+    OwnerRequest:
+      type: object
+      required: [ownerId, ownerType, displayName]
+      properties:
+        ownerId: { type: string, minLength: 1, maxLength: 200 }
+        ownerType: { $ref: '#/components/schemas/OwnerType' }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        contact: { type: string, maxLength: 200 }
+    MaintainerRequest:
+      type: object
+      required: [principalId, principalType]
+      properties:
+        principalId: { type: string, minLength: 1, maxLength: 200 }
+        principalType: { $ref: '#/components/schemas/OwnerType' }
+    PermissionDeclarationRequest:
+      type: object
+      required: [permissionKey, displayName]
+      properties:
+        permissionKey: { type: string, pattern: '^[a-z][a-z0-9-]{1,62}$' }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+        intendedUse: { type: string, maxLength: 1000 }
+        documentationUrl: { type: string, format: uri }
+    AddPermissionRequest:
+      allOf:
+        - $ref: '#/components/schemas/PermissionDeclarationRequest'
+    UpdatePermissionRequest:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+        intendedUse: { type: string, maxLength: 1000 }
+        documentationUrl: { type: string, format: uri }
+    ChangeApplicationLifecycleRequest:
+      type: object
+      required: [status, reason]
+      properties:
+        status: { $ref: '#/components/schemas/ApplicationLifecycleStatus' }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        acknowledgeDependencies: { type: boolean, default: false }
+    ChangePermissionLifecycleRequest:
+      type: object
+      required: [status, reason]
+      properties:
+        status: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        acknowledgeDependencies: { type: boolean, default: false }
+    TransferOwnershipRequest:
+      type: object
+      required: [owner, reason]
+      properties:
+        owner: { $ref: '#/components/schemas/OwnerRequest' }
+        delegatedMaintainers:
+          type: array
+          items: { $ref: '#/components/schemas/MaintainerRequest' }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    RegisteredApplicationListResponse:
+      type: object
+      required: [items, totalCount, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/RegisteredApplicationSummary' }
+        totalCount: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+    RegisteredApplicationSummary:
+      type: object
+      required: [id, applicationIdentifier, displayName, owner, status, activePermissionCount, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        applicationIdentifier: { type: string }
+        displayName: { type: string }
+        description: { type: string }
+        owner: { $ref: '#/components/schemas/OwnerResponse' }
+        status: { $ref: '#/components/schemas/ApplicationLifecycleStatus' }
+        activePermissionCount: { type: integer, minimum: 0 }
+        deprecatedPermissionCount: { type: integer, minimum: 0 }
+        disabledPermissionCount: { type: integer, minimum: 0 }
+        retiredPermissionCount: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time }
+    RegisteredApplicationResponse:
+      allOf:
+        - $ref: '#/components/schemas/RegisteredApplicationSummary'
+        - type: object
+          required: [createdAt, createdBy, updatedBy, concurrencyToken, permissions]
+          properties:
+            createdAt: { type: string, format: date-time }
+            createdBy: { type: string }
+            updatedBy: { type: string }
+            disabledAt: { type: string, format: date-time }
+            retiredAt: { type: string, format: date-time }
+            concurrencyToken: { type: string }
+            delegatedMaintainers:
+              type: array
+              items: { $ref: '#/components/schemas/MaintainerResponse' }
+            permissions:
+              type: array
+              items: { $ref: '#/components/schemas/ApplicationPermissionResponse' }
+    ApplicationPermissionResponse:
+      type: object
+      required: [id, applicationId, permissionKey, fullPermissionKey, displayName, status, isAssignable, createdAt, updatedAt, concurrencyToken]
+      properties:
+        id: { type: string, format: uuid }
+        applicationId: { type: string, format: uuid }
+        permissionKey: { type: string }
+        fullPermissionKey: { type: string }
+        displayName: { type: string }
+        description: { type: string }
+        intendedUse: { type: string }
+        documentationUrl: { type: string, format: uri }
+        status: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
+        isAssignable: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        createdBy: { type: string }
+        updatedAt: { type: string, format: date-time }
+        updatedBy: { type: string }
+        deprecatedAt: { type: string, format: date-time }
+        disabledAt: { type: string, format: date-time }
+        retiredAt: { type: string, format: date-time }
+        concurrencyToken: { type: string }
+    OwnerResponse:
+      type: object
+      required: [ownerId, ownerType, displayName]
+      properties:
+        ownerId: { type: string }
+        ownerType: { $ref: '#/components/schemas/OwnerType' }
+        displayName: { type: string }
+        contact: { type: string }
+    MaintainerResponse:
+      type: object
+      required: [principalId, principalType, grantedAt, grantedBy]
+      properties:
+        principalId: { type: string }
+        principalType: { $ref: '#/components/schemas/OwnerType' }
+        grantedAt: { type: string, format: date-time }
+        grantedBy: { type: string }
+    PermissionDependenciesResponse:
+      type: object
+      required: [permissionId, fullPermissionKey, dependencies]
+      properties:
+        permissionId: { type: string, format: uuid }
+        fullPermissionKey: { type: string }
+        dependencies:
+          type: array
+          items: { $ref: '#/components/schemas/PermissionDependency' }
+    PermissionDependency:
+      type: object
+      required: [dependencyType, dependentId, dependentName, isActive, impact]
+      properties:
+        dependencyType: { $ref: '#/components/schemas/DependencyType' }
+        dependentId: { type: string }
+        dependentName: { type: string }
+        isActive: { type: boolean }
+        impact: { $ref: '#/components/schemas/DependencyImpact' }
+    PermissionCatalogResponse:
+      type: object
+      required: [applications, totalCount, page, pageSize]
+      properties:
+        applications:
+          type: array
+          items: { $ref: '#/components/schemas/PermissionCatalogService' }
+        totalCount: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+    PermissionCatalogService:
+      type: object
+      required: [applicationIdentifier, displayName, status, permissions]
+      properties:
+        applicationIdentifier: { type: string }
+        displayName: { type: string }
+        status: { $ref: '#/components/schemas/ApplicationLifecycleStatus' }
+        permissions:
+          type: array
+          items: { $ref: '#/components/schemas/ApplicationPermissionResponse' }
+    ProblemDetails:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        traceId: { type: string }
+    ValidationProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          properties:
+            errors:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }

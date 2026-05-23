@@ -1,7 +1,21 @@
+import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAssignablePermissionCatalog } from '@/features/service-permissions/hooks';
+import { useAssignablePermissionCatalog } from '@/features/application-permissions/hooks';
+import { cn } from '@/lib/utils';
+
+type PermissionOption = {
+  value: string;
+  label: string;
+  description?: string | null;
+  category?: string | null;
+};
+
+type PermissionTab = {
+  id: string;
+  label: string;
+  groups: Record<string, PermissionOption[]>;
+};
 
 interface PermissionSelectorProps {
   /**
@@ -32,6 +46,7 @@ export function PermissionSelector({
   disabled = false,
 }: PermissionSelectorProps) {
   const { data: catalog } = useAssignablePermissionCatalog({ page: 1, pageSize: 100 });
+  const [activeTab, setActiveTab] = useState('built-in');
   const selected = new Set(selectedPermissions);
 
   const handleToggle = (permission: string, checked: boolean) => {
@@ -45,8 +60,7 @@ export function PermissionSelector({
     onChange(Array.from(newSelected));
   };
 
-  // Group permissions by resource
-  const permissionGroups: Record<string, { value: string; label: string }[]> = {
+  const builtInGroups: Record<string, PermissionOption[]> = {
     Users: [
       { value: 'users:read', label: 'Read Users' },
       { value: 'users:create', label: 'Create Users' },
@@ -83,50 +97,102 @@ export function PermissionSelector({
     ],
   };
 
-  const registeredPermissions = catalog?.items.map((permission) => ({
-    value: permission.fullPermissionKey,
-    label: permission.displayName,
-  })) ?? [];
-
-  if (registeredPermissions.length > 0) {
-    permissionGroups['Registered Services'] = registeredPermissions;
+  const applicationTabs = new Map<string, PermissionTab>();
+  for (const permission of catalog?.items ?? []) {
+    const applicationId = permission.applicationId ?? 'registered-applications';
+    const applicationName = permission.applicationName ?? 'Registered Applications';
+    const category = permission.category ?? permission.intendedUse ?? 'Permissions';
+    const existing = applicationTabs.get(applicationId) ?? {
+      id: `application-${applicationId}`,
+      label: applicationName,
+      groups: {},
+    };
+    existing.groups[category] ??= [];
+    existing.groups[category].push({
+      value: permission.fullPermissionKey,
+      label: permission.displayName,
+      description: permission.description,
+      category,
+    });
+    applicationTabs.set(applicationId, existing);
   }
+
+  const tabs: PermissionTab[] = [
+    { id: 'built-in', label: 'Built-in', groups: builtInGroups },
+    ...Array.from(applicationTabs.values()).sort((left, right) => left.label.localeCompare(right.label)),
+  ];
+  const currentTab = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
 
   return (
     <div className="space-y-4" data-testid="permission-selector">
-      {Object.entries(permissionGroups).map(([groupName, permissions]) => (
-        <Card key={groupName} data-permission-group={groupName}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">{groupName}</CardTitle>
-            <CardDescription className="text-xs">
-              Manage {groupName.toLowerCase()} permissions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              {permissions.map((permission) => (
-                <div key={permission.value} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={permission.value}
-                    checked={selected.has(permission.value)}
-                    onCheckedChange={(checked) =>
-                      handleToggle(permission.value, checked as boolean)
-                    }
-                    disabled={disabled}
-                    aria-label={permission.label}
-                  />
-                  <Label
-                    htmlFor={permission.value}
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    {permission.label}
-                  </Label>
-                </div>
-              ))}
+      <div className="flex flex-wrap gap-2 border-b" role="tablist" aria-label="Permission applications">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={currentTab.id === tab.id}
+            aria-controls={`permission-panel-${tab.id}`}
+            id={`permission-tab-${tab.id}`}
+            className={cn(
+              'border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+              currentTab.id === tab.id
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div
+        role="tabpanel"
+        id={`permission-panel-${currentTab.id}`}
+        aria-labelledby={`permission-tab-${currentTab.id}`}
+        className="space-y-5"
+      >
+        {Object.entries(currentTab.groups).map(([groupName, permissions]) => (
+          <section key={groupName} data-permission-group={groupName} className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium">{groupName}</h3>
             </div>
-          </CardContent>
-        </Card>
-      ))}
+            <div className="grid gap-3 md:grid-cols-2">
+              {permissions.map((permission) => {
+                const descriptionId = permission.description ? `${permission.value}-description` : undefined;
+                return (
+                  <div key={permission.value} className="flex items-start gap-2 rounded-md border p-3">
+                    <Checkbox
+                      id={permission.value}
+                      checked={selected.has(permission.value)}
+                      onCheckedChange={(checked) =>
+                        handleToggle(permission.value, checked as boolean)
+                      }
+                      disabled={disabled}
+                      aria-label={permission.label}
+                      aria-describedby={descriptionId}
+                    />
+                    <div className="min-w-0 space-y-1">
+                      <Label
+                        htmlFor={permission.value}
+                        className="cursor-pointer break-words text-sm font-normal"
+                      >
+                        {permission.label}
+                      </Label>
+                      {permission.description && (
+                        <p id={descriptionId} className="text-xs text-muted-foreground">
+                          {permission.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

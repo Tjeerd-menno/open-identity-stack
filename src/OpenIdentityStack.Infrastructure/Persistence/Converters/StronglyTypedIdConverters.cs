@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OpenIdentityStack.Domain.Clients;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Federation;
-using OpenIdentityStack.Domain.ServicePermissions;
+using OpenIdentityStack.Domain.ApplicationPermissions;
 using OpenIdentityStack.Domain.Settings;
 
 using SharedKernel;
@@ -81,19 +81,19 @@ public class AuthenticationSettingsIdConverter : ValueConverter<AuthenticationSe
 }
 
 /// <summary>
-/// EF Core value converter for RegisteredServiceId.
+/// EF Core value converter for RegisteredApplicationId.
 /// </summary>
-public class RegisteredServiceIdConverter : ValueConverter<RegisteredServiceId, Guid>
+public class RegisteredApplicationIdConverter : ValueConverter<RegisteredApplicationId, Guid>
 {
-    public RegisteredServiceIdConverter() : base(id => id.Value, guid => new RegisteredServiceId(guid)) { }
+    public RegisteredApplicationIdConverter() : base(id => id.Value, guid => new RegisteredApplicationId(guid)) { }
 }
 
 /// <summary>
-/// EF Core value converter for ServicePermissionId.
+/// EF Core value converter for ApplicationPermissionId.
 /// </summary>
-public class ServicePermissionIdConverter : ValueConverter<ServicePermissionId, Guid>
+public class ApplicationPermissionIdConverter : ValueConverter<ApplicationPermissionId, Guid>
 {
-    public ServicePermissionIdConverter() : base(id => id.Value, guid => new ServicePermissionId(guid)) { }
+    public ApplicationPermissionIdConverter() : base(id => id.Value, guid => new ApplicationPermissionId(guid)) { }
 }
 
 /// <summary>

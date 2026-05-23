@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { RoleTypeBadge } from './roles/components/RoleTypeBadge';
 import { ServiceAccountStatusBadge } from './service-accounts/components/ServiceAccountStatusBadge';
-import { ServicePermissionStatusBadge } from './service-permissions/components/ServicePermissionStatusBadge';
+import { ApplicationPermissionStatusBadge } from './application-permissions/components/ApplicationPermissionStatusBadge';
 import { SessionStatusBadge } from './sessions/components/SessionStatusBadge';
 import { UserStatusBadge } from './users/components/UserStatusBadge';
 
@@ -65,8 +65,8 @@ describe('status badge components', () => {
     expect(screen.getByText('Custom')).toBeInTheDocument();
   });
 
-  it.each(['Active', 'Deprecated', 'Retired'])('renders service permission status %s', (status) => {
-    render(<ServicePermissionStatusBadge status={status} />);
+  it.each(['Active', 'Deprecated', 'Retired'])('renders application permission status %s', (status) => {
+    render(<ApplicationPermissionStatusBadge status={status} />);
 
     expect(screen.getByText(status)).toBeInTheDocument();
   });
