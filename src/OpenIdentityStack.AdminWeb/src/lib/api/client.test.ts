@@ -35,6 +35,8 @@ const mockedAxios = vi.hoisted(() => {
 });
 
 vi.mock('axios', () => ({
+  __esModule: true,
+  AxiosError: class AxiosError extends Error {},
   default: {
     create: mockedAxios.create,
   },
