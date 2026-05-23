@@ -10,7 +10,7 @@ public static class RegisterApplicationValidator
     {
         if (string.IsNullOrWhiteSpace(command.ApplicationIdentifier))
         {
-            return DomainError.Validation("RegisterApplication.IdentifierRequired", "Service identifier is required.");
+            return DomainError.Validation("RegisterApplication.IdentifierRequired", "Application identifier is required.");
         }
 
         if (string.IsNullOrWhiteSpace(command.OwnerId))
@@ -30,7 +30,7 @@ public static class RegisterApplicationValidator
 
         if (ReservedApplicationPermissionNamespaces.IsReserved(command.ApplicationIdentifier.Trim()))
         {
-            return DomainError.Conflict("RegisterApplication.IdentifierReserved", "Service identifier is reserved.");
+            return DomainError.Conflict("RegisterApplication.IdentifierReserved", "Application identifier is reserved.");
         }
 
         return null;

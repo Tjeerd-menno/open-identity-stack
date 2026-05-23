@@ -28,7 +28,7 @@ public sealed class RegisterApplicationUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithValidCommand_RegistersService()
+    public async Task ExecuteAsync_WithValidCommand_RegistersApplication()
     {
         RegisterApplicationCommand command = ValidCommand();
         this.repository.ExistsByIdentifierAsync("orders-api", Arg.Any<CancellationToken>()).Returns(false);
