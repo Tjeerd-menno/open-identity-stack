@@ -29,8 +29,7 @@ public sealed class ApplicationPermissionCatalogQueryTests
             permission.FullPermissionKey,
             permission.DisplayName,
             permission.Description,
-            permission.IntendedUse,
-            permission.DocumentationUrl,
+            permission.Category,
             permission.Status.ToString(),
             permission.IsAssignable,
             permission.CreatedAt,
@@ -40,8 +39,7 @@ public sealed class ApplicationPermissionCatalogQueryTests
             permission.RetiredAt,
             "orders-api",
             "Orders API",
-            null,
-            permission.IntendedUse);
+            null);
         var paged = PagedResult<ApplicationPermissionDto>.Create([dto], 1, 50, 1);
         this.repository.ListAssignablePermissionCatalogAsync(Arg.Any<ListAssignablePermissionCatalogQuery>(), Arg.Any<CancellationToken>()).Returns(paged);
         var handler = new ListAssignablePermissionCatalogQueryHandler(this.repository);
@@ -96,7 +94,7 @@ public sealed class ApplicationPermissionCatalogQueryTests
             null,
             "owner-1",
             OwnerType.User,
-            [("read-orders", "Read orders", null, null, null)],
+            [("read-orders", "Read orders", null, null)],
             "actor-1",
             this.dateTimeProvider);
         return result.Value;

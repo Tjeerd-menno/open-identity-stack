@@ -65,8 +65,8 @@ public sealed class RegisterApplicationUseCase : IRegisterApplicationUseCase, IR
             return DomainError.Validation("RegisterApplication.OwnerTypeInvalid", "Owner type is invalid.");
         }
 
-        IEnumerable<(string Key, string DisplayName, string? Description, string? IntendedUse, string? DocUrl)> permissions = command.Permissions.Select(p =>
-            (p.PermissionKey, p.DisplayName, p.Description, p.IntendedUse, p.DocumentationUrl));
+        IEnumerable<(string Key, string DisplayName, string? Description, string? Category)> permissions = command.Permissions.Select(p =>
+            (p.PermissionKey, p.DisplayName, p.Description, p.Category));
 
         Result<RegisteredApplication> applicationResult = RegisteredApplication.Register(
             command.ApplicationIdentifier,
@@ -106,8 +106,7 @@ public sealed class RegisterApplicationUseCase : IRegisterApplicationUseCase, IR
                 permission.Name,
                 permission.Name,
                 permission.Description,
-                permission.Category,
-                null)).ToList());
+                permission.Category)).ToList());
 
         return await this.ExecuteAsync(applicationCommand, cancellationToken).ConfigureAwait(false);
     }

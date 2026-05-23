@@ -182,8 +182,7 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
                 item.Permission.FullPermissionKey,
                 item.Permission.DisplayName,
                 item.Permission.Description,
-                item.Permission.IntendedUse,
-                item.Permission.DocumentationUrl,
+                item.Permission.Category,
                 item.Permission.Status.ToString(),
                 item.Permission.IsAssignable,
                 item.Permission.CreatedAt,
@@ -193,8 +192,7 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
                 item.Permission.RetiredAt,
                 item.Application.ApplicationIdentifier,
                 item.Application.DisplayName,
-                item.Application.Description,
-                item.Permission.IntendedUse))
+                item.Application.Description))
             .ToListAsync(cancellationToken);
 
         return PagedResult<ApplicationPermissionDto>.Create(items, page, pageSize, totalCount);

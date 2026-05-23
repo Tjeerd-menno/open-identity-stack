@@ -98,8 +98,7 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
                     command.PermissionKey,
                     command.DisplayName,
                     command.Description,
-                    command.IntendedUse,
-                    command.DocumentationUrl,
+                    command.Category,
                     command.ActorId,
                     this.dateTimeProvider);
                 return result.IsSuccess ? Result.Success() : result.Error;
@@ -126,8 +125,7 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
                 new ApplicationPermissionId(command.PermissionId),
                 command.DisplayName,
                 command.Description,
-                command.IntendedUse,
-                command.DocumentationUrl,
+                command.Category,
                 command.ActorId,
                 this.dateTimeProvider),
             cancellationToken).ConfigureAwait(false);
@@ -289,8 +287,7 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
             p.FullPermissionKey,
             p.DisplayName,
             p.Description,
-            p.IntendedUse,
-            p.DocumentationUrl,
+            p.Category,
             p.Status.ToString(),
             p.IsAssignable,
             p.CreatedAt,

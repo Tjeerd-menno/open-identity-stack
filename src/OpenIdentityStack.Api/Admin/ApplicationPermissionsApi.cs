@@ -235,7 +235,7 @@ internal static class ApplicationPermissionsApi
         CancellationToken cancellationToken)
     {
         Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new AddApplicationPermissionCommand(id, request.PermissionKey, request.DisplayName, request.Description, request.IntendedUse, request.DocumentationUrl, GetActorId(context), request.ConcurrencyToken),
+            new AddApplicationPermissionCommand(id, request.PermissionKey, request.DisplayName, request.Description, request.Category, GetActorId(context), request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
@@ -248,7 +248,7 @@ internal static class ApplicationPermissionsApi
         CancellationToken cancellationToken)
     {
         Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new UpdateApplicationPermissionCommand(permissionId, request.DisplayName, request.Description, request.IntendedUse, request.DocumentationUrl, GetActorId(context), request.ConcurrencyToken),
+            new UpdateApplicationPermissionCommand(permissionId, request.DisplayName, request.Description, request.Category, GetActorId(context), request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }

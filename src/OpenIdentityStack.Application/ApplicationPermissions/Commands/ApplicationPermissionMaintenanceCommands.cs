@@ -14,8 +14,7 @@ public sealed record AddApplicationPermissionCommand(
     string PermissionKey,
     string DisplayName,
     string? Description,
-    string? IntendedUse,
-    string? DocumentationUrl,
+    string? Category,
     string ActorId,
     uint? ExpectedConcurrencyToken);
 
@@ -23,8 +22,7 @@ public sealed record UpdateApplicationPermissionCommand(
     Guid PermissionId,
     string DisplayName,
     string? Description,
-    string? IntendedUse,
-    string? DocumentationUrl,
+    string? Category,
     string ActorId,
     uint? ExpectedConcurrencyToken);
 

@@ -68,7 +68,7 @@ public sealed class RegisterApplicationUseCaseTests
                 && application.Permissions[0].FullPermissionKey == "read:patients"
                 && application.Permissions[0].DisplayName == "read:patients"
                 && application.Permissions[0].Description == "Allows reading patient data"
-                && application.Permissions[0].IntendedUse == "Patients"),
+                && application.Permissions[0].Category == "Patients"),
             Arg.Any<CancellationToken>());
     }
 

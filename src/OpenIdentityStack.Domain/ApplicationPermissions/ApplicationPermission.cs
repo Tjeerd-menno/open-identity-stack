@@ -14,8 +14,7 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
     public static readonly DomainError DisplayNameRequired = DomainError.Validation("ApplicationPermission.DisplayNameRequired", "Display name is required.");
     public static readonly DomainError DisplayNameTooLong = DomainError.Validation("ApplicationPermission.DisplayNameTooLong", "Display name must not exceed 120 characters.");
     public static readonly DomainError DescriptionTooLong = DomainError.Validation("ApplicationPermission.DescriptionTooLong", "Description must not exceed 1000 characters.");
-    public static readonly DomainError IntendedUseTooLong = DomainError.Validation("ApplicationPermission.IntendedUseTooLong", "Intended use must not exceed 1000 characters.");
-    public static readonly DomainError DocumentationUrlTooLong = DomainError.Validation("ApplicationPermission.DocumentationUrlTooLong", "Documentation URL must not exceed 2048 characters.");
+    public static readonly DomainError CategoryTooLong = DomainError.Validation("ApplicationPermission.CategoryTooLong", "Category must not exceed 1000 characters.");
 
     public RegisteredApplicationId RegisteredApplicationId { get; private set; }
 
@@ -27,9 +26,7 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
 
     public string? Description { get; private set; }
 
-    public string? IntendedUse { get; private set; }
-
-    public string? DocumentationUrl { get; private set; }
+    public string? Category { get; private set; }
 
     public PermissionLifecycleStatus Status { get; private set; }
 
@@ -55,8 +52,7 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
         string permissionKey,
         string displayName,
         string? description,
-        string? intendedUse,
-        string? documentationUrl,
+        string? category,
         string createdBy,
         IDateTimeProvider dateTimeProvider)
     {
@@ -87,14 +83,9 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
             return DescriptionTooLong;
         }
 
-        if (intendedUse?.Length > 1000)
+        if (category?.Length > 1000)
         {
-            return IntendedUseTooLong;
-        }
-
-        if (documentationUrl?.Length > 2048)
-        {
-            return DocumentationUrlTooLong;
+            return CategoryTooLong;
         }
 
         var permission = new ApplicationPermission
@@ -105,8 +96,7 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
             FullPermissionKey = normalizedKey.Contains(':', StringComparison.Ordinal) ? normalizedKey : $"{applicationIdentifier}:{normalizedKey}",
             DisplayName = displayName.Trim(),
             Description = description?.Trim(),
-            IntendedUse = intendedUse?.Trim(),
-            DocumentationUrl = documentationUrl?.Trim(),
+            Category = category?.Trim(),
             Status = PermissionLifecycleStatus.Active,
             IsAssignable = true,
             CreatedBy = createdBy,
@@ -125,8 +115,7 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
     internal Result UpdateMetadata(
         string displayName,
         string? description,
-        string? intendedUse,
-        string? documentationUrl,
+        string? category,
         string updatedBy,
         IDateTimeProvider dateTimeProvider)
     {
@@ -145,20 +134,14 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
             return DescriptionTooLong;
         }
 
-        if (intendedUse?.Length > 1000)
+        if (category?.Length > 1000)
         {
-            return IntendedUseTooLong;
-        }
-
-        if (documentationUrl?.Length > 2048)
-        {
-            return DocumentationUrlTooLong;
+            return CategoryTooLong;
         }
 
         this.DisplayName = displayName.Trim();
         this.Description = description?.Trim();
-        this.IntendedUse = intendedUse?.Trim();
-        this.DocumentationUrl = documentationUrl?.Trim();
+        this.Category = category?.Trim();
         this.UpdatedBy = updatedBy;
         this.SetModified(dateTimeProvider.UtcNow);
         return Result.Success();

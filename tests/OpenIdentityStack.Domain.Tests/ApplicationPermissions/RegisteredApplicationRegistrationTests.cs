@@ -55,7 +55,7 @@ public sealed class RegisteredApplicationRegistrationTests
             "1.0.0",
             "owner-1",
             OwnerType.User,
-            [("read:patients", "read:patients", "Allows reading patient data", "Patients", null)],
+            [("read:patients", "read:patients", "Allows reading patient data", "Patients")],
             "actor-1",
             this.dateTimeProvider);
 
@@ -63,7 +63,7 @@ public sealed class RegisteredApplicationRegistrationTests
         result.Value.Permissions[0].PermissionKey.ShouldBe("read:patients");
         result.Value.Permissions[0].FullPermissionKey.ShouldBe("read:patients");
         result.Value.Permissions[0].Description.ShouldBe("Allows reading patient data");
-        result.Value.Permissions[0].IntendedUse.ShouldBe("Patients");
+        result.Value.Permissions[0].Category.ShouldBe("Patients");
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public sealed class RegisteredApplicationRegistrationTests
             "1.0.0",
             "owner-1",
             OwnerType.User,
-            [(permissionName, permissionName, "Allows reading patient data", "Patients", null)],
+            [(permissionName, permissionName, "Allows reading patient data", "Patients")],
             "actor-1",
             this.dateTimeProvider);
 
@@ -157,8 +157,8 @@ public sealed class RegisteredApplicationRegistrationTests
         result.Error.Code.ShouldBe("Validation.RegisteredApplication.AtLeastOnePermissionRequired");
     }
 
-    private static (string Key, string DisplayName, string? Description, string? IntendedUse, string? DocUrl) Permission(string key, string displayName)
-        => (key, displayName, null, null, null);
+    private static (string Key, string DisplayName, string? Description, string? Category) Permission(string key, string displayName)
+        => (key, displayName, null, null);
 
     private sealed class TestDateTimeProvider : IDateTimeProvider
     {

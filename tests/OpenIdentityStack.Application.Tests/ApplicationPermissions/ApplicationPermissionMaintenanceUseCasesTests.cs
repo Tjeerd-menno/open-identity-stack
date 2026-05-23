@@ -59,9 +59,9 @@ public sealed class ApplicationPermissionMaintenanceUseCasesTests
 
     private static RegisteredApplication CreateTestApplication()
     {
-        var permissions = new List<(string Key, string DisplayName, string? Description, string? IntendedUse, string? DocUrl)>
+        var permissions = new List<(string Key, string DisplayName, string? Description, string? Category)>
         {
-            ("read", "Read", "Read permission", null, null)
+            ("read", "Read", "Read permission", null)
         };
 
         Result<RegisteredApplication> result = RegisteredApplication.Register(

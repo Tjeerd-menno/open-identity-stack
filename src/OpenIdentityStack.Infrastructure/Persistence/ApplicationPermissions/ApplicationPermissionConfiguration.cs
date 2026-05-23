@@ -35,11 +35,8 @@ public sealed class ApplicationPermissionConfiguration : IEntityTypeConfiguratio
         builder.Property(p => p.Description)
             .HasMaxLength(1000);
 
-        builder.Property(p => p.IntendedUse)
+        builder.Property(p => p.Category)
             .HasMaxLength(1000);
-
-        builder.Property(p => p.DocumentationUrl)
-            .HasMaxLength(2048);
 
         builder.Property(p => p.Status)
             .HasConversion<string>()

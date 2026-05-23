@@ -36,6 +36,15 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                 table: "DelegatedMaintainers",
                 newName: "RegisteredApplicationId");
 
+            migrationBuilder.RenameColumn(
+                name: "IntendedUse",
+                table: "ApplicationPermissions",
+                newName: "Category");
+
+            migrationBuilder.DropColumn(
+                name: "DocumentationUrl",
+                table: "ApplicationPermissions");
+
             migrationBuilder.RenameIndex(
                 name: "IX_RegisteredServices_OwnerId",
                 table: "RegisteredApplications",
@@ -139,6 +148,18 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                 name: "RegisteredApplicationId",
                 table: "ApplicationPermissions",
                 newName: "RegisteredServiceId");
+
+            migrationBuilder.AddColumn<string>(
+                name: "DocumentationUrl",
+                table: "ApplicationPermissions",
+                type: "character varying(2048)",
+                maxLength: 2048,
+                nullable: true);
+
+            migrationBuilder.RenameColumn(
+                name: "Category",
+                table: "ApplicationPermissions",
+                newName: "IntendedUse");
 
             migrationBuilder.RenameColumn(
                 name: "ApplicationIdentifier",

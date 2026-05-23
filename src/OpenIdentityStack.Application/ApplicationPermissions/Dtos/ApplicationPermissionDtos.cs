@@ -20,8 +20,7 @@ public sealed record ApplicationPermissionDto(
     string FullPermissionKey,
     string DisplayName,
     string? Description,
-    string? IntendedUse,
-    string? DocumentationUrl,
+    string? Category,
     string Status,
     bool IsAssignable,
     DateTimeOffset CreatedAt,
@@ -31,8 +30,7 @@ public sealed record ApplicationPermissionDto(
     DateTimeOffset? RetiredAt,
     string? ApplicationId = null,
     string? ApplicationName = null,
-    string? ApplicationVersion = null,
-    string? Category = null);
+    string? ApplicationVersion = null);
 
 public sealed record DelegatedMaintainerDto(
     Guid Id,

@@ -775,18 +775,14 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<string>("DocumentationUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)");
+                    b.Property<string>("Category")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<string>("FullPermissionKey")
                         .IsRequired()
                         .HasMaxLength(127)
                         .HasColumnType("character varying(127)");
-
-                    b.Property<string>("IntendedUse")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
 
                     b.Property<bool>("IsAssignable")
                         .HasColumnType("boolean");

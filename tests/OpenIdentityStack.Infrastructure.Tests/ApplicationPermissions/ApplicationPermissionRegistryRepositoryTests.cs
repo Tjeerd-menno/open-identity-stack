@@ -60,7 +60,7 @@ public sealed class ApplicationPermissionRegistryRepositoryTests : IClassFixture
 
     private RegisteredApplication CreateApplication(
         string applicationIdentifier,
-        IReadOnlyList<(string Key, string DisplayName, string? Description, string? IntendedUse, string? DocUrl)> permissions)
+        IReadOnlyList<(string Key, string DisplayName, string? Description, string? Category)> permissions)
     {
         Result<RegisteredApplication> result = RegisteredApplication.Register(
             applicationIdentifier,

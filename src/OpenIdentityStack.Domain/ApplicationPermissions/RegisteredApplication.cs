@@ -59,7 +59,7 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
         string? description,
         string ownerId,
         OwnerType ownerType,
-        IEnumerable<(string Key, string DisplayName, string? Description, string? IntendedUse, string? DocUrl)> permissions,
+        IEnumerable<(string Key, string DisplayName, string? Description, string? Category)> permissions,
         string createdBy,
         IDateTimeProvider dateTimeProvider,
         IEnumerable<string>? reservedIdentifiers = null)
@@ -127,7 +127,7 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
             CreatedAt = dateTimeProvider.UtcNow,
         };
 
-        foreach ((string key, string permissionDisplayName, string? permissionDescription, string? intendedUse, string? docUrl) in permissionList)
+        foreach ((string key, string permissionDisplayName, string? permissionDescription, string? category) in permissionList)
         {
             Result<ApplicationPermission> permissionResult = ApplicationPermission.Create(
                 application.Id,
@@ -135,8 +135,7 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
                 key,
                 permissionDisplayName,
                 permissionDescription,
-                intendedUse,
-                docUrl,
+                category,
                 createdBy,
                 dateTimeProvider);
             if (permissionResult.IsFailure)
@@ -181,8 +180,7 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
         string permissionKey,
         string displayName,
         string? description,
-        string? intendedUse,
-        string? documentationUrl,
+        string? category,
         string createdBy,
         IDateTimeProvider dateTimeProvider)
     {
@@ -198,8 +196,7 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
             permissionKey,
             displayName,
             description,
-            intendedUse,
-            documentationUrl,
+            category,
             createdBy,
             dateTimeProvider);
 
@@ -219,8 +216,7 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
         ApplicationPermissionId permissionId,
         string displayName,
         string? description,
-        string? intendedUse,
-        string? documentationUrl,
+        string? category,
         string updatedBy,
         IDateTimeProvider dateTimeProvider)
     {
@@ -230,7 +226,7 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
             return PermissionNotFound;
         }
 
-        Result result = permission.UpdateMetadata(displayName, description, intendedUse, documentationUrl, updatedBy, dateTimeProvider);
+        Result result = permission.UpdateMetadata(displayName, description, category, updatedBy, dateTimeProvider);
         if (result.IsFailure)
         {
             return result;

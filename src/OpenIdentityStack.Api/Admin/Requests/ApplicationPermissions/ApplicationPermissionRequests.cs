@@ -25,15 +25,13 @@ public sealed record AddApplicationPermissionRequest(
     string PermissionKey,
     string DisplayName,
     string? Description,
-    string? IntendedUse,
-    string? DocumentationUrl,
+    string? Category,
     uint? ConcurrencyToken);
 
 public sealed record UpdateApplicationPermissionRequest(
     string DisplayName,
     string? Description,
-    string? IntendedUse,
-    string? DocumentationUrl,
+    string? Category,
     uint? ConcurrencyToken);
 
 public sealed record ChangeApplicationLifecycleRequest(

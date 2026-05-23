@@ -4,8 +4,7 @@ public sealed record RegisterApplicationPermissionInput(
     string PermissionKey,
     string DisplayName,
     string? Description = null,
-    string? IntendedUse = null,
-    string? DocumentationUrl = null);
+    string? Category = null);
 
 public sealed record RegisterApplicationCommand(
     string ApplicationIdentifier,
