@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using OpenIdentityStack.SampleNotesApi;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -13,38 +14,38 @@ if (app.Environment.IsDevelopment())
 
 ConcurrentDictionary<Guid, Note> notes = new();
 
-app.MapGet("/notes", () => TypedResults.Ok(notes.Values.OrderBy(note => note.CreatedAt)));
+app.MapGet("/notes", () => Results.Ok(notes.Values.OrderBy(note => note.CreatedAt)));
 
 app.MapGet("/notes/{id:guid}", (Guid id) =>
 {
     return notes.TryGetValue(id, out Note? note)
-        ? TypedResults.Ok(note)
-        : TypedResults.NotFound();
+        ? Results.Ok(note)
+        : Results.NotFound();
 });
 
 app.MapPost("/notes", (CreateNoteRequest request) =>
 {
     if (string.IsNullOrWhiteSpace(request.Title))
     {
-        return TypedResults.BadRequest(new { error = "Note.TitleRequired", message = "Title is required." });
+        return Results.BadRequest(new { error = "Note.TitleRequired", message = "Title is required." });
     }
 
     DateTimeOffset now = DateTimeOffset.UtcNow;
     Note note = new(Guid.NewGuid(), request.Title.Trim(), request.Content?.Trim(), now, now);
     notes[note.Id] = note;
-    return TypedResults.Created($"/notes/{note.Id}", note);
+    return Results.Created($"/notes/{note.Id}", note);
 });
 
 app.MapPut("/notes/{id:guid}", (Guid id, UpdateNoteRequest request) =>
 {
     if (string.IsNullOrWhiteSpace(request.Title))
     {
-        return TypedResults.BadRequest(new { error = "Note.TitleRequired", message = "Title is required." });
+        return Results.BadRequest(new { error = "Note.TitleRequired", message = "Title is required." });
     }
 
     if (!notes.TryGetValue(id, out Note? existing))
     {
-        return TypedResults.NotFound();
+        return Results.NotFound();
     }
 
     Note updated = existing with
@@ -55,14 +56,14 @@ app.MapPut("/notes/{id:guid}", (Guid id, UpdateNoteRequest request) =>
     };
 
     notes[id] = updated;
-    return TypedResults.Ok(updated);
+    return Results.Ok(updated);
 });
 
 app.MapDelete("/notes/{id:guid}", (Guid id) =>
 {
     return notes.TryRemove(id, out _)
-        ? TypedResults.NoContent()
-        : TypedResults.NotFound();
+        ? Results.NoContent()
+        : Results.NotFound();
 });
 
 app.MapGet("/.well-known/permissions", () =>
@@ -77,22 +78,8 @@ app.MapGet("/.well-known/permissions", () =>
             new PermissionManifestEntry("notes.write", "Create, update, and delete notes", "notes")
         ]);
 
-    return TypedResults.Ok(manifest);
+    return Results.Ok(manifest);
 })
 .AllowAnonymous();
 
 app.Run();
-
-public sealed record Note(Guid Id, string Title, string? Content, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
-
-public sealed record CreateNoteRequest(string Title, string? Content);
-
-public sealed record UpdateNoteRequest(string Title, string? Content);
-
-public sealed record PermissionManifestResponse(
-    PermissionManifestApplication Application,
-    IReadOnlyList<PermissionManifestEntry> Permissions);
-
-public sealed record PermissionManifestApplication(string Id, string Name, string Version);
-
-public sealed record PermissionManifestEntry(string Name, string Description, string? Category);
