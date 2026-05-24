@@ -71,7 +71,7 @@ public sealed class CreateServiceAccountUseCase : ICreateServiceAccountUseCase
 
         // Register as OAuth client BEFORE committing.
         // If registration fails, the service account is not persisted (atomicity is preserved).
-        Result registrationResult = await this.clientApplicationRegistrar.RegisterServiceAccountAsync(
+        Result registrationResult = await this.clientApplicationRegistrar.RegisterApplicationAccountAsync(
             serviceAccount.ClientId,
             serviceAccount.DisplayName,
             plainSecret,
@@ -116,7 +116,7 @@ public sealed class CreateServiceAccountUseCase : ICreateServiceAccountUseCase
 
     private sealed class NoopClientApplicationRegistrar : IClientApplicationRegistrar
     {
-        public Task<Result> RegisterServiceAccountAsync(
+        public Task<Result> RegisterApplicationAccountAsync(
             string clientId,
             string displayName,
             string clientSecret,

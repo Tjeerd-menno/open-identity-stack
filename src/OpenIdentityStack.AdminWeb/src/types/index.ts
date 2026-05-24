@@ -556,24 +556,21 @@ export interface SetLocalFallbackRequest {
 }
 
 // ============================================================================
-// Service Permission Registry
+// Application Permission Registry
 // ============================================================================
 
-export interface ServicePermission {
+export interface ApplicationPermission {
   id: string;
   permissionKey: string;
   fullPermissionKey: string;
   displayName: string;
   description: string | null;
-  intendedUse: string | null;
-  documentationUrl: string | null;
-  status: string;
-  isAssignable: boolean;
+  category: string | null;
   createdAt: string;
   updatedAt: string | null;
-  deprecatedAt: string | null;
-  disabledAt: string | null;
-  retiredAt: string | null;
+  applicationId?: string | null;
+  applicationName?: string | null;
+  applicationVersion?: string | null;
 }
 
 export interface DelegatedMaintainer {
@@ -584,9 +581,9 @@ export interface DelegatedMaintainer {
   grantedAt: string;
 }
 
-export interface RegisteredService {
+export interface RegisteredApplication {
   id: string;
-  serviceIdentifier: string;
+  applicationIdentifier: string;
   displayName: string;
   description: string | null;
   ownerId: string;
@@ -595,13 +592,13 @@ export interface RegisteredService {
   createdAt: string;
   updatedAt: string | null;
   concurrencyToken: number;
-  permissions: ServicePermission[];
+  permissions: ApplicationPermission[];
   maintainers: DelegatedMaintainer[];
 }
 
-export interface RegisteredServiceListItem {
+export interface RegisteredApplicationListItem {
   id: string;
-  serviceIdentifier: string;
+  applicationIdentifier: string;
   displayName: string;
   ownerId: string;
   status: string;
@@ -610,30 +607,41 @@ export interface RegisteredServiceListItem {
   updatedAt: string | null;
 }
 
-export interface RegisterServicePermissionInput {
+export interface ApplicationPermissionInput {
   permissionKey: string;
   displayName: string;
   description?: string | null;
-  intendedUse?: string | null;
-  documentationUrl?: string | null;
+  category?: string | null;
 }
 
-export interface RegisterServiceRequest {
-  serviceIdentifier: string;
-  displayName: string;
-  description?: string | null;
-  ownerId: string;
-  ownerType: string;
-  permissions: RegisterServicePermissionInput[];
+export interface PermissionManifestApplication {
+  id: string;
+  name: string;
+  version?: string | null;
 }
 
-export interface UpdateRegisteredServiceRequest {
+export interface PermissionManifestPermission {
+  name: string;
+  description: string;
+  category?: string | null;
+}
+
+export interface PermissionManifestRequest {
+  application: PermissionManifestApplication;
+  permissions: PermissionManifestPermission[];
+}
+
+export interface ImportPermissionManifestRequest {
+  endpoint: string;
+}
+
+export interface UpdateRegisteredApplicationRequest {
   displayName: string;
   description?: string | null;
   concurrencyToken?: number;
 }
 
-export interface AddServicePermissionRequest extends RegisterServicePermissionInput {
+export interface AddApplicationPermissionRequest extends ApplicationPermissionInput {
   concurrencyToken?: number;
 }
 
@@ -643,7 +651,7 @@ export interface ChangeLifecycleRequest {
   concurrencyToken?: number;
 }
 
-export interface TransferServiceOwnershipRequest {
+export interface TransferApplicationOwnershipRequest {
   ownerId: string;
   ownerType: string;
   concurrencyToken?: number;
@@ -664,5 +672,5 @@ export interface RoleAssignmentDependency {
   impact: string;
 }
 
-export type RegisteredServiceListResponse = PaginatedResponse<RegisteredServiceListItem>;
-export type AssignablePermissionCatalogResponse = PaginatedResponse<ServicePermission>;
+export type RegisteredApplicationListResponse = PaginatedResponse<RegisteredApplicationListItem>;
+export type AssignablePermissionCatalogResponse = PaginatedResponse<ApplicationPermission>;

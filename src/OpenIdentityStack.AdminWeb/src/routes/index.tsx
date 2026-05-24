@@ -27,8 +27,8 @@ import { GroupsPage, GroupDetailPage, CreateGroupPage, EditGroupPage } from '@/f
 // Service Account Management
 import { ServiceAccountsPage, ServiceAccountDetailPage, CreateServiceAccountPage, EditServiceAccountPage } from '@/features/service-accounts';
 
-// Service Permission Registry
-import { ServicePermissionsPage, RegisterServicePage, RegisteredServiceDetailPage } from '@/features/service-permissions';
+// Permissions
+import { ApplicationPermissionsPage, RegisterApplicationPage, RegisteredApplicationDetailPage } from '@/features/application-permissions';
 
 // Session Management
 import { SessionsPage, SessionDetailPage } from '@/features/sessions';
@@ -146,18 +146,18 @@ export const router = createBrowserRouter([
         element: <EditServiceAccountPage /> 
       },
 
-      // Service Permission Registry Routes
+      // Permissions Routes
       {
-        path: 'service-permissions',
-        element: <ServicePermissionsPage />
+        path: 'application-permissions',
+        element: <ApplicationPermissionsPage />
       },
       {
-        path: 'service-permissions/new',
-        element: <RegisterServicePage />
+        path: 'application-permissions/new',
+        element: <RegisterApplicationPage />
       },
       {
-        path: 'service-permissions/:id',
-        element: <RegisteredServiceDetailPage />
+        path: 'application-permissions/:id',
+        element: <RegisteredApplicationDetailPage />
       },
       
       // Session Management Routes

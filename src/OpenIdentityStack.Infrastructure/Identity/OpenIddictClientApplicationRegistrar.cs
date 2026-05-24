@@ -25,7 +25,7 @@ public sealed class OpenIddictClientApplicationRegistrar : IClientApplicationReg
         this.logger = logger;
     }
 
-    public async Task<Result> RegisterServiceAccountAsync(
+    public async Task<Result> RegisterApplicationAccountAsync(
         string clientId,
         string displayName,
         string clientSecret,

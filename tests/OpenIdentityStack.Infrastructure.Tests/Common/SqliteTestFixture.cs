@@ -53,8 +53,8 @@ public sealed class SqliteTestFixture : IAsyncLifetime
 
         // Delete in correct order to respect foreign key constraints
         context.DelegatedMaintainers.RemoveRange(await context.DelegatedMaintainers.ToListAsync());
-        context.ServicePermissions.RemoveRange(await context.ServicePermissions.ToListAsync());
-        context.RegisteredServices.RemoveRange(await context.RegisteredServices.ToListAsync());
+        context.ApplicationPermissions.RemoveRange(await context.ApplicationPermissions.ToListAsync());
+        context.RegisteredApplications.RemoveRange(await context.RegisteredApplications.ToListAsync());
         context.RoleAssignments.RemoveRange(await context.RoleAssignments.ToListAsync());
         context.UserSessions.RemoveRange(await context.UserSessions.ToListAsync());
         context.ServiceAccounts.RemoveRange(await context.ServiceAccounts.ToListAsync());

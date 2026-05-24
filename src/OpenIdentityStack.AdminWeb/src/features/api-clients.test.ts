@@ -48,18 +48,17 @@ import {
 } from './service-accounts/api/service-accounts-api';
 import {
   addDelegatedMaintainer,
-  addServicePermission,
-  changePermissionLifecycle,
-  changeServiceLifecycle,
+  addApplicationPermission,
+  changeApplicationLifecycle,
   getAssignablePermissionCatalog,
   getPermissionDependencies,
-  getRegisteredService,
-  getRegisteredServices,
-  registerService,
+  getRegisteredApplication,
+  getRegisteredApplications,
+  registerPermissionManifest,
   removeDelegatedMaintainer,
-  transferServiceOwnership,
-  updateRegisteredService,
-} from './service-permissions/api/service-permissions-api';
+  transferApplicationOwnership,
+  updateRegisteredApplication,
+} from './application-permissions/api/application-permissions-api';
 import { settingsApi } from './settings/api/settings-api';
 import {
   assignRole,
@@ -379,10 +378,9 @@ describe('admin API clients', () => {
       await expect(getAvailablePermissions()).resolves.toEqual(
         expect.arrayContaining(['users:read', 'roles:create', 'inventory:read'])
       );
-      expect(apiClient.get).toHaveBeenCalledWith('/api/admin/service-permissions/catalog', {
+      expect(apiClient.get).toHaveBeenCalledWith('/api/admin/application-permissions/catalog', {
         page: 1,
         pageSize: 100,
-        assignableOnly: true,
       });
     });
 
@@ -547,122 +545,113 @@ describe('admin API clients', () => {
     });
   });
 
-  describe('service permissions', () => {
-    it('maps service permission registry endpoints', async () => {
-      apiClient.get.mockResolvedValueOnce({ items: [] }).mockResolvedValueOnce({ id: 'service-1' });
-      apiClient.post.mockResolvedValue({ id: 'service-1' });
-      apiClient.patch.mockResolvedValueOnce({ id: 'service-1' });
+  describe('application permissions', () => {
+    it('maps application permission registry endpoints', async () => {
+      apiClient.get.mockResolvedValueOnce({ items: [] }).mockResolvedValueOnce({ id: 'application-1' });
+      apiClient.post.mockResolvedValue({ id: 'application-1' });
+      apiClient.patch.mockResolvedValueOnce({ id: 'application-1' });
 
-      await getRegisteredServices({ page: 2, search: 'inventory' });
-      await getRegisteredService('service-1');
-      await registerService({
-        serviceIdentifier: 'inventory-api',
-        displayName: 'Inventory API',
-        ownerId: 'owner-1',
-        ownerType: 'User',
-        permissions: [{ permissionKey: 'read', displayName: 'Read inventory' }],
+      await getRegisteredApplications({ page: 2, search: 'inventory' });
+      await getRegisteredApplication('application-1');
+      await registerPermissionManifest({
+        application: {
+          id: 'inventory-api',
+          name: 'Inventory API',
+        },
+        permissions: [{ name: 'read:inventory', description: 'Read inventory' }],
       });
-      await updateRegisteredService('service-1', {
+      await updateRegisteredApplication('application-1', {
         displayName: 'Inventory',
         concurrencyToken: 3,
       });
-      await addServicePermission('service-1', {
+      await addApplicationPermission('application-1', {
         permissionKey: 'write',
         displayName: 'Write inventory',
       });
 
       expect(apiClient.get).toHaveBeenNthCalledWith(
         1,
-        '/api/admin/service-permissions/services',
+        '/api/admin/application-permissions/applications',
         { page: 2, search: 'inventory' }
       );
       expect(apiClient.get).toHaveBeenNthCalledWith(
         2,
-        '/api/admin/service-permissions/services/service-1'
+        '/api/admin/application-permissions/applications/application-1'
       );
       expect(apiClient.post).toHaveBeenNthCalledWith(
         1,
-        '/api/admin/service-permissions/services',
-        expect.objectContaining({ serviceIdentifier: 'inventory-api' })
+        '/api/admin/application-permissions/applications',
+        expect.objectContaining({ application: expect.objectContaining({ id: 'inventory-api' }) })
       );
       expect(apiClient.patch).toHaveBeenCalledWith(
-        '/api/admin/service-permissions/services/service-1',
+        '/api/admin/application-permissions/applications/application-1',
         { displayName: 'Inventory', concurrencyToken: 3 }
       );
       expect(apiClient.post).toHaveBeenNthCalledWith(
         2,
-        '/api/admin/service-permissions/services/service-1/permissions',
+        '/api/admin/application-permissions/applications/application-1/permissions',
         { permissionKey: 'write', displayName: 'Write inventory' }
       );
     });
 
-    it('maps service permission lifecycle, ownership, and maintainer actions', async () => {
-      apiClient.post.mockResolvedValue({ id: 'service-1' });
-      apiClient.delete.mockResolvedValue({ id: 'service-1' });
+    it('maps application ownership and maintainer actions', async () => {
+      apiClient.post.mockResolvedValue({ id: 'application-1' });
+      apiClient.delete.mockResolvedValue({ id: 'application-1' });
       apiClient.get.mockResolvedValue({ items: [] });
 
-      await changeServiceLifecycle('service-1', {
+      await changeApplicationLifecycle('application-1', {
         status: 'Disabled',
         acknowledgeDependencies: true,
         concurrencyToken: 4,
       });
-      await changePermissionLifecycle('permission-1', {
-        status: 'Deprecated',
-        acknowledgeDependencies: false,
-      });
       await getPermissionDependencies('permission-1');
-      await transferServiceOwnership('service-1', {
+      await transferApplicationOwnership('application-1', {
         ownerId: 'owner-2',
         ownerType: 'Group',
       });
-      await addDelegatedMaintainer('service-1', {
+      await addDelegatedMaintainer('application-1', {
         principalId: 'maintainer-1',
         principalType: 'User',
       });
-      await removeDelegatedMaintainer('service-1', 'maintainer@example.com', 9);
+      await removeDelegatedMaintainer('application-1', 'maintainer@example.com', 9);
       await getAssignablePermissionCatalog({ pageSize: 100 });
 
       expect(apiClient.post).toHaveBeenNthCalledWith(
         1,
-        '/api/admin/service-permissions/services/service-1/lifecycle',
+        '/api/admin/application-permissions/applications/application-1/lifecycle',
         { status: 'Disabled', acknowledgeDependencies: true, concurrencyToken: 4 }
-      );
-      expect(apiClient.post).toHaveBeenNthCalledWith(
-        2,
-        '/api/admin/service-permissions/permissions/permission-1/lifecycle',
-        { status: 'Deprecated', acknowledgeDependencies: false }
       );
       expect(apiClient.get).toHaveBeenNthCalledWith(
         1,
-        '/api/admin/service-permissions/permissions/permission-1/dependencies'
+        '/api/admin/application-permissions/permissions/permission-1/dependencies'
       );
       expect(apiClient.post).toHaveBeenNthCalledWith(
-        3,
-        '/api/admin/service-permissions/services/service-1/ownership',
+        2,
+        '/api/admin/application-permissions/applications/application-1/ownership',
         { ownerId: 'owner-2', ownerType: 'Group' }
       );
       expect(apiClient.post).toHaveBeenNthCalledWith(
-        4,
-        '/api/admin/service-permissions/services/service-1/maintainers',
+        3,
+        '/api/admin/application-permissions/applications/application-1/maintainers',
         { principalId: 'maintainer-1', principalType: 'User' }
       );
       expect(apiClient.delete).toHaveBeenCalledWith(
-        '/api/admin/service-permissions/services/service-1/maintainers/maintainer%40example.com?concurrencyToken=9'
+        '/api/admin/application-permissions/applications/application-1/maintainers/maintainer%40example.com?concurrencyToken=9'
       );
       expect(apiClient.get).toHaveBeenNthCalledWith(
         2,
-        '/api/admin/service-permissions/catalog',
+        '/api/admin/application-permissions/catalog',
         { pageSize: 100 }
       );
     });
 
     it('omits maintainer concurrency token when it is not provided', async () => {
-      apiClient.delete.mockResolvedValueOnce({ id: 'service-1' });
+      apiClient.delete.mockResolvedValueOnce({ id: 'application-1' });
 
-      await removeDelegatedMaintainer('service-1', 'owner@example.com');
+      await removeDelegatedMaintainer('application-1', 'owner@example.com');
 
       expect(apiClient.delete).toHaveBeenCalledWith(
-        '/api/admin/service-permissions/services/service-1/maintainers/owner%40example.com'
+        '/api/admin/application-permissions/applications/application-1/maintainers/owner%40example.com'
       );
     });
   });

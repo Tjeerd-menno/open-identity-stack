@@ -7,7 +7,7 @@ const { useAssignablePermissionCatalog } = vi.hoisted(() => ({
   useAssignablePermissionCatalog: vi.fn(),
 }));
 
-vi.mock('@/features/service-permissions/hooks', () => ({
+vi.mock('@/features/application-permissions/hooks', () => ({
   useAssignablePermissionCatalog,
 }));
 
@@ -39,13 +39,16 @@ describe('PermissionSelector', () => {
     expect(onChange).toHaveBeenCalledWith(['roles:read']);
   });
 
-  it('adds registered service permissions when the catalog is available', () => {
+  it('adds registered application permissions when the catalog is available', async () => {
+    const user = userEvent.setup();
     useAssignablePermissionCatalog.mockReturnValue({
       data: {
         items: [
           {
             fullPermissionKey: 'inventory:read',
             displayName: 'Read inventory',
+            applicationId: 'inventory-api',
+            applicationName: 'Inventory API',
           },
         ],
       },
@@ -53,8 +56,36 @@ describe('PermissionSelector', () => {
 
     render(<PermissionSelector selectedPermissions={['inventory:read']} onChange={vi.fn()} />);
 
-    expect(screen.getByText('Registered Services')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Inventory API' }));
+
     expect(screen.getByLabelText('Read inventory')).toBeChecked();
+  });
+
+  it('shows application tabs with built-in permissions first', async () => {
+    const user = userEvent.setup();
+    useAssignablePermissionCatalog.mockReturnValue({
+      data: {
+        items: [
+          {
+            fullPermissionKey: 'read:patients',
+            displayName: 'read:patients',
+            description: 'Allows reading patient data',
+            category: 'Patients',
+            applicationId: 'patient-api',
+            applicationName: 'Patient API',
+          },
+        ],
+      },
+    });
+
+    render(<PermissionSelector selectedPermissions={['read:patients']} onChange={vi.fn()} />);
+
+    expect(screen.getAllByRole('tab')[0]).toHaveTextContent('Built-in');
+    await user.click(screen.getByRole('tab', { name: 'Patient API' }));
+
+    expect(screen.getByLabelText('read:patients')).toBeChecked();
+    expect(screen.getByText('Allows reading patient data')).toBeInTheDocument();
+    expect(screen.getByText('Patients')).toBeInTheDocument();
   });
 
   it('disables all checkboxes when requested', () => {

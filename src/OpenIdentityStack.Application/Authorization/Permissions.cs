@@ -64,14 +64,14 @@ public static class Permissions
     }
 
     /// <summary>
-    /// Service permission registry permissions.
+    /// Application permission registry permissions.
     /// </summary>
-    public static class ServicePermissions
+    public static class ApplicationPermissions
     {
-        public const string Read = "service-permissions:read";
-        public const string Write = "service-permissions:write";
-        public const string Admin = "service-permissions:admin";
-        public const string All = "service-permissions:*";
+        public const string Read = "application-permissions:read";
+        public const string Write = "application-permissions:write";
+        public const string Admin = "application-permissions:admin";
+        public const string All = "application-permissions:*";
     }
 
     /// <summary>
@@ -136,7 +136,7 @@ public static class Permissions
         Groups.Read, Groups.Write, Groups.Delete, Groups.ManageMembers,
         ServiceAccounts.Read, ServiceAccounts.Write, ServiceAccounts.Delete, 
         ServiceAccounts.RotateSecret, ServiceAccounts.ManageCertificates,
-        ServicePermissions.Read, ServicePermissions.Write, ServicePermissions.Admin,
+        ApplicationPermissions.Read, ApplicationPermissions.Write, ApplicationPermissions.Admin,
         Sessions.Read, Sessions.Revoke,
         Providers.Read, Providers.Write, Providers.Delete,
         Clients.Read, Clients.Write, Clients.Delete, Clients.ManageSecrets,

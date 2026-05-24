@@ -17,7 +17,7 @@ const navigation = [
   { name: 'Roles', href: '/roles', icon: Shield },
   { name: 'Groups', href: '/groups', icon: Users2 },
   { name: 'Service Accounts', href: '/service-accounts', icon: KeyRound },
-  { name: 'Permission Registry', href: '/service-permissions', icon: ListChecks },
+  { name: 'Permissions', href: '/application-permissions', icon: ListChecks },
   { name: 'Clients', href: '/clients', icon: AppWindow },
   { name: 'Sessions', href: '/sessions', icon: Activity },
   { name: 'Providers', href: '/providers', icon: Globe },

@@ -28,7 +28,7 @@ public sealed class CreateServiceAccountUseCaseTests
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
         this._passwordHasher.HashPassword(Arg.Any<string>()).Returns(callInfo => $"hashed_{callInfo.Arg<string>()}");
         this._registrar
-            .RegisterServiceAccountAsync(
+            .RegisterApplicationAccountAsync(
                 Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<string>>(), Arg.Any<IReadOnlyList<string>>(),
                 Arg.Any<CancellationToken>())
@@ -232,7 +232,7 @@ public sealed class CreateServiceAccountUseCaseTests
             .Returns(false);
 
         this._registrar
-            .RegisterServiceAccountAsync(
+            .RegisterApplicationAccountAsync(
                 Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<string>>(), Arg.Any<IReadOnlyList<string>>(),
                 Arg.Any<CancellationToken>())
@@ -268,7 +268,7 @@ public sealed class CreateServiceAccountUseCaseTests
         // Assert
         result.IsSuccess.ShouldBeTrue();
 
-        await this._registrar.Received(1).RegisterServiceAccountAsync(
+        await this._registrar.Received(1).RegisterApplicationAccountAsync(
             Arg.Is<string>(id => id == "my-service"),
             Arg.Any<string>(),
             Arg.Any<string>(),
