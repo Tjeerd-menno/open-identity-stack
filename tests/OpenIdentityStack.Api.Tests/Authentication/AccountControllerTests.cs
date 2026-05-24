@@ -646,18 +646,16 @@ public class AccountControllerTests : IDisposable
         // Arrange
         IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
-        AuthenticationSettings settings = AuthenticationSettings.Create(
-            isLocalDefault: false,
-            localFallbackEnabled: true,
-            defaultProviderId: Guid.NewGuid().ToString(),
-            dateTimeProvider);
+        var settings = AuthenticationSettings.CreateDefault(dateTimeProvider);
+        settings.SetDefaultProvider(OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create(), dateTimeProvider);
         this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(settings));
 
         Domain.Users.User adminUser = Domain.Users.User.CreateLocal(
             "admin@example.com",
             "Admin User",
-            "hashed-password");
+            "hashed-password",
+            dateTimeProvider).Value;
         this._userRepository.GetByEmailAsync("admin@example.com", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Domain.Users.User?>(adminUser));
         this._permissionChecker.HasAnyPermissionAsync(
