@@ -13,6 +13,7 @@
     <Project Path="src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator.csproj" />
     <Project Path="src/OpenIdentityStack.Domain/OpenIdentityStack.Domain.csproj" />
     <Project Path="src/OpenIdentityStack.Infrastructure/OpenIdentityStack.Infrastructure.csproj" />
+    <Project Path="src/OpenIdentityStack.SampleNotesApi/OpenIdentityStack.SampleNotesApi.csproj" />
     <Project Path="src/OpenIdentityStack.ServiceDefaults/OpenIdentityStack.ServiceDefaults.csproj" />
     <Project Path="src/SharedKernel/SharedKernel.csproj" />
   </Folder>

@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\OpenIdentityStack.Api\OpenIdentityStack.Api.csproj" />
     <ProjectReference Include="..\OpenIdentityStack.DbMigrator\OpenIdentityStack.DbMigrator.csproj" />
+    <ProjectReference Include="..\OpenIdentityStack.SampleNotesApi\OpenIdentityStack.SampleNotesApi.csproj" />
   </ItemGroup>
 
 </Project>

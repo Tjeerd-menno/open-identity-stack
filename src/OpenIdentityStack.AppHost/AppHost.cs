@@ -48,6 +48,9 @@ IResourceBuilder<ProjectResource> api = builder.AddProject<Projects.OpenIdentity
     .WaitFor(openIdentityStackDb)
     .WaitForCompletion(openIdModuleMigrator);
 
+builder.AddProject<Projects.OpenIdentityStack_SampleNotesApi>("sample-notes-api")
+    .WithEnvironment("ASPNETCORE_ENVIRONMENT", aspNetCoreEnvironment);
+
 if (enableAdminWeb)
 {
     // Add the Admin Web App (React + Vite)

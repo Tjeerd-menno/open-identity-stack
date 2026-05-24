@@ -1,0 +1,6 @@
+@OpenIdentityStack.SampleNotesApi_HostAddress = http://localhost:5134
+
+GET {{OpenIdentityStack.SampleNotesApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
