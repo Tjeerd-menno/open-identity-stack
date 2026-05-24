@@ -11,7 +11,7 @@ public interface IClientApplicationRegistrar
     /// Creates the OAuth client backing a service account.
     /// Returns a failure result if registration fails (e.g., duplicate client_id, unsupported grant type).
     /// </summary>
-    Task<Result> RegisterServiceAccountAsync(
+    Task<Result> RegisterApplicationAccountAsync(
         string clientId,
         string displayName,
         string clientSecret,

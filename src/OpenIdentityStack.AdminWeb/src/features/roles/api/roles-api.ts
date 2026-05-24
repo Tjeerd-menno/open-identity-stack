@@ -142,10 +142,9 @@ export async function getAvailablePermissions(): Promise<string[]> {
   ];
 
   try {
-    const catalog = await apiClient.get<{ items: { fullPermissionKey: string }[] }>('/api/admin/service-permissions/catalog', {
+    const catalog = await apiClient.get<{ items: { fullPermissionKey: string }[] }>('/api/admin/application-permissions/catalog', {
       page: 1,
       pageSize: 100,
-      assignableOnly: true,
     });
     return Array.from(new Set([...builtInPermissions, ...catalog.items.map((item) => item.fullPermissionKey)]));
   } catch {

@@ -9,7 +9,7 @@ using OpenIdentityStack.Domain.Federation;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Groups; // Added
 using OpenIdentityStack.Domain.ServiceAccounts;
-using OpenIdentityStack.Domain.ServicePermissions;
+using OpenIdentityStack.Domain.ApplicationPermissions;
 using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Settings;
 using OpenIdentityStack.Domain.Users;
@@ -94,14 +94,14 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
     /// </summary>
     public DbSet<AuditLogEntry> AuditLogEntries => this.Set<AuditLogEntry>();
     /// <summary>
-    /// Gets or sets the RegisteredServices DbSet.
+    /// Gets or sets the RegisteredApplications DbSet.
     /// </summary>
-    public DbSet<RegisteredService> RegisteredServices => this.Set<RegisteredService>();
+    public DbSet<RegisteredApplication> RegisteredApplications => this.Set<RegisteredApplication>();
 
     /// <summary>
-    /// Gets or sets the ServicePermissions DbSet.
+    /// Gets or sets the ApplicationPermissions DbSet.
     /// </summary>
-    public DbSet<ServicePermission> ServicePermissions => this.Set<ServicePermission>();
+    public DbSet<ApplicationPermission> ApplicationPermissions => this.Set<ApplicationPermission>();
 
     /// <summary>
     /// Gets or sets the DelegatedMaintainers DbSet.
@@ -188,12 +188,12 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
             .HaveConversion<AuthenticationSettingsIdConverter>();
 
         configurationBuilder
-            .Properties<RegisteredServiceId>()
-            .HaveConversion<RegisteredServiceIdConverter>();
+            .Properties<RegisteredApplicationId>()
+            .HaveConversion<RegisteredApplicationIdConverter>();
 
         configurationBuilder
-            .Properties<ServicePermissionId>()
-            .HaveConversion<ServicePermissionIdConverter>();
+            .Properties<ApplicationPermissionId>()
+            .HaveConversion<ApplicationPermissionIdConverter>();
 
         configurationBuilder
             .Properties<DelegatedMaintainerId>()

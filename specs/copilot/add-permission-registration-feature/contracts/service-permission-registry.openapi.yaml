@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OpenIdentityStack Service/API Permission Registry API
-  version: 0.1.0-planning
+  version: 0.2.0-planning
   description: Admin API contract for registering services/APIs and managing exposed permissions for RBAC consumption.
 servers:
   - url: https://localhost:7001

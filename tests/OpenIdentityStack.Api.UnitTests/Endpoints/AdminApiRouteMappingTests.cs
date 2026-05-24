@@ -145,23 +145,23 @@ public sealed class AdminApiRouteMappingTests
             ])];
 
         yield return [new ApiExpectation(
-            "OpenIdentityStack.Api.Admin.ServicePermissionsApi",
-            "MapServicePermissionsApi",
-            "ServicePermissionsApi",
+            "OpenIdentityStack.Api.Admin.ApplicationPermissionsApi",
+            "MapApplicationPermissionsApi",
+            "ApplicationPermissionsApi",
             [
-                new("RegisterServicePermissions", "api/admin/service-permissions/services", "POST", Permissions.ServicePermissions.Write),
-                new("ListRegisteredServices", "api/admin/service-permissions/services", "GET", Permissions.ServicePermissions.Read),
-                new("GetRegisteredService", "api/admin/service-permissions/services/{id:guid}", "GET", Permissions.ServicePermissions.Read),
-                new("ListAssignablePermissionCatalog", "api/admin/service-permissions/catalog", "GET", Permissions.ServicePermissions.Read),
-                new("UpdateRegisteredService", "api/admin/service-permissions/services/{id:guid}", "PATCH", Permissions.ServicePermissions.Write),
-                new("AddRegisteredServicePermission", "api/admin/service-permissions/services/{id:guid}/permissions", "POST", Permissions.ServicePermissions.Write),
-                new("UpdateRegisteredServicePermission", "api/admin/service-permissions/permissions/{permissionId:guid}", "PATCH", Permissions.ServicePermissions.Write),
-                new("ChangeRegisteredServiceLifecycle", "api/admin/service-permissions/services/{id:guid}/lifecycle", "POST", Permissions.ServicePermissions.Write),
-                new("ChangeRegisteredServicePermissionLifecycle", "api/admin/service-permissions/permissions/{permissionId:guid}/lifecycle", "POST", Permissions.ServicePermissions.Write),
-                new("GetRegisteredServicePermissionDependencies", "api/admin/service-permissions/permissions/{permissionId:guid}/dependencies", "GET", Permissions.ServicePermissions.Read),
-                new("TransferRegisteredServiceOwnership", "api/admin/service-permissions/services/{id:guid}/ownership", "POST", Permissions.ServicePermissions.Admin),
-                new("AddRegisteredServiceMaintainer", "api/admin/service-permissions/services/{id:guid}/maintainers", "POST", Permissions.ServicePermissions.Admin),
-                new("RemoveRegisteredServiceMaintainer", "api/admin/service-permissions/services/{id:guid}/maintainers/{principalId}", "DELETE", Permissions.ServicePermissions.Admin)
+                new("RegisterApplicationPermissionManifest", "api/admin/application-permissions/applications", "POST", Permissions.ApplicationPermissions.Write),
+                new("ImportApplicationPermissionManifest", "api/admin/application-permissions/applications/import", "POST", Permissions.ApplicationPermissions.Write),
+                new("ListRegisteredApplications", "api/admin/application-permissions/applications", "GET", Permissions.ApplicationPermissions.Read),
+                new("GetRegisteredApplication", "api/admin/application-permissions/applications/{id:guid}", "GET", Permissions.ApplicationPermissions.Read),
+                new("ListAssignablePermissionCatalog", "api/admin/application-permissions/catalog", "GET", Permissions.ApplicationPermissions.Read),
+                new("UpdateRegisteredApplication", "api/admin/application-permissions/applications/{id:guid}", "PATCH", Permissions.ApplicationPermissions.Write),
+                new("AddRegisteredApplicationPermission", "api/admin/application-permissions/applications/{id:guid}/permissions", "POST", Permissions.ApplicationPermissions.Write),
+                new("UpdateRegisteredApplicationPermission", "api/admin/application-permissions/permissions/{permissionId:guid}", "PATCH", Permissions.ApplicationPermissions.Write),
+                new("ChangeRegisteredApplicationLifecycle", "api/admin/application-permissions/applications/{id:guid}/lifecycle", "POST", Permissions.ApplicationPermissions.Write),
+                new("GetRegisteredApplicationPermissionDependencies", "api/admin/application-permissions/permissions/{permissionId:guid}/dependencies", "GET", Permissions.ApplicationPermissions.Read),
+                new("TransferRegisteredApplicationOwnership", "api/admin/application-permissions/applications/{id:guid}/ownership", "POST", Permissions.ApplicationPermissions.Admin),
+                new("AddRegisteredApplicationMaintainer", "api/admin/application-permissions/applications/{id:guid}/maintainers", "POST", Permissions.ApplicationPermissions.Admin),
+                new("RemoveRegisteredApplicationMaintainer", "api/admin/application-permissions/applications/{id:guid}/maintainers/{principalId}", "DELETE", Permissions.ApplicationPermissions.Admin)
             ])];
 
         yield return [new ApiExpectation(

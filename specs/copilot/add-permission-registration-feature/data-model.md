@@ -69,8 +69,7 @@ Represents a permission exposed by a registered service.
 | `FullPermissionKey` | `string` | Yes | Canonical RBAC key, e.g. `{serviceIdentifier}:{permissionKey}`. |
 | `DisplayName` | `string` | Yes | Human-readable label. |
 | `Description` | `string` | No | Admin-facing detail. |
-| `IntendedUse` | `string` | No | Guidance for administrators and service owners. |
-| `DocumentationUrl` | `Uri?` | No | Optional HTTPS reference. |
+| `Category` | `string` | No | Optional grouping label from the permission manifest. |
 | `Status` | `PermissionLifecycleStatus` | Yes | `active`, `deprecated`, `disabled`, `retired`. |
 | `IsAssignable` | `bool` | Yes | Derived from service status, permission status, and policy. |
 | `CreatedAt` / `CreatedBy` | timestamp/string | Yes | Audit metadata. |
@@ -92,9 +91,8 @@ Represents a permission exposed by a registered service.
 - Duplicate permission keys in a registration request reject the entire request.
 - `FullPermissionKey` must not collide with reserved platform permissions or wildcard keys.
 - `DisplayName` is required and limited to 120 characters.
-- `Description` and `IntendedUse` are each limited to 1,000 characters.
-- `DocumentationUrl`, when supplied, must be HTTPS unless local-development policy explicitly allows otherwise.
-- Metadata updates may change display name, description, intended use, documentation URL, and status, but not stable keys.
+- `Description` and `Category` are each limited to 1,000 characters.
+- Metadata updates may change display name, description, category, and status, but not stable keys.
 
 ### State Transitions
 
