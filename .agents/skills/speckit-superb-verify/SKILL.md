@@ -30,8 +30,9 @@ Look for `verification-before-completion/SKILL.md` in this exact order:
 
 1. `./.agents/skills/verification-before-completion/SKILL.md`
 2. `~/.agents/skills/verification-before-completion/SKILL.md`
+3. `~/.copilot/installed-plugins/superpowers-marketplace/superpowers/skills/verification-before-completion/SKILL.md`
 
-If the workspace and global copies both exist, use the workspace copy.
+If multiple copies exist, prefer workspace, then global, then Copilot plugin.
 
 If no readable file is found, **STOP**:
 
@@ -44,7 +45,7 @@ Report the source you resolved before continuing:
 
 ```text
 Using installed skill: verification-before-completion
-Source: [workspace|global]
+Source: [workspace|global|copilot-plugin]
 Path: [resolved path]
 ```
 

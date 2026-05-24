@@ -9,11 +9,10 @@ using Scalar.AspNetCore;
 using Microsoft.Extensions.Primitives;
 using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Api.Admin;
-using OpenIdentityStack.Api.Clients;
+using OpenIdentityStack.Api.Applications;
 using OpenIdentityStack.Api.Users;
 using OpenIdentityStack.Api.Groups;
 using OpenIdentityStack.Api.Sessions;
-using OpenIdentityStack.Api.ServiceAccounts;
 using OpenIdentityStack.Api.Federation;
 using OpenIdentityStack.Api.Settings;
 using OpenIdentityStack.Infrastructure.Identity;
@@ -326,13 +325,12 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Map Minimal API endpoints
-app.MapClientsApi();
+app.MapApplicationsApi();
 app.MapUsersApi();
 app.MapPublicProfilesApi();
 app.MapRolesApi();
 app.MapGroupsApi();
 app.MapSessionsApi();
-app.MapServiceAccountsApi();
 app.MapApplicationPermissionsApi();
 app.MapProvidersApi();
 app.MapAuthenticationSettingsApi();

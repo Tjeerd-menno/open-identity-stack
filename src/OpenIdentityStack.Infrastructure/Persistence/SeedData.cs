@@ -36,6 +36,11 @@ public static partial class SeedData
         /// Audit Viewer role with read-only access to audit logs.
         /// </summary>
         public const string AuditViewer = "audit-viewer";
+
+        /// <summary>
+        /// Application Administrator role with full unified application management permissions.
+        /// </summary>
+        public const string ApplicationAdmin = "application-admin";
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "System role '{RoleName}' already exists, skipping")]
@@ -84,6 +89,14 @@ public static partial class SeedData
                     Permissions.Roles.Read,
                     Permissions.Roles.Assign,
                     Permissions.Groups.All
+                ]
+            ),
+            (
+                SystemRoles.ApplicationAdmin,
+                "Application Administrator",
+                "Manage OAuth/OIDC applications and credentials",
+                [
+                    Permissions.Applications.All
                 ]
             ),
             (

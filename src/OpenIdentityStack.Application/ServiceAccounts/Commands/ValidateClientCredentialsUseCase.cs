@@ -1,4 +1,5 @@
-using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Applications.Commands;
+using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Domain.ServiceAccounts;
 
 using SharedKernel;
@@ -9,70 +10,53 @@ namespace OpenIdentityStack.Application.ServiceAccounts.Commands;
 /// </summary>
 public sealed class ValidateClientCredentialsUseCase : IValidateClientCredentialsUseCase
 {
-    private readonly IServiceAccountRepository serviceAccountRepository;
-    private readonly IPasswordHasher passwordHasher;
-    private readonly IDateTimeProvider dateTimeProvider;
+    private readonly IValidateApplicationClientCredentialsUseCase applicationValidationUseCase;
 
-    public ValidateClientCredentialsUseCase(
-        IServiceAccountRepository serviceAccountRepository,
-        IPasswordHasher passwordHasher,
-        IDateTimeProvider dateTimeProvider)
+    public ValidateClientCredentialsUseCase(IValidateApplicationClientCredentialsUseCase applicationValidationUseCase)
     {
-        this.serviceAccountRepository = serviceAccountRepository;
-        this.passwordHasher = passwordHasher;
-        this.dateTimeProvider = dateTimeProvider;
+        this.applicationValidationUseCase = applicationValidationUseCase;
     }
 
     public async Task<Result<ValidateClientCredentialsResult>> ExecuteAsync(
         ValidateClientCredentialsCommand command,
         CancellationToken cancellationToken = default)
     {
-        // Validate input
-        if (string.IsNullOrWhiteSpace(command.ClientId))
+        Result<ValidateApplicationCredentialsResult> result =
+            await this.applicationValidationUseCase.ExecuteAsync(
+                new ValidateApplicationClientCredentialsCommand(command.ClientId, command.ClientSecret),
+                cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return MapError(result.Error);
+        }
+
+        ValidateApplicationCredentialsResult value = result.Value;
+        return new ValidateClientCredentialsResult(
+            new ServiceAccountId(value.ApplicationId.Value),
+            value.ClientId,
+            value.DisplayName,
+            value.AllowedScopes,
+            value.AllowedGrantTypes);
+    }
+
+    private static DomainError MapError(DomainError error)
+    {
+        if (error.Code.EndsWith("Application.ClientIdRequired", StringComparison.Ordinal))
         {
             return ServiceAccountErrors.ClientIdRequired;
         }
 
-        if (string.IsNullOrWhiteSpace(command.ClientSecret))
-        {
-            return ServiceAccountErrors.InvalidCredentials;
-        }
-
-        // Find the service account
-        ServiceAccount? serviceAccount = await this.serviceAccountRepository.GetByClientIdAsync(
-            command.ClientId,
-            cancellationToken);
-
-        if (serviceAccount is null)
-        {
-            return ServiceAccountErrors.InvalidCredentials;
-        }
-
-        // Check if the account is active
-        if (serviceAccount.Status != ServiceAccountStatus.Active)
+        if (error.Code.EndsWith("Application.Disabled", StringComparison.Ordinal))
         {
             return ServiceAccountErrors.AccountDisabled;
         }
 
-        // Find a valid credential that matches the secret
-        ClientCredential? matchingCredential = serviceAccount.FindValidCredential(
-            secretHash => this.passwordHasher.VerifyPassword(secretHash, command.ClientSecret),
-            this.dateTimeProvider);
-
-        if (matchingCredential is null)
+        if (error.Code.EndsWith("Application.InvalidCredentials", StringComparison.Ordinal))
         {
             return ServiceAccountErrors.InvalidCredentials;
         }
 
-        // Record the credential usage
-        serviceAccount.RecordCredentialUsage(matchingCredential.Id, this.dateTimeProvider);
-        await this.serviceAccountRepository.SaveChangesAsync(cancellationToken);
-
-        return new ValidateClientCredentialsResult(
-            serviceAccount.Id,
-            serviceAccount.ClientId,
-            serviceAccount.DisplayName,
-            serviceAccount.AllowedScopes,
-            serviceAccount.AllowedGrantTypes);
+        return error;
     }
 }

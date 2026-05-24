@@ -80,9 +80,9 @@ public sealed class PermissionAuthorizationHandlerTests
     [Fact]
     public async Task HandleRequirementAsync_WithScpClaim_Succeeds()
     {
-        Claim[] claims = [new Claim("scp", Permissions.ServiceAccounts.Read)];
+        Claim[] claims = [new Claim("scp", Permissions.Applications.Read)];
         ClaimsPrincipal user = new(new ClaimsIdentity(claims, "test"));
-        PermissionRequirement requirement = new(Permissions.ServiceAccounts.Read);
+        PermissionRequirement requirement = new(Permissions.Applications.Read);
         AuthorizationHandlerContext context = new([requirement], user, null);
 
         await this.handler.HandleAsync(context);

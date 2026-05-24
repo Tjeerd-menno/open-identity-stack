@@ -10,6 +10,9 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 /// </summary>
 public sealed class ServiceAccountsEndpointWorkflowTests(AppHostFixture fixture) : IAsyncLifetime
 {
+    private const string LegacyServiceAccountsSkipReason =
+        "Legacy Service Accounts endpoints are compatibility-only and replaced by unified Applications API coverage.";
+
     private readonly AppHostFixture _fixture = fixture;
     private HttpClient _client = null!;
     private string? _accessToken;
@@ -54,7 +57,7 @@ public sealed class ServiceAccountsEndpointWorkflowTests(AppHostFixture fixture)
         return await this.Client.SendAsync(request);
     }
 
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task CreateServiceAccount_WithValidRequest_Returns201Created()
     {
         // Arrange
@@ -80,7 +83,7 @@ public sealed class ServiceAccountsEndpointWorkflowTests(AppHostFixture fixture)
         content["secret"]?.GetValue<string>().ShouldNotBeNull();
     }
 
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task CreateServiceAccount_WithMissingClientId_Returns400BadRequest()
     {
         // Arrange
@@ -100,7 +103,7 @@ public sealed class ServiceAccountsEndpointWorkflowTests(AppHostFixture fixture)
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task CreateServiceAccount_WithEmptyGrantTypes_Returns400BadRequest()
     {
         // Arrange
@@ -119,7 +122,7 @@ public sealed class ServiceAccountsEndpointWorkflowTests(AppHostFixture fixture)
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task GetServiceAccount_WithValidId_Returns200Ok()
     {
         // Arrange - Create
@@ -146,7 +149,7 @@ public sealed class ServiceAccountsEndpointWorkflowTests(AppHostFixture fixture)
         content["clientId"]?.GetValue<string>().ShouldBe(command.ClientId);
     }
 
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task GetServiceAccount_WithInvalidId_Returns404NotFound()
     {
         // Arrange
@@ -159,7 +162,7 @@ public sealed class ServiceAccountsEndpointWorkflowTests(AppHostFixture fixture)
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task ListServiceAccounts_Returns200WithPaginatedResponse()
     {
         // Act
@@ -171,7 +174,7 @@ public sealed class ServiceAccountsEndpointWorkflowTests(AppHostFixture fixture)
         content.ShouldNotBeNull();
     }
 
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task ListServiceAccounts_WithPagination_ReturnsRequestedPage()
     {
         // Act
@@ -185,7 +188,7 @@ public sealed class ServiceAccountsEndpointWorkflowTests(AppHostFixture fixture)
         content["pageSize"]?.GetValue<int>().ShouldBe(5);
     }
 
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task RotateSecret_WithValidId_Returns200Ok()
     {
         // Arrange - Create

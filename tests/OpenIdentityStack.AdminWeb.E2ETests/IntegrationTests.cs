@@ -11,6 +11,8 @@ namespace OpenIdentityStack.AdminWeb.E2ETests;
 /// </summary>
 public class IntegrationTests : IAsyncLifetime
 {
+    private const string LegacyServiceAccountsSkipReason = "Legacy Service Accounts UI is being replaced by unified Applications management.";
+
     private readonly AdminWebAppHostFixture fixture;
     private IBrowserContext? context;
     private IPage? page;
@@ -145,7 +147,7 @@ public class IntegrationTests : IAsyncLifetime
     ///        POST /api/admin/service-accounts/{id}/disable, POST /api/admin/service-accounts/{id}/enable,
     ///        DELETE /api/admin/service-accounts/{id}
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task ServiceAccountFullLifecycle_ShouldCompleteAllOperations()
     {
         Console.WriteLine("TC-I02: Service Account Full Lifecycle - Starting integration test");

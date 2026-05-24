@@ -1,11 +1,15 @@
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Clients;
 using OpenIdentityStack.Application.Clients.Commands;
+using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Domain.Clients;
 using OpenIdentityStack.Domain.Common;
 using OpenIddict.Abstractions;
 
 using SharedKernel;
+using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
+using DomainClientType = OpenIdentityStack.Domain.Clients.ClientType;
+
 namespace OpenIdentityStack.Infrastructure.Clients;
 
 /// <summary>
@@ -16,15 +20,18 @@ public sealed class CreateClientUseCase : ICreateClientUseCase
 {
     private readonly IClientRepository clientRepository;
     private readonly IOpenIddictApplicationManager applicationManager;
+    private readonly IApplicationProtocolProjection projection;
     private readonly IDateTimeProvider dateTimeProvider;
 
     public CreateClientUseCase(
         IClientRepository clientRepository,
         IOpenIddictApplicationManager applicationManager,
+        IApplicationProtocolProjection projection,
         IDateTimeProvider dateTimeProvider)
     {
         this.clientRepository = clientRepository;
         this.applicationManager = applicationManager;
+        this.projection = projection;
         this.dateTimeProvider = dateTimeProvider;
     }
 
@@ -69,54 +76,36 @@ public sealed class CreateClientUseCase : ICreateClientUseCase
 
         // Generate client secret for confidential clients
         string? clientSecret = null;
-        if (command.ClientType == ClientType.Confidential)
+        if (command.ClientType == DomainClientType.Confidential)
         {
             clientSecret = GenerateSecureSecret();
         }
 
-        // Create the OpenIddict application descriptor
-        var descriptor = new OpenIddictApplicationDescriptor
+        Result<DomainApplication> applicationResult = DomainApplication.Create(
+            command.ClientId,
+            command.DisplayName,
+            command.Description,
+            InferApplicationType(command),
+            command.ClientType == DomainClientType.Confidential
+                ? OAuthClientType.Confidential
+                : OAuthClientType.Public,
+            command.AllowedGrantTypes,
+            command.AllowedScopes,
+            command.RedirectUris,
+            command.PostLogoutRedirectUris,
+            command.RequirePkce || command.ClientType == DomainClientType.Public,
+            command.RequireConsent,
+            this.dateTimeProvider);
+        if (applicationResult.IsFailure)
         {
-            ClientId = command.ClientId,
-            DisplayName = command.DisplayName,
-            ClientType = command.ClientType == ClientType.Confidential
-                ? OpenIddictConstants.ClientTypes.Confidential
-                : OpenIddictConstants.ClientTypes.Public,
-            ConsentType = command.RequireConsent
-                ? OpenIddictConstants.ConsentTypes.Explicit
-                : OpenIddictConstants.ConsentTypes.Implicit
-        };
-
-        // Set client secret for confidential clients
-        if (clientSecret is not null)
-        {
-            descriptor.ClientSecret = clientSecret;
+            return applicationResult.Error;
         }
 
-        // Add redirect URIs
-        foreach (string redirectUri in command.RedirectUris)
+        Result projectionResult = await this.projection.UpsertAsync(applicationResult.Value, clientSecret, cancellationToken);
+        if (projectionResult.IsFailure)
         {
-            descriptor.RedirectUris.Add(new Uri(redirectUri));
+            return projectionResult.Error;
         }
-
-        // Add post-logout redirect URIs
-        foreach (string postLogoutUri in command.PostLogoutRedirectUris)
-        {
-            descriptor.PostLogoutRedirectUris.Add(new Uri(postLogoutUri));
-        }
-
-        // Add permissions based on grant types and scopes
-        AddGrantTypePermissions(descriptor, command.AllowedGrantTypes);
-        AddScopePermissions(descriptor, command.AllowedScopes);
-
-        // Add PKCE requirement for public clients or if explicitly required
-        if (command.RequirePkce || command.ClientType == ClientType.Public)
-        {
-            descriptor.Requirements.Add(OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange);
-        }
-
-        // Create the OpenIddict application
-        await this.applicationManager.CreateAsync(descriptor, cancellationToken);
 
         // Save the domain entity
         await this.clientRepository.AddAsync(client, cancellationToken);
@@ -138,63 +127,27 @@ public sealed class CreateClientUseCase : ICreateClientUseCase
         return Convert.ToBase64String(randomBytes);
     }
 
-    private static void AddGrantTypePermissions(
-        OpenIddictApplicationDescriptor descriptor,
-        IReadOnlyList<string> grantTypes)
+    private static ApplicationType InferApplicationType(CreateClientCommand command)
     {
-        foreach (string grantType in grantTypes)
+        if (command.AllowedGrantTypes.Count == 1 &&
+            command.AllowedGrantTypes[0].Equals(OpenIddictConstants.GrantTypes.ClientCredentials, StringComparison.OrdinalIgnoreCase) &&
+            command.ClientType == DomainClientType.Confidential &&
+            command.RedirectUris.Count == 0 &&
+            command.PostLogoutRedirectUris.Count == 0)
         {
-            switch (grantType.ToLowerInvariant())
-            {
-                case "client_credentials":
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.ClientCredentials);
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Token);
-                    break;
-
-                case "authorization_code":
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode);
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Authorization);
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Token);
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.ResponseTypes.Code);
-                    break;
-
-                case "refresh_token":
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.RefreshToken);
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Token);
-                    break;
-
-                case "implicit":
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.Implicit);
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Authorization);
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.ResponseTypes.IdToken);
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.ResponseTypes.Token);
-                    break;
-
-                case "password":
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.Password);
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Token);
-                    break;
-            }
+            return ApplicationType.MachineToMachine;
         }
 
-        // Add common endpoints
-        descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Introspection);
-        descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Revocation);
-
-        // Add logout endpoint if authorization code flow is enabled
-        if (grantTypes.Any(gt => gt.Equals("authorization_code", StringComparison.OrdinalIgnoreCase)))
+        if (command.AllowedGrantTypes.Any(grantType => grantType.Equals(OpenIddictConstants.GrantTypes.DeviceCode, StringComparison.OrdinalIgnoreCase)))
         {
-            descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.EndSession);
+            return ApplicationType.Device;
         }
-    }
 
-    private static void AddScopePermissions(
-        OpenIddictApplicationDescriptor descriptor,
-        IReadOnlyList<string> scopes)
-    {
-        foreach (string scope in scopes)
+        if (command.ClientType == DomainClientType.Public)
         {
-            descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + scope);
+            return ApplicationType.SinglePage;
         }
+
+        return ApplicationType.Web;
     }
 }

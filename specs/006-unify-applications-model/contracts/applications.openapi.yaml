@@ -1,0 +1,686 @@
+openapi: 3.1.0
+info:
+  title: OpenIdentityStack Admin Applications API
+  version: 0.1.0
+  description: Unified admin API for OAuth/OIDC application registrations.
+servers:
+  - url: /api/admin
+security:
+  - bearerAuth: []
+tags:
+  - name: Applications
+    description: Unified application registration management.
+  - name: Deprecated compatibility
+    description: Legacy clients and service-account routes backed by applications.
+paths:
+  /applications:
+    post:
+      tags: [Applications]
+      operationId: createApplication
+      summary: Create an application
+      description: Creates any supported application type and optionally one initial credential.
+      x-required-permission: applications:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApplicationRequest"
+      responses:
+        "201":
+          description: Application created. Initial secret is returned only in this response when requested.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationCreatedResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+    get:
+      tags: [Applications]
+      operationId: listApplications
+      summary: List applications
+      x-required-permission: applications:read
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: type
+          in: query
+          schema:
+            $ref: "#/components/schemas/ApplicationType"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ApplicationStatus"
+        - name: clientType
+          in: query
+          schema:
+            $ref: "#/components/schemas/OAuthClientType"
+        - name: search
+          in: query
+          description: Matches client identifier or display name.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paged applications.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListApplicationsResponse"
+  /applications/{id}:
+    get:
+      tags: [Applications]
+      operationId: getApplication
+      summary: Get application details
+      x-required-permission: applications:read
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Application details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    patch:
+      tags: [Applications]
+      operationId: updateApplicationMetadata
+      summary: Update application metadata
+      x-required-permission: applications:write
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApplicationMetadataRequest"
+      responses:
+        "200":
+          description: Updated application.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags: [Applications]
+      operationId: deleteApplication
+      summary: Delete an application
+      x-required-permission: applications:delete
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "204":
+          description: Application deleted.
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /applications/{id}/oauth:
+    put:
+      tags: [Applications]
+      operationId: configureApplicationOAuth
+      summary: Replace OAuth configuration
+      x-required-permission: applications:write
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigureApplicationOAuthRequest"
+      responses:
+        "200":
+          description: Updated application.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /applications/{id}/disable:
+    post:
+      tags: [Applications]
+      operationId: disableApplication
+      summary: Disable an application
+      x-required-permission: applications:write
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Disabled application.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /applications/{id}/enable:
+    post:
+      tags: [Applications]
+      operationId: enableApplication
+      summary: Enable an application
+      x-required-permission: applications:write
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Enabled application.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /applications/{id}/credentials:
+    get:
+      tags: [Applications]
+      operationId: listApplicationCredentials
+      summary: List application credential metadata
+      description: Does not return plain secrets or secret hashes.
+      x-required-permission: applications:read
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Credential metadata.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApplicationCredentialResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /applications/{id}/credentials/client-secrets:
+    post:
+      tags: [Applications]
+      operationId: addApplicationSecret
+      summary: Add or rotate a client secret
+      description: Returns the plain client secret once. Public applications are rejected.
+      x-required-permission: applications:manage-credentials
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddApplicationSecretRequest"
+      responses:
+        "200":
+          description: Secret added. Plain secret is returned only once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddApplicationSecretResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /applications/{id}/credentials/certificates:
+    post:
+      tags: [Applications]
+      operationId: addApplicationCertificate
+      summary: Add a certificate credential
+      x-required-permission: applications:manage-certificates
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddApplicationCertificateRequest"
+      responses:
+        "201":
+          description: Certificate credential added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddApplicationCertificateResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /applications/{id}/credentials/{credentialId}:
+    delete:
+      tags: [Applications]
+      operationId: revokeApplicationCredential
+      summary: Revoke an application credential
+      x-required-permission: applications:manage-credentials
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - name: credentialId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Credential revoked.
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /clients:
+    get:
+      tags: [Deprecated compatibility]
+      deprecated: true
+      summary: Deprecated client list adapter
+      description: Delegates to applications and includes deprecation metadata.
+      responses:
+        "200":
+          description: Legacy client response shape.
+          headers:
+            Deprecation:
+              schema:
+                type: string
+              example: "true"
+            X-Replaced-By:
+              schema:
+                type: string
+              example: /api/admin/applications
+    post:
+      tags: [Deprecated compatibility]
+      deprecated: true
+      summary: Deprecated client create adapter
+      responses:
+        "201":
+          description: Legacy client response shape created from application use case.
+  /service-accounts:
+    get:
+      tags: [Deprecated compatibility]
+      deprecated: true
+      summary: Deprecated machine-to-machine application list adapter
+      description: Delegates to applications filtered by MachineToMachine and includes deprecation metadata.
+      responses:
+        "200":
+          description: Legacy service-account response shape.
+          headers:
+            Deprecation:
+              schema:
+                type: string
+              example: "true"
+            X-Replaced-By:
+              schema:
+                type: string
+              example: /api/admin/applications
+    post:
+      tags: [Deprecated compatibility]
+      deprecated: true
+      summary: Deprecated service-account create adapter
+      responses:
+        "201":
+          description: Legacy service-account response shape created from MachineToMachine application use case.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    ApplicationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 30
+  responses:
+    ValidationError:
+      description: Validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ConflictError:
+      description: Resource conflict.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFoundError:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    ApplicationType:
+      type: string
+      enum: [MachineToMachine, Web, SinglePage, Native, Device, Custom]
+    OAuthClientType:
+      type: string
+      enum: [Public, Confidential]
+    ApplicationStatus:
+      type: string
+      enum: [Active, Disabled]
+    ApplicationCredentialType:
+      type: string
+      enum: [ClientSecret, X509Certificate, PrivateKeyJwt]
+    CreateInitialCredentialRequest:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/ApplicationCredentialType"
+        description:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        certificateThumbprint:
+          type: string
+          nullable: true
+        certificateSubject:
+          type: string
+          nullable: true
+    CreateApplicationRequest:
+      type: object
+      required: [clientId, displayName, type, clientType, redirectUris, postLogoutRedirectUris, allowedScopes, allowedGrantTypes, requirePkce, requireConsent]
+      properties:
+        clientId:
+          type: string
+          maxLength: 255
+        displayName:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        type:
+          $ref: "#/components/schemas/ApplicationType"
+        clientType:
+          $ref: "#/components/schemas/OAuthClientType"
+        redirectUris:
+          type: array
+          items:
+            type: string
+            format: uri
+        postLogoutRedirectUris:
+          type: array
+          items:
+            type: string
+            format: uri
+        allowedScopes:
+          type: array
+          items:
+            type: string
+        allowedGrantTypes:
+          type: array
+          items:
+            type: string
+        requirePkce:
+          type: boolean
+        requireConsent:
+          type: boolean
+        initialCredential:
+          $ref: "#/components/schemas/CreateInitialCredentialRequest"
+    UpdateApplicationMetadataRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+    ConfigureApplicationOAuthRequest:
+      type: object
+      required: [type, clientType, redirectUris, postLogoutRedirectUris, allowedScopes, allowedGrantTypes, requirePkce, requireConsent]
+      properties:
+        type:
+          $ref: "#/components/schemas/ApplicationType"
+        clientType:
+          $ref: "#/components/schemas/OAuthClientType"
+        redirectUris:
+          type: array
+          items:
+            type: string
+            format: uri
+        postLogoutRedirectUris:
+          type: array
+          items:
+            type: string
+            format: uri
+        allowedScopes:
+          type: array
+          items:
+            type: string
+        allowedGrantTypes:
+          type: array
+          items:
+            type: string
+        requirePkce:
+          type: boolean
+        requireConsent:
+          type: boolean
+    AddApplicationSecretRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        revokeExisting:
+          type: boolean
+          default: false
+    AddApplicationCertificateRequest:
+      type: object
+      required: [thumbprint, subject, expiresAt]
+      properties:
+        thumbprint:
+          type: string
+        subject:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    ApplicationCreatedResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+        displayName:
+          type: string
+        type:
+          $ref: "#/components/schemas/ApplicationType"
+        clientType:
+          $ref: "#/components/schemas/OAuthClientType"
+        status:
+          $ref: "#/components/schemas/ApplicationStatus"
+        initialSecret:
+          type: string
+          nullable: true
+          description: Returned once when a client secret is created.
+        createdAt:
+          type: string
+          format: date-time
+    ApplicationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+          nullable: true
+        type:
+          $ref: "#/components/schemas/ApplicationType"
+        clientType:
+          $ref: "#/components/schemas/OAuthClientType"
+        status:
+          $ref: "#/components/schemas/ApplicationStatus"
+        redirectUris:
+          type: array
+          items:
+            type: string
+        postLogoutRedirectUris:
+          type: array
+          items:
+            type: string
+        allowedScopes:
+          type: array
+          items:
+            type: string
+        allowedGrantTypes:
+          type: array
+          items:
+            type: string
+        requirePkce:
+          type: boolean
+        requireConsent:
+          type: boolean
+        credentialCount:
+          type: integer
+        certificateCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        modifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ApplicationCredentialResponse:
+      type: object
+      description: Credential metadata only; never includes plain secrets or secret hashes.
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ApplicationCredentialType"
+        description:
+          type: string
+          nullable: true
+        thumbprint:
+          type: string
+          nullable: true
+        subject:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        revokedAt:
+          type: string
+          format: date-time
+          nullable: true
+    AddApplicationSecretResponse:
+      type: object
+      properties:
+        credentialId:
+          type: string
+          format: uuid
+        clientSecret:
+          type: string
+          description: Returned once and never retrievable again.
+    AddApplicationCertificateResponse:
+      type: object
+      properties:
+        credentialId:
+          type: string
+          format: uuid
+    ApplicationListItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+        displayName:
+          type: string
+        type:
+          $ref: "#/components/schemas/ApplicationType"
+        clientType:
+          $ref: "#/components/schemas/OAuthClientType"
+        status:
+          $ref: "#/components/schemas/ApplicationStatus"
+        allowedGrantTypes:
+          type: array
+          items:
+            type: string
+        credentialCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        modifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ListApplicationsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApplicationListItemResponse"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+        totalPages:
+          type: integer
+        hasPreviousPage:
+          type: boolean
+        hasNextPage:
+          type: boolean
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string

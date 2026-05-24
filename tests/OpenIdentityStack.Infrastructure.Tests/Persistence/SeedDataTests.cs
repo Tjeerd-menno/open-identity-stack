@@ -42,9 +42,13 @@ public class SeedDataTests : IClassFixture<SqliteTestFixture>, IAsyncLifetime
         roles.Count.ShouldBeGreaterThan(0);
         roles.ShouldContain(r => r.Name == SeedData.SystemRoles.SuperAdmin);
         roles.ShouldContain(r => r.Name == SeedData.SystemRoles.UserAdmin);
+        roles.ShouldContain(r => r.Name == SeedData.SystemRoles.ApplicationAdmin);
 
         Role superAdmin = roles.First(r => r.Name == SeedData.SystemRoles.SuperAdmin);
         superAdmin.IsSystemRole.ShouldBeTrue();
+
+        Role applicationAdmin = roles.First(r => r.Name == SeedData.SystemRoles.ApplicationAdmin);
+        applicationAdmin.Permissions.ShouldBe(["applications:*"]);
     }
 
     [Fact]

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.Application;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Applications;
 using OpenIdentityStack.Application.Clients.Commands;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
@@ -12,6 +13,7 @@ using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Users.Commands;
 using OpenIdentityStack.Domain.Common;
+using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.ServiceAccounts;
 using OpenIdentityStack.Domain.Users;
@@ -19,6 +21,7 @@ using OpenIdentityStack.Infrastructure;
 using OpenIdentityStack.Infrastructure.Persistence;
 
 using SharedKernel;
+using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
 namespace OpenIdentityStack.Testing;
 
 public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
@@ -130,6 +133,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         IOpenIddictApplicationManager applicationManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
         IOpenIddictScopeManager scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
         IServiceAccountRepository serviceAccountRepository = scope.ServiceProvider.GetRequiredService<IServiceAccountRepository>();
+        IApplicationRepository applicationRepository = scope.ServiceProvider.GetRequiredService<IApplicationRepository>();
         IPasswordHasher passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
         IDateTimeProvider dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
 
@@ -161,6 +165,37 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
 
                 await serviceAccountRepository.AddAsync(account, cancellationToken);
                 await serviceAccountRepository.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        DomainApplication? existingApplication = await applicationRepository.GetByClientIdAsync(clientId, cancellationToken);
+        if (existingApplication is null)
+        {
+            Result<DomainApplication> createApplicationResult = DomainApplication.Create(
+                clientId,
+                $"Test Service Account - {clientId}",
+                null,
+                ApplicationType.MachineToMachine,
+                OAuthClientType.Confidential,
+                resolvedGrantTypes,
+                resolvedScopes,
+                [],
+                [],
+                requirePkce: false,
+                requireConsent: false,
+                dateTimeProvider);
+
+            if (createApplicationResult.IsSuccess)
+            {
+                DomainApplication application = createApplicationResult.Value;
+                application.AddSecret(
+                    passwordHasher.HashPassword(clientSecret),
+                    "Initial test credential",
+                    null,
+                    dateTimeProvider);
+
+                await applicationRepository.AddAsync(application, cancellationToken);
+                await applicationRepository.SaveChangesAsync(cancellationToken);
             }
         }
 

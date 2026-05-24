@@ -6,6 +6,8 @@ using OpenIdentityStack.Infrastructure.Clients;
 using OpenIddict.Abstractions;
 
 using SharedKernel;
+using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
+using IApplicationProtocolProjection = OpenIdentityStack.Application.Abstractions.IApplicationProtocolProjection;
 #pragma warning disable IDE0007 // Use var instead of explicit type
 #pragma warning disable IDE0008 // Use explicit type instead of var
 
@@ -18,6 +20,7 @@ public sealed class CreateClientUseCaseTests
 {
     private readonly IClientRepository _clientRepository;
     private readonly IOpenIddictApplicationManager _applicationManager;
+    private readonly IApplicationProtocolProjection _projection;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly CreateClientUseCase _useCase;
     private readonly DateTimeOffset _now = new(2026, 2, 3, 12, 0, 0, TimeSpan.Zero);
@@ -26,12 +29,16 @@ public sealed class CreateClientUseCaseTests
     {
         this._clientRepository = Substitute.For<IClientRepository>();
         this._applicationManager = Substitute.For<IOpenIddictApplicationManager>();
+        this._projection = Substitute.For<IApplicationProtocolProjection>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._dateTimeProvider.UtcNow.Returns(this._now);
+        this._projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
 
         this._useCase = new CreateClientUseCase(
             this._clientRepository,
             this._applicationManager,
+            this._projection,
             this._dateTimeProvider);
     }
 
@@ -119,7 +126,7 @@ public sealed class CreateClientUseCaseTests
             .Returns((object?)null);
 
         // Act
-        await this._useCase.ExecuteAsync(command);
+        Result<CreateClientResult> result = await this._useCase.ExecuteAsync(command);
 
         // Assert
         await this._clientRepository.Received(1).AddAsync(
@@ -149,14 +156,14 @@ public sealed class CreateClientUseCaseTests
             .Returns((object?)null);
 
         // Act
-        await this._useCase.ExecuteAsync(command);
+        Result<CreateClientResult> result = await this._useCase.ExecuteAsync(command);
 
         // Assert
         await this._clientRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task ExecuteAsync_CreatesOpenIddictApplication()
+    public async Task ExecuteAsync_ProjectsUnifiedApplication()
     {
         // Arrange
         var command = new CreateClientCommand(
@@ -177,13 +184,20 @@ public sealed class CreateClientUseCaseTests
             .Returns((object?)null);
 
         // Act
-        await this._useCase.ExecuteAsync(command);
+        Result<CreateClientResult> result = await this._useCase.ExecuteAsync(command);
 
         // Assert
-        await this._applicationManager.Received(1).CreateAsync(
-            Arg.Is<OpenIddictApplicationDescriptor>(d =>
-                d.ClientId == "test-client" &&
-                d.DisplayName == "Test Client"),
+        await this._projection.Received(1).UpsertAsync(
+            Arg.Is<DomainApplication>(application =>
+                application.ClientId == "test-client" &&
+                application.DisplayName == "Test Client" &&
+                application.ClientType == OpenIdentityStack.Domain.Applications.OAuthClientType.Confidential &&
+                application.RedirectUris.Count == 1 &&
+                application.RedirectUris[0] == "https://example.com/callback" &&
+                application.PostLogoutRedirectUris.Count == 1 &&
+                application.PostLogoutRedirectUris[0] == "https://example.com/logout" &&
+                !string.IsNullOrEmpty(result.Value.ClientSecret)),
+            Arg.Is<string>(secret => secret == result.Value.ClientSecret),
             Arg.Any<CancellationToken>());
     }
 
@@ -212,10 +226,12 @@ public sealed class CreateClientUseCaseTests
         await this._useCase.ExecuteAsync(command);
 
         // Assert
-        await this._applicationManager.Received(1).CreateAsync(
-            Arg.Is<OpenIddictApplicationDescriptor>(d =>
-                d.Permissions.Contains(OpenIddictConstants.Permissions.GrantTypes.ClientCredentials) &&
-                d.Permissions.Contains(OpenIddictConstants.Permissions.Endpoints.Token)),
+        await this._projection.Received(1).UpsertAsync(
+            Arg.Is<DomainApplication>(application =>
+                application.Type == OpenIdentityStack.Domain.Applications.ApplicationType.MachineToMachine &&
+                application.ClientType == OpenIdentityStack.Domain.Applications.OAuthClientType.Confidential &&
+                application.AllowedGrantTypes.SequenceEqual(new[] { OpenIddictConstants.GrantTypes.ClientCredentials })),
+            Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -244,9 +260,10 @@ public sealed class CreateClientUseCaseTests
         await this._useCase.ExecuteAsync(command);
 
         // Assert
-        await this._applicationManager.Received(1).CreateAsync(
-            Arg.Is<OpenIddictApplicationDescriptor>(d =>
-                d.Permissions.Contains(OpenIddictConstants.Permissions.GrantTypes.RefreshToken)),
+        await this._projection.Received(1).UpsertAsync(
+            Arg.Is<DomainApplication>(application =>
+                application.AllowedGrantTypes.Contains(OpenIddictConstants.GrantTypes.RefreshToken)),
+            Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -468,9 +485,9 @@ public sealed class CreateClientUseCaseTests
         await this._useCase.ExecuteAsync(command);
 
         // Assert
-        await this._applicationManager.Received(1).CreateAsync(
-            Arg.Is<OpenIddictApplicationDescriptor>(d =>
-                d.Requirements.Contains(OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange)),
+        await this._projection.Received(1).UpsertAsync(
+            Arg.Is<DomainApplication>(application => application.RequirePkce),
+            Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -499,9 +516,9 @@ public sealed class CreateClientUseCaseTests
         await this._useCase.ExecuteAsync(command);
 
         // Assert
-        await this._applicationManager.Received(1).CreateAsync(
-            Arg.Is<OpenIddictApplicationDescriptor>(d =>
-                d.Requirements.Contains(OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange)),
+        await this._projection.Received(1).UpsertAsync(
+            Arg.Is<DomainApplication>(application => application.RequirePkce),
+            Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
     }
 
