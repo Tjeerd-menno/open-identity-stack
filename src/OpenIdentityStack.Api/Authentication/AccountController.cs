@@ -408,7 +408,7 @@ public class AccountController : Controller
             return this.Json(new { canAccess = false });
         }
 
-        string email = request.Email;
+        string email = request.Email.Trim();
 
         // Get authentication settings
         AuthenticationSettings settings = await this.authSettingsRepository.GetOrCreateAsync();

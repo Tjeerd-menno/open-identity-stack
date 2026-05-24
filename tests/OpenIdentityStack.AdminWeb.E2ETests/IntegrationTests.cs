@@ -233,6 +233,10 @@ public class IntegrationTests : IAsyncLifetime
         await TestHelpers.FillFormFieldsAsync(page!, userData);
         await page!.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Save|Create|Submit", RegexOptions.IgnoreCase) }).ClickAsync();
         await page!.WaitForLoadStateAsync(LoadState.NetworkIdle, new() { Timeout = 10000 });
+        if (page.Url.Contains("/users/create", StringComparison.OrdinalIgnoreCase))
+        {
+            await page.WaitForURLAsync(new Regex(".*/users/.*"), new() { Timeout = 15000 });
+        }
         Console.WriteLine($"✓ User created: {userEmail}");
 
         // Step 2: Disable the user
@@ -241,6 +245,7 @@ public class IntegrationTests : IAsyncLifetime
         await TestHelpers.NavigateToFeatureAsync(page!, "Users");
         await TestHelpers.WaitForDataTableAsync(page!);
         await TestHelpers.SearchInListAsync(page!, userEmail);
+        await TestHelpers.WaitForTableRowAsync(page!, userEmail, timeoutMs: 30000);
         await TestHelpers.ClickTableRowAsync(page!, userEmail);
 
         ILocator disableButton = page!.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Disable", RegexOptions.IgnoreCase) });
