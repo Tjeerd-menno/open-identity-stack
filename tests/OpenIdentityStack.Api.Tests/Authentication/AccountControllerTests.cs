@@ -647,15 +647,20 @@ public class AccountControllerTests : IDisposable
         IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
         var settings = AuthenticationSettings.CreateDefault(dateTimeProvider);
-        settings.SetDefaultProvider(OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create(), dateTimeProvider);
+        Result setDefaultProviderResult = settings.SetDefaultProvider(
+            OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create(),
+            dateTimeProvider);
+        Assert.True(setDefaultProviderResult.IsSuccess);
         this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(settings));
 
-        Domain.Users.User adminUser = Domain.Users.User.CreateLocal(
+        Result<Domain.Users.User> createAdminUserResult = Domain.Users.User.CreateLocal(
             "admin@example.com",
             "Admin User",
             "hashed-password",
-            dateTimeProvider).Value;
+            dateTimeProvider);
+        Assert.True(createAdminUserResult.IsSuccess);
+        Domain.Users.User adminUser = createAdminUserResult.Value;
         this._userRepository.GetByEmailAsync("admin@example.com", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Domain.Users.User?>(adminUser));
         this._permissionChecker.HasAnyPermissionAsync(
