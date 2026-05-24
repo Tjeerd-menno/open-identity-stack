@@ -11,9 +11,12 @@ bool enableAdminWeb = !string.Equals(
     StringComparison.OrdinalIgnoreCase);
 
 IResourceBuilder<ParameterResource> defaultAdminPassword = builder.AddParameter("default-admin-password", secret: true);
+IResourceBuilder<ParameterResource> postgresPassword = disableDataVolume
+    ? builder.AddParameter("postgres-password", secret: true)
+    : builder.AddParameter("postgres-password", "postgres", publishValueAsDefault: false, secret: true);
 
 // Add PostgreSQL with pgAdmin for development
-IResourceBuilder<PostgresServerResource> postgres = builder.AddPostgres("postgres");
+IResourceBuilder<PostgresServerResource> postgres = builder.AddPostgres("postgres", password: postgresPassword);
 
 if (!disableDataVolume)
 {

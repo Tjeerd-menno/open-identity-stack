@@ -22,6 +22,7 @@ public static class AspireTestApplication
         Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", "Testing");
         Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
         Environment.SetEnvironmentVariable("Parameters__default-admin-password", "Test1234@Test1234");
+        Environment.SetEnvironmentVariable("Parameters__postgres-password", "postgres");
         Environment.SetEnvironmentVariable("DEBUG_SESSION_PORT", null);
         Environment.SetEnvironmentVariable("DEBUG_SESSION_TOKEN", null);
 
