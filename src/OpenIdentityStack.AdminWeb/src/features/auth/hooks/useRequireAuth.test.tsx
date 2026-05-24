@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
@@ -37,7 +38,7 @@ const mockAuthValue = (overrides: Partial<AuthContextValue> = {}): AuthContextVa
   ...overrides,
 });
 
-const renderWithAuth = (ui: JSX.Element, value: Partial<AuthContextValue> = {}) =>
+const renderWithAuth = (ui: React.ReactNode, value: Partial<AuthContextValue> = {}) =>
   render(<AuthContext.Provider value={mockAuthValue(value)}>{ui}</AuthContext.Provider>);
 
 function RequireAuthProbe({ requiredPermissions }: { requiredPermissions?: string[] }) {
