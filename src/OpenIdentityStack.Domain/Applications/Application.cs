@@ -110,7 +110,9 @@ public sealed class Application : AggregateRoot<ApplicationId>
             allowedScopes,
             redirectUris,
             postLogoutRedirectUris,
-            requirePkce);
+            requirePkce,
+            requireConsent,
+            originalType: null);
         if (validation.IsFailure)
         {
             return validation.Error;
@@ -211,14 +213,16 @@ public sealed class Application : AggregateRoot<ApplicationId>
             allowedScopes,
             redirectUris,
             postLogoutRedirectUris,
-            requirePkce);
+            requirePkce,
+            requireConsent,
+            originalType: this.Type);
         if (validation.IsFailure)
         {
             return validation.Error;
         }
 
         ValidatedApplicationConfiguration values = validation.Value;
-        this.Type = type;
+        this.Type = values.Type;
         this.ClientType = clientType;
         this.allowedGrantTypes.Clear();
         this.allowedGrantTypes.AddRange(values.AllowedGrantTypes);
@@ -228,8 +232,8 @@ public sealed class Application : AggregateRoot<ApplicationId>
         this.redirectUris.AddRange(values.RedirectUris);
         this.postLogoutRedirectUris.Clear();
         this.postLogoutRedirectUris.AddRange(values.PostLogoutRedirectUris);
-        this.RequirePkce = requirePkce;
-        this.RequireConsent = requireConsent;
+        this.RequirePkce = values.RequirePkce;
+        this.RequireConsent = values.RequireConsent;
         this.SetModified(dateTimeProvider.UtcNow);
         this.RaiseDomainEvent(new ApplicationDomainEvents.ApplicationOAuthConfigured(this.Id, dateTimeProvider.UtcNow));
 
@@ -356,8 +360,15 @@ public sealed class Application : AggregateRoot<ApplicationId>
         IReadOnlyList<string> allowedScopes,
         IReadOnlyList<string> redirectUris,
         IReadOnlyList<string> postLogoutRedirectUris,
-        bool requirePkce)
+        bool requirePkce,
+        bool requireConsent,
+        ApplicationType? originalType)
     {
+        if (originalType.HasValue && originalType.Value != type)
+        {
+            return ApplicationErrors.TypeChangeNotAllowed;
+        }
+
         if (string.IsNullOrWhiteSpace(clientId))
         {
             return ApplicationErrors.ClientIdRequired;
@@ -425,31 +436,51 @@ public sealed class Application : AggregateRoot<ApplicationId>
             return postLogoutUrisResult.Error;
         }
 
+        ApplicationTypePolicy policy = ApplicationTypePolicyCatalog.GetPolicy(type);
         bool usesClientCredentials = grantTypesResult.Value.Contains("client_credentials", StringComparer.OrdinalIgnoreCase);
         bool usesAuthorizationCode = grantTypesResult.Value.Contains("authorization_code", StringComparer.OrdinalIgnoreCase);
-        bool usesDeviceCode = grantTypesResult.Value.Contains("urn:ietf:params:oauth:grant-type:device_code", StringComparer.OrdinalIgnoreCase);
+        var requestedProfile = clientType.ToClientProfile();
+        if (!policy.AllowedClientProfiles.Contains(requestedProfile))
+        {
+            return ApplicationErrors.InvalidClientType;
+        }
+
+        foreach (string grantType in grantTypesResult.Value)
+        {
+            if (!policy.AllowedGrantTypes.Contains(grantType))
+            {
+                return ApplicationErrors.InvalidGrantType;
+            }
+        }
+
+        foreach (string defaultGrantType in policy.DefaultGrantTypes)
+        {
+            if (!grantTypesResult.Value.Contains(defaultGrantType, StringComparer.OrdinalIgnoreCase))
+            {
+                return ApplicationErrors.InvalidGrantType;
+            }
+        }
 
         if (usesClientCredentials && clientType != OAuthClientType.Confidential)
         {
             return ApplicationErrors.ConfidentialClientRequired;
         }
 
-        if (type == ApplicationType.MachineToMachine)
+        if (policy.Options[ApplicationOptionKey.RedirectUris] == ApplicationOptionAvailability.Hidden &&
+            redirectUrisResult.Value.Count > 0)
         {
-            if (clientType != OAuthClientType.Confidential)
-            {
-                return ApplicationErrors.ConfidentialClientRequired;
-            }
+            return ApplicationErrors.RedirectUrisNotAllowed;
+        }
 
-            if (grantTypesResult.Value.Count != 1 || !usesClientCredentials)
-            {
-                return ApplicationErrors.InvalidGrantType;
-            }
+        if (policy.Options[ApplicationOptionKey.PostLogoutRedirectUris] == ApplicationOptionAvailability.Hidden &&
+            postLogoutUrisResult.Value.Count > 0)
+        {
+            return ApplicationErrors.PostLogoutRedirectUrisNotAllowed;
+        }
 
-            if (redirectUrisResult.Value.Count > 0 || postLogoutUrisResult.Value.Count > 0)
-            {
-                return ApplicationErrors.RedirectUrisNotAllowed;
-            }
+        if (policy.RequiresRedirectUris && redirectUrisResult.Value.Count == 0)
+        {
+            return ApplicationErrors.RedirectUriRequired;
         }
 
         if (usesAuthorizationCode && redirectUrisResult.Value.Count == 0)
@@ -457,24 +488,37 @@ public sealed class Application : AggregateRoot<ApplicationId>
             return ApplicationErrors.RedirectUriRequired;
         }
 
+        if (policy.Options[ApplicationOptionKey.Pkce] == ApplicationOptionAvailability.Hidden && requirePkce)
+        {
+            return ApplicationErrors.PkceNotAllowed;
+        }
+
+        if (policy.RequirePkce && !requirePkce)
+        {
+            return ApplicationErrors.PkceRequired;
+        }
+
         if (usesAuthorizationCode && clientType == OAuthClientType.Public && !requirePkce)
         {
             return ApplicationErrors.PkceRequired;
         }
 
-        if (usesDeviceCode && type is not ApplicationType.Device and not ApplicationType.Custom)
+        if (policy.Options[ApplicationOptionKey.Consent] == ApplicationOptionAvailability.Hidden && requireConsent)
         {
-            return ApplicationErrors.InvalidGrantType;
+            return ApplicationErrors.ConsentNotAllowed;
         }
 
         return new ValidatedApplicationConfiguration(
             trimmedClientId,
             trimmedDisplayName,
             trimmedDescription,
+            type,
             grantTypesResult.Value,
             scopesResult.Value,
             redirectUrisResult.Value,
-            postLogoutUrisResult.Value);
+            postLogoutUrisResult.Value,
+            requirePkce,
+            requireConsent);
     }
 
     private static Result<IReadOnlyList<string>> NormalizeValues(IReadOnlyList<string> values, DomainError invalidError)
@@ -513,8 +557,11 @@ public sealed class Application : AggregateRoot<ApplicationId>
         string ClientId,
         string DisplayName,
         string? Description,
+        ApplicationType Type,
         IReadOnlyList<string> AllowedGrantTypes,
         IReadOnlyList<string> AllowedScopes,
         IReadOnlyList<string> RedirectUris,
-        IReadOnlyList<string> PostLogoutRedirectUris);
+        IReadOnlyList<string> PostLogoutRedirectUris,
+        bool RequirePkce,
+        bool RequireConsent);
 }

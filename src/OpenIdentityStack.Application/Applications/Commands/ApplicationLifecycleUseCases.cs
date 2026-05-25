@@ -34,6 +34,11 @@ public sealed class ApplicationLifecycleUseCases :
         CreateApplicationCommand command,
         CancellationToken cancellationToken = default)
     {
+        if (!ApplicationTypePolicyCatalog.GetPolicy(command.Type).IsSelectable)
+        {
+            return ApplicationErrors.TypeNotAvailable;
+        }
+
         if (await this.repository.ExistsByClientIdAsync(command.ClientId, cancellationToken))
         {
             return ApplicationErrors.ClientIdExists;
@@ -110,6 +115,11 @@ public sealed class ApplicationLifecycleUseCases :
         ConfigureApplicationOAuthCommand command,
         CancellationToken cancellationToken = default)
     {
+        if (!ApplicationTypePolicyCatalog.GetPolicy(command.Type).IsSelectable)
+        {
+            return ApplicationErrors.TypeNotAvailable;
+        }
+
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {

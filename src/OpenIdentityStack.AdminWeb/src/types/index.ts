@@ -538,6 +538,7 @@ export const ApplicationType = {
   Native: 'Native',
   MachineToMachine: 'MachineToMachine',
   Device: 'Device',
+  Custom: 'Custom',
 } as const;
 export type ApplicationType = typeof ApplicationType[keyof typeof ApplicationType];
 
@@ -547,7 +548,31 @@ export const ApplicationClientType = {
 } as const;
 export type ApplicationClientType = typeof ApplicationClientType[keyof typeof ApplicationClientType];
 
+export const ApplicationOptionAvailability = {
+  Hidden: 'Hidden',
+  ReadOnly: 'ReadOnly',
+  Available: 'Available',
+  Advanced: 'Advanced',
+} as const;
+export type ApplicationOptionAvailability =
+  typeof ApplicationOptionAvailability[keyof typeof ApplicationOptionAvailability];
+
 export type ApplicationStatus = 'Active' | 'Disabled';
+
+export interface ApplicationTypePolicy {
+  applicationType: ApplicationType;
+  isSelectable: boolean;
+  unavailabilityReason: string | null;
+  defaultClientProfile: ApplicationClientType;
+  allowedClientProfiles: ApplicationClientType[];
+  allowedGrantTypes: string[];
+  defaultGrantTypes: string[];
+  options: Record<string, ApplicationOptionAvailability>;
+  requirePkce: boolean;
+  defaultRequirePkce: boolean;
+  defaultRequireConsent: boolean;
+  requiresRedirectUris: boolean;
+}
 
 export interface Application {
   id: string;

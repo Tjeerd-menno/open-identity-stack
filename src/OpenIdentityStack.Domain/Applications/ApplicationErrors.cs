@@ -40,11 +40,29 @@ public static class ApplicationErrors
     public static readonly DomainError PkceRequired =
         DomainError.Validation("Application.PkceRequired", "PKCE is required for public authorization code applications.");
 
+    public static readonly DomainError PkceNotAllowed =
+        DomainError.Validation("Application.PkceNotAllowed", "PKCE is not available for this application type.");
+
     public static readonly DomainError ConfidentialClientRequired =
         DomainError.Validation("Application.ConfidentialClientRequired", "This application profile requires a confidential client.");
 
+    public static readonly DomainError InvalidClientType =
+        DomainError.Validation("Application.InvalidClientType", "Client type is not valid for this application type.");
+
     public static readonly DomainError RedirectUrisNotAllowed =
         DomainError.Validation("Application.RedirectUrisNotAllowed", "Redirect URIs are not allowed for this application profile.");
+
+    public static readonly DomainError PostLogoutRedirectUrisNotAllowed =
+        DomainError.Validation("Application.PostLogoutRedirectUrisNotAllowed", "Post-logout redirect URIs are not allowed for this application profile.");
+
+    public static readonly DomainError ConsentNotAllowed =
+        DomainError.Validation("Application.ConsentNotAllowed", "Consent is not available for this application type.");
+
+    public static readonly DomainError TypeChangeNotAllowed =
+        DomainError.Validation("Application.TypeChangeNotAllowed", "Application type cannot be changed after creation.");
+
+    public static readonly DomainError TypeNotAvailable =
+        DomainError.Validation("Application.TypeNotAvailable", "This application type is not available for administrator-managed configuration.");
 
     public static readonly DomainError CredentialsNotAllowedForPublic =
         DomainError.Validation("Application.CredentialsNotAllowedForPublic", "Credentials are not allowed for public applications.");

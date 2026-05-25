@@ -52,13 +52,16 @@ Validate these data cases before rollout:
 
 After implementation, verify through the admin API:
 
-1. Create a machine-to-machine application with an initial secret; confirm the secret is returned once.
-2. Reject machine-to-machine applications that include redirect URIs or interactive grants.
-3. Reject adding a secret or certificate to a public application.
-4. Rotate a secret with `revokeExisting = true`; confirm old credential fails and new credential works.
-5. Disable an application; confirm new token issuance fails and admin read still works.
-6. List applications with `type`, `status`, `clientType`, and `search` filters.
-7. Call `/api/admin/clients` and `/api/admin/service-accounts`; confirm removed legacy routes return `404 Not Found`.
+1. Call `GET /api/admin/applications/policies/types`; confirm Web, Single Page, Native, Machine-to-machine, and reserved Device policy entries are returned with fixed client profile, default grants, option availability, and default PKCE/consent flags.
+2. Create a machine-to-machine application with an initial secret; confirm the secret is returned once.
+3. Reject machine-to-machine applications that include redirect URIs, post-logout redirect URIs, consent, PKCE, or interactive grants.
+4. Reject adding a secret or certificate to a public application.
+5. Reject manual creation of reserved `Device` applications until the device authorization flow is implemented.
+6. Reject attempts to change `Application.Type` during OAuth configuration.
+7. Rotate a secret with `revokeExisting = true`; confirm old credential fails and new credential works.
+8. Disable an application; confirm new token issuance fails and admin read still works.
+9. List applications with `type`, `status`, `clientType`, and `search` filters.
+10. Call `/api/admin/clients` and `/api/admin/service-accounts`; confirm removed legacy routes return `404 Not Found`.
 
 ## AdminWeb validation
 
@@ -70,6 +73,14 @@ npm run lint
 npm test
 Set-Location ..\..
 ```
+
+Add these focused UI smoke checks while validating the policy-driven form:
+
+1. Web starts with confidential profile, `authorization_code`, redirect fields, PKCE, and consent visible.
+2. Single Page starts with public profile, PKCE fixed on, and credential-management actions hidden.
+3. Native shows claimed HTTPS, private-scheme, and loopback redirect guidance.
+4. Machine-to-machine stays locked to `client_credentials`, hides redirect and consent controls, and exposes credential-management actions only after creation.
+5. Device remains visible as a reserved disabled type with explanatory messaging.
 
 Run E2E coverage when application management UI flows are implemented:
 

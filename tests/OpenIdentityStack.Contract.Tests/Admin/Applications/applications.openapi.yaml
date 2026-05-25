@@ -18,7 +18,7 @@ paths:
       tags: [Applications]
       operationId: createApplication
       summary: Create an application
-      description: Creates any supported application type and optionally one initial credential.
+      description: Creates an application and rejects grant, client profile, PKCE, consent, redirect, and reserved-type combinations that violate the application-type policy.
       x-required-permission: applications:write
       requestBody:
         required: true
@@ -69,6 +69,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListApplicationsResponse"
+  /applications/policies/types:
+    get:
+      tags: [Applications]
+      operationId: listApplicationTypePolicies
+      summary: List application type policies
+      description: Returns application-type policy metadata used to railroad AdminWeb choices and document API-enforced defaults, restrictions, and advanced options.
+      x-required-permission: applications:read
+      responses:
+        "200":
+          description: Policy metadata for all application types, including reserved types.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApplicationTypePolicyResponse"
   /applications/{id}:
     get:
       tags: [Applications]
@@ -127,6 +143,7 @@ paths:
       tags: [Applications]
       operationId: configureApplicationOAuth
       summary: Replace OAuth configuration
+      description: Replaces OAuth configuration for the existing application type and rejects matrix violations such as forbidden grants, PKCE, consent, redirects, or type changes.
       x-required-permission: applications:write
       parameters:
         - $ref: "#/components/parameters/ApplicationId"
@@ -358,6 +375,11 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            policyViolation:
+              value:
+                error: Validation.Application.TypeNotAvailable
+                message: This application type is not available for administrator-managed configuration.
     ConflictError:
       description: Resource conflict.
       content:
@@ -377,9 +399,15 @@ components:
     OAuthClientType:
       type: string
       enum: [Public, Confidential]
+    ClientProfile:
+      type: string
+      enum: [Public, Confidential]
     ApplicationStatus:
       type: string
       enum: [Active, Disabled]
+    ApplicationOptionAvailability:
+      type: string
+      enum: [Hidden, ReadOnly, Available, Advanced]
     ApplicationCredentialType:
       type: string
       enum: [ClientSecret, X509Certificate, PrivateKeyJwt]
@@ -531,6 +559,43 @@ components:
         createdAt:
           type: string
           format: date-time
+    ApplicationTypePolicyResponse:
+      type: object
+      required: [applicationType, isSelectable, defaultClientProfile, allowedClientProfiles, allowedGrantTypes, defaultGrantTypes, options, requirePkce, defaultRequirePkce, defaultRequireConsent, requiresRedirectUris]
+      properties:
+        applicationType:
+          $ref: "#/components/schemas/ApplicationType"
+        isSelectable:
+          type: boolean
+        unavailabilityReason:
+          type: string
+          nullable: true
+        defaultClientProfile:
+          $ref: "#/components/schemas/ClientProfile"
+        allowedClientProfiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientProfile"
+        allowedGrantTypes:
+          type: array
+          items:
+            type: string
+        defaultGrantTypes:
+          type: array
+          items:
+            type: string
+        options:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ApplicationOptionAvailability"
+        requirePkce:
+          type: boolean
+        defaultRequirePkce:
+          type: boolean
+        defaultRequireConsent:
+          type: boolean
+        requiresRedirectUris:
+          type: boolean
     ApplicationResponse:
       type: object
       properties:

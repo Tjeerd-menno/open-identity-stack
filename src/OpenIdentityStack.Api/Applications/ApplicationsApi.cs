@@ -34,6 +34,12 @@ internal static class ApplicationsApi
             .WithName("ListApplications")
             .WithSummary("Lists applications");
 
+        group.MapGet("policies/types", ListApplicationTypePolicies)
+            .RequireAuthorization(Permissions.Applications.Read)
+            .Produces<IReadOnlyList<ApplicationTypePolicyResponse>>(StatusCodes.Status200OK)
+            .WithName("ListApplicationTypePolicies")
+            .WithSummary("Lists application type policies");
+
         group.MapGet("{id:guid}", GetApplication)
             .RequireAuthorization(Permissions.Applications.Read)
             .Produces<ApplicationResponse>(StatusCodes.Status200OK)
@@ -202,6 +208,36 @@ internal static class ApplicationsApi
             paged.TotalPages,
             paged.HasPreviousPage,
             paged.HasNextPage));
+    }
+
+    private static async Task<IResult> ListApplicationTypePolicies(
+        [FromServices] IListApplicationTypePoliciesQueryHandler listApplicationTypePoliciesQueryHandler,
+        CancellationToken cancellationToken)
+    {
+        Result<IReadOnlyList<ApplicationTypePolicyDetails>> result =
+            await listApplicationTypePoliciesQueryHandler.HandleAsync(cancellationToken);
+        if (result.IsFailure)
+        {
+            return ErrorResultMapper.ToErrorResult(result.Error);
+        }
+
+        var responses = result.Value
+            .Select(policy => new ApplicationTypePolicyResponse(
+                policy.ApplicationType,
+                policy.IsSelectable,
+                policy.UnavailabilityReason,
+                policy.DefaultClientProfile,
+                policy.AllowedClientProfiles,
+                policy.AllowedGrantTypes,
+                policy.DefaultGrantTypes,
+                policy.Options,
+                policy.RequirePkce,
+                policy.DefaultRequirePkce,
+                policy.DefaultRequireConsent,
+                policy.RequiresRedirectUris))
+            .ToList();
+
+        return TypedResults.Ok(responses);
     }
 
     private static async Task<IResult> GetApplication(

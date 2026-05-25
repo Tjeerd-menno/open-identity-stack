@@ -8,12 +8,13 @@ import {
   disableApplication,
   enableApplication,
   getApplication,
+  getApplicationTypePolicies,
   getApplications,
   listApplicationCredentials,
   revokeApplicationCredential,
   updateApplicationMetadata,
 } from './applications-api';
-import { ApplicationClientType, ApplicationType } from '@/types';
+import { ApplicationClientType, ApplicationOptionAvailability, ApplicationType } from '@/types';
 
 const { apiClient } = vi.hoisted(() => ({
   apiClient: {
@@ -157,5 +158,31 @@ describe('applications API client', () => {
       }
     );
     expect(apiClient.delete).toHaveBeenCalledWith('/api/admin/applications/app-1/credentials/cred-1');
+  });
+
+  it('fetches application type policies with availability metadata', async () => {
+    const response = [{
+      applicationType: ApplicationType.Web,
+      isSelectable: true,
+      unavailabilityReason: null,
+      defaultClientProfile: ApplicationClientType.Confidential,
+      allowedClientProfiles: [ApplicationClientType.Confidential],
+      allowedGrantTypes: ['authorization_code', 'refresh_token'],
+      defaultGrantTypes: ['authorization_code'],
+      options: {
+        clientSecrets: ApplicationOptionAvailability.Available,
+        clientCertificates: ApplicationOptionAvailability.Advanced,
+        pkce: ApplicationOptionAvailability.Available,
+      },
+      requirePkce: false,
+      defaultRequirePkce: true,
+      defaultRequireConsent: true,
+      requiresRedirectUris: true,
+    }];
+    apiClient.get.mockResolvedValueOnce(response);
+
+    await expect(getApplicationTypePolicies()).resolves.toBe(response);
+
+    expect(apiClient.get).toHaveBeenCalledWith('/api/admin/applications/policies/types');
   });
 });

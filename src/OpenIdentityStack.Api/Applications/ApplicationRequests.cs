@@ -46,6 +46,20 @@ public sealed record AddApplicationCertificateRequest(
     string? Description,
     DateTimeOffset? ExpiresAt);
 
+public sealed record ApplicationTypePolicyResponse(
+    ApplicationType ApplicationType,
+    bool IsSelectable,
+    string? UnavailabilityReason,
+    ClientProfile DefaultClientProfile,
+    IReadOnlyList<ClientProfile> AllowedClientProfiles,
+    IReadOnlyList<string> AllowedGrantTypes,
+    IReadOnlyList<string> DefaultGrantTypes,
+    IReadOnlyDictionary<string, ApplicationOptionAvailability> Options,
+    bool RequirePkce,
+    bool DefaultRequirePkce,
+    bool DefaultRequireConsent,
+    bool RequiresRedirectUris);
+
 public sealed record ApplicationCreatedResponse(
     Guid Id,
     string ClientId,

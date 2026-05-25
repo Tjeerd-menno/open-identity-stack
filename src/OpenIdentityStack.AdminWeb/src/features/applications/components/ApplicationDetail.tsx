@@ -17,6 +17,7 @@ const applicationTypeLabels: Record<ApplicationType, string> = {
   [ApplicationType.Native]: 'Native',
   [ApplicationType.MachineToMachine]: 'Machine-to-machine',
   [ApplicationType.Device]: 'Device',
+  [ApplicationType.Custom]: 'Custom',
 };
 
 const clientTypeLabels: Record<ApplicationClientType, string> = {

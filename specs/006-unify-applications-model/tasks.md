@@ -224,6 +224,49 @@
 
 ---
 
+## Phase 8: Application Type Policy and Option Railroading
+
+**Purpose**: Model the application type option matrix as API-owned business rules and AdminWeb guardrails. The API must enforce policy even when callers bypass the UI; AdminWeb should railroad administrators into valid choices by hiding unavailable options and showing fixed defaults.
+
+### Tests for Application Type Policy
+
+- [x] T129 [P] [POLICY] Add domain tests for Web, Single Page, Native, Machine-to-machine, and reserved Device policy defaults, allowed grants, fixed client profiles, and option availability in tests/OpenIdentityStack.Domain.Tests/Applications/ApplicationTypePolicyTests.cs
+- [x] T130 [P] [POLICY] Add domain tests rejecting application type changes after creation in tests/OpenIdentityStack.Domain.Tests/Applications/ApplicationTypePolicyTests.cs
+- [x] T131 [P] [POLICY] Add application/use-case tests that create/configure rejects disallowed grant, client profile, PKCE, consent, redirect, post-logout redirect, and credential combinations per type in tests/OpenIdentityStack.Application.Tests/Applications/ApplicationTypePolicyUseCaseTests.cs
+- [x] T132 [P] [POLICY] Add API workflow tests for valid default create/configure requests by type and invalid matrix combinations returning validation errors in tests/OpenIdentityStack.Api.Tests/Admin/Applications/ApplicationTypePolicyEndpointTests.cs
+- [x] T133 [P] [POLICY] Add contract tests for application type policy response shape and validation error examples in tests/OpenIdentityStack.Contract.Tests/Admin/Applications/ApplicationTypePolicyContractTests.cs
+- [x] T134 [P] [POLICY] Add AdminWeb API client tests for fetching application type policies and applying availability metadata in src/OpenIdentityStack.AdminWeb/src/features/applications/api/applications-api.test.ts
+- [x] T135 [P] [POLICY] Add AdminWeb form tests for type-specific railroading: Web, Single Page, Native, Machine-to-machine, and reserved Device controls in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationTypePolicyForm.test.tsx
+- [x] T136 [P] [POLICY] Add AdminWeb credential UI tests ensuring secret/certificate controls are hidden for public profiles and shown only for confidential profiles in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationCredentials.test.tsx
+
+### Implementation for Application Type Policy
+
+- [x] T137 [POLICY] Add `ApplicationOptionAvailability`, `ApplicationOptionKey`, `ApplicationTypePolicy`, and `ClientProfile` domain types in src/OpenIdentityStack.Domain/Applications/
+- [x] T138 [POLICY] Add `ApplicationTypePolicyCatalog` or equivalent domain service implementing `application-type-options-matrix.md` defaults and availability metadata in src/OpenIdentityStack.Domain/Applications/
+- [x] T139 [POLICY] Update `Application` creation/configuration methods to validate against `ApplicationTypePolicyCatalog` instead of scattered type/grant checks in src/OpenIdentityStack.Domain/Applications/Application.cs
+- [x] T140 [POLICY] Block application type changes after creation at the domain/API boundary and document future migration workflow requirements in src/OpenIdentityStack.Domain/Applications/Application.cs and src/OpenIdentityStack.Api/Applications/ApplicationRequests.cs
+- [x] T141 [POLICY] Update create/configure command validation to pass policy violations through `DomainError.Validation` with deterministic error codes in src/OpenIdentityStack.Infrastructure/Applications/ApplicationLifecycleUseCases.cs
+- [x] T142 [POLICY] Add application policy query contracts and DTOs in src/OpenIdentityStack.Application/Applications/Queries/ApplicationTypePolicyDetails.cs
+- [x] T143 [POLICY] Add API response DTOs for option availability, default client profile, allowed/default grants, required redirect behavior, PKCE/consent defaults, and advanced option flags in src/OpenIdentityStack.Api/Applications/ApplicationRequests.cs
+- [x] T144 [POLICY] Add `/api/admin/applications/policies/types` endpoint returning policy metadata for all application types in src/OpenIdentityStack.Api/Applications/ApplicationsApi.cs or src/OpenIdentityStack.Api/Applications/ApplicationPoliciesApi.cs
+- [x] T145 [POLICY] Update `/api/admin/applications` create and `/api/admin/applications/{id}/oauth` configure endpoints to enforce policy and return clear validation responses for matrix violations in src/OpenIdentityStack.Api/Applications/ApplicationsApi.cs
+- [x] T146 [POLICY] Keep advanced matrix options (`private_key_jwt`, mTLS, JWKS, DPoP, token lifetime overrides, confidential Device behavior) as `Advanced` metadata only; do not add working protocol behavior in src/OpenIdentityStack.Domain/Applications/ and src/OpenIdentityStack.Api/Applications/
+- [x] T147 [POLICY] Update OpenAPI contract with application type policy endpoint and policy-driven validation semantics in specs/006-unify-applications-model/contracts/applications.openapi.yaml and tests/OpenIdentityStack.Contract.Tests/Admin/Applications/applications.openapi.yaml
+- [x] T148 [POLICY] Update AdminWeb application API/types to fetch and type policy metadata in src/OpenIdentityStack.AdminWeb/src/features/applications/api/applications-api.ts and src/OpenIdentityStack.AdminWeb/src/types/index.ts
+- [x] T149 [POLICY] Add AdminWeb hooks for application type policies in src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useApplicationTypePolicies.ts
+- [x] T150 [POLICY] Refactor AdminWeb application form into a type-first flow that derives visible fields, fixed defaults, allowed grants, PKCE/consent controls, redirect fields, and credential hints from policy metadata in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx
+- [x] T151 [POLICY] Add Native redirect URI guidance and validation hints for claimed HTTPS, private scheme, and loopback redirect patterns in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx
+- [x] T152 [POLICY] Add Single Page browser-origin guidance and hide confidential credential controls in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx and src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationCredentials.tsx
+- [x] T153 [POLICY] Add Machine-to-machine railroading so only `client_credentials`, confidential profile, no redirects, no consent, and credential-management actions are presented in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx
+- [x] T154 [POLICY] Show reserved Device type as unavailable unless the device authorization flow is implemented and tested in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx
+- [x] T155 [POLICY] Update administrator docs to describe application type choices, fixed defaults, hidden unavailable options, and advanced metadata-only options in docs/admin-applications.md
+- [x] T156 [POLICY] Update quickstart validation with policy API and UI railroading smoke scenarios in specs/006-unify-applications-model/quickstart.md
+- [x] T157 [POLICY] Re-run build plus affected domain, application, API, contract, AdminWeb policy/form, and docs validation after policy implementation
+
+**Checkpoint**: Application type choices are safe by construction when API calls enforce the matrix and AdminWeb guides administrators through only sensible options for each type.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -235,6 +278,7 @@
 - **User Story 3 (Phase 5)**: Depends on Foundational and is safest after US1 application persistence/use cases exist; migration integrates with US1 use cases and US2 credential mapping.
 - **Polish (Phase 6)**: Depends on completed target user stories.
 - **Breaking-change alignment (Phase 7)**: Depends on completed target user stories and supersedes already-created compatibility code.
+- **Application type policy (Phase 8)**: Depends on the unified Applications domain/API/AdminWeb from US1/US2 and should run after Phase 7 so policy work is not duplicated across removed compatibility surfaces.
 
 ### User Story Dependencies
 
@@ -242,6 +286,7 @@
 - **US2 Manage machine-to-machine applications safely**: Requires shared Application/ApplicationCredential foundation; can be developed in parallel with US1 domain/use-case work but checkpoint validation needs application API/detail integration.
 - **US3 Migrate existing registrations with continuity**: Requires Application persistence contracts; migration and cleanup depend on US1 use cases and US2 credential mapping for full coverage.
 - **Breaking-change alignment**: Depends on completed US1/US2/US3 implementation and supersedes earlier compatibility adapter tasks T084-T086, T095-T098, T101, and T106.
+- **Application type policy**: Depends on US1 create/configure flows and US2 credential surfaces; it tightens rules for all application types and adds policy-driven UI behavior.
 
 ### Within Each User Story
 
@@ -262,6 +307,7 @@
 - US3 migration tests T080-T087 can run in parallel before implementation.
 - US3 migration, removed-endpoint API behavior, AdminWeb route cleanup, and docs tasks T088-T101/T117-T128 can run as separate lanes after the shared application use cases exist.
 - Polish tasks T102-T108 can run in parallel; validation tasks T111-T116 should run after implementation stabilization.
+- Phase 8 policy tests T129-T136 can run in parallel before implementation; backend policy tasks T137-T147 and AdminWeb railroading tasks T148-T154 can proceed in parallel after the policy contract stabilizes.
 
 ## Parallel Example: User Story 1
 
@@ -303,7 +349,8 @@ Task: "T127 Update docs, README, deploy guidance, and quickstart to describe rem
 2. Deliver US2 to harden machine-to-machine application and credential behavior.
 3. Deliver US3 to migrate supported legacy data.
 4. Complete Phase 7 breaking-change alignment to remove compatibility code introduced earlier.
-5. Complete Phase 6 hardening, documentation, and validation before release.
+5. Complete Phase 8 application type policy enforcement and AdminWeb railroading.
+6. Complete Phase 6 hardening, documentation, and validation before release.
 
 ### Parallel Team Strategy
 
@@ -311,8 +358,9 @@ Task: "T127 Update docs, README, deploy guidance, and quickstart to describe rem
 2. Backend domain/application lane owns T021-T037 and T054-T068.
 3. Persistence/OpenIddict lane owns T038-T042, T069-T071, and T080-T093.
 4. API/contract lane owns T026-T027, T043-T045, T058-T060, T084-T097, and breaking cleanup T117-T121.
-5. AdminWeb lane owns T028-T029, T046-T052, T061, T076-T079, T087-T100, and T126.
-6. Docs/ops lane owns T098, T101-T105, T127, and final validation coordination T111-T116/T128.
+5. Policy/backend lane owns T129-T147.
+6. AdminWeb lane owns T028-T029, T046-T052, T061, T076-T079, T087-T100, T126, and T148-T154.
+7. Docs/ops lane owns T098, T101-T105, T127, T155-T156, and final validation coordination T111-T116/T128/T157.
 
 ## Notes
 
@@ -321,3 +369,5 @@ Task: "T127 Update docs, README, deploy guidance, and quickstart to describe rem
 - Keep domain code independent from EF Core, ASP.NET Core, OpenIddict, and React.
 - Plain secrets and secret hashes must never be logged, returned outside one-time secret responses, exposed in AdminWeb after dismissal, or included in audit payloads.
 - Legacy client/service-account admin endpoints are removed in this pre-1.0 breaking change; do not add compatibility adapters.
+- API policy enforcement is authoritative; AdminWeb railroading improves UX but must never be the only business-rule check.
+- Advanced matrix options are represented as unavailable/advanced policy metadata only until explicit protocol support and tests are added.

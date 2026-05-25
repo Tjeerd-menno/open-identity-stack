@@ -36,7 +36,7 @@ public sealed class ApplicationOAuthConfigurationTests
     }
 
     [Fact]
-    public void Create_MachineToMachineWithPublicClient_ReturnsConfidentialClientRequired()
+    public void Create_MachineToMachineWithPublicClient_ReturnsInvalidClientType()
     {
         Result<Application> result = this.Create(
             ApplicationType.MachineToMachine,
@@ -49,7 +49,7 @@ public sealed class ApplicationOAuthConfigurationTests
             requireConsent: false);
 
         result.IsFailure.ShouldBeTrue();
-        result.Error.Code.ShouldBe(ApplicationErrors.ConfidentialClientRequired.Code);
+        result.Error.Code.ShouldBe(ApplicationErrors.InvalidClientType.Code);
     }
 
     [Fact]
@@ -117,21 +117,24 @@ public sealed class ApplicationOAuthConfigurationTests
             requireConsent: true).Value;
 
         Result result = application.ConfigureOAuth(
-            ApplicationType.SinglePage,
-            OAuthClientType.Public,
-            ["authorization_code"],
+            ApplicationType.Web,
+            OAuthClientType.Confidential,
+            ["authorization_code", "refresh_token"],
             ["openid", "profile"],
-            ["https://spa.example.com/callback"],
-            [],
+            ["https://web.example.com/callback", "https://web.example.com/signin-oidc"],
+            ["https://web.example.com/signout-callback-oidc"],
             requirePkce: true,
             requireConsent: true,
             this.dateTimeProvider);
 
         result.IsSuccess.ShouldBeTrue();
-        application.Type.ShouldBe(ApplicationType.SinglePage);
-        application.ClientType.ShouldBe(OAuthClientType.Public);
+        application.Type.ShouldBe(ApplicationType.Web);
+        application.ClientType.ShouldBe(OAuthClientType.Confidential);
         application.RequirePkce.ShouldBeTrue();
         application.AllowedScopes.ShouldBe(["openid", "profile"]);
+        application.AllowedGrantTypes.ShouldBe(["authorization_code", "refresh_token"]);
+        application.RedirectUris.ShouldBe(["https://web.example.com/callback", "https://web.example.com/signin-oidc"]);
+        application.PostLogoutRedirectUris.ShouldBe(["https://web.example.com/signout-callback-oidc"]);
         application.GetDomainEvents().ShouldContain(e => e is ApplicationDomainEvents.ApplicationOAuthConfigured);
     }
 

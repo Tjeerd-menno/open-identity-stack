@@ -1,7 +1,9 @@
+import { useLayoutEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, X } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,9 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import {
   ApplicationClientType,
+  ApplicationOptionAvailability,
   ApplicationType,
+  type ApplicationTypePolicy,
   type Application,
 } from '@/types';
+import { useApplicationTypePolicies } from '../hooks/useApplicationTypePolicies';
 
 const createSchema = z.object({
   clientId: z.string().min(1, 'Client ID is required').max(100),
@@ -53,6 +58,7 @@ type ApplicationFormProps =
 interface CreateApplicationFormProps {
   application?: undefined;
   onSubmit: (data: CreateApplicationFormData) => Promise<void>;
+  initialType?: ApplicationType;
   isLoading?: boolean;
 }
 
@@ -63,9 +69,24 @@ interface UpdateApplicationFormProps {
 }
 
 const availableScopes = ['openid', 'profile', 'email', 'api', 'offline_access'];
-const availableGrantTypes = ['authorization_code', 'client_credentials', 'refresh_token', 'device_code'];
+const applicationTypeOrder = [
+  ApplicationType.Web,
+  ApplicationType.SinglePage,
+  ApplicationType.Native,
+  ApplicationType.MachineToMachine,
+  ApplicationType.Device,
+] as const;
 
-export function ApplicationForm({ application, onSubmit, isLoading }: ApplicationFormProps) {
+const typeLabels: Record<ApplicationType, string> = {
+  [ApplicationType.Web]: 'Web',
+  [ApplicationType.SinglePage]: 'Single Page',
+  [ApplicationType.Native]: 'Native',
+  [ApplicationType.MachineToMachine]: 'Machine-to-machine',
+  [ApplicationType.Device]: 'Device',
+  [ApplicationType.Custom]: 'Custom',
+};
+
+export function ApplicationForm({ application, onSubmit, isLoading, ...createProps }: ApplicationFormProps) {
   if (application) {
     return (
       <UpdateApplicationForm
@@ -76,34 +97,117 @@ export function ApplicationForm({ application, onSubmit, isLoading }: Applicatio
     );
   }
 
-  return <CreateApplicationForm onSubmit={onSubmit} isLoading={isLoading} />;
+  return <CreateApplicationForm onSubmit={onSubmit} isLoading={isLoading} {...createProps} />;
 }
 
 function CreateApplicationForm({
   onSubmit,
+  initialType,
   isLoading,
 }: Omit<CreateApplicationFormProps, 'application'>) {
+  const policiesQuery = useApplicationTypePolicies();
   const form = useForm<CreateApplicationFormData>({
     resolver: zodResolver(createSchema),
     defaultValues: {
       clientId: '',
       displayName: '',
       description: '',
-      type: ApplicationType.Web,
+      type: initialType ?? ApplicationType.Web,
       clientType: ApplicationClientType.Confidential,
       allowedGrantTypes: [],
       allowedScopes: [],
       redirectUris: [],
       postLogoutRedirectUris: [],
-      requirePkce: false,
+      requirePkce: true,
       requireConsent: true,
     },
   });
+  const { control, getValues, handleSubmit, setValue } = form;
 
-  const redirectUris = useWatch({ control: form.control, name: 'redirectUris' });
-  const postLogoutRedirectUris = useWatch({ control: form.control, name: 'postLogoutRedirectUris' });
-  const allowedScopes = useWatch({ control: form.control, name: 'allowedScopes' });
-  const allowedGrantTypes = useWatch({ control: form.control, name: 'allowedGrantTypes' });
+  const redirectUris = useWatch({ control, name: 'redirectUris' });
+  const postLogoutRedirectUris = useWatch({ control, name: 'postLogoutRedirectUris' });
+  const allowedScopes = useWatch({ control, name: 'allowedScopes' });
+  const allowedGrantTypes = useWatch({ control, name: 'allowedGrantTypes' });
+  const selectedType = useWatch({ control, name: 'type' });
+  const policiesByType = useMemo(() => new Map(
+    (policiesQuery.data ?? []).map((policy) => [policy.applicationType, policy])
+  ), [policiesQuery.data]);
+  const selectedPolicy = policiesByType.get(selectedType);
+  const reservedPolicies = useMemo(
+    () => (policiesQuery.data ?? []).filter((policy) => !policy.isSelectable && policy.applicationType !== ApplicationType.Custom),
+    [policiesQuery.data]
+  );
+  const optionalGrantTypes = useMemo(
+    () => selectedPolicy
+      ? selectedPolicy.allowedGrantTypes.filter((grantType) => !selectedPolicy.defaultGrantTypes.includes(grantType))
+      : [],
+    [selectedPolicy]
+  );
+  const optionalSelectedGrantTypes = useMemo(
+    () => selectedPolicy
+      ? allowedGrantTypes.filter((grantType) => !selectedPolicy.defaultGrantTypes.includes(grantType))
+      : [],
+    [allowedGrantTypes, selectedPolicy]
+  );
+
+  useLayoutEffect(() => {
+    if (!selectedPolicy) {
+      return;
+    }
+
+    if (getValues('clientType') !== selectedPolicy.defaultClientProfile) {
+      setValue('clientType', selectedPolicy.defaultClientProfile, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    const nextGrantTypes = [...selectedPolicy.defaultGrantTypes];
+    if (!areSameValues(getValues('allowedGrantTypes'), nextGrantTypes)) {
+      setValue('allowedGrantTypes', nextGrantTypes, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    if (getValues('requirePkce') !== selectedPolicy.defaultRequirePkce) {
+      setValue('requirePkce', selectedPolicy.defaultRequirePkce, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    const nextRequireConsent = isOptionHidden(selectedPolicy, 'consent') ? false : selectedPolicy.defaultRequireConsent;
+    if (getValues('requireConsent') !== nextRequireConsent) {
+      setValue('requireConsent', nextRequireConsent, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    const currentRedirectUris = getValues('redirectUris');
+    if (selectedPolicy.requiresRedirectUris) {
+      if (currentRedirectUris.length === 0) {
+        setValue('redirectUris', [''], {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+    } else if (currentRedirectUris.length > 0) {
+      setValue('redirectUris', [], {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    const currentPostLogoutRedirectUris = getValues('postLogoutRedirectUris');
+    if (isOptionHidden(selectedPolicy, 'postLogoutRedirectUris') && currentPostLogoutRedirectUris.length > 0) {
+      setValue('postLogoutRedirectUris', [], {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }, [getValues, selectedPolicy, setValue]);
 
   const updateArrayValue = (
     fieldName: 'redirectUris' | 'postLogoutRedirectUris',
@@ -130,9 +234,30 @@ function CreateApplicationForm({
     );
   };
 
+  if (policiesQuery.isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Loading application policies</CardTitle>
+          <CardDescription>Retrieving application type guidance and defaults.</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (policiesQuery.isError || !selectedPolicy) {
+    return (
+      <Alert>
+        <AlertDescription>
+          Unable to load application type guidance. Reload the page and try again.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(async (data) => onSubmit(data))} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
@@ -189,20 +314,33 @@ function CreateApplicationForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Application Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select application type" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value={ApplicationType.Web}>Web</SelectItem>
-                        <SelectItem value={ApplicationType.SinglePage}>Single Page</SelectItem>
-                        <SelectItem value={ApplicationType.Native}>Native</SelectItem>
-                        <SelectItem value={ApplicationType.MachineToMachine}>Machine-to-machine</SelectItem>
-                        <SelectItem value={ApplicationType.Device}>Device</SelectItem>
+                        {applicationTypeOrder.map((type) => {
+                          const policy = policiesByType.get(type);
+                          if (!policy) {
+                            return null;
+                          }
+
+                          return (
+                            <SelectItem key={type} value={type} disabled={!policy.isSelectable}>
+                              {policy.isSelectable ? typeLabels[type] : `${typeLabels[type]} (Reserved)`}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
+                    <FormDescription>Choose the application type that matches the OAuth client profile.</FormDescription>
+                    {reservedPolicies.map((policy) => (
+                      <p key={policy.applicationType} className="text-sm text-muted-foreground">
+                        {policy.unavailabilityReason}
+                      </p>
+                    ))}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -213,18 +351,11 @@ function CreateApplicationForm({
                 name="clientType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Client Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select client type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={ApplicationClientType.Confidential}>Confidential</SelectItem>
-                        <SelectItem value={ApplicationClientType.Public}>Public</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Client Profile</FormLabel>
+                    <FormControl>
+                      <Input {...field} readOnly />
+                    </FormControl>
+                    <FormDescription>This profile is fixed by the selected application type.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -233,80 +364,112 @@ function CreateApplicationForm({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Redirect URIs</CardTitle>
-            <CardDescription>Allowed redirect URIs after authentication</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {redirectUris.map((uri, index) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  value={uri}
-                  onChange={(event) => updateArrayValue('redirectUris', index, event.target.value)}
-                  placeholder="https://example.com/callback"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeValue('redirectUris', index)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => appendValue('redirectUris')}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Redirect URI
-            </Button>
-            <FormField
-              control={form.control}
-              name="redirectUris"
-              render={() => <FormMessage />}
-            />
-          </CardContent>
-        </Card>
+        {selectedType === ApplicationType.SinglePage && (
+          <Alert>
+            <AlertDescription>
+              Browser applications are public clients. Shared secrets and certificates stay hidden, and PKCE is always required.
+            </AlertDescription>
+          </Alert>
+        )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Post Logout Redirect URIs</CardTitle>
-            <CardDescription>Allowed redirect URIs after logout</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {postLogoutRedirectUris.map((uri, index) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  value={uri}
-                  onChange={(event) => updateArrayValue('postLogoutRedirectUris', index, event.target.value)}
-                  placeholder="https://example.com/"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeValue('postLogoutRedirectUris', index)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => appendValue('postLogoutRedirectUris')}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Post Logout Redirect URI
-            </Button>
-          </CardContent>
-        </Card>
+        {selectedType === ApplicationType.Native && (
+          <Alert>
+            <AlertDescription>
+              Claimed HTTPS redirects are preferred. Private scheme and loopback redirects are supported for native applications.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {selectedType === ApplicationType.MachineToMachine && (
+          <Alert>
+            <AlertDescription>
+              Machine-to-machine applications use only the client credentials grant. Redirects, PKCE, and consent do not apply.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!isOptionHidden(selectedPolicy, 'redirectUris') && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Redirect URIs</CardTitle>
+              <CardDescription>
+                {selectedPolicy.requiresRedirectUris
+                  ? 'At least one redirect URI is required for this application type.'
+                  : 'Allowed redirect URIs after authentication'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {redirectUris.map((uri, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    value={uri}
+                    onChange={(event) => updateArrayValue('redirectUris', index, event.target.value)}
+                    placeholder="https://example.com/callback"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeValue('redirectUris', index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendValue('redirectUris')}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Redirect URI
+              </Button>
+              <FormField
+                control={form.control}
+                name="redirectUris"
+                render={() => <FormMessage />}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {!isOptionHidden(selectedPolicy, 'postLogoutRedirectUris') && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Post Logout Redirect URIs</CardTitle>
+              <CardDescription>Allowed redirect URIs after logout</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {postLogoutRedirectUris.map((uri, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    value={uri}
+                    onChange={(event) => updateArrayValue('postLogoutRedirectUris', index, event.target.value)}
+                    placeholder="https://example.com/"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeValue('postLogoutRedirectUris', index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendValue('postLogoutRedirectUris')}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Post Logout Redirect URI
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -330,14 +493,27 @@ function CreateApplicationForm({
         <Card>
           <CardHeader>
             <CardTitle>Allowed Grant Types</CardTitle>
-            <CardDescription>Select which OAuth2 grant types this application can use</CardDescription>
+            <CardDescription>Defaults come from the selected application type policy.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <CheckboxGroup
-              values={availableGrantTypes}
-              selectedValues={allowedGrantTypes}
-              onChange={(values) => form.setValue('allowedGrantTypes', values, { shouldValidate: true, shouldDirty: true })}
-            />
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              {selectedPolicy.defaultGrantTypes.map((grantType) => (
+                <div key={grantType} className="text-sm font-medium">
+                  {grantType}
+                </div>
+              ))}
+            </div>
+            {optionalGrantTypes.length > 0 && (
+              <CheckboxGroup
+                values={optionalGrantTypes}
+                selectedValues={optionalSelectedGrantTypes}
+                onChange={(values) => form.setValue(
+                  'allowedGrantTypes',
+                  [...selectedPolicy.defaultGrantTypes, ...values],
+                  { shouldValidate: true, shouldDirty: true }
+                )}
+              />
+            )}
             <FormField
               control={form.control}
               name="allowedGrantTypes"
@@ -346,45 +522,58 @@ function CreateApplicationForm({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Security Options</CardTitle>
-            <CardDescription>Configure security requirements for this application</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="requirePkce"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Require PKCE</FormLabel>
-                    <FormDescription>Require Proof Key for Code Exchange for authorization code flow</FormDescription>
+        {(!isOptionHidden(selectedPolicy, 'pkce') || !isOptionHidden(selectedPolicy, 'consent')) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Security Options</CardTitle>
+              <CardDescription>Configure security requirements for this application</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!isOptionHidden(selectedPolicy, 'pkce') && (
+                isOptionReadOnly(selectedPolicy, 'pkce') ? (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Require PKCE</p>
+                    <p className="text-sm text-muted-foreground">PKCE is required for this application type.</p>
                   </div>
-                </FormItem>
+                ) : (
+                  <FormField
+                    control={form.control}
+                    name="requirePkce"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Require PKCE</FormLabel>
+                          <FormDescription>Require Proof Key for Code Exchange for authorization code flow</FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                )
               )}
-            />
 
-            <FormField
-              control={form.control}
-              name="requireConsent"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Require Consent</FormLabel>
-                    <FormDescription>Require user consent screen during authorization</FormDescription>
-                  </div>
-                </FormItem>
+              {!isOptionHidden(selectedPolicy, 'consent') && (
+                <FormField
+                  control={form.control}
+                  name="requireConsent"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Require Consent</FormLabel>
+                        <FormDescription>Require user consent screen during authorization</FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
               )}
-            />
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex justify-end">
           <Button type="submit" disabled={isLoading}>
@@ -411,7 +600,7 @@ function UpdateApplicationForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(async (data) => onSubmit(data))} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
@@ -487,4 +676,16 @@ function CheckboxGroup({ values, selectedValues, onChange }: CheckboxGroupProps)
       ))}
     </div>
   );
+}
+
+function isOptionHidden(policy: ApplicationTypePolicy, key: string) {
+  return policy.options[key] === ApplicationOptionAvailability.Hidden;
+}
+
+function isOptionReadOnly(policy: ApplicationTypePolicy, key: string) {
+  return policy.options[key] === ApplicationOptionAvailability.ReadOnly;
+}
+
+function areSameValues(left: string[], right: string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApplicationDetail } from './ApplicationDetail';
 import { ApplicationForm } from './ApplicationForm';
 import { ApplicationList } from './ApplicationList';
@@ -13,6 +13,7 @@ const { navigate, hooks } = vi.hoisted(() => ({
   hooks: {
     useApplications: vi.fn(),
     useApplication: vi.fn(),
+    useApplicationTypePolicies: vi.fn(),
     useApplicationCredentials: vi.fn(),
     useAddApplicationCertificate: vi.fn(),
     useAddApplicationSecret: vi.fn(),
@@ -36,6 +37,10 @@ vi.mock('../hooks/useApplications', () => ({
 
 vi.mock('../hooks/useApplication', () => ({
   useApplication: hooks.useApplication,
+}));
+
+vi.mock('../hooks/useApplicationTypePolicies', () => ({
+  useApplicationTypePolicies: hooks.useApplicationTypePolicies,
 }));
 
 vi.mock('../hooks/useApplicationCredentials', () => ({
@@ -80,7 +85,119 @@ const application = {
   modifiedAt: null,
 };
 
+const applicationTypePolicies = [
+  {
+    applicationType: ApplicationType.Web,
+    isSelectable: true,
+    unavailabilityReason: null,
+    defaultClientProfile: ApplicationClientType.Confidential,
+    allowedClientProfiles: [ApplicationClientType.Confidential],
+    allowedGrantTypes: ['authorization_code', 'refresh_token'],
+    defaultGrantTypes: ['authorization_code'],
+    options: {
+      clientProfile: 'ReadOnly',
+      redirectUris: 'Available',
+      postLogoutRedirectUris: 'Available',
+      pkce: 'Available',
+      consent: 'Available',
+      refreshTokenGrant: 'Available',
+    },
+    requirePkce: false,
+    defaultRequirePkce: true,
+    defaultRequireConsent: true,
+    requiresRedirectUris: true,
+  },
+  {
+    applicationType: ApplicationType.MachineToMachine,
+    isSelectable: true,
+    unavailabilityReason: null,
+    defaultClientProfile: ApplicationClientType.Confidential,
+    allowedClientProfiles: [ApplicationClientType.Confidential],
+    allowedGrantTypes: ['client_credentials'],
+    defaultGrantTypes: ['client_credentials'],
+    options: {
+      clientProfile: 'ReadOnly',
+      redirectUris: 'Hidden',
+      postLogoutRedirectUris: 'Hidden',
+      pkce: 'Hidden',
+      consent: 'Hidden',
+      clientCredentialsGrant: 'Available',
+    },
+    requirePkce: false,
+    defaultRequirePkce: false,
+    defaultRequireConsent: false,
+    requiresRedirectUris: false,
+  },
+  {
+    applicationType: ApplicationType.SinglePage,
+    isSelectable: true,
+    unavailabilityReason: null,
+    defaultClientProfile: ApplicationClientType.Public,
+    allowedClientProfiles: [ApplicationClientType.Public],
+    allowedGrantTypes: ['authorization_code', 'refresh_token'],
+    defaultGrantTypes: ['authorization_code'],
+    options: {
+      clientProfile: 'ReadOnly',
+      redirectUris: 'Available',
+      postLogoutRedirectUris: 'Available',
+      pkce: 'ReadOnly',
+      consent: 'Available',
+      refreshTokenGrant: 'Available',
+    },
+    requirePkce: true,
+    defaultRequirePkce: true,
+    defaultRequireConsent: true,
+    requiresRedirectUris: true,
+  },
+  {
+    applicationType: ApplicationType.Native,
+    isSelectable: true,
+    unavailabilityReason: null,
+    defaultClientProfile: ApplicationClientType.Public,
+    allowedClientProfiles: [ApplicationClientType.Public],
+    allowedGrantTypes: ['authorization_code', 'refresh_token'],
+    defaultGrantTypes: ['authorization_code'],
+    options: {
+      clientProfile: 'ReadOnly',
+      redirectUris: 'Available',
+      postLogoutRedirectUris: 'Available',
+      pkce: 'ReadOnly',
+      consent: 'Available',
+      refreshTokenGrant: 'Available',
+    },
+    requirePkce: true,
+    defaultRequirePkce: true,
+    defaultRequireConsent: true,
+    requiresRedirectUris: true,
+  },
+  {
+    applicationType: ApplicationType.Device,
+    isSelectable: false,
+    unavailabilityReason: 'Device applications are reserved until the device authorization flow is implemented and tested.',
+    defaultClientProfile: ApplicationClientType.Public,
+    allowedClientProfiles: [ApplicationClientType.Public],
+    allowedGrantTypes: ['urn:ietf:params:oauth:grant-type:device_code'],
+    defaultGrantTypes: ['urn:ietf:params:oauth:grant-type:device_code'],
+    options: {
+      clientProfile: 'ReadOnly',
+      deviceCodeGrant: 'ReadOnly',
+    },
+    requirePkce: false,
+    defaultRequirePkce: false,
+    defaultRequireConsent: true,
+    requiresRedirectUris: false,
+  },
+];
+
 describe('Application management components', () => {
+  beforeEach(() => {
+    hooks.useApplicationTypePolicies.mockReturnValue({
+      data: applicationTypePolicies,
+      isLoading: false,
+      isError: false,
+    });
+  });
+
   it.each(['Active', 'Disabled'] as const)('renders application status %s', (status) => {
     render(<ApplicationStatusBadge status={status} />);
 
@@ -125,10 +242,8 @@ describe('Application management components', () => {
 
     await user.type(screen.getByLabelText(/client id/i), 'orders-web');
     await user.type(screen.getByLabelText(/display name/i), 'Orders Web');
-    await user.click(screen.getByRole('button', { name: /add redirect uri/i }));
     await user.type(screen.getByPlaceholderText('https://example.com/callback'), 'https://orders.example.com/callback');
     await user.click(screen.getByRole('checkbox', { name: 'openid' }));
-    await user.click(screen.getByRole('checkbox', { name: 'authorization_code' }));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /create application/i }));
     });
@@ -142,6 +257,7 @@ describe('Application management components', () => {
       allowedScopes: ['openid'],
       allowedGrantTypes: ['authorization_code'],
       redirectUris: ['https://orders.example.com/callback'],
+      requirePkce: true,
     }));
   });
 

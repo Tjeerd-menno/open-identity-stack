@@ -1,3 +1,4 @@
+using System.Text.Json;
 using OpenIdentityStack.Application.Common;
 using OpenIdentityStack.Domain.Applications;
 using SharedKernel;
@@ -126,4 +127,35 @@ public sealed class ListApplicationCredentialsQueryHandler : IListApplicationCre
                 credential.RevokedAt))
             .ToList();
     }
+}
+
+public sealed class ListApplicationTypePoliciesQueryHandler : IListApplicationTypePoliciesQueryHandler
+{
+    public Task<Result<IReadOnlyList<ApplicationTypePolicyDetails>>> HandleAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var policies = Enum
+            .GetValues<ApplicationType>()
+            .Select(type => Map(ApplicationTypePolicyCatalog.GetPolicy(type)))
+            .ToList();
+
+        return Task.FromResult<Result<IReadOnlyList<ApplicationTypePolicyDetails>>>(policies);
+    }
+
+    private static ApplicationTypePolicyDetails Map(ApplicationTypePolicy policy) =>
+        new(
+            policy.ApplicationType,
+            policy.IsSelectable,
+            policy.UnavailabilityReason,
+            policy.DefaultClientProfile,
+            policy.AllowedClientProfiles.OrderBy(profile => profile).ToList(),
+            policy.AllowedGrantTypes.OrderBy(grantType => grantType, StringComparer.OrdinalIgnoreCase).ToList(),
+            policy.DefaultGrantTypes.OrderBy(grantType => grantType, StringComparer.OrdinalIgnoreCase).ToList(),
+            policy.Options.ToDictionary(
+                pair => JsonNamingPolicy.CamelCase.ConvertName(pair.Key.ToString()),
+                pair => pair.Value),
+            policy.RequirePkce,
+            policy.DefaultRequirePkce,
+            policy.DefaultRequireConsent,
+            policy.RequiresRedirectUris);
 }

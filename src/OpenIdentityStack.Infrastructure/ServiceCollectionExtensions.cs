@@ -267,6 +267,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IListApplicationsQueryHandler, ListApplicationsQueryHandler>();
         services.AddScoped<IGetApplicationQueryHandler, GetApplicationQueryHandler>();
         services.AddScoped<IListApplicationCredentialsQueryHandler, ListApplicationCredentialsQueryHandler>();
+        services.AddScoped<IListApplicationTypePoliciesQueryHandler, ListApplicationTypePoliciesQueryHandler>();
 
         // Register application permission registry use cases
         services.AddScoped<RegisterApplicationUseCase>();

@@ -13,17 +13,36 @@ Administrators manage OAuth/OIDC software registrations as **Applications**.
 
 Use "Application" in user-facing instructions. Use `client_id` only when describing OAuth protocol fields, token requests, or integration payloads.
 
+## Application type choices
+
+The Applications create form is policy-driven. The API is authoritative, and AdminWeb uses `/api/admin/applications/policies/types` to show only sensible choices for each application type.
+
+| Application type | Fixed client profile | Default grants | Administrator experience |
+|------|---------|---------|---------|
+| Web | Confidential | `authorization_code` | Redirect URIs, post-logout redirect URIs, PKCE, consent, and optional refresh tokens stay visible. Credentials are managed after creation. |
+| Single Page | Public | `authorization_code` | PKCE is always on. Shared-secret and certificate management stays hidden. Redirect and browser-origin guidance stays visible. |
+| Native | Public | `authorization_code` | PKCE is always on. Shared-secret and certificate management stays hidden. The form highlights claimed HTTPS, private-scheme, and loopback redirect guidance. |
+| Machine-to-machine | Confidential | `client_credentials` | Redirects, post-logout redirects, PKCE, and consent stay hidden. The form railroads to non-interactive token use and points administrators to credentials management. |
+| Device | Public | `urn:ietf:params:oauth:grant-type:device_code` | Reserved. The type is shown as unavailable until the device authorization flow is implemented and tested. |
+
+Advanced protocol capabilities such as `private_key_jwt`, mTLS, JWKS, DPoP, and token lifetime overrides remain metadata-only in this release. Do not document them as working administrator options yet.
+
 ## Common administrator flows
 
 1. Create an Application with the appropriate application type.
-2. Configure grants, scopes, redirect URIs, PKCE, and consent requirements.
-3. Add credentials only for confidential Applications.
-4. Copy client secrets once when they are displayed.
-5. Disable or delete Applications that are no longer used.
+2. Accept the fixed client profile and default grants applied by the selected type.
+3. Configure only the options the form keeps visible for that type, such as redirects, scopes, PKCE, consent, or optional refresh tokens.
+4. Add credentials only for confidential Applications.
+5. Copy client secrets once when they are displayed.
+6. Disable or delete Applications that are no longer used.
 
 ## Machine-to-machine applications
 
 Machine-to-machine Applications replace Service Accounts. They are confidential Applications with the `client_credentials` grant and no redirect URIs. Manage their client secrets and certificates from the Application detail credentials area.
+
+## Public application credentials
+
+Single Page and Native Applications are public clients. AdminWeb hides shared-secret and certificate actions for those profiles, and the API rejects credential combinations that require confidential client behavior.
 
 ## Screenshot checklist
 
