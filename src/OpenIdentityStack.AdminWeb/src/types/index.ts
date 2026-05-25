@@ -532,7 +532,7 @@ export interface ClientCreatedResponse {
 // Unified Application Management
 // ============================================================================
 
-export const ApplicationType = {
+export const ApplicationProfile = {
   Web: 'Web',
   SinglePage: 'SinglePage',
   Native: 'Native',
@@ -540,7 +540,7 @@ export const ApplicationType = {
   Device: 'Device',
   Custom: 'Custom',
 } as const;
-export type ApplicationType = typeof ApplicationType[keyof typeof ApplicationType];
+export type ApplicationProfile = typeof ApplicationProfile[keyof typeof ApplicationProfile];
 
 export const ApplicationClientType = {
   Confidential: 'Confidential',
@@ -559,8 +559,8 @@ export type ApplicationOptionAvailability =
 
 export type ApplicationStatus = 'Active' | 'Disabled';
 
-export interface ApplicationTypePolicy {
-  applicationType: ApplicationType;
+export interface ApplicationProfilePolicy {
+  applicationProfile: ApplicationProfile;
   isSelectable: boolean;
   unavailabilityReason: string | null;
   defaultClientProfile: ApplicationClientType;
@@ -579,7 +579,7 @@ export interface Application {
   clientId: string;
   displayName: string;
   description: string | null;
-  type: ApplicationType;
+  profile: ApplicationProfile;
   clientType: ApplicationClientType;
   status: ApplicationStatus;
   redirectUris: string[];
@@ -600,7 +600,7 @@ export interface ApplicationListItem {
   id: string;
   clientId: string;
   displayName: string;
-  type: ApplicationType;
+  profile: ApplicationProfile;
   clientType: ApplicationClientType;
   status: ApplicationStatus;
   allowedGrantTypes: string[];
@@ -620,7 +620,7 @@ export interface ApplicationListResponse {
 }
 
 export interface ApplicationListParams extends PaginationParams {
-  type?: ApplicationType;
+  profile?: ApplicationProfile;
   status?: ApplicationStatus;
   clientType?: ApplicationClientType;
 }
@@ -629,7 +629,7 @@ export interface CreateApplicationRequest {
   clientId: string;
   displayName: string;
   description?: string | null;
-  type: ApplicationType;
+  profile: ApplicationProfile;
   clientType: ApplicationClientType;
   allowedGrantTypes: string[];
   allowedScopes: string[];
@@ -653,7 +653,7 @@ export interface ApplicationCreatedResponse {
   id: string;
   clientId: string;
   displayName: string;
-  type: ApplicationType;
+  profile: ApplicationProfile;
   clientType: ApplicationClientType;
   status: ApplicationStatus;
   initialSecret: string | null;

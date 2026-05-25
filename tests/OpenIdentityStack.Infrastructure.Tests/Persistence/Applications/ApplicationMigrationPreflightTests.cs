@@ -83,7 +83,7 @@ public sealed class ApplicationMigrationPreflightTests : IClassFixture<SqliteTes
         ApplicationMigrationReviewItem review = report.ReviewItems.Single();
         review.ClientId.ShouldBe("spa-client");
         review.Source.ShouldBe("Client");
-        review.InferredType.ShouldBe(ApplicationType.SinglePage);
+        review.InferredProfile.ShouldBe(ApplicationProfile.SinglePage);
         review.RequiresMigrationReview.ShouldBeTrue();
     }
 

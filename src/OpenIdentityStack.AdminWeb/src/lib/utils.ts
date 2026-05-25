@@ -94,7 +94,9 @@ export function parseSearchParams(search: string): Record<string, string> {
 /**
  * Build query string from params
  */
-export function buildQueryString(params: Record<string, any>): string {
+export function buildQueryString(
+  params: Record<string, string | number | boolean | null | undefined>
+): string {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
@@ -142,13 +144,13 @@ export function sleep(ms: number): Promise<void> {
 /**
  * Debounce function calls
  */
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
+export function debounce<TArgs extends unknown[]>(
+  func: (...args: TArgs) => void,
   wait: number
-): (...args: Parameters<T>) => void {
+): (...args: TArgs) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
-  return function executedFunction(...args: Parameters<T>) {
+  return function executedFunction(...args: TArgs) {
     const later = () => {
       timeout = null;
       func(...args);
@@ -162,7 +164,7 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Check if value is empty (null, undefined, empty string, empty array)
  */
-export function isEmpty(value: any): boolean {
+export function isEmpty(value: unknown): boolean {
   if (value === null || value === undefined) return true;
   if (typeof value === 'string') return value.trim().length === 0;
   if (Array.isArray(value)) return value.length === 0;

@@ -6,7 +6,7 @@
 
 **Status**: Implementing
 
-**Input**: User description: "Unify Clients and Service Accounts into Applications" plus application type option rules from `application-type-options-matrix.md`
+**Input**: User description: "Unify Clients and Service Accounts into Applications" plus application profile option rules from `application-type-options-matrix.md` and the terminology addendum in `application-profile-spec-addendum.md`
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -55,20 +55,20 @@ As a platform operator, I can migrate current client and service-account registr
 
 ---
 
-### User Story 4 - Configure applications through type-specific policy (Priority: P1)
+### User Story 4 - Configure applications through profile-specific policy (Priority: P1)
 
-As an administrator, I can choose an application type and only see or submit configuration choices that make sense for that type.
+As an administrator, I can choose an application profile and only see or submit configuration choices that make sense for that profile.
 
 **Why this priority**: The unified model is only safe if product profiles enforce OAuth security rules consistently. The API must be authoritative and the UI should guide administrators away from invalid or insecure combinations before submission.
 
-**Independent Test**: For each supported application type, request the policy/options matrix, create/configure applications with valid defaults, and verify the API rejects disallowed grants, redirect settings, client profiles, and credential operations while the AdminWeb form hides unavailable options and displays fixed defaults.
+**Independent Test**: For each supported application profile, request the policy/options matrix, create/configure applications with valid defaults, and verify the API rejects disallowed grants, redirect settings, client profiles, and credential operations while the AdminWeb form hides unavailable options and displays fixed defaults.
 
 **Acceptance Scenarios**:
 
 1. **Given** an admin creating a Single Page application, **When** they configure OAuth settings, **Then** the UI fixes the client profile to public, requires PKCE, allows authorization code and optional refresh tokens only, requires redirect URIs and browser origins, and does not expose secrets or certificates.
 2. **Given** an API caller creating a Machine-to-machine application, **When** the request includes redirect URIs, post-logout redirect URIs, refresh tokens, authorization code, or public client profile, **Then** the API rejects the request with a validation error that identifies the policy violation.
 3. **Given** an admin creating a Web application, **When** they configure OAuth settings, **Then** the UI defaults to confidential, authorization code, PKCE enabled, and client-secret authentication while treating private-key JWT, mTLS, token lifetime overrides, and similar advanced options as unavailable unless explicitly implemented later.
-4. **Given** the reserved Device type, **When** an admin or API caller attempts to enable Device behavior before the device authorization flow is implemented and tested, **Then** the system blocks creation/configuration or exposes it as unavailable policy metadata rather than a working option.
+4. **Given** the reserved Device profile, **When** an admin or API caller attempts to enable Device behavior before the device authorization flow is implemented and tested, **Then** the system blocks creation/configuration or exposes it as unavailable policy metadata rather than a working option.
 
 ---
 
@@ -91,8 +91,8 @@ As an administrator, I can choose an application type and only see or submit con
 - **FR-001**: The system MUST provide one top-level application concept for all OAuth/OIDC software registrations.
 - **FR-002**: The system MUST allow administrators to create, list, view, update, disable, enable, and delete applications.
 - **FR-003**: The system MUST preserve the external client identifier as the stable protocol identifier for each application.
-- **FR-004**: The system MUST support application classification for at least machine-to-machine and interactive application types.
-- **FR-005**: The system MUST enforce grant and redirect validation rules based on application type and client confidentiality.
+- **FR-004**: The system MUST support application classification for at least machine-to-machine and interactive application profiles.
+- **FR-005**: The system MUST enforce grant and redirect validation rules based on application profile and client confidentiality.
 - **FR-006**: The system MUST allow credential creation, rotation, and revocation for confidential applications.
 - **FR-007**: The system MUST reject secret or certificate credential operations for public applications.
 - **FR-008**: The system MUST block new token issuance for disabled applications.
@@ -102,18 +102,19 @@ As an administrator, I can choose an application type and only see or submit con
 - **FR-012**: The system MUST migrate existing permissions to a unified applications permission model.
 - **FR-013**: The system MUST remove legacy client and service-account admin API routes instead of providing compatibility paths.
 - **FR-014**: The system MUST produce audit events for application lifecycle and credential lifecycle changes.
-- **FR-015**: The system MUST expose or otherwise define an application-type policy model that classifies each configuration option as hidden, read-only/fixed, available, or advanced for each application type.
-- **FR-016**: The system MUST enforce application-type policy rules in API use cases and endpoints, treating UI restrictions as guidance only and never as the source of truth.
-- **FR-017**: The system MUST prevent application type changes after creation unless a future explicit migration workflow is implemented.
-- **FR-018**: The system MUST keep advanced options from `application-type-options-matrix.md` as policy metadata only unless the corresponding protocol behavior is explicitly implemented and tested.
-- **FR-019**: The AdminWeb MUST railroad administrators through application-type-specific choices by hiding unavailable controls, showing fixed defaults as read-only or implicit, and preventing invalid grant/credential/redirect combinations before submission.
+- **FR-015**: The system MUST expose or otherwise define an application-profile policy model that classifies each configuration option as hidden, read-only/fixed, available, or advanced for each application profile.
+- **FR-016**: The system MUST enforce application-profile policy rules in API use cases and endpoints, treating UI restrictions as guidance only and never as the source of truth.
+- **FR-017**: The system MUST prevent application profile changes after creation unless a future explicit migration workflow is implemented.
+- **FR-018**: The system MUST keep advanced options from `application-type-options-matrix.md` as application-profile policy metadata only unless the corresponding protocol behavior is explicitly implemented and tested.
+- **FR-019**: The AdminWeb MUST railroad administrators through application-profile-specific choices by hiding unavailable controls, showing fixed defaults as read-only or implicit, and preventing invalid grant/credential/redirect combinations before submission.
+- **FR-020**: The system MUST expose the product classification as `ApplicationProfile` in domain/application code and as `profile` in API and AdminWeb contracts, while preserving protocol-level OpenIddict `ApplicationType` naming only inside infrastructure adapters.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Application**: Administrator-managed registration that owns identity, type, status, OAuth behavior, and lifecycle state.
+- **Application**: Administrator-managed registration that owns identity, profile, status, OAuth behavior, and lifecycle state.
 - **Application Credential**: Authentication material (for example secret/certificate) associated with a confidential application, including status and validity metadata.
 - **Application Permission Mapping**: Authorization mapping that translates legacy client/service-account permissions into unified application permissions.
-- **Application Type Policy**: Rule set describing default client profile, allowed/default grants, option availability, and validation behavior for each application type.
+- **Application Profile Policy**: Rule set describing default client profile, allowed/default grants, option availability, validation behavior, and exposed `profile` contract semantics for each application profile.
 
 ## Security & Operational Impact *(mandatory)*
 
@@ -121,20 +122,20 @@ As an administrator, I can choose an application type and only see or submit con
 - **Secrets & Certificates**: Plain secrets are shown only at creation/rotation time and are never persisted in readable form; revoked/expired credentials cannot authenticate.
 - **Audit Events**: Application create/update/disable/enable/delete and credential add/rotate/revoke actions are audit logged with actor and timestamp.
 - **Safe Failure Modes**: Migration preflight blocks conflicting data before mutation; invalid configuration requests return explicit validation errors without leaking sensitive details.
-- **Policy Enforcement**: API validation rejects disallowed application-type combinations even if a caller bypasses the AdminWeb.
+- **Policy Enforcement**: API validation rejects disallowed application-profile combinations even if a caller bypasses the AdminWeb.
 - **Operations**: Migration is planned for transactional execution where supported, with old admin API routes removed as part of the pre-1.0 breaking change.
 
 ## Test Strategy *(mandatory)*
 
-- **Unit Tests**: Validate application invariants (type/grant/redirect/credential rules), lifecycle transitions, and permission mapping behavior.
-- **API/Integration Tests**: Validate end-to-end admin workflows, migration behavior, disable-token-block behavior, credential lifecycle flows, and API rejection of every disallowed policy combination.
-- **Contract Tests**: Validate unified admin contract behavior, application-type policy response shape, and ensure removed legacy admin routes are not part of the supported contract.
-- **AdminWeb Tests**: Validate application-centric terminology, machine-to-machine workflows, credential management UX behavior, and type-specific railroaded form behavior.
+- **Unit Tests**: Validate application invariants (profile/grant/redirect/credential rules), lifecycle transitions, and permission mapping behavior.
+- **API/Integration Tests**: Validate end-to-end admin workflows, migration behavior, disable-token-block behavior, credential lifecycle flows, API rejection of every disallowed profile policy combination, and the `profile` request/response shape.
+- **Contract Tests**: Validate unified admin contract behavior, application-profile policy response shape, `profile` request/query/response naming, and ensure removed legacy admin routes are not part of the supported contract.
+- **AdminWeb Tests**: Validate application-centric terminology, machine-to-machine workflows, credential management UX behavior, and profile-specific railroaded form behavior.
 - **Validation Commands**: Run the repository’s existing backend, integration, contract, and admin web test commands used by CI.
 
 ## Documentation & Deployment Impact *(mandatory)*
 
-- **Documentation**: Update administrator-facing terminology and migration guidance to use "Application" and "Machine-to-machine application" as primary product terms.
+- **Documentation**: Update administrator-facing terminology and migration guidance to use "Application", "Application Profile", and "Machine-to-machine application" as primary product terms.
 - **Deployment**: Requires coordinated schema migration, permission mapping rollout, and communication that legacy admin API routes have been removed.
 - **Screenshots**: Required for admin UI changes that replace legacy labels and update application management flows.
 
@@ -147,8 +148,9 @@ As an administrator, I can choose an application type and only see or submit con
 - **SC-003**: 100% of duplicate-client-identifier conflicts are detected before mutation and reported with actionable conflict details.
 - **SC-004**: 100% of disabled applications are prevented from obtaining new tokens after disablement.
 - **SC-005**: Support tickets related to "client vs service account confusion" decrease by at least 50% within one release after rollout.
-- **SC-006**: 100% of application create/configure API requests that violate the type policy matrix fail with deterministic validation errors.
-- **SC-007**: 100% of AdminWeb application creation/configuration paths hide or disable unavailable options for the selected application type.
+- **SC-006**: 100% of application create/configure API requests that violate the profile policy matrix fail with deterministic validation errors.
+- **SC-007**: 100% of AdminWeb application creation/configuration paths hide or disable unavailable options for the selected application profile.
+- **SC-008**: 100% of supported Applications API request, response, filter, and OpenAPI surfaces expose the product classification as `profile` rather than `type`.
 
 ## Assumptions
 

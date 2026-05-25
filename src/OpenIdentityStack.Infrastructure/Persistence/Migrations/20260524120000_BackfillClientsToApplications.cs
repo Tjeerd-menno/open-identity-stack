@@ -20,7 +20,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     "ClientId",
                     "DisplayName",
                     "Description",
-                    "Type",
+                    "Profile",
                     "ClientType",
                     "Status",
                     "RequirePkce",

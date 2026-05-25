@@ -74,7 +74,14 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         await SeedLock.WaitAsync(cancellationToken);
         try
         {
-            await dbContext.Database.MigrateAsync(cancellationToken);
+            if (IsSqliteConnectionString(connectionString))
+            {
+                await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+            }
+            else
+            {
+                await dbContext.Database.MigrateAsync(cancellationToken);
+            }
 
             if (SeededConnections.Add(connectionString))
             {
@@ -89,6 +96,12 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         }
 
         return new OpenIdentityStackTestSeeder(provider, disposeServiceProvider: true);
+    }
+
+    private static bool IsSqliteConnectionString(string connectionString)
+    {
+        return connectionString.Contains("Data Source", StringComparison.OrdinalIgnoreCase)
+            || connectionString.Contains("DataSource", StringComparison.OrdinalIgnoreCase);
     }
 
     public static async Task<OpenIdentityStackTestSeeder> CreateAsync(
@@ -175,7 +188,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
                 clientId,
                 $"Test Service Account - {clientId}",
                 null,
-                ApplicationType.MachineToMachine,
+                ApplicationProfile.MachineToMachine,
                 OAuthClientType.Confidential,
                 resolvedGrantTypes,
                 resolvedScopes,

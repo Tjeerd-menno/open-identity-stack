@@ -5,7 +5,7 @@ import { ApplicationCredentials } from './ApplicationCredentials';
 import { AddApplicationCertificateDialog } from './AddApplicationCertificateDialog';
 import { AddApplicationSecretDialog } from './AddApplicationSecretDialog';
 import { ApplicationSecretDisplay } from './ApplicationSecretDisplay';
-import { ApplicationClientType, ApplicationType, type Application } from '@/types';
+import { ApplicationClientType, ApplicationProfile, type Application } from '@/types';
 
 const { hooks } = vi.hoisted(() => ({
   hooks: {
@@ -37,7 +37,7 @@ const confidentialApplication: Application = {
   clientId: 'orders-worker',
   displayName: 'Orders Worker',
   description: 'Background worker',
-  type: ApplicationType.MachineToMachine,
+  profile: ApplicationProfile.MachineToMachine,
   clientType: ApplicationClientType.Confidential,
   status: 'Active',
   redirectUris: [],
@@ -59,7 +59,7 @@ const publicApplication: Application = {
   id: 'app-public',
   clientId: 'orders-spa',
   displayName: 'Orders SPA',
-  type: ApplicationType.SinglePage,
+  profile: ApplicationProfile.SinglePage,
   clientType: ApplicationClientType.Public,
   allowedGrantTypes: ['authorization_code'],
   credentialCount: 0,

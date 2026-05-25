@@ -6,7 +6,7 @@ public sealed record CreateApplicationRequest(
     string ClientId,
     string DisplayName,
     string? Description,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     IReadOnlyList<string> AllowedGrantTypes,
     IReadOnlyList<string> AllowedScopes,
@@ -26,7 +26,7 @@ public sealed record UpdateApplicationMetadataRequest(
     string? Description);
 
 public sealed record ConfigureApplicationOAuthRequest(
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     IReadOnlyList<string> AllowedGrantTypes,
     IReadOnlyList<string> AllowedScopes,
@@ -46,8 +46,8 @@ public sealed record AddApplicationCertificateRequest(
     string? Description,
     DateTimeOffset? ExpiresAt);
 
-public sealed record ApplicationTypePolicyResponse(
-    ApplicationType ApplicationType,
+public sealed record ApplicationProfilePolicyResponse(
+    ApplicationProfile ApplicationProfile,
     bool IsSelectable,
     string? UnavailabilityReason,
     ClientProfile DefaultClientProfile,
@@ -64,7 +64,7 @@ public sealed record ApplicationCreatedResponse(
     Guid Id,
     string ClientId,
     string DisplayName,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     ApplicationStatus Status,
     string? InitialSecret,
@@ -75,7 +75,7 @@ public sealed record ApplicationResponse(
     string ClientId,
     string DisplayName,
     string? Description,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     ApplicationStatus Status,
     IReadOnlyList<string> RedirectUris,
@@ -95,7 +95,7 @@ public sealed record ApplicationListItemResponse(
     Guid Id,
     string ClientId,
     string DisplayName,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     ApplicationStatus Status,
     IReadOnlyList<string> AllowedGrantTypes,

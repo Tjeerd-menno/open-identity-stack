@@ -14,17 +14,17 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   ApplicationClientType,
   ApplicationOptionAvailability,
-  ApplicationType,
-  type ApplicationTypePolicy,
+  ApplicationProfile,
+  type ApplicationProfilePolicy,
   type Application,
 } from '@/types';
-import { useApplicationTypePolicies } from '../hooks/useApplicationTypePolicies';
+import { useApplicationProfilePolicies } from '../hooks/useApplicationProfilePolicies';
 
 const createSchema = z.object({
   clientId: z.string().min(1, 'Client ID is required').max(100),
   displayName: z.string().min(1, 'Display name is required').max(200),
   description: z.string().optional(),
-  type: z.enum(ApplicationType),
+  profile: z.enum(ApplicationProfile),
   clientType: z.enum(ApplicationClientType),
   allowedGrantTypes: z.array(z.string()).min(1, 'At least one grant type is required'),
   allowedScopes: z.array(z.string()).min(1, 'At least one scope is required'),
@@ -58,7 +58,7 @@ type ApplicationFormProps =
 interface CreateApplicationFormProps {
   application?: undefined;
   onSubmit: (data: CreateApplicationFormData) => Promise<void>;
-  initialType?: ApplicationType;
+  initialProfile?: ApplicationProfile;
   isLoading?: boolean;
 }
 
@@ -69,21 +69,21 @@ interface UpdateApplicationFormProps {
 }
 
 const availableScopes = ['openid', 'profile', 'email', 'api', 'offline_access'];
-const applicationTypeOrder = [
-  ApplicationType.Web,
-  ApplicationType.SinglePage,
-  ApplicationType.Native,
-  ApplicationType.MachineToMachine,
-  ApplicationType.Device,
+const applicationProfileOrder = [
+  ApplicationProfile.Web,
+  ApplicationProfile.SinglePage,
+  ApplicationProfile.Native,
+  ApplicationProfile.MachineToMachine,
+  ApplicationProfile.Device,
 ] as const;
 
-const typeLabels: Record<ApplicationType, string> = {
-  [ApplicationType.Web]: 'Web',
-  [ApplicationType.SinglePage]: 'Single Page',
-  [ApplicationType.Native]: 'Native',
-  [ApplicationType.MachineToMachine]: 'Machine-to-machine',
-  [ApplicationType.Device]: 'Device',
-  [ApplicationType.Custom]: 'Custom',
+const applicationProfileLabels: Record<ApplicationProfile, string> = {
+  [ApplicationProfile.Web]: 'Web',
+  [ApplicationProfile.SinglePage]: 'Single Page',
+  [ApplicationProfile.Native]: 'Native',
+  [ApplicationProfile.MachineToMachine]: 'Machine-to-machine',
+  [ApplicationProfile.Device]: 'Device',
+  [ApplicationProfile.Custom]: 'Custom',
 };
 
 export function ApplicationForm({ application, onSubmit, isLoading, ...createProps }: ApplicationFormProps) {
@@ -102,17 +102,17 @@ export function ApplicationForm({ application, onSubmit, isLoading, ...createPro
 
 function CreateApplicationForm({
   onSubmit,
-  initialType,
+  initialProfile,
   isLoading,
 }: Omit<CreateApplicationFormProps, 'application'>) {
-  const policiesQuery = useApplicationTypePolicies();
+  const policiesQuery = useApplicationProfilePolicies();
   const form = useForm<CreateApplicationFormData>({
     resolver: zodResolver(createSchema),
     defaultValues: {
       clientId: '',
       displayName: '',
       description: '',
-      type: initialType ?? ApplicationType.Web,
+      profile: initialProfile ?? ApplicationProfile.Web,
       clientType: ApplicationClientType.Confidential,
       allowedGrantTypes: [],
       allowedScopes: [],
@@ -128,13 +128,13 @@ function CreateApplicationForm({
   const postLogoutRedirectUris = useWatch({ control, name: 'postLogoutRedirectUris' });
   const allowedScopes = useWatch({ control, name: 'allowedScopes' });
   const allowedGrantTypes = useWatch({ control, name: 'allowedGrantTypes' });
-  const selectedType = useWatch({ control, name: 'type' });
-  const policiesByType = useMemo(() => new Map(
-    (policiesQuery.data ?? []).map((policy) => [policy.applicationType, policy])
+  const selectedProfile = useWatch({ control, name: 'profile' });
+  const policiesByProfile = useMemo(() => new Map(
+    (policiesQuery.data ?? []).map((policy) => [policy.applicationProfile, policy])
   ), [policiesQuery.data]);
-  const selectedPolicy = policiesByType.get(selectedType);
+  const selectedPolicy = policiesByProfile.get(selectedProfile);
   const reservedPolicies = useMemo(
-    () => (policiesQuery.data ?? []).filter((policy) => !policy.isSelectable && policy.applicationType !== ApplicationType.Custom),
+    () => (policiesQuery.data ?? []).filter((policy) => !policy.isSelectable && policy.applicationProfile !== ApplicationProfile.Custom),
     [policiesQuery.data]
   );
   const optionalGrantTypes = useMemo(
@@ -239,7 +239,7 @@ function CreateApplicationForm({
       <Card>
         <CardHeader>
           <CardTitle>Loading application policies</CardTitle>
-          <CardDescription>Retrieving application type guidance and defaults.</CardDescription>
+          <CardDescription>Retrieving application profile guidance and defaults.</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -249,7 +249,7 @@ function CreateApplicationForm({
     return (
       <Alert>
         <AlertDescription>
-          Unable to load application type guidance. Reload the page and try again.
+          Unable to load application profile guidance. Reload the page and try again.
         </AlertDescription>
       </Alert>
     );
@@ -310,34 +310,34 @@ function CreateApplicationForm({
             <div className="grid gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
-                name="type"
+                name="profile"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Application Type</FormLabel>
+                    <FormLabel>Application Profile</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select application type" />
+                          <SelectValue placeholder="Select application profile" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {applicationTypeOrder.map((type) => {
-                          const policy = policiesByType.get(type);
+                        {applicationProfileOrder.map((profile) => {
+                          const policy = policiesByProfile.get(profile);
                           if (!policy) {
                             return null;
                           }
 
                           return (
-                            <SelectItem key={type} value={type} disabled={!policy.isSelectable}>
-                              {policy.isSelectable ? typeLabels[type] : `${typeLabels[type]} (Reserved)`}
+                            <SelectItem key={profile} value={profile} disabled={!policy.isSelectable}>
+                              {policy.isSelectable ? applicationProfileLabels[profile] : `${applicationProfileLabels[profile]} (Reserved)`}
                             </SelectItem>
                           );
                         })}
                       </SelectContent>
                     </Select>
-                    <FormDescription>Choose the application type that matches the OAuth client profile.</FormDescription>
+                    <FormDescription>Choose the application profile that matches the OAuth client profile.</FormDescription>
                     {reservedPolicies.map((policy) => (
-                      <p key={policy.applicationType} className="text-sm text-muted-foreground">
+                      <p key={policy.applicationProfile} className="text-sm text-muted-foreground">
                         {policy.unavailabilityReason}
                       </p>
                     ))}
@@ -355,7 +355,7 @@ function CreateApplicationForm({
                     <FormControl>
                       <Input {...field} readOnly />
                     </FormControl>
-                    <FormDescription>This profile is fixed by the selected application type.</FormDescription>
+                    <FormDescription>This profile is fixed by the selected application profile.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -364,7 +364,7 @@ function CreateApplicationForm({
           </CardContent>
         </Card>
 
-        {selectedType === ApplicationType.SinglePage && (
+        {selectedProfile === ApplicationProfile.SinglePage && (
           <Alert>
             <AlertDescription>
               Browser applications are public clients. Shared secrets and certificates stay hidden, and PKCE is always required.
@@ -372,7 +372,7 @@ function CreateApplicationForm({
           </Alert>
         )}
 
-        {selectedType === ApplicationType.Native && (
+        {selectedProfile === ApplicationProfile.Native && (
           <Alert>
             <AlertDescription>
               Claimed HTTPS redirects are preferred. Private scheme and loopback redirects are supported for native applications.
@@ -380,7 +380,7 @@ function CreateApplicationForm({
           </Alert>
         )}
 
-        {selectedType === ApplicationType.MachineToMachine && (
+        {selectedProfile === ApplicationProfile.MachineToMachine && (
           <Alert>
             <AlertDescription>
               Machine-to-machine applications use only the client credentials grant. Redirects, PKCE, and consent do not apply.
@@ -394,7 +394,7 @@ function CreateApplicationForm({
               <CardTitle>Redirect URIs</CardTitle>
               <CardDescription>
                 {selectedPolicy.requiresRedirectUris
-                  ? 'At least one redirect URI is required for this application type.'
+                  ? 'At least one redirect URI is required for this application profile.'
                   : 'Allowed redirect URIs after authentication'}
               </CardDescription>
             </CardHeader>
@@ -493,7 +493,7 @@ function CreateApplicationForm({
         <Card>
           <CardHeader>
             <CardTitle>Allowed Grant Types</CardTitle>
-            <CardDescription>Defaults come from the selected application type policy.</CardDescription>
+            <CardDescription>Defaults come from the selected application profile policy.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -533,7 +533,7 @@ function CreateApplicationForm({
                 isOptionReadOnly(selectedPolicy, 'pkce') ? (
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Require PKCE</p>
-                    <p className="text-sm text-muted-foreground">PKCE is required for this application type.</p>
+                    <p className="text-sm text-muted-foreground">PKCE is required for this application profile.</p>
                   </div>
                 ) : (
                   <FormField
@@ -678,11 +678,11 @@ function CheckboxGroup({ values, selectedValues, onChange }: CheckboxGroupProps)
   );
 }
 
-function isOptionHidden(policy: ApplicationTypePolicy, key: string) {
+function isOptionHidden(policy: ApplicationProfilePolicy, key: string) {
   return policy.options[key] === ApplicationOptionAvailability.Hidden;
 }
 
-function isOptionReadOnly(policy: ApplicationTypePolicy, key: string) {
+function isOptionReadOnly(policy: ApplicationProfilePolicy, key: string) {
   return policy.options[key] === ApplicationOptionAvailability.ReadOnly;
 }
 

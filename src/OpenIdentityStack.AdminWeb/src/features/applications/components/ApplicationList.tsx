@@ -4,19 +4,19 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable, type Column } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ApplicationClientType, ApplicationType, type ApplicationListItem } from '@/types';
+import { ApplicationClientType, ApplicationProfile, type ApplicationListItem } from '@/types';
 import { Eye, Edit, Plus, Search, Trash2 } from 'lucide-react';
 import { useDeleteApplication } from '../hooks/useDeleteApplication';
 import { useApplications } from '../hooks/useApplications';
 import { ApplicationStatusBadge } from './ApplicationStatusBadge';
 
-const applicationTypeLabels: Record<ApplicationType, string> = {
-  [ApplicationType.Web]: 'Web',
-  [ApplicationType.SinglePage]: 'Single Page',
-  [ApplicationType.Native]: 'Native',
-  [ApplicationType.MachineToMachine]: 'Machine-to-machine',
-  [ApplicationType.Device]: 'Device',
-  [ApplicationType.Custom]: 'Custom',
+const applicationProfileLabels: Record<ApplicationProfile, string> = {
+  [ApplicationProfile.Web]: 'Web',
+  [ApplicationProfile.SinglePage]: 'Single Page',
+  [ApplicationProfile.Native]: 'Native',
+  [ApplicationProfile.MachineToMachine]: 'Machine-to-machine',
+  [ApplicationProfile.Device]: 'Device',
+  [ApplicationProfile.Custom]: 'Custom',
 };
 
 const clientTypeLabels: Record<ApplicationClientType, string> = {
@@ -67,9 +67,9 @@ export function ApplicationList() {
       accessorKey: 'displayName',
     },
     {
-      header: 'Type',
-      accessorKey: 'type',
-      cell: ({ row }) => applicationTypeLabels[row.type],
+      header: 'Profile',
+      accessorKey: 'profile',
+      cell: ({ row }) => applicationProfileLabels[row.profile],
     },
     {
       header: 'Client Type',

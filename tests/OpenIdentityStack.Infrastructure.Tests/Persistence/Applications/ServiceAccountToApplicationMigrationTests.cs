@@ -52,7 +52,7 @@ public sealed class ServiceAccountToApplicationMigrationTests : IClassFixture<Sq
         DomainApplication application = await this.dbContext.Applications.SingleAsync();
         application.ClientId.ShouldBe("worker");
         application.DisplayName.ShouldBe("Display worker");
-        application.Type.ShouldBe(ApplicationType.MachineToMachine);
+        application.Profile.ShouldBe(ApplicationProfile.MachineToMachine);
         application.ClientType.ShouldBe(OAuthClientType.Confidential);
         application.Status.ShouldBe(ApplicationStatus.Active);
         application.AllowedGrantTypes.ShouldBe(["client_credentials"]);

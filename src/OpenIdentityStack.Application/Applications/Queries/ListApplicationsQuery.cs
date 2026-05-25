@@ -9,7 +9,7 @@ public interface IListApplicationsQueryHandler
     Task<Result<PagedResult<ApplicationSummary>>> HandleAsync(
         int page = 1,
         int pageSize = 20,
-        ApplicationType? type = null,
+        ApplicationProfile? profile = null,
         ApplicationStatus? status = null,
         OAuthClientType? clientType = null,
         string? searchTerm = null,

@@ -8,7 +8,7 @@ public sealed record ApplicationDetails(
     string ClientId,
     string DisplayName,
     string? Description,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     ApplicationStatus Status,
     IReadOnlyList<string> AllowedGrantTypes,

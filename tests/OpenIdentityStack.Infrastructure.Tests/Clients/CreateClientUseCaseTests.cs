@@ -228,7 +228,7 @@ public sealed class CreateClientUseCaseTests
         // Assert
         await this._projection.Received(1).UpsertAsync(
             Arg.Is<DomainApplication>(application =>
-                application.Type == OpenIdentityStack.Domain.Applications.ApplicationType.MachineToMachine &&
+                application.Profile == OpenIdentityStack.Domain.Applications.ApplicationProfile.MachineToMachine &&
                 application.ClientType == OpenIdentityStack.Domain.Applications.OAuthClientType.Confidential &&
                 application.AllowedGrantTypes.SequenceEqual(new[] { OpenIddictConstants.GrantTypes.ClientCredentials })),
             Arg.Any<string?>(),

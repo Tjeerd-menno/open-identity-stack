@@ -7,7 +7,7 @@ public sealed record ApplicationCommandResult(
     DomainApplicationId Id,
     string ClientId,
     string DisplayName,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     ApplicationStatus Status);
 

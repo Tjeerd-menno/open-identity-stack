@@ -2,7 +2,7 @@ namespace OpenIdentityStack.Domain.Applications;
 
 public enum ApplicationOptionKey
 {
-    ApplicationType = 0,
+    ApplicationProfile = 0,
     ClientProfile = 1,
     TokenEndpointAuthenticationMethod = 2,
     ClientSecrets = 3,

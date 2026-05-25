@@ -128,7 +128,7 @@ Content-Type: application/json
 {
   "clientId": "orders-worker",
   "displayName": "Orders worker",
-  "applicationType": "machine-to-machine",
+  "applicationProfile": "machine-to-machine",
   "clientType": "confidential",
   "grantTypes": ["client_credentials"],
   "scopes": ["orders.write"]

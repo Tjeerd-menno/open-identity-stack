@@ -109,11 +109,11 @@ public sealed class ApplicationsEndpointContractTests
     public void ApplicationLifecycleValues_AreDocumented()
     {
         string[] statuses = ["Active", "Disabled"];
-        string[] applicationTypes = ["MachineToMachine", "Web", "SinglePage", "Native", "Device", "Custom"];
+        string[] applicationProfiles = ["MachineToMachine", "Web", "SinglePage", "Native", "Device", "Custom"];
         string[] clientTypes = ["Public", "Confidential"];
 
         statuses.ShouldContain("Active");
-        applicationTypes.ShouldContain("MachineToMachine");
+        applicationProfiles.ShouldContain("MachineToMachine");
         clientTypes.ShouldContain("Confidential");
     }
 }

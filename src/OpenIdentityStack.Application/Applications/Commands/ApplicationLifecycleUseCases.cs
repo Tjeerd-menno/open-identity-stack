@@ -34,9 +34,9 @@ public sealed class ApplicationLifecycleUseCases :
         CreateApplicationCommand command,
         CancellationToken cancellationToken = default)
     {
-        if (!ApplicationTypePolicyCatalog.GetPolicy(command.Type).IsSelectable)
+        if (!ApplicationProfilePolicyCatalog.GetPolicy(command.Profile).IsSelectable)
         {
-            return ApplicationErrors.TypeNotAvailable;
+            return ApplicationErrors.ProfileNotAvailable;
         }
 
         if (await this.repository.ExistsByClientIdAsync(command.ClientId, cancellationToken))
@@ -48,7 +48,7 @@ public sealed class ApplicationLifecycleUseCases :
             command.ClientId,
             command.DisplayName,
             command.Description,
-            command.Type,
+            command.Profile,
             command.ClientType,
             command.AllowedGrantTypes,
             command.AllowedScopes,
@@ -115,9 +115,9 @@ public sealed class ApplicationLifecycleUseCases :
         ConfigureApplicationOAuthCommand command,
         CancellationToken cancellationToken = default)
     {
-        if (!ApplicationTypePolicyCatalog.GetPolicy(command.Type).IsSelectable)
+        if (!ApplicationProfilePolicyCatalog.GetPolicy(command.Profile).IsSelectable)
         {
-            return ApplicationErrors.TypeNotAvailable;
+            return ApplicationErrors.ProfileNotAvailable;
         }
 
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
@@ -127,7 +127,7 @@ public sealed class ApplicationLifecycleUseCases :
         }
 
         Result configureResult = application.ConfigureOAuth(
-            command.Type,
+            command.Profile,
             command.ClientType,
             command.AllowedGrantTypes,
             command.AllowedScopes,
@@ -237,7 +237,7 @@ public sealed class ApplicationLifecycleUseCases :
             application.Id,
             application.ClientId,
             application.DisplayName,
-            application.Type,
+            application.Profile,
             application.ClientType,
             application.Status);
 

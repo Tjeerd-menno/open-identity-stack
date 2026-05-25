@@ -7,7 +7,7 @@ using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
 
 namespace OpenIdentityStack.Application.Tests.Applications;
 
-public sealed class ApplicationTypePolicyUseCaseTests
+public sealed class ApplicationProfilePolicyUseCaseTests
 {
     private readonly IApplicationRepository repository;
     private readonly IApplicationProtocolProjection projection;
@@ -18,7 +18,7 @@ public sealed class ApplicationTypePolicyUseCaseTests
     private readonly ApplicationCredentialUseCases credentialUseCases;
     private readonly DateTimeOffset now = new(2026, 5, 24, 12, 0, 0, TimeSpan.Zero);
 
-    public ApplicationTypePolicyUseCaseTests()
+    public ApplicationProfilePolicyUseCaseTests()
     {
         this.repository = Substitute.For<IApplicationRepository>();
         this.projection = Substitute.For<IApplicationProtocolProjection>();
@@ -45,13 +45,13 @@ public sealed class ApplicationTypePolicyUseCaseTests
     }
 
     [Fact]
-    public async Task CreateExecuteAsync_WhenTypeIsReserved_ReturnsTypeNotAvailable()
+    public async Task CreateExecuteAsync_WhenTypeIsReserved_ReturnsProfileNotAvailable()
     {
         Result<ApplicationCommandResult> result = await this.lifecycleUseCases.ExecuteAsync(new CreateApplicationCommand(
             "living-room-device",
             "Living Room Device",
             null,
-            ApplicationType.Device,
+            ApplicationProfile.Device,
             OAuthClientType.Public,
             ["urn:ietf:params:oauth:grant-type:device_code"],
             ["openid"],
@@ -61,7 +61,7 @@ public sealed class ApplicationTypePolicyUseCaseTests
             RequireConsent: true));
 
         result.IsFailure.ShouldBeTrue();
-        result.Error.Code.ShouldBe(ApplicationErrors.TypeNotAvailable.Code);
+        result.Error.Code.ShouldBe(ApplicationErrors.ProfileNotAvailable.Code);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class ApplicationTypePolicyUseCaseTests
             "orders-spa",
             "Orders SPA",
             null,
-            ApplicationType.SinglePage,
+            ApplicationProfile.SinglePage,
             OAuthClientType.Public,
             ["authorization_code"],
             ["openid"],
@@ -91,7 +91,7 @@ public sealed class ApplicationTypePolicyUseCaseTests
             "orders-worker",
             "Orders Worker",
             null,
-            ApplicationType.MachineToMachine,
+            ApplicationProfile.MachineToMachine,
             OAuthClientType.Confidential,
             ["client_credentials"],
             ["api.read"],
@@ -105,14 +105,14 @@ public sealed class ApplicationTypePolicyUseCaseTests
     }
 
     [Fact]
-    public async Task ConfigureExecuteAsync_WhenTypeChanges_ReturnsTypeChangeNotAllowed()
+    public async Task ConfigureExecuteAsync_WhenTypeChanges_ReturnsProfileChangeNotAllowed()
     {
         DomainApplication application = this.CreateWebApplication();
         this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
 
         Result<ApplicationCommandResult> result = await this.lifecycleUseCases.ExecuteAsync(new ConfigureApplicationOAuthCommand(
             application.Id,
-            ApplicationType.Native,
+            ApplicationProfile.Native,
             OAuthClientType.Public,
             ["authorization_code"],
             ["openid"],
@@ -122,7 +122,7 @@ public sealed class ApplicationTypePolicyUseCaseTests
             RequireConsent: true));
 
         result.IsFailure.ShouldBeTrue();
-        result.Error.Code.ShouldBe(ApplicationErrors.TypeChangeNotAllowed.Code);
+        result.Error.Code.ShouldBe(ApplicationErrors.ProfileChangeNotAllowed.Code);
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public sealed class ApplicationTypePolicyUseCaseTests
 
         Result<ApplicationCommandResult> result = await this.lifecycleUseCases.ExecuteAsync(new ConfigureApplicationOAuthCommand(
             application.Id,
-            ApplicationType.MachineToMachine,
+            ApplicationProfile.MachineToMachine,
             OAuthClientType.Confidential,
             ["client_credentials"],
             ["api.read"],
@@ -153,7 +153,7 @@ public sealed class ApplicationTypePolicyUseCaseTests
             "orders-spa",
             "Orders SPA",
             null,
-            ApplicationType.SinglePage,
+            ApplicationProfile.SinglePage,
             OAuthClientType.Public,
             ["authorization_code"],
             ["openid"],
@@ -176,7 +176,7 @@ public sealed class ApplicationTypePolicyUseCaseTests
             "orders-web",
             "Orders Web",
             null,
-            ApplicationType.Web,
+            ApplicationProfile.Web,
             OAuthClientType.Confidential,
             ["authorization_code"],
             ["openid"],

@@ -27,7 +27,7 @@ public sealed class ApplicationsEndpointWorkflowTests(AppHostFixture fixture) : 
             ClientId = $"app-{Guid.NewGuid():N}",
             DisplayName = "Orders Web",
             Description = "Orders web app",
-            Type = "Web",
+            Profile = "Web",
             ClientType = "Confidential",
             AllowedGrantTypes = new[] { "authorization_code" },
             AllowedScopes = new[] { "openid", "orders.read" },
@@ -117,11 +117,11 @@ public sealed class ApplicationsEndpointWorkflowTests(AppHostFixture fixture) : 
         Guid id = created["id"]?.GetValue<Guid>() ?? throw new InvalidOperationException("ID not returned.");
         var request = new
         {
-            Type = "MachineToMachine",
+            Profile = "Web",
             ClientType = "Confidential",
-            AllowedGrantTypes = new[] { "client_credentials" },
-            AllowedScopes = new[] { "api" },
-            RedirectUris = Array.Empty<string>(),
+            AllowedGrantTypes = new[] { "authorization_code" },
+            AllowedScopes = new[] { "openid", "orders.read", "orders.write" },
+            RedirectUris = new[] { "https://orders.example.com/updated-callback" },
             PostLogoutRedirectUris = Array.Empty<string>(),
             RequirePkce = false,
             RequireConsent = false
@@ -132,8 +132,8 @@ public sealed class ApplicationsEndpointWorkflowTests(AppHostFixture fixture) : 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
         json.ShouldNotBeNull();
-        json["type"]?.GetValue<string>().ShouldBe("MachineToMachine");
-        json["allowedGrantTypes"]?.AsArray().Select(node => node?.GetValue<string>()).ShouldContain("client_credentials");
+        json["profile"]?.GetValue<string>().ShouldBe("Web");
+        json["allowedGrantTypes"]?.AsArray().Select(node => node?.GetValue<string>()).ShouldContain("authorization_code");
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public sealed class ApplicationsEndpointWorkflowTests(AppHostFixture fixture) : 
             ClientId = $"app-{Guid.NewGuid():N}",
             DisplayName = "Orders Web",
             Description = "Orders web app",
-            Type = "Web",
+            Profile = "Web",
             ClientType = "Confidential",
             AllowedGrantTypes = new[] { "authorization_code" },
             AllowedScopes = new[] { "openid", "orders.read" },

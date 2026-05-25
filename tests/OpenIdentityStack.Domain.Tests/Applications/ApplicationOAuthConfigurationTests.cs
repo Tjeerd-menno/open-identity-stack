@@ -18,7 +18,7 @@ public sealed class ApplicationOAuthConfigurationTests
     public void Create_MachineToMachineWithClientCredentials_ReturnsConfidentialApplicationWithoutInteractiveUris()
     {
         Result<Application> result = this.Create(
-            ApplicationType.MachineToMachine,
+            ApplicationProfile.MachineToMachine,
             OAuthClientType.Confidential,
             ["client_credentials"],
             ["api.read"],
@@ -28,7 +28,7 @@ public sealed class ApplicationOAuthConfigurationTests
             requireConsent: false);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.Type.ShouldBe(ApplicationType.MachineToMachine);
+        result.Value.Profile.ShouldBe(ApplicationProfile.MachineToMachine);
         result.Value.ClientType.ShouldBe(OAuthClientType.Confidential);
         result.Value.AllowedGrantTypes.ShouldBe(["client_credentials"]);
         result.Value.RedirectUris.ShouldBeEmpty();
@@ -39,7 +39,7 @@ public sealed class ApplicationOAuthConfigurationTests
     public void Create_MachineToMachineWithPublicClient_ReturnsInvalidClientType()
     {
         Result<Application> result = this.Create(
-            ApplicationType.MachineToMachine,
+            ApplicationProfile.MachineToMachine,
             OAuthClientType.Public,
             ["client_credentials"],
             ["api.read"],
@@ -56,7 +56,7 @@ public sealed class ApplicationOAuthConfigurationTests
     public void Create_MachineToMachineWithRedirectUri_ReturnsRedirectUrisNotAllowed()
     {
         Result<Application> result = this.Create(
-            ApplicationType.MachineToMachine,
+            ApplicationProfile.MachineToMachine,
             OAuthClientType.Confidential,
             ["client_credentials"],
             ["api.read"],
@@ -73,7 +73,7 @@ public sealed class ApplicationOAuthConfigurationTests
     public void Create_AuthorizationCodeWithoutRedirectUri_ReturnsRedirectUriRequired()
     {
         Result<Application> result = this.Create(
-            ApplicationType.Web,
+            ApplicationProfile.Web,
             OAuthClientType.Confidential,
             ["authorization_code"],
             ["openid"],
@@ -90,7 +90,7 @@ public sealed class ApplicationOAuthConfigurationTests
     public void Create_PublicAuthorizationCodeWithoutPkce_ReturnsPkceRequired()
     {
         Result<Application> result = this.Create(
-            ApplicationType.SinglePage,
+            ApplicationProfile.SinglePage,
             OAuthClientType.Public,
             ["authorization_code"],
             ["openid"],
@@ -107,7 +107,7 @@ public sealed class ApplicationOAuthConfigurationTests
     public void ConfigureOAuth_WithValidValues_UpdatesConfigurationAndRaisesEvent()
     {
         Application application = this.Create(
-            ApplicationType.Web,
+            ApplicationProfile.Web,
             OAuthClientType.Confidential,
             ["authorization_code"],
             ["openid"],
@@ -117,7 +117,7 @@ public sealed class ApplicationOAuthConfigurationTests
             requireConsent: true).Value;
 
         Result result = application.ConfigureOAuth(
-            ApplicationType.Web,
+            ApplicationProfile.Web,
             OAuthClientType.Confidential,
             ["authorization_code", "refresh_token"],
             ["openid", "profile"],
@@ -128,7 +128,7 @@ public sealed class ApplicationOAuthConfigurationTests
             this.dateTimeProvider);
 
         result.IsSuccess.ShouldBeTrue();
-        application.Type.ShouldBe(ApplicationType.Web);
+        application.Profile.ShouldBe(ApplicationProfile.Web);
         application.ClientType.ShouldBe(OAuthClientType.Confidential);
         application.RequirePkce.ShouldBeTrue();
         application.AllowedScopes.ShouldBe(["openid", "profile"]);
@@ -139,7 +139,7 @@ public sealed class ApplicationOAuthConfigurationTests
     }
 
     private Result<Application> Create(
-        ApplicationType type,
+        ApplicationProfile profile,
         OAuthClientType clientType,
         IReadOnlyList<string> allowedGrantTypes,
         IReadOnlyList<string> allowedScopes,
@@ -151,7 +151,7 @@ public sealed class ApplicationOAuthConfigurationTests
             "orders-app",
             "Orders App",
             null,
-            type,
+            profile,
             clientType,
             allowedGrantTypes,
             allowedScopes,

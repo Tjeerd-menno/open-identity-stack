@@ -103,28 +103,28 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
     [Fact]
     public async Task ListAsync_ReturnsPagedFilteredApplications()
     {
-        await this.SeedApplicationAsync("orders-web", "Orders Web", ApplicationType.Web);
-        await this.SeedApplicationAsync("billing-m2m", "Billing M2M", ApplicationType.MachineToMachine);
-        await this.SeedApplicationAsync("admin-web", "Admin Web", ApplicationType.Web);
+        await this.SeedApplicationAsync("orders-web", "Orders Web", ApplicationProfile.Web);
+        await this.SeedApplicationAsync("billing-m2m", "Billing M2M", ApplicationProfile.MachineToMachine);
+        await this.SeedApplicationAsync("admin-web", "Admin Web", ApplicationProfile.Web);
 
         (List<DomainApplication> items, int totalCount) = await this.repository.ListAsync(
             1,
             10,
-            ApplicationType.Web,
+            ApplicationProfile.Web,
             ApplicationStatus.Active,
             OAuthClientType.Confidential,
             "web");
 
         totalCount.ShouldBe(2);
         items.Count.ShouldBe(2);
-        items.ShouldAllBe(application => application.Type == ApplicationType.Web);
+        items.ShouldAllBe(application => application.Profile == ApplicationProfile.Web);
         items.ShouldAllBe(application => application.DisplayName.Contains("Web", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
     public async Task AddAsync_PersistsApplicationConfiguration()
     {
-        DomainApplication application = this.CreateApplication("new-web", "New Web", ApplicationType.Web);
+        DomainApplication application = this.CreateApplication("new-web", "New Web", ApplicationProfile.Web);
 
         await this.repository.AddAsync(application);
         await this.repository.SaveChangesAsync();
@@ -135,7 +135,7 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
         persisted.ShouldNotBeNull();
         persisted!.ClientId.ShouldBe("new-web");
         persisted.DisplayName.ShouldBe("New Web");
-        persisted.Type.ShouldBe(ApplicationType.Web);
+        persisted.Profile.ShouldBe(ApplicationProfile.Web);
         persisted.ClientType.ShouldBe(OAuthClientType.Confidential);
         persisted.AllowedGrantTypes.ShouldContain("authorization_code");
         persisted.RedirectUris.ShouldContain("https://new-web.example.com/callback");
@@ -211,7 +211,7 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
         DomainApplication application = await this.SeedApplicationAsync(
             "worker-api",
             "Worker API",
-            ApplicationType.MachineToMachine);
+            ApplicationProfile.MachineToMachine);
         IApplicationProtocolProjection projection = Substitute.For<IApplicationProtocolProjection>();
         projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success());
@@ -248,9 +248,9 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
     private async Task<DomainApplication> SeedApplicationAsync(
         string clientId,
         string displayName,
-        ApplicationType type = ApplicationType.Web)
+        ApplicationProfile profile = ApplicationProfile.Web)
     {
-        DomainApplication application = this.CreateApplication(clientId, displayName, type);
+        DomainApplication application = this.CreateApplication(clientId, displayName, profile);
         await this.dbContext.Applications.AddAsync(application);
         await this.dbContext.SaveChangesAsync();
         return application;
@@ -259,18 +259,18 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
     private DomainApplication CreateApplication(
         string clientId,
         string displayName,
-        ApplicationType type) =>
+        ApplicationProfile profile) =>
         DomainApplication.Create(
             clientId,
             displayName,
             null,
-            type,
+            profile,
             OAuthClientType.Confidential,
-            type == ApplicationType.MachineToMachine ? ["client_credentials"] : ["authorization_code"],
+            profile == ApplicationProfile.MachineToMachine ? ["client_credentials"] : ["authorization_code"],
             ["openid", "api.read"],
-            type == ApplicationType.MachineToMachine ? [] : [$"https://{clientId}.example.com/callback"],
+            profile == ApplicationProfile.MachineToMachine ? [] : [$"https://{clientId}.example.com/callback"],
             [],
             requirePkce: false,
-            requireConsent: type != ApplicationType.MachineToMachine,
+            requireConsent: profile != ApplicationProfile.MachineToMachine,
             this.dateTimeProvider).Value;
 }

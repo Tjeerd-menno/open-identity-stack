@@ -122,7 +122,7 @@ public sealed class OpenIddictApplicationProjectionTests
             "orders-web",
             "Orders Web",
             "Orders web app",
-            ApplicationType.Web,
+            ApplicationProfile.Web,
             OAuthClientType.Confidential,
             ["authorization_code", "refresh_token"],
             ["openid", "orders.read"],

@@ -14,7 +14,7 @@ Fix duplicates or invalid grants before retrying. The preflight step is read-onl
 
 ## Backfill behavior
 
-Legacy `Clients` become Applications with new internal Application IDs and preserved `client_id`, redirect URIs, scopes, grants, PKCE, consent, and inferred application type. Public authorization-code clients and unsupported legacy grant combinations are marked for migration review.
+Legacy `Clients` become Applications with new internal Application IDs and preserved `client_id`, redirect URIs, scopes, grants, PKCE, consent, and inferred application profile. Public authorization-code clients and unsupported legacy grant combinations are marked for migration review.
 
 Legacy `ServiceAccounts` with only `client_credentials` grants become machine-to-machine Applications with new internal Application IDs. Their client secrets and certificates are copied to Application credentials. Revoked legacy credentials stay revoked after migration.
 

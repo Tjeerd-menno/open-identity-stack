@@ -90,13 +90,23 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration,
         string environmentName)
     {
-        // Register DbContext with PostgreSQL
+        bool useSqliteForTesting =
+            string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase)
+            && IsSqliteConnectionString(connectionString);
+
         services.AddDbContext<OpenIdentityStackDbContext>(options =>
         {
-            options.UseNpgsql(connectionString, npgsqlOptions =>
+            if (useSqliteForTesting)
             {
-                npgsqlOptions.MigrationsAssembly(typeof(OpenIdentityStackDbContext).Assembly.FullName);
-            });
+                options.UseSqlite(connectionString);
+            }
+            else
+            {
+                options.UseNpgsql(connectionString, npgsqlOptions =>
+                {
+                    npgsqlOptions.MigrationsAssembly(typeof(OpenIdentityStackDbContext).Assembly.FullName);
+                });
+            }
 
             // Register OpenIddict entity sets
             options.UseOpenIddict();
@@ -267,7 +277,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IListApplicationsQueryHandler, ListApplicationsQueryHandler>();
         services.AddScoped<IGetApplicationQueryHandler, GetApplicationQueryHandler>();
         services.AddScoped<IListApplicationCredentialsQueryHandler, ListApplicationCredentialsQueryHandler>();
-        services.AddScoped<IListApplicationTypePoliciesQueryHandler, ListApplicationTypePoliciesQueryHandler>();
+        services.AddScoped<IListApplicationProfilePoliciesQueryHandler, ListApplicationProfilePoliciesQueryHandler>();
 
         // Register application permission registry use cases
         services.AddScoped<RegisterApplicationUseCase>();

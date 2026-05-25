@@ -32,7 +32,8 @@ public sealed class ApplicationConfiguration : IEntityTypeConfiguration<DomainAp
         builder.Property(application => application.Description)
             .HasMaxLength(1000);
 
-        builder.Property(application => application.Type)
+        builder.Property(application => application.Profile)
+            .HasColumnName("Profile")
             .HasConversion<int>()
             .IsRequired();
 
@@ -88,8 +89,8 @@ public sealed class ApplicationConfiguration : IEntityTypeConfiguration<DomainAp
         builder.HasIndex(application => application.Status)
             .HasDatabaseName("IX_Applications_Status");
 
-        builder.HasIndex(application => application.Type)
-            .HasDatabaseName("IX_Applications_Type");
+        builder.HasIndex(application => application.Profile)
+            .HasDatabaseName("IX_Applications_Profile");
 
         builder.HasMany(application => application.Credentials)
             .WithOne()

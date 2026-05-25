@@ -3,32 +3,32 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Domain.Tests.Applications;
 
-public sealed class ApplicationTypePolicyTests
+public sealed class ApplicationProfilePolicyTests
 {
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public ApplicationTypePolicyTests()
+    public ApplicationProfilePolicyTests()
     {
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.dateTimeProvider.UtcNow.Returns(new DateTimeOffset(2026, 5, 24, 12, 0, 0, TimeSpan.Zero));
     }
 
     [Theory]
-    [InlineData(ApplicationType.Web, ClientProfile.Confidential, "authorization_code", true, true, true)]
-    [InlineData(ApplicationType.SinglePage, ClientProfile.Public, "authorization_code", true, true, true)]
-    [InlineData(ApplicationType.Native, ClientProfile.Public, "authorization_code", true, true, true)]
-    [InlineData(ApplicationType.MachineToMachine, ClientProfile.Confidential, "client_credentials", false, false, true)]
-    public void GetPolicy_ForSupportedType_ReturnsExpectedDefaults(
-        ApplicationType type,
+    [InlineData(ApplicationProfile.Web, ClientProfile.Confidential, "authorization_code", true, true, true)]
+    [InlineData(ApplicationProfile.SinglePage, ClientProfile.Public, "authorization_code", true, true, true)]
+    [InlineData(ApplicationProfile.Native, ClientProfile.Public, "authorization_code", true, true, true)]
+    [InlineData(ApplicationProfile.MachineToMachine, ClientProfile.Confidential, "client_credentials", false, false, true)]
+    public void GetPolicy_ForSupportedProfile_ReturnsExpectedDefaults(
+        ApplicationProfile profile,
         ClientProfile expectedProfile,
         string expectedDefaultGrant,
         bool expectedRedirects,
         bool expectedConsent,
         bool expectedSelectable)
     {
-        ApplicationTypePolicy policy = ApplicationTypePolicyCatalog.GetPolicy(type);
+        ApplicationProfilePolicy policy = ApplicationProfilePolicyCatalog.GetPolicy(profile);
 
-        policy.ApplicationType.ShouldBe(type);
+        policy.ApplicationProfile.ShouldBe(profile);
         policy.DefaultClientProfile.ShouldBe(expectedProfile);
         policy.DefaultGrantTypes.ShouldContain(expectedDefaultGrant);
         policy.RequiresRedirectUris.ShouldBe(expectedRedirects);
@@ -39,7 +39,7 @@ public sealed class ApplicationTypePolicyTests
     [Fact]
     public void GetPolicy_Web_ExposesExpectedOptionAvailability()
     {
-        ApplicationTypePolicy policy = ApplicationTypePolicyCatalog.GetPolicy(ApplicationType.Web);
+        ApplicationProfilePolicy policy = ApplicationProfilePolicyCatalog.GetPolicy(ApplicationProfile.Web);
 
         policy.Options[ApplicationOptionKey.ClientSecrets].ShouldBe(ApplicationOptionAvailability.Available);
         policy.Options[ApplicationOptionKey.AuthorizationCodeGrant].ShouldBe(ApplicationOptionAvailability.Available);
@@ -51,7 +51,7 @@ public sealed class ApplicationTypePolicyTests
     [Fact]
     public void GetPolicy_SinglePage_HidesCredentialsAndRequiresPkce()
     {
-        ApplicationTypePolicy policy = ApplicationTypePolicyCatalog.GetPolicy(ApplicationType.SinglePage);
+        ApplicationProfilePolicy policy = ApplicationProfilePolicyCatalog.GetPolicy(ApplicationProfile.SinglePage);
 
         policy.Options[ApplicationOptionKey.ClientProfile].ShouldBe(ApplicationOptionAvailability.ReadOnly);
         policy.Options[ApplicationOptionKey.ClientSecrets].ShouldBe(ApplicationOptionAvailability.Hidden);
@@ -63,7 +63,7 @@ public sealed class ApplicationTypePolicyTests
     [Fact]
     public void GetPolicy_Native_SupportsNativeRedirectPatterns()
     {
-        ApplicationTypePolicy policy = ApplicationTypePolicyCatalog.GetPolicy(ApplicationType.Native);
+        ApplicationProfilePolicy policy = ApplicationProfilePolicyCatalog.GetPolicy(ApplicationProfile.Native);
 
         policy.Options[ApplicationOptionKey.NativeRedirectUriPatterns].ShouldBe(ApplicationOptionAvailability.Available);
         policy.Options[ApplicationOptionKey.LoopbackRedirectUri].ShouldBe(ApplicationOptionAvailability.Available);
@@ -74,7 +74,7 @@ public sealed class ApplicationTypePolicyTests
     [Fact]
     public void GetPolicy_MachineToMachine_AllowsOnlyConfidentialCredentialManagement()
     {
-        ApplicationTypePolicy policy = ApplicationTypePolicyCatalog.GetPolicy(ApplicationType.MachineToMachine);
+        ApplicationProfilePolicy policy = ApplicationProfilePolicyCatalog.GetPolicy(ApplicationProfile.MachineToMachine);
 
         policy.AllowedGrantTypes.ShouldBe(["client_credentials"]);
         policy.Options[ApplicationOptionKey.RedirectUris].ShouldBe(ApplicationOptionAvailability.Hidden);
@@ -87,7 +87,7 @@ public sealed class ApplicationTypePolicyTests
     [Fact]
     public void GetPolicy_Device_IsReservedUntilDeviceFlowIsImplemented()
     {
-        ApplicationTypePolicy policy = ApplicationTypePolicyCatalog.GetPolicy(ApplicationType.Device);
+        ApplicationProfilePolicy policy = ApplicationProfilePolicyCatalog.GetPolicy(ApplicationProfile.Device);
 
         policy.IsSelectable.ShouldBeFalse();
         policy.UnavailabilityReason.ShouldNotBeNullOrWhiteSpace();
@@ -97,13 +97,13 @@ public sealed class ApplicationTypePolicyTests
     }
 
     [Fact]
-    public void ConfigureOAuth_WhenTypeChangesAfterCreation_ReturnsTypeChangeNotAllowed()
+    public void ConfigureOAuth_WhenTypeChangesAfterCreation_ReturnsProfileChangeNotAllowed()
     {
         Application application = Application.Create(
             "orders-web",
             "Orders Web",
             null,
-            ApplicationType.Web,
+            ApplicationProfile.Web,
             OAuthClientType.Confidential,
             ["authorization_code"],
             ["openid"],
@@ -114,7 +114,7 @@ public sealed class ApplicationTypePolicyTests
             this.dateTimeProvider).Value;
 
         Result result = application.ConfigureOAuth(
-            ApplicationType.SinglePage,
+            ApplicationProfile.SinglePage,
             OAuthClientType.Public,
             ["authorization_code"],
             ["openid", "profile"],
@@ -125,6 +125,6 @@ public sealed class ApplicationTypePolicyTests
             this.dateTimeProvider);
 
         result.IsFailure.ShouldBeTrue();
-        result.Error.Code.ShouldBe(ApplicationErrors.TypeChangeNotAllowed.Code);
+        result.Error.Code.ShouldBe(ApplicationErrors.ProfileChangeNotAllowed.Code);
     }
 }

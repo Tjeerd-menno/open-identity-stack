@@ -8,7 +8,7 @@
 
 Replace the split `Client` and `ServiceAccount` product/domain concepts with one administrator-managed `Application` aggregate for OAuth/OIDC software registrations. The implementation keeps protocol vocabulary such as `client_id` and client authentication where required, but exposes "Application" and "Machine-to-machine application" as the product language across domain, admin APIs, persistence, OpenIddict projection, permissions, audit events, and AdminWeb.
 
-The technical approach is a staged vertical migration: add the new `Applications` domain slice and persistence tables, migrate supported existing `Clients`/`ServiceAccounts`/credentials/certificates into the new model with preflight safeguards, switch OpenIddict synchronization and client authentication to the application repository, introduce `/api/admin/applications`, remove legacy client/service-account admin endpoints as a pre-1.0 breaking change, and then add an application-type policy layer so the API enforces valid OAuth/security combinations while AdminWeb railroads administrators through sensible choices.
+The technical approach is a staged vertical migration: add the new `Applications` domain slice and persistence tables, migrate supported existing `Clients`/`ServiceAccounts`/credentials/certificates into the new model with preflight safeguards, switch OpenIddict synchronization and client authentication to the application repository, introduce `/api/admin/applications`, remove legacy client/service-account admin endpoints as a pre-1.0 breaking change, add an application-profile policy layer so the API enforces valid OAuth/security combinations while AdminWeb railroads administrators through sensible choices, and then complete a terminology refactor from `ApplicationProfile`/`type` to `ApplicationProfile`/`profile` across product-facing surfaces.
 
 ## Technical Context
 
@@ -28,13 +28,13 @@ The technical approach is a staged vertical migration: add the new `Applications
 
 **Constraints**: Preserve Clean Architecture dependency direction; warnings-as-errors and nullable compliance; direct use cases/query handlers instead of MediatR; explicit mapping instead of AutoMapper; System.Text.Json/Microsoft OpenAPI/Scalar instead of banned packages; plain secrets must never be stored or logged; OpenIddict is a projection, not domain source of truth.
 
-**Scale/Scope**: Covers admin creation/list/get/update/delete/enable/disable, OAuth configuration, credential/certificate lifecycle, machine-to-machine behavior, application-type policy enforcement for Web, Single Page, Native, Machine-to-machine, and reserved Device profiles, migration from existing client/service-account data where supported, permissions/seeding, audit events, removal of old admin endpoints, AdminWeb navigation/create/detail/credentials UX, and docs/deployment guidance. Excludes compatibility endpoints, Dynamic Client Registration, SAML applications, SCIM applications, delegated tenant service principals, implementation of advanced policy options such as private-key JWT/mTLS/DPoP/token lifetime overrides, and unrelated user/role/group/session/federation rewrites.
+**Scale/Scope**: Covers admin creation/list/get/update/delete/enable/disable, OAuth configuration, credential/certificate lifecycle, machine-to-machine behavior, application-profile policy enforcement for Web, Single Page, Native, Machine-to-machine, and reserved Device profiles, migration from existing client/service-account data where supported, permissions/seeding, audit events, removal of old admin endpoints, AdminWeb navigation/create/detail/credentials UX, terminology alignment to `ApplicationProfile`/`profile`, and docs/deployment guidance. Excludes compatibility endpoints, Dynamic Client Registration, SAML applications, SCIM applications, delegated tenant service principals, implementation of advanced policy options such as private-key JWT/mTLS/DPoP/token lifetime overrides, and unrelated user/role/group/session/federation rewrites.
 
 **Security Impact**: High. This feature changes privileged admin resources, permission names, OAuth client authentication, secrets/certificates, token issuance for disabled applications, migration of security-sensitive data, audit-event vocabulary, and API enforcement of profile-specific OAuth rules that prevent insecure grant/client-type/credential combinations.
 
 **Operational Impact**: High. Requires schema migration, migration preflight reporting, OpenIddict projection synchronization, removal of old route mappings, docs updates, and rollback/remediation guidance focused on database/application deployment rather than legacy endpoint compatibility.
 
-**Documentation Impact**: Product docs and migration/operations docs must explain the new "Application" terminology, machine-to-machine replacement for service accounts, type-specific configuration choices, removed legacy admin endpoints, secret one-time display, and migration failure/remediation cases.
+**Documentation Impact**: Product docs and migration/operations docs must explain the new "Application" and "Application Profile" terminology, machine-to-machine replacement for service accounts, profile-specific configuration choices, removed legacy admin endpoints, secret one-time display, and migration failure/remediation cases.
 
 **Package/Dependency Changes**: N/A. Use existing framework and repository patterns.
 
@@ -81,8 +81,8 @@ src/
 │   │   ├── ApplicationDomainEvents.cs
 │   │   ├── ApplicationErrors.cs
 │   │   ├── ApplicationId.cs
-│   │   ├── ApplicationTypePolicy.cs
-│   │   ├── ApplicationType.cs
+│   │   ├── ApplicationProfilePolicy.cs
+│   │   ├── ApplicationProfile.cs
 │   │   ├── ApplicationStatus.cs
 │   │   ├── ApplicationCredentialType.cs
 │   │   └── OAuthGrantType.cs
@@ -140,7 +140,7 @@ docs/
 deploy/
 ```
 
-**Structure Decision**: Implement a new `Applications` vertical slice and remove `Clients` and `ServiceAccounts` API routes in the same pre-1.0 breaking change. Do not keep `ServiceAccount` as a top-level domain aggregate; migrate supported behavior into `Application` with `ApplicationType = MachineToMachine`.
+**Structure Decision**: Implement a new `Applications` vertical slice and remove `Clients` and `ServiceAccounts` API routes in the same pre-1.0 breaking change. Do not keep `ServiceAccount` as a top-level domain aggregate; migrate supported behavior into `Application` with `ApplicationProfile = MachineToMachine`.
 
 ## Complexity Tracking
 
@@ -155,11 +155,12 @@ No constitution violations are required.
 All technical context unknowns are resolved in [research.md](./research.md). Key decisions:
 
 - Use `Application` as the aggregate root and keep `client_id` as the stable protocol identifier.
-- Represent service accounts as `ApplicationType.MachineToMachine` rather than a separate aggregate.
+- Represent service accounts as `ApplicationProfile.MachineToMachine` rather than a separate aggregate.
 - Keep domain-owned credential hashes and generalize client authentication from service-account-only validation to application credential validation.
 - Remove deprecated `/api/admin/clients` and `/api/admin/service-accounts` endpoints now; no compatibility adapter is a goal.
 - Fail production migration preflight when duplicate `client_id` values or invalid service-account grants are found before mutating data.
-- Model application-type policy from `application-type-options-matrix.md` as API-owned business rules; AdminWeb may guide choices but cannot be the source of truth.
+- Model application-profile policy from `application-type-options-matrix.md` as API-owned business rules; AdminWeb may guide choices but cannot be the source of truth.
+- Apply the terminology addendum by exposing the product classification as `ApplicationProfile` in code and `profile` in API/AdminWeb contracts while keeping OpenIddict protocol `ApplicationType` naming inside adapters only.
 
 ## Phase 1 Design Summary
 
@@ -178,22 +179,23 @@ Design artifacts are generated:
 5. **OpenIddict projection**: Replace client/service-account-specific registrar behavior with `OpenIddictApplicationProjection`; map grants/endpoints/scopes/PKCE/consent/status from `Application`.
 6. **Credential validation**: Replace `ServiceAccountValidationHandler` with `ApplicationClientAuthenticationHandler` that validates active non-revoked/non-expired secrets and certificates for all confidential applications.
 7. **Admin API**: Add `/api/admin/applications` endpoints with unified permissions, DTOs, Problem Details-style validation behavior, OpenAPI/Scalar metadata, and contract tests.
-8. **Application type policy**: Add a policy model/service and optional policy endpoint that expose hidden/read-only/available/advanced option availability, default client profile, allowed/default grants, and API validation rules for each application type. Advanced options remain metadata only until separate protocol support is implemented.
+8. **Application profile policy**: Add a policy model/service and optional policy endpoint that expose hidden/read-only/available/advanced option availability, default client profile, allowed/default grants, and API validation rules for each application profile. Advanced options remain metadata only until separate protocol support is implemented.
 9. **Legacy endpoint removal**: Remove client/service-account API route mappings, compatibility configuration, deprecation metadata, and tests that assert adapter behavior.
 10. **Permissions and seed data**: Add `Permissions.Applications.*`, map old permissions, update seed/admin roles, and verify no over/under-granting.
-11. **AdminWeb**: Replace separate navigation with Applications, add list filters, type-first creation wizard, detail tabs, credential/certificate management with one-time secret display, and type-specific railroaded controls derived from application policy.
-12. **Documentation/deployment**: Document terminology, migration, type policy, removed endpoints, rollback/remediation, and screenshot changed AdminWeb flows.
+11. **AdminWeb**: Replace separate navigation with Applications, add list filters, profile-first creation/configuration flows, detail tabs, credential/certificate management with one-time secret display, and profile-specific railroaded controls derived from application policy.
+12. **Documentation/deployment**: Document terminology, migration, profile policy, removed endpoints, rollback/remediation, and screenshot changed AdminWeb flows.
+13. **Terminology refactor**: Rename product-facing `ApplicationProfile`/`type` surfaces to `ApplicationProfile`/`profile` across domain/application profiles, API DTOs and query parameters, AdminWeb models/forms, OpenAPI, docs, and migrations without changing behavior; preserve OpenIddict protocol `ApplicationProfile` naming only where it refers to OpenIddict metadata.
 
 ### Design Re-check Constitution Gate
 
 | Gate | Status | Evidence / Notes |
 |------|--------|------------------|
-| I. Security by Design | PASS | Data model includes credential metadata, secret/certificate lifecycle, permissions, audit events, safe migration failure modes, and API-owned application-type policy enforcement. |
+| I. Security by Design | PASS | Data model includes credential metadata, secret/certificate lifecycle, permissions, audit events, safe migration failure modes, API-owned application-profile policy enforcement, and clear separation between product profile naming and OpenIddict protocol terminology. |
 | II. Test-First, Risk-Based Verification | PASS | Design maps requirements to specific domain/application/API/integration/contract/migration/AdminWeb test categories before implementation. |
 | III. Layered Architecture with Vertical Feature Slices | PASS | Contracts and data model preserve Domain/Application/Infrastructure/Api/AdminWeb boundaries. |
 | IV. Simplicity and Dependency Discipline | PASS | Design reuses existing patterns and requires no new packages. |
 | V. Operational Reliability and Observability | PASS | Migration rollout, preflight, removed-route behavior, audit, and docs are explicit. |
-| VI. User-Facing and API Consistency | PASS | Contract defines consistent unified endpoints, pagination/filtering, credential response shapes, and policy-driven option availability for AdminWeb. |
+| VI. User-Facing and API Consistency | PASS | Contract defines consistent unified endpoints, pagination/filtering, credential response shapes, `profile` naming for product-facing contracts, and policy-driven option availability for AdminWeb. |
 | Technology and Package Constraints | PASS | Design remains within existing .NET/AdminWeb technologies and package constraints. |
 | Documentation Impact | PASS | Quickstart and plan require product/operator docs plus AdminWeb screenshots. |
 | Validation Commands | PASS | Quickstart lists exact commands for restore/build/tests/docs and targeted suites. |

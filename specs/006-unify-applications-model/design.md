@@ -17,7 +17,7 @@ The current distinction between `Client` and `ServiceAccount` should be removed 
 | Current concept | New concept | Notes |
 | --- | --- | --- |
 | `Client` | `Application` | Keep `client_id` as the OAuth protocol identifier. Rename the domain and admin UX concept. |
-| `ServiceAccount` | `Application` with `ApplicationType = MachineToMachine` | Service-account behavior becomes a capability/profile of an application, not a separate aggregate. |
+| `ServiceAccount` | `Application` with `ApplicationProfile = MachineToMachine` | Service-account behavior becomes a capability/profile of an application, not a separate aggregate. |
 | `ClientCredential` | `ApplicationCredential` | Used for client secrets and future credential types. |
 | `ClientCertificate` | `ApplicationCredential` with `CredentialType = X509Certificate` | Certificates are credentials of an application. |
 | `/api/admin/clients` | `/api/admin/applications` | Remove the legacy endpoint in this pre-1.0 breaking change. |
@@ -79,7 +79,7 @@ Open Identity Stack should keep the OAuth protocol vocabulary internally where r
 Application
   ├─ OAuth client identity: client_id
   ├─ Client classification: public/confidential
-  ├─ Application type/profile: web, SPA, native, machine-to-machine, device, custom
+  ├─ Application profile/profile: web, SPA, native, machine-to-machine, device, custom
   ├─ Allowed OAuth behavior: grants, scopes, redirects, PKCE, consent
   ├─ Credentials: secrets, certificates, future private_key_jwt/JWK
   └─ Lifecycle: active, disabled, deleted/archived
@@ -104,7 +104,7 @@ The split causes these problems:
 
 - Introduce `Application` as the single domain aggregate for OAuth/OIDC application registrations.
 - Preserve the protocol term `client_id` and the OAuth distinction between public and confidential clients.
-- Model machine-to-machine access as an application type/capability.
+- Model machine-to-machine access as an application profile/capability.
 - Move client secrets and certificates under application credentials.
 - Generalize service-account validation into application client-authentication validation.
 - Provide a migration path from `Clients`, `ServiceAccounts`, `ClientCredentials`, and `ClientCertificates` to the new schema.
@@ -144,7 +144,7 @@ classDiagram
         string ClientId
         string DisplayName
         string? Description
-        ApplicationType Type
+        ApplicationProfile Profile
         OAuthClientType ClientType
         ApplicationStatus Status
         IReadOnlyList~OAuthGrantType~ AllowedGrantTypes
@@ -195,7 +195,7 @@ Repository-level or database-level constraints enforce uniqueness of `client_id`
 ```csharp
 namespace OpenIdentityStack.Domain.Applications;
 
-public enum ApplicationType
+public enum ApplicationProfile
 {
     MachineToMachine = 1,
     Web = 2,
@@ -237,7 +237,7 @@ public enum OAuthGrantType
 
 ### 7.3 Application profiles
 
-| Application type | Client type | Default grants | Redirects | Credentials | PKCE | Consent |
+| Application profile | Client type | Default grants | Redirects | Credentials | PKCE | Consent |
 | --- | --- | --- | --- | --- | --- | --- |
 | Machine-to-machine | Confidential | `client_credentials` | Not allowed | Required: secret, certificate, or future assertion | Not applicable | Not applicable / false |
 | Web | Confidential | `authorization_code`, optional `refresh_token` | Required for auth code | Secret/certificate/assertion allowed | Recommended; may be required by policy | Configurable |
@@ -246,7 +246,7 @@ public enum OAuthGrantType
 | Device | Public | `urn:ietf:params:oauth:grant-type:device_code` | Not required | Not allowed | Not applicable | Configurable |
 | Custom | Explicit | Explicit | Explicit | Explicit | Explicit | Explicit |
 
-`ApplicationType.Custom` should be reserved for advanced cases and require explicit grants/validations. It should not be the default.
+`ApplicationProfile.Custom` should be reserved for advanced cases and require explicit grants/validations. It should not be the default.
 
 ## 8. Domain invariants
 
@@ -274,7 +274,7 @@ public enum OAuthGrantType
 - `implicit` must be rejected for new applications unless an explicit legacy feature flag is enabled.
 - `password` must be rejected for new applications unless an explicit legacy feature flag is enabled.
 - `refresh_token` may only be enabled with another primary grant that can issue refresh tokens.
-- `device_code` should be allowed only for `ApplicationType.Device` or `Custom`.
+- `device_code` should be allowed only for `ApplicationProfile.Device` or `Custom`.
 
 ### 8.3 Redirect URI invariants
 
@@ -312,7 +312,7 @@ public sealed record ApplicationId(Guid Value)
     public static ApplicationId NewId() => new(Guid.NewGuid());
 }
 
-public enum ApplicationType
+public enum ApplicationProfile
 {
     MachineToMachine = 1,
     Web = 2,
@@ -362,7 +362,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
     public string ClientId { get; private set; } = string.Empty;
     public string DisplayName { get; private set; } = string.Empty;
     public string? Description { get; private set; }
-    public ApplicationType Type { get; private set; }
+    public ApplicationProfile Profile { get; private set; }
     public OAuthClientType ClientType { get; private set; }
     public ApplicationStatus Status { get; private set; }
     public bool RequirePkce { get; private set; }
@@ -383,7 +383,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
         string clientId,
         string displayName,
         string? description,
-        ApplicationType type,
+        ApplicationProfile profile,
         OAuthClientType clientType,
         IReadOnlyList<string> redirectUris,
         IReadOnlyList<string> postLogoutRedirectUris,
@@ -396,7 +396,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
         this.ClientId = clientId;
         this.DisplayName = displayName;
         this.Description = description;
-        this.Type = type;
+        this.Profile = type;
         this.ClientType = clientType;
         this.Status = ApplicationStatus.Active;
         this.redirectUris.AddRange(redirectUris);
@@ -413,7 +413,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
         string clientId,
         string displayName,
         string? description,
-        ApplicationType type,
+        ApplicationProfile profile,
         OAuthClientType clientType,
         IReadOnlyList<string> redirectUris,
         IReadOnlyList<string> postLogoutRedirectUris,
@@ -460,7 +460,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             application.Id,
             application.ClientId,
             application.DisplayName,
-            application.Type,
+            application.Profile,
             dateTimeProvider.UtcNow));
 
         return application;
@@ -487,7 +487,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
     }
 
     public Result ConfigureOAuth(
-        ApplicationType type,
+        ApplicationProfile profile,
         OAuthClientType clientType,
         IReadOnlyList<string> redirectUris,
         IReadOnlyList<string> postLogoutRedirectUris,
@@ -515,7 +515,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             return validation.Error;
         }
 
-        this.Type = type;
+        this.Profile = type;
         this.ClientType = clientType;
         this.redirectUris.Clear();
         this.redirectUris.AddRange(redirectUris.Select(uri => uri.Trim()).Distinct(StringComparer.OrdinalIgnoreCase));
@@ -647,7 +647,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
         string clientId,
         string displayName,
         string? description,
-        ApplicationType type,
+        ApplicationProfile profile,
         OAuthClientType clientType,
         IReadOnlyList<string> redirectUris,
         IReadOnlyList<string> postLogoutRedirectUris,
@@ -735,7 +735,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             return ApplicationErrors.PkceRequiredForPublicAuthorizationCodeApplications;
         }
 
-        if (type == ApplicationType.MachineToMachine)
+        if (type == ApplicationProfile.MachineToMachine)
         {
             if (clientType != OAuthClientType.Confidential)
             {
@@ -753,7 +753,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             }
         }
 
-        if (type == ApplicationType.Device && !hasDeviceCode)
+        if (type == ApplicationProfile.Device && !hasDeviceCode)
         {
             return ApplicationErrors.DeviceApplicationsRequireDeviceCodeGrant;
         }
@@ -794,7 +794,7 @@ public sealed class ApplicationCredential : IEquatable<ApplicationCredential>
     {
         this.Id = id;
         this.ApplicationId = applicationId;
-        this.Type = type;
+        this.Profile = type;
         this.SecretHash = secretHash;
         this.Thumbprint = thumbprint;
         this.Subject = subject;
@@ -865,7 +865,7 @@ public sealed class ApplicationCredential : IEquatable<ApplicationCredential>
 
 | Use case | Purpose |
 | --- | --- |
-| `CreateApplicationUseCase` | Creates any application type and optionally one initial credential. |
+| `CreateApplicationUseCase` | Creates any application profile and optionally one initial credential. |
 | `UpdateApplicationMetadataUseCase` | Updates display name and description. |
 | `ConfigureApplicationOAuthUseCase` | Updates grants, scopes, redirects, PKCE, consent, and type/profile. |
 | `EnableApplicationUseCase` | Reactivates disabled application. |
@@ -917,7 +917,7 @@ public sealed record CreateApplicationRequest(
     string ClientId,
     string DisplayName,
     string? Description,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     IReadOnlyList<string> RedirectUris,
     IReadOnlyList<string> PostLogoutRedirectUris,
@@ -939,7 +939,7 @@ public sealed record UpdateApplicationMetadataRequest(
     string? Description);
 
 public sealed record ConfigureApplicationOAuthRequest(
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     IReadOnlyList<string> RedirectUris,
     IReadOnlyList<string> PostLogoutRedirectUris,
@@ -962,7 +962,7 @@ public sealed record ApplicationCreatedResponse(
     Guid Id,
     string ClientId,
     string DisplayName,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     ApplicationStatus Status,
     string? InitialSecret,
@@ -973,7 +973,7 @@ public sealed record ApplicationResponse(
     string ClientId,
     string DisplayName,
     string? Description,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     ApplicationStatus Status,
     IReadOnlyList<string> RedirectUris,
@@ -1009,7 +1009,7 @@ public sealed record ApplicationListItemResponse(
     Guid Id,
     string ClientId,
     string DisplayName,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     ApplicationStatus Status,
     IReadOnlyList<string> AllowedGrantTypes,
@@ -1180,7 +1180,7 @@ If OpenIddict must keep a client secret for built-in validation, then secret add
 | `ClientId` | `text` / varchar(255) | yes | Unique OAuth `client_id`. |
 | `DisplayName` | varchar(255) | yes | Unified max length. |
 | `Description` | varchar(1000) | no | From current client description, null for service-account migration. |
-| `Type` | int | yes | `ApplicationType`. |
+| `Type` | int | yes | `ApplicationProfile`. |
 | `ClientType` | int | yes | Public/confidential. |
 | `Status` | int | yes | Active/disabled. |
 | `RedirectUris` | jsonb | yes | Empty array when not applicable. |
@@ -1277,7 +1277,7 @@ public static class ApplicationDomainEvents
         ApplicationId ApplicationId,
         string ClientId,
         string DisplayName,
-        ApplicationType Type,
+        ApplicationProfile Profile,
         DateTimeOffset OccurredAt) : DomainEvent(OccurredAt);
 
     public sealed record ApplicationUpdated(
@@ -1352,9 +1352,9 @@ The Applications page should provide filters:
 
 ### 17.2 Create flow
 
-Use an application-type-first wizard:
+Use an application-profile-first wizard:
 
-1. Choose application type.
+1. Choose application profile.
 2. Enter `client_id`, display name, and description.
 3. Configure redirect URIs when required.
 4. Configure scopes and grants using safe defaults.
@@ -1455,7 +1455,7 @@ Given an administrator with `applications:write` and `applications:manage-creden
 
 ### AC-002: Reject invalid machine-to-machine grants
 
-Given a create request for `ApplicationType.MachineToMachine`, when the request includes `authorization_code`, `refresh_token`, `device_code`, `password`, or `implicit`, then the API returns `400 Bad Request` with a domain error.
+Given a create request for `ApplicationProfile.MachineToMachine`, when the request includes `authorization_code`, `refresh_token`, `device_code`, `password`, or `implicit`, then the API returns `400 Bad Request` with a domain error.
 
 ### AC-003: Reject public application secrets
 
@@ -1537,7 +1537,7 @@ Given the unified Applications API is deployed, when a consumer calls `GET /api/
 - [ ] T040 Create `ApplicationsApi` minimal API route group.
 - [ ] T041 Add application request/response DTOs.
 - [ ] T042 Add route-level authorization using `Permissions.Applications.*`.
-- [ ] T043 Add Scalar/OpenAPI descriptions for application types and omit removed legacy endpoints.
+- [ ] T043 Add Scalar/OpenAPI descriptions for application profiles and omit removed legacy endpoints.
 - [ ] T044 Add API tests for create/get/list/update/delete/enable/disable/credentials.
 
 ## Phase 6: Legacy endpoint removal
@@ -1640,8 +1640,8 @@ These decisions are resolved for this pre-1.0 breaking-change implementation.
 | Should old `Client.Id` and `ServiceAccount.Id` values be preserved as `Application.Id`? | No. Generate new `Application.Id` values; preserve only the OAuth `client_id` protocol identifier. |
 | What to do with service accounts that have non-`client_credentials` grants? | Do not support a compatibility path. Drop the legacy service-account table as part of the breaking cleanup. |
 | Should OpenIddict or the domain own client secret hashes? | Domain owns credentials; OpenIddict is projection. If OpenIddict must store secrets, synchronize every add/revoke. |
-| Should `ApplicationType.Device` be implemented now? | Reserve the enum, but only enable if the token flow is implemented and tested. |
-| Should `ApplicationType.Custom` allow implicit/password grants? | No. Do not allow implicit or password grants. |
+| Should `ApplicationProfile.Device` be implemented now? | Reserve the enum, but only enable if the token flow is implemented and tested. |
+| Should `ApplicationProfile.Custom` allow implicit/password grants? | No. Do not allow implicit or password grants. |
 | Should this feature reserve room for SAML/SCIM apps? | Reserve a future `Protocol` field only if needed; do not implement multi-protocol now. |
 
 ## 25. Recommended final shape

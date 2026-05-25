@@ -17,7 +17,7 @@ public interface IApplicationRepository
     Task<(List<DomainApplication> Items, int TotalCount)> ListAsync(
         int page,
         int pageSize,
-        OpenIdentityStack.Domain.Applications.ApplicationType? type,
+        OpenIdentityStack.Domain.Applications.ApplicationProfile? profile,
         OpenIdentityStack.Domain.Applications.ApplicationStatus? status,
         OpenIdentityStack.Domain.Applications.OAuthClientType? clientType,
         string? searchTerm,

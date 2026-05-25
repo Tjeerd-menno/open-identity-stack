@@ -50,7 +50,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text");
 
-                    b.Property<string>("ApplicationType")
+                    b.Property<string>("ApplicationProfile")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
@@ -473,7 +473,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
-                    b.Property<int>("Type")
+                    b.Property<int>("Profile")
                         .HasColumnType("integer");
 
                     b.PrimitiveCollection<string>("allowedGrantTypes")
@@ -505,8 +505,8 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.HasIndex("Status")
                         .HasDatabaseName("IX_Applications_Status");
 
-                    b.HasIndex("Type")
-                        .HasDatabaseName("IX_Applications_Type");
+                    b.HasIndex("Profile")
+                        .HasDatabaseName("IX_Applications_Profile");
 
                     b.ToTable("Applications", (string)null);
                 });

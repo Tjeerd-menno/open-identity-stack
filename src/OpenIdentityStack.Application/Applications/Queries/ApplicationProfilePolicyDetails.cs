@@ -2,8 +2,8 @@ using OpenIdentityStack.Domain.Applications;
 
 namespace OpenIdentityStack.Application.Applications.Queries;
 
-public sealed record ApplicationTypePolicyDetails(
-    ApplicationType ApplicationType,
+public sealed record ApplicationProfilePolicyDetails(
+    ApplicationProfile ApplicationProfile,
     bool IsSelectable,
     string? UnavailabilityReason,
     ClientProfile DefaultClientProfile,

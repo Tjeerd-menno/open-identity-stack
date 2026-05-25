@@ -215,7 +215,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text");
 
-                    b.Property<string>("ApplicationType")
+                    b.Property<string>("ApplicationProfile")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 

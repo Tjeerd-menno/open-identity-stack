@@ -1,7 +1,7 @@
-# Application Type Options Matrix
+# Application Profile Options Matrix
 
 **Feature**: Replace separate Clients and Service Accounts with a unified `Application` aggregate  
-**Purpose**: Define which configuration options should be visible, fixed, advanced, or unavailable for each application type.
+**Purpose**: Define which configuration options should be visible, fixed, advanced, or unavailable for each application profile.
 
 ## Legend
 
@@ -10,7 +10,7 @@
 | ✅ | Available in the normal UI/API |
 | 🔒 | Fixed default; visible as read-only or implicit |
 | ⚙️ | Advanced option; available only when the deployment supports it |
-| ❌ | Not available; hide from UI/API for this application type |
+| ❌ | Not available; hide from UI/API for this application profile |
 
 ## Definitions
 
@@ -24,7 +24,7 @@ A browser app with a Backend-for-Frontend (BFF) should be registered as **Web**,
 
 ## Recommended Default Profiles
 
-| Application type | Default client profile | Default grant types | Redirect configuration | Credential options | PKCE | Refresh tokens | Reasoning |
+| Application profile | Default client profile | Default grant types | Redirect configuration | Credential options | PKCE | Refresh tokens | Reasoning |
 |---|---|---|---|---|---|---|---|
 | Web | Confidential | `authorization_code`; optionally `refresh_token` | Required HTTPS redirect URIs; post-logout redirect URIs optional | Client secret by default; `private_key_jwt` and mTLS optional advanced methods | Default on / recommended | Optional | A server-hosted web app can protect client credentials. Authorization Code keeps tokens out of the front channel, and current OAuth security guidance recommends PKCE even for confidential clients. |
 | Single Page | Public | `authorization_code`; optionally `refresh_token` | Required HTTPS redirect URIs and allowed web origins | No secrets, no certificates | Required | Optional only with rotation and bounded lifetime | Browser JavaScript cannot keep a shared secret. Current browser-app guidance is Authorization Code + PKCE and no Implicit flow. |
@@ -37,9 +37,9 @@ A browser app with a Backend-for-Frontend (BFF) should be registered as **Web**,
 | Option | Web | Single Page | Native | Machine to Machine | Device | Reasoning / rule |
 |---|---:|---:|---:|---:|---:|---|
 | Application name, description, owner, tags | ✅ | ✅ | ✅ | ✅ | ✅ | Metadata is independent of OAuth flow and should be available for administration, consent screens, and auditability. |
-| Enable / disable application | ✅ | ✅ | ✅ | ✅ | ✅ | Lifecycle control should be universal. Disabling an application should prevent new token issuance for every application type. |
+| Enable / disable application | ✅ | ✅ | ✅ | ✅ | ✅ | Lifecycle control should be universal. Disabling an application should prevent new token issuance for every application profile. |
 | `client_id` | ✅ | ✅ | ✅ | ✅ | ✅ | Every OAuth client registration needs a stable public identifier. It is not a secret and must not be used alone for authentication. |
-| Application type | 🔒 | 🔒 | 🔒 | 🔒 | 🔒 | The selected type determines the allowed configuration surface. Changing type after creation should be blocked or implemented as a migration workflow, because it changes security posture. |
+| Application profile | 🔒 | 🔒 | 🔒 | 🔒 | 🔒 | The selected type determines the allowed configuration surface. Changing type after creation should be blocked or implemented as a migration workflow, because it changes security posture. |
 | Client profile | 🔒 Confidential | 🔒 Public | 🔒 Public | 🔒 Confidential | 🔒 Public by default / ⚙️ Confidential | OAuth distinguishes clients by their ability to keep credentials confidential. Web and M2M can usually protect credentials; SPA and native clients cannot. Device clients are generally public unless additional protection is available. |
 | Token endpoint authentication method | ✅ `client_secret_basic` default; ⚙️ `client_secret_post`, `private_key_jwt`, mTLS | 🔒 `none` | 🔒 `none` | ✅ `client_secret_basic` default; ⚙️ `client_secret_post`, `private_key_jwt`, mTLS | 🔒 `none`; ⚙️ confidential device methods | Public clients should not authenticate with shared secrets. Confidential clients need an explicit token endpoint authentication method. |
 | Client secrets | ✅ | ❌ | ❌ | ✅ | ❌ by default / ⚙️ only for confidential device | Shared secrets are appropriate for confidential clients. They should be hidden for SPA/native clients because users can inspect or extract them. |
@@ -47,7 +47,7 @@ A browser app with a Backend-for-Frontend (BFF) should be registered as **Web**,
 | Secret rotation and revocation | ✅ | ❌ | ❌ | ✅ | ⚙️ | Rotation is a lifecycle feature of confidential credentials. It is not meaningful for public clients that do not have a secret. |
 | Client certificates / mTLS | ⚙️ | ❌ | ❌ | ⚙️ | ⚙️ managed devices only | mTLS is useful for high-assurance confidential clients and certificate-bound tokens. It should not be presented as a normal option for public clients. |
 | JWKS / JWKS URI for client authentication | ⚙️ | ❌ | ⚙️ only for proof-of-possession features, not shared client auth | ⚙️ | ⚙️ | Useful for `private_key_jwt`, signed requests, and some sender-constrained token models. For native/device clients, treat as advanced and profile-specific. |
-| Allowed scopes | ✅ | ✅ | ✅ | ✅ | ✅ | Scope authorization applies to every token-issuing application type. |
+| Allowed scopes | ✅ | ✅ | ✅ | ✅ | ✅ | Scope authorization applies to every token-issuing application profile. |
 | Allowed audiences / resource servers | ✅ | ✅ | ✅ | ✅ | ✅ | This should be universal to constrain where issued access tokens can be used. |
 | Authorization Code grant | ✅ | ✅ | ✅ | ❌ | ❌ | User-interactive browser/native login uses Authorization Code. M2M does not involve a user. Device flow uses a separate device authorization grant instead. |
 | Device Code grant | ❌ | ❌ | ❌ | ❌ | ✅ | Device Code is specific to input-constrained devices where authorization happens on a secondary device. |
@@ -74,10 +74,10 @@ A browser app with a Backend-for-Frontend (BFF) should be registered as **Web**,
 
 ## Recommended API Shape
 
-### Application Type Enum
+### Application Profile Enum
 
 ```csharp
-public enum ApplicationType
+public enum ApplicationProfile
 {
     Web = 1,
     SinglePage = 2,
@@ -102,8 +102,8 @@ public enum ApplicationOptionAvailability
 ### Policy Object
 
 ```csharp
-public sealed record ApplicationTypePolicy(
-    ApplicationType ApplicationType,
+public sealed record ApplicationProfilePolicy(
+    ApplicationProfile ApplicationProfile,
     ClientProfile DefaultClientProfile,
     IReadOnlySet<string> AllowedGrantTypes,
     IReadOnlySet<string> DefaultGrantTypes,
@@ -118,7 +118,7 @@ public enum ClientProfile
 
 ## Implementation Notes
 
-1. Store `ApplicationType` as a domain-level classification, not as a direct OAuth protocol value.
+1. Store `ApplicationProfile` as a domain-level classification, not as a direct OAuth protocol value.
 2. Derive OpenIddict permissions from `AllowedGrantTypes`, `AllowedScopes`, redirect URIs, and token endpoint authentication method.
 3. Keep `client_id` globally unique across all applications.
 4. Do not permit hybrid defaults. A single application should not be both Web and M2M unless an explicit future feature introduces multi-profile applications.

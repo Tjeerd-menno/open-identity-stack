@@ -7,7 +7,7 @@ public sealed record ApplicationSummary(
     DomainApplicationId Id,
     string ClientId,
     string DisplayName,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     ApplicationStatus Status,
     bool RequiresMigrationReview,

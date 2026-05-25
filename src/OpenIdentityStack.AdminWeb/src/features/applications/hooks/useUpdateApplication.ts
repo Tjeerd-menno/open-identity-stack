@@ -27,7 +27,7 @@ export function useUpdateApplication() {
       }
 
       return configureApplicationOAuth(variables.applicationId, {
-        type: variables.type,
+        profile: variables.profile,
         clientType: variables.clientType,
         allowedGrantTypes: variables.allowedGrantTypes,
         allowedScopes: variables.allowedScopes,

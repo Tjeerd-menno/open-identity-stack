@@ -85,7 +85,7 @@ public sealed class CreateClientUseCase : ICreateClientUseCase
             command.ClientId,
             command.DisplayName,
             command.Description,
-            InferApplicationType(command),
+            InferApplicationProfile(command),
             command.ClientType == DomainClientType.Confidential
                 ? OAuthClientType.Confidential
                 : OAuthClientType.Public,
@@ -127,7 +127,7 @@ public sealed class CreateClientUseCase : ICreateClientUseCase
         return Convert.ToBase64String(randomBytes);
     }
 
-    private static ApplicationType InferApplicationType(CreateClientCommand command)
+    private static ApplicationProfile InferApplicationProfile(CreateClientCommand command)
     {
         if (command.AllowedGrantTypes.Count == 1 &&
             command.AllowedGrantTypes[0].Equals(OpenIddictConstants.GrantTypes.ClientCredentials, StringComparison.OrdinalIgnoreCase) &&
@@ -135,19 +135,19 @@ public sealed class CreateClientUseCase : ICreateClientUseCase
             command.RedirectUris.Count == 0 &&
             command.PostLogoutRedirectUris.Count == 0)
         {
-            return ApplicationType.MachineToMachine;
+            return ApplicationProfile.MachineToMachine;
         }
 
         if (command.AllowedGrantTypes.Any(grantType => grantType.Equals(OpenIddictConstants.GrantTypes.DeviceCode, StringComparison.OrdinalIgnoreCase)))
         {
-            return ApplicationType.Device;
+            return ApplicationProfile.Device;
         }
 
         if (command.ClientType == DomainClientType.Public)
         {
-            return ApplicationType.SinglePage;
+            return ApplicationProfile.SinglePage;
         }
 
-        return ApplicationType.Web;
+        return ApplicationProfile.Web;
     }
 }

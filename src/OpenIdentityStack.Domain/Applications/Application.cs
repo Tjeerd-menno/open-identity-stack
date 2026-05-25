@@ -27,7 +27,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
 
     public string? Description { get; private set; }
 
-    public ApplicationType Type { get; private set; }
+    public ApplicationProfile Profile { get; private set; }
 
     public OAuthClientType ClientType { get; private set; }
 
@@ -60,7 +60,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
         string clientId,
         string displayName,
         string? description,
-        ApplicationType type,
+        ApplicationProfile profile,
         OAuthClientType clientType,
         IReadOnlyList<string> allowedGrantTypes,
         IReadOnlyList<string> allowedScopes,
@@ -73,7 +73,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
         this.ClientId = clientId;
         this.DisplayName = displayName;
         this.Description = description;
-        this.Type = type;
+        this.Profile = profile;
         this.ClientType = clientType;
         this.Status = ApplicationStatus.Active;
         this.allowedGrantTypes.AddRange(allowedGrantTypes);
@@ -90,7 +90,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
         string clientId,
         string displayName,
         string? description,
-        ApplicationType type,
+        ApplicationProfile profile,
         OAuthClientType clientType,
         IReadOnlyList<string> allowedGrantTypes,
         IReadOnlyList<string> allowedScopes,
@@ -104,7 +104,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             clientId,
             displayName,
             description,
-            type,
+            profile,
             clientType,
             allowedGrantTypes,
             allowedScopes,
@@ -112,7 +112,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             postLogoutRedirectUris,
             requirePkce,
             requireConsent,
-            originalType: null);
+            originalProfile: null);
         if (validation.IsFailure)
         {
             return validation.Error;
@@ -124,7 +124,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             values.ClientId,
             values.DisplayName,
             values.Description,
-            type,
+            profile,
             clientType,
             values.AllowedGrantTypes,
             values.AllowedScopes,
@@ -153,7 +153,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             clientId,
             displayName,
             description,
-            ApplicationType.MachineToMachine,
+            ApplicationProfile.MachineToMachine,
             OAuthClientType.Confidential,
             ["client_credentials"],
             allowedScopes,
@@ -193,7 +193,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
     }
 
     public Result ConfigureOAuth(
-        ApplicationType type,
+        ApplicationProfile profile,
         OAuthClientType clientType,
         IReadOnlyList<string> allowedGrantTypes,
         IReadOnlyList<string> allowedScopes,
@@ -207,7 +207,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             this.ClientId,
             this.DisplayName,
             this.Description,
-            type,
+            profile,
             clientType,
             allowedGrantTypes,
             allowedScopes,
@@ -215,14 +215,14 @@ public sealed class Application : AggregateRoot<ApplicationId>
             postLogoutRedirectUris,
             requirePkce,
             requireConsent,
-            originalType: this.Type);
+            originalProfile: this.Profile);
         if (validation.IsFailure)
         {
             return validation.Error;
         }
 
         ValidatedApplicationConfiguration values = validation.Value;
-        this.Type = values.Type;
+        this.Profile = values.Profile;
         this.ClientType = clientType;
         this.allowedGrantTypes.Clear();
         this.allowedGrantTypes.AddRange(values.AllowedGrantTypes);
@@ -354,7 +354,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
         string clientId,
         string displayName,
         string? description,
-        ApplicationType type,
+        ApplicationProfile profile,
         OAuthClientType clientType,
         IReadOnlyList<string> allowedGrantTypes,
         IReadOnlyList<string> allowedScopes,
@@ -362,11 +362,11 @@ public sealed class Application : AggregateRoot<ApplicationId>
         IReadOnlyList<string> postLogoutRedirectUris,
         bool requirePkce,
         bool requireConsent,
-        ApplicationType? originalType)
+        ApplicationProfile? originalProfile)
     {
-        if (originalType.HasValue && originalType.Value != type)
+        if (originalProfile.HasValue && originalProfile.Value != profile)
         {
-            return ApplicationErrors.TypeChangeNotAllowed;
+            return ApplicationErrors.ProfileChangeNotAllowed;
         }
 
         if (string.IsNullOrWhiteSpace(clientId))
@@ -436,7 +436,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             return postLogoutUrisResult.Error;
         }
 
-        ApplicationTypePolicy policy = ApplicationTypePolicyCatalog.GetPolicy(type);
+        ApplicationProfilePolicy policy = ApplicationProfilePolicyCatalog.GetPolicy(profile);
         bool usesClientCredentials = grantTypesResult.Value.Contains("client_credentials", StringComparer.OrdinalIgnoreCase);
         bool usesAuthorizationCode = grantTypesResult.Value.Contains("authorization_code", StringComparer.OrdinalIgnoreCase);
         var requestedProfile = clientType.ToClientProfile();
@@ -512,7 +512,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
             trimmedClientId,
             trimmedDisplayName,
             trimmedDescription,
-            type,
+            profile,
             grantTypesResult.Value,
             scopesResult.Value,
             redirectUrisResult.Value,
@@ -557,7 +557,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
         string ClientId,
         string DisplayName,
         string? Description,
-        ApplicationType Type,
+        ApplicationProfile Profile,
         IReadOnlyList<string> AllowedGrantTypes,
         IReadOnlyList<string> AllowedScopes,
         IReadOnlyList<string> RedirectUris,

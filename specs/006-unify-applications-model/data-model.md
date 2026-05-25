@@ -16,7 +16,7 @@ The feature introduces `Application` as the single aggregate root for administra
 | `ClientId` | string | Yes | Stable external OAuth/OIDC protocol identifier; unique and immutable after creation. |
 | `DisplayName` | string | Yes | Administrator-facing name. |
 | `Description` | string? | No | Optional administrator-facing description. |
-| `Type` | `ApplicationType` | Yes | Product profile: `MachineToMachine`, `Web`, `SinglePage`, `Native`, `Device`, or `Custom`. |
+| `Type` | `ApplicationProfile` | Yes | Product profile: `MachineToMachine`, `Web`, `SinglePage`, `Native`, `Device`, or `Custom`. |
 | `ClientType` | `OAuthClientType` | Yes | Protocol confidentiality classification: `Public` or `Confidential`. |
 | `Status` | `ApplicationStatus` | Yes | `Active` or `Disabled`. Disabled blocks new token issuance. |
 | `AllowedGrantTypes` | collection | Yes | OAuth grant behavior allowed for the application. |
@@ -191,7 +191,7 @@ The feature introduces `Application` as the single aggregate root for administra
 
 ### Client Type Inference
 
-| Condition | Application type | Requires review |
+| Condition | Application profile | Requires review |
 |-----------|------------------|-----------------|
 | Confidential and only `client_credentials` | MachineToMachine | No |
 | Confidential and has `authorization_code` | Web | No |

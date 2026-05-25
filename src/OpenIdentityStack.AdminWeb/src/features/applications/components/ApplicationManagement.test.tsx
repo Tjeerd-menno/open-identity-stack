@@ -6,14 +6,14 @@ import { ApplicationDetail } from './ApplicationDetail';
 import { ApplicationForm } from './ApplicationForm';
 import { ApplicationList } from './ApplicationList';
 import { ApplicationStatusBadge } from './ApplicationStatusBadge';
-import { ApplicationClientType, ApplicationType } from '@/types';
+import { ApplicationClientType, ApplicationProfile } from '@/types';
 
 const { navigate, hooks } = vi.hoisted(() => ({
   navigate: vi.fn(),
   hooks: {
     useApplications: vi.fn(),
     useApplication: vi.fn(),
-    useApplicationTypePolicies: vi.fn(),
+    useApplicationProfilePolicies: vi.fn(),
     useApplicationCredentials: vi.fn(),
     useAddApplicationCertificate: vi.fn(),
     useAddApplicationSecret: vi.fn(),
@@ -39,8 +39,8 @@ vi.mock('../hooks/useApplication', () => ({
   useApplication: hooks.useApplication,
 }));
 
-vi.mock('../hooks/useApplicationTypePolicies', () => ({
-  useApplicationTypePolicies: hooks.useApplicationTypePolicies,
+vi.mock('../hooks/useApplicationProfilePolicies', () => ({
+  useApplicationProfilePolicies: hooks.useApplicationProfilePolicies,
 }));
 
 vi.mock('../hooks/useApplicationCredentials', () => ({
@@ -68,7 +68,7 @@ const application = {
   clientId: 'orders-web',
   displayName: 'Orders Web',
   description: 'Orders UI',
-  type: ApplicationType.Web,
+  profile: ApplicationProfile.Web,
   clientType: ApplicationClientType.Confidential,
   status: 'Active' as const,
   redirectUris: ['https://orders.example.com/callback'],
@@ -85,9 +85,9 @@ const application = {
   modifiedAt: null,
 };
 
-const applicationTypePolicies = [
+const applicationProfilePolicies = [
   {
-    applicationType: ApplicationType.Web,
+    applicationProfile: ApplicationProfile.Web,
     isSelectable: true,
     unavailabilityReason: null,
     defaultClientProfile: ApplicationClientType.Confidential,
@@ -108,7 +108,7 @@ const applicationTypePolicies = [
     requiresRedirectUris: true,
   },
   {
-    applicationType: ApplicationType.MachineToMachine,
+    applicationProfile: ApplicationProfile.MachineToMachine,
     isSelectable: true,
     unavailabilityReason: null,
     defaultClientProfile: ApplicationClientType.Confidential,
@@ -129,7 +129,7 @@ const applicationTypePolicies = [
     requiresRedirectUris: false,
   },
   {
-    applicationType: ApplicationType.SinglePage,
+    applicationProfile: ApplicationProfile.SinglePage,
     isSelectable: true,
     unavailabilityReason: null,
     defaultClientProfile: ApplicationClientType.Public,
@@ -150,7 +150,7 @@ const applicationTypePolicies = [
     requiresRedirectUris: true,
   },
   {
-    applicationType: ApplicationType.Native,
+    applicationProfile: ApplicationProfile.Native,
     isSelectable: true,
     unavailabilityReason: null,
     defaultClientProfile: ApplicationClientType.Public,
@@ -171,7 +171,7 @@ const applicationTypePolicies = [
     requiresRedirectUris: true,
   },
   {
-    applicationType: ApplicationType.Device,
+    applicationProfile: ApplicationProfile.Device,
     isSelectable: false,
     unavailabilityReason: 'Device applications are reserved until the device authorization flow is implemented and tested.',
     defaultClientProfile: ApplicationClientType.Public,
@@ -191,8 +191,8 @@ const applicationTypePolicies = [
 
 describe('Application management components', () => {
   beforeEach(() => {
-    hooks.useApplicationTypePolicies.mockReturnValue({
-      data: applicationTypePolicies,
+    hooks.useApplicationProfilePolicies.mockReturnValue({
+      data: applicationProfilePolicies,
       isLoading: false,
       isError: false,
     });
@@ -211,7 +211,7 @@ describe('Application management components', () => {
           id: application.id,
           clientId: application.clientId,
           displayName: application.displayName,
-          type: application.type,
+          profile: application.profile,
           clientType: application.clientType,
           status: application.status,
           allowedGrantTypes: application.allowedGrantTypes,
@@ -252,7 +252,7 @@ describe('Application management components', () => {
     expect(onSubmit.mock.calls[0][0]).toEqual(expect.objectContaining({
       clientId: 'orders-web',
       displayName: 'Orders Web',
-      type: ApplicationType.Web,
+      profile: ApplicationProfile.Web,
       clientType: ApplicationClientType.Confidential,
       allowedScopes: ['openid'],
       allowedGrantTypes: ['authorization_code'],
@@ -281,7 +281,7 @@ describe('Application management components', () => {
     hooks.useApplication.mockReturnValue({
       data: {
         ...application,
-        type: ApplicationType.MachineToMachine,
+        profile: ApplicationProfile.MachineToMachine,
         clientType: ApplicationClientType.Confidential,
         allowedGrantTypes: ['client_credentials'],
       },

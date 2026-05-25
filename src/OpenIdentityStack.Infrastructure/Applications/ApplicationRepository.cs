@@ -48,7 +48,7 @@ public sealed class ApplicationRepository : IApplicationRepository
     public async Task<(List<DomainApplication> Items, int TotalCount)> ListAsync(
         int page,
         int pageSize,
-        ApplicationType? type,
+        ApplicationProfile? profile,
         ApplicationStatus? status,
         OAuthClientType? clientType,
         string? searchTerm,
@@ -58,9 +58,9 @@ public sealed class ApplicationRepository : IApplicationRepository
             .AsNoTracking()
             .AsQueryable();
 
-        if (type.HasValue)
+        if (profile.HasValue)
         {
-            query = query.Where(application => application.Type == type.Value);
+            query = query.Where(application => application.Profile == profile.Value);
         }
 
         if (status.HasValue)

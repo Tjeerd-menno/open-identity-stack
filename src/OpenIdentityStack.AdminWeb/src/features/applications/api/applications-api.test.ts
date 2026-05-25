@@ -8,13 +8,13 @@ import {
   disableApplication,
   enableApplication,
   getApplication,
-  getApplicationTypePolicies,
+  getApplicationProfilePolicies,
   getApplications,
   listApplicationCredentials,
   revokeApplicationCredential,
   updateApplicationMetadata,
 } from './applications-api';
-import { ApplicationClientType, ApplicationOptionAvailability, ApplicationType } from '@/types';
+import { ApplicationClientType, ApplicationOptionAvailability, ApplicationProfile } from '@/types';
 
 const { apiClient } = vi.hoisted(() => ({
   apiClient: {
@@ -44,7 +44,7 @@ describe('applications API client', () => {
       page: 2,
       pageSize: 25,
       search: 'orders',
-      type: ApplicationType.Web,
+      profile: ApplicationProfile.Web,
       status: 'Active',
       clientType: ApplicationClientType.Confidential,
     })).resolves.toBe(response);
@@ -53,7 +53,7 @@ describe('applications API client', () => {
       page: 2,
       pageSize: 25,
       search: 'orders',
-      type: ApplicationType.Web,
+      profile: ApplicationProfile.Web,
       status: 'Active',
       clientType: ApplicationClientType.Confidential,
     });
@@ -71,7 +71,7 @@ describe('applications API client', () => {
       clientId: 'orders-web',
       displayName: 'Orders Web',
       description: 'Orders UI',
-      type: ApplicationType.Web,
+      profile: ApplicationProfile.Web,
       clientType: ApplicationClientType.Confidential,
       allowedGrantTypes: ['authorization_code'],
       allowedScopes: ['openid', 'orders.read'],
@@ -85,7 +85,7 @@ describe('applications API client', () => {
       description: 'Updated',
     });
     await configureApplicationOAuth('app-1', {
-      type: ApplicationType.MachineToMachine,
+      profile: ApplicationProfile.MachineToMachine,
       clientType: ApplicationClientType.Confidential,
       allowedGrantTypes: ['client_credentials'],
       allowedScopes: ['api'],
@@ -110,7 +110,7 @@ describe('applications API client', () => {
     });
     expect(apiClient.put).toHaveBeenCalledWith(
       '/api/admin/applications/app-1/oauth',
-      expect.objectContaining({ type: ApplicationType.MachineToMachine })
+      expect.objectContaining({ profile: ApplicationProfile.MachineToMachine })
     );
     expect(apiClient.post).toHaveBeenNthCalledWith(2, '/api/admin/applications/app-1/disable');
     expect(apiClient.post).toHaveBeenNthCalledWith(3, '/api/admin/applications/app-1/enable');
@@ -160,9 +160,9 @@ describe('applications API client', () => {
     expect(apiClient.delete).toHaveBeenCalledWith('/api/admin/applications/app-1/credentials/cred-1');
   });
 
-  it('fetches application type policies with availability metadata', async () => {
+  it('fetches application profile policies with availability metadata', async () => {
     const response = [{
-      applicationType: ApplicationType.Web,
+      applicationProfile: ApplicationProfile.Web,
       isSelectable: true,
       unavailabilityReason: null,
       defaultClientProfile: ApplicationClientType.Confidential,
@@ -181,8 +181,8 @@ describe('applications API client', () => {
     }];
     apiClient.get.mockResolvedValueOnce(response);
 
-    await expect(getApplicationTypePolicies()).resolves.toBe(response);
+    await expect(getApplicationProfilePolicies()).resolves.toBe(response);
 
-    expect(apiClient.get).toHaveBeenCalledWith('/api/admin/applications/policies/types');
+    expect(apiClient.get).toHaveBeenCalledWith('/api/admin/applications/policies/profiles');
   });
 });

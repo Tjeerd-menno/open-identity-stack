@@ -143,7 +143,7 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
             descriptor.ClientSecret = GeneratePlaceholderClientSecret();
         }
 
-        descriptor.ApplicationType = application.Type is ApplicationType.Native or ApplicationType.SinglePage or ApplicationType.Device
+        descriptor.ApplicationType = application.Profile is ApplicationProfile.Native or ApplicationProfile.SinglePage or ApplicationProfile.Device
             ? OpenIddictConstants.ApplicationTypes.Native
             : OpenIddictConstants.ApplicationTypes.Web;
         descriptor.ConsentType = application.RequireConsent

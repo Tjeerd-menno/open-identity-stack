@@ -117,7 +117,7 @@ public sealed class ApplicationMigrationBackfill
             client.ClientIdValue,
             client.DisplayName,
             client.Description,
-            profile.InferredType,
+            profile.InferredProfile,
             MapClientType(client.ClientType),
             client.AllowedGrantTypes,
             client.AllowedScopes,

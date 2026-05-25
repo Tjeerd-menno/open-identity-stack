@@ -25,7 +25,7 @@ public sealed class MachineToMachineApplicationTests
             this.dateTimeProvider);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.Type.ShouldBe(ApplicationType.MachineToMachine);
+        result.Value.Profile.ShouldBe(ApplicationProfile.MachineToMachine);
         result.Value.ClientType.ShouldBe(OAuthClientType.Confidential);
         result.Value.AllowedGrantTypes.ShouldBe(["client_credentials"]);
         result.Value.AllowedScopes.ShouldBe(["orders.read", "orders.write"]);
@@ -46,7 +46,7 @@ public sealed class MachineToMachineApplicationTests
             this.dateTimeProvider).Value;
 
         Result result = application.ConfigureOAuth(
-            ApplicationType.MachineToMachine,
+            ApplicationProfile.MachineToMachine,
             OAuthClientType.Confidential,
             ["authorization_code"],
             ["orders.read"],

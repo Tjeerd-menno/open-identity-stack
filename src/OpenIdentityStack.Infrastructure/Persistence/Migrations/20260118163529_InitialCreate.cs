@@ -15,7 +15,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "text", nullable: false),
-                    ApplicationType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    ApplicationProfile = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     ClientId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     ClientSecret = table.Column<string>(type: "text", nullable: true),
                     ClientType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),

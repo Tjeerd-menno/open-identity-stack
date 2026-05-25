@@ -75,7 +75,7 @@ public sealed class ApplicationMigrationPreflight
                 return new ApplicationMigrationReviewItem(
                     client.ClientIdValue,
                     clientSource,
-                    profile.InferredType,
+                    profile.InferredProfile,
                     profile.RequiresMigrationReview);
             })
             .Where(item => item.RequiresMigrationReview);
@@ -100,7 +100,7 @@ public sealed record ApplicationMigrationPreflightIssue(
 public sealed record ApplicationMigrationReviewItem(
     string ClientId,
     string Source,
-    ApplicationType InferredType,
+    ApplicationProfile InferredProfile,
     bool RequiresMigrationReview);
 
 public static class ApplicationMigrationPreflightIssueCodes

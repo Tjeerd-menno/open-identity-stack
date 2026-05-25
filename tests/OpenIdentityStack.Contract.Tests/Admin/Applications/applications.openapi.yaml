@@ -18,7 +18,7 @@ paths:
       tags: [Applications]
       operationId: createApplication
       summary: Create an application
-      description: Creates an application and rejects grant, client profile, PKCE, consent, redirect, and reserved-type combinations that violate the application-type policy.
+      description: Creates an application and rejects grant, client profile, PKCE, consent, redirect, and reserved-profile combinations that violate the application-profile policy.
       x-required-permission: applications:write
       requestBody:
         required: true
@@ -45,10 +45,10 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PageSize"
-        - name: type
+        - name: profile
           in: query
           schema:
-            $ref: "#/components/schemas/ApplicationType"
+            $ref: "#/components/schemas/ApplicationProfile"
         - name: status
           in: query
           schema:
@@ -69,22 +69,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListApplicationsResponse"
-  /applications/policies/types:
+  /applications/policies/profiles:
     get:
       tags: [Applications]
-      operationId: listApplicationTypePolicies
-      summary: List application type policies
-      description: Returns application-type policy metadata used to railroad AdminWeb choices and document API-enforced defaults, restrictions, and advanced options.
+      operationId: listApplicationProfilePolicies
+      summary: List application profile policies
+      description: Returns application-profile policy metadata used to railroad AdminWeb choices and document API-enforced defaults, restrictions, and advanced options.
       x-required-permission: applications:read
       responses:
         "200":
-          description: Policy metadata for all application types, including reserved types.
+          description: Policy metadata for all application profiles, including reserved profiles.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/ApplicationTypePolicyResponse"
+                  $ref: "#/components/schemas/ApplicationProfilePolicyResponse"
   /applications/{id}:
     get:
       tags: [Applications]
@@ -143,7 +143,7 @@ paths:
       tags: [Applications]
       operationId: configureApplicationOAuth
       summary: Replace OAuth configuration
-      description: Replaces OAuth configuration for the existing application type and rejects matrix violations such as forbidden grants, PKCE, consent, redirects, or type changes.
+      description: Replaces OAuth configuration for the existing application profile and rejects matrix violations such as forbidden grants, PKCE, consent, redirects, or profile changes.
       x-required-permission: applications:write
       parameters:
         - $ref: "#/components/parameters/ApplicationId"
@@ -378,8 +378,8 @@ components:
           examples:
             policyViolation:
               value:
-                error: Validation.Application.TypeNotAvailable
-                message: This application type is not available for administrator-managed configuration.
+                error: Validation.Application.ProfileNotAvailable
+                message: This application profile is not available for administrator-managed configuration.
     ConflictError:
       description: Resource conflict.
       content:
@@ -393,7 +393,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
-    ApplicationType:
+    ApplicationProfile:
       type: string
       enum: [MachineToMachine, Web, SinglePage, Native, Device, Custom]
     OAuthClientType:
@@ -444,7 +444,7 @@ components:
           maxLength: 1000
           nullable: true
         type:
-          $ref: "#/components/schemas/ApplicationType"
+          $ref: "#/components/schemas/ApplicationProfile"
         clientType:
           $ref: "#/components/schemas/OAuthClientType"
         redirectUris:
@@ -487,7 +487,7 @@ components:
       required: [type, clientType, redirectUris, postLogoutRedirectUris, allowedScopes, allowedGrantTypes, requirePkce, requireConsent]
       properties:
         type:
-          $ref: "#/components/schemas/ApplicationType"
+          $ref: "#/components/schemas/ApplicationProfile"
         clientType:
           $ref: "#/components/schemas/OAuthClientType"
         redirectUris:
@@ -547,7 +547,7 @@ components:
         displayName:
           type: string
         type:
-          $ref: "#/components/schemas/ApplicationType"
+          $ref: "#/components/schemas/ApplicationProfile"
         clientType:
           $ref: "#/components/schemas/OAuthClientType"
         status:
@@ -559,12 +559,12 @@ components:
         createdAt:
           type: string
           format: date-time
-    ApplicationTypePolicyResponse:
+    ApplicationProfilePolicyResponse:
       type: object
-      required: [applicationType, isSelectable, defaultClientProfile, allowedClientProfiles, allowedGrantTypes, defaultGrantTypes, options, requirePkce, defaultRequirePkce, defaultRequireConsent, requiresRedirectUris]
+      required: [applicationProfile, isSelectable, defaultClientProfile, allowedClientProfiles, allowedGrantTypes, defaultGrantTypes, options, requirePkce, defaultRequirePkce, defaultRequireConsent, requiresRedirectUris]
       properties:
-        applicationType:
-          $ref: "#/components/schemas/ApplicationType"
+        applicationProfile:
+          $ref: "#/components/schemas/ApplicationProfile"
         isSelectable:
           type: boolean
         unavailabilityReason:
@@ -610,7 +610,7 @@ components:
           type: string
           nullable: true
         type:
-          $ref: "#/components/schemas/ApplicationType"
+          $ref: "#/components/schemas/ApplicationProfile"
         clientType:
           $ref: "#/components/schemas/OAuthClientType"
         status:
@@ -705,7 +705,7 @@ components:
         displayName:
           type: string
         type:
-          $ref: "#/components/schemas/ApplicationType"
+          $ref: "#/components/schemas/ApplicationProfile"
         clientType:
           $ref: "#/components/schemas/OAuthClientType"
         status:

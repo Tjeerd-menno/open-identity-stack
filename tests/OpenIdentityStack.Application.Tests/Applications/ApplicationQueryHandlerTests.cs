@@ -29,15 +29,15 @@ public sealed class ApplicationQueryHandlerTests
     public async Task ListHandleAsync_ReturnsMappedSummariesAndPaginationMetadata()
     {
         DomainApplication first = this.CreateApplication("orders-web", "Orders Web");
-        DomainApplication second = this.CreateApplication("billing-m2m", "Billing M2M", ApplicationType.MachineToMachine);
+        DomainApplication second = this.CreateApplication("billing-m2m", "Billing M2M", ApplicationProfile.MachineToMachine);
         second.Disable(this.dateTimeProvider);
-        this.repository.ListAsync(2, 2, ApplicationType.Web, ApplicationStatus.Active, OAuthClientType.Confidential, "web", Arg.Any<CancellationToken>())
+        this.repository.ListAsync(2, 2, ApplicationProfile.Web, ApplicationStatus.Active, OAuthClientType.Confidential, "web", Arg.Any<CancellationToken>())
             .Returns((new List<DomainApplication> { first, second }, 5));
 
         Result<PagedResult<ApplicationSummary>> result = await this.listHandler.HandleAsync(
             page: 2,
             pageSize: 2,
-            type: ApplicationType.Web,
+            profile: ApplicationProfile.Web,
             status: ApplicationStatus.Active,
             clientType: OAuthClientType.Confidential,
             searchTerm: "web");
@@ -50,7 +50,7 @@ public sealed class ApplicationQueryHandlerTests
         result.Value.Items[0].Id.ShouldBe(first.Id);
         result.Value.Items[0].ClientId.ShouldBe("orders-web");
         result.Value.Items[0].DisplayName.ShouldBe("Orders Web");
-        result.Value.Items[0].Type.ShouldBe(ApplicationType.Web);
+        result.Value.Items[0].Profile.ShouldBe(ApplicationProfile.Web);
         result.Value.Items[1].Status.ShouldBe(ApplicationStatus.Disabled);
     }
 
@@ -85,7 +85,7 @@ public sealed class ApplicationQueryHandlerTests
         result.Value.Id.ShouldBe(application.Id);
         result.Value.ClientId.ShouldBe("orders-web");
         result.Value.DisplayName.ShouldBe("Orders Web");
-        result.Value.Type.ShouldBe(ApplicationType.Web);
+        result.Value.Profile.ShouldBe(ApplicationProfile.Web);
         result.Value.ClientType.ShouldBe(OAuthClientType.Confidential);
         result.Value.AllowedGrantTypes.ShouldBe(["authorization_code"]);
         result.Value.RedirectUris.ShouldBe(["https://orders-web.example.com/callback"]);
@@ -107,18 +107,18 @@ public sealed class ApplicationQueryHandlerTests
     private DomainApplication CreateApplication(
         string clientId,
         string displayName,
-        ApplicationType type = ApplicationType.Web) =>
+        ApplicationProfile profile = ApplicationProfile.Web) =>
         DomainApplication.Create(
             clientId,
             displayName,
             null,
-            type,
-            type == ApplicationType.MachineToMachine ? OAuthClientType.Confidential : OAuthClientType.Confidential,
-            type == ApplicationType.MachineToMachine ? ["client_credentials"] : ["authorization_code"],
+            profile,
+            profile == ApplicationProfile.MachineToMachine ? OAuthClientType.Confidential : OAuthClientType.Confidential,
+            profile == ApplicationProfile.MachineToMachine ? ["client_credentials"] : ["authorization_code"],
             ["openid"],
-            type == ApplicationType.MachineToMachine ? [] : [$"https://{clientId}.example.com/callback"],
+            profile == ApplicationProfile.MachineToMachine ? [] : [$"https://{clientId}.example.com/callback"],
             [],
             requirePkce: false,
-            requireConsent: type != ApplicationType.MachineToMachine,
+            requireConsent: profile != ApplicationProfile.MachineToMachine,
             this.dateTimeProvider).Value;
 }

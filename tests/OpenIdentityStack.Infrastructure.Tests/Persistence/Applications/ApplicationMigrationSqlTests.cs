@@ -43,6 +43,43 @@ public sealed class ApplicationMigrationSqlTests
         ]);
     }
 
+    [Fact]
+    public void AddUnifiedApplications_CreatesProfileColumnAndIndex()
+    {
+        IReadOnlyList<MigrationOperation> operations = GetUpOperations(typeof(AddUnifiedApplications));
+
+        CreateTableOperation applications = operations
+            .OfType<CreateTableOperation>()
+            .Single(operation => operation.Name == "Applications");
+        applications.Columns.Select(column => column.Name).ShouldContain("Profile");
+        applications.Columns.Select(column => column.Name).ShouldNotContain("Type");
+
+        CreateIndexOperation profileIndex = operations
+            .OfType<CreateIndexOperation>()
+            .Single(operation => operation.Table == "Applications" && operation.Name == "IX_Applications_Profile");
+        profileIndex.Columns.ShouldBe(["Profile"]);
+    }
+
+    [Fact]
+    public void RenameOpenIddictApplicationType_Migration_GuardsLegacyColumnRename()
+    {
+        Type? migrationType = typeof(OpenIdentityStackDbContext).Assembly.GetType(
+            "OpenIdentityStack.Infrastructure.Persistence.Migrations.RenameOpenIddictApplicationType");
+        migrationType.ShouldNotBeNull();
+
+        IReadOnlyList<MigrationOperation> operations = GetUpOperations(migrationType!);
+        operations.OfType<RenameColumnOperation>().ShouldBeEmpty();
+
+        SqlOperation guardedRename = operations
+            .OfType<SqlOperation>()
+            .Single();
+
+        guardedRename.Sql.ShouldContain("information_schema.columns");
+        guardedRename.Sql.ShouldContain("OpenIddictApplications");
+        guardedRename.Sql.ShouldContain("ApplicationProfile");
+        guardedRename.Sql.ShouldContain("ApplicationType");
+    }
+
     private static IReadOnlyList<MigrationOperation> GetUpOperations(Type migrationType)
     {
         var migration = (Migration)Activator.CreateInstance(migrationType)!;

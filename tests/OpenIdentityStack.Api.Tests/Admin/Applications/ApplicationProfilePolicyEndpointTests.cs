@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 
 namespace OpenIdentityStack.Api.Tests.Admin.Applications;
 
-public sealed class ApplicationTypePolicyEndpointTests(AppHostFixture fixture) : IAsyncLifetime
+public sealed class ApplicationProfilePolicyEndpointTests(AppHostFixture fixture) : IAsyncLifetime
 {
     private readonly AppHostFixture fixture = fixture;
     private HttpClient client = null!;
@@ -20,17 +20,17 @@ public sealed class ApplicationTypePolicyEndpointTests(AppHostFixture fixture) :
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
-    public async Task GetPolicies_ReturnsApplicationTypePolicyMetadata()
+    public async Task GetPolicies_ReturnsApplicationProfilePolicyMetadata()
     {
-        HttpResponseMessage response = await this.SendRequestAsync(HttpMethod.Get, "/api/admin/applications/policies/types");
+        HttpResponseMessage response = await this.SendRequestAsync(HttpMethod.Get, "/api/admin/applications/policies/profiles");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
         JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
         json.ShouldNotBeNull();
 
         JsonArray policies = json.AsArray();
-        JsonNode? web = policies.SingleOrDefault(node => node?["applicationType"]?.GetValue<string>() == "Web");
-        JsonNode? device = policies.SingleOrDefault(node => node?["applicationType"]?.GetValue<string>() == "Device");
+        JsonNode? web = policies.SingleOrDefault(node => node?["applicationProfile"]?.GetValue<string>() == "Web");
+        JsonNode? device = policies.SingleOrDefault(node => node?["applicationProfile"]?.GetValue<string>() == "Device");
 
         web.ShouldNotBeNull();
         web["defaultClientProfile"]?.GetValue<string>().ShouldBe("Confidential");
@@ -92,7 +92,7 @@ public sealed class ApplicationTypePolicyEndpointTests(AppHostFixture fixture) :
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
         json.ShouldNotBeNull();
-        json["error"]?.GetValue<string>().ShouldBe("Validation.Application.TypeNotAvailable");
+        json["error"]?.GetValue<string>().ShouldBe("Validation.Application.ProfileNotAvailable");
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public sealed class ApplicationTypePolicyEndpointTests(AppHostFixture fixture) :
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
         json.ShouldNotBeNull();
-        json["error"]?.GetValue<string>().ShouldBe("Validation.Application.TypeChangeNotAllowed");
+        json["error"]?.GetValue<string>().ShouldBe("Validation.Application.ProfileChangeNotAllowed");
     }
 
     private async Task AuthenticateAsync()

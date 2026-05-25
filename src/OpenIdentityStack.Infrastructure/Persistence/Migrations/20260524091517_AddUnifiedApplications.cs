@@ -19,7 +19,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     ClientId = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     DisplayName = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     Description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
-                    Type = table.Column<int>(type: "integer", nullable: false),
+                    Profile = table.Column<int>(type: "integer", nullable: false),
                     ClientType = table.Column<int>(type: "integer", nullable: false),
                     Status = table.Column<int>(type: "integer", nullable: false),
                     RequirePkce = table.Column<bool>(type: "boolean", nullable: false),
@@ -73,9 +73,9 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                 column: "Status");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Applications_Type",
+                name: "IX_Applications_Profile",
                 table: "Applications",
-                column: "Type");
+                column: "Profile");
         }
 
         /// <inheritdoc />

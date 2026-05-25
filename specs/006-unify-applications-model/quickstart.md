@@ -52,7 +52,7 @@ Validate these data cases before rollout:
 
 After implementation, verify through the admin API:
 
-1. Call `GET /api/admin/applications/policies/types`; confirm Web, Single Page, Native, Machine-to-machine, and reserved Device policy entries are returned with fixed client profile, default grants, option availability, and default PKCE/consent flags.
+1. Call `GET /api/admin/applications/policies/profiles`; confirm Web, Single Page, Native, Machine-to-machine, and reserved Device policy entries are returned with fixed client profile, default grants, option availability, and default PKCE/consent flags.
 2. Create a machine-to-machine application with an initial secret; confirm the secret is returned once.
 3. Reject machine-to-machine applications that include redirect URIs, post-logout redirect URIs, consent, PKCE, or interactive grants.
 4. Reject adding a secret or certificate to a public application.

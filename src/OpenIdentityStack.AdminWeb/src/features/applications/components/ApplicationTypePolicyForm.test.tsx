@@ -5,23 +5,23 @@ import { ApplicationForm } from './ApplicationForm';
 import {
   ApplicationClientType,
   ApplicationOptionAvailability,
-  ApplicationType,
-  type ApplicationTypePolicy,
+  ApplicationProfile,
+  type ApplicationProfilePolicy,
 } from '@/types';
 
 const { hooks } = vi.hoisted(() => ({
   hooks: {
-    useApplicationTypePolicies: vi.fn(),
+    useApplicationProfilePolicies: vi.fn(),
   },
 }));
 
-vi.mock('../hooks/useApplicationTypePolicies', () => ({
-  useApplicationTypePolicies: hooks.useApplicationTypePolicies,
+vi.mock('../hooks/useApplicationProfilePolicies', () => ({
+  useApplicationProfilePolicies: hooks.useApplicationProfilePolicies,
 }));
 
-const policies: ApplicationTypePolicy[] = [
+const policies: ApplicationProfilePolicy[] = [
   {
-    applicationType: ApplicationType.Web,
+    applicationProfile: ApplicationProfile.Web,
     isSelectable: true,
     unavailabilityReason: null,
     defaultClientProfile: ApplicationClientType.Confidential,
@@ -43,7 +43,7 @@ const policies: ApplicationTypePolicy[] = [
     requiresRedirectUris: true,
   },
   {
-    applicationType: ApplicationType.SinglePage,
+    applicationProfile: ApplicationProfile.SinglePage,
     isSelectable: true,
     unavailabilityReason: null,
     defaultClientProfile: ApplicationClientType.Public,
@@ -66,7 +66,7 @@ const policies: ApplicationTypePolicy[] = [
     requiresRedirectUris: true,
   },
   {
-    applicationType: ApplicationType.Native,
+    applicationProfile: ApplicationProfile.Native,
     isSelectable: true,
     unavailabilityReason: null,
     defaultClientProfile: ApplicationClientType.Public,
@@ -90,7 +90,7 @@ const policies: ApplicationTypePolicy[] = [
     requiresRedirectUris: true,
   },
   {
-    applicationType: ApplicationType.MachineToMachine,
+    applicationProfile: ApplicationProfile.MachineToMachine,
     isSelectable: true,
     unavailabilityReason: null,
     defaultClientProfile: ApplicationClientType.Confidential,
@@ -112,7 +112,7 @@ const policies: ApplicationTypePolicy[] = [
     requiresRedirectUris: false,
   },
   {
-    applicationType: ApplicationType.Device,
+    applicationProfile: ApplicationProfile.Device,
     isSelectable: false,
     unavailabilityReason: 'Device applications are reserved until the device authorization flow is implemented and tested.',
     defaultClientProfile: ApplicationClientType.Public,
@@ -132,7 +132,7 @@ const policies: ApplicationTypePolicy[] = [
 
 describe('ApplicationForm policy railroading', () => {
   beforeEach(() => {
-    hooks.useApplicationTypePolicies.mockReturnValue({
+    hooks.useApplicationProfilePolicies.mockReturnValue({
       data: policies,
       isLoading: false,
       isError: false,
@@ -152,7 +152,7 @@ describe('ApplicationForm policy railroading', () => {
   it('railroads machine-to-machine applications to client_credentials with no redirect or consent controls', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<ApplicationForm onSubmit={onSubmit} initialType={ApplicationType.MachineToMachine} />);
+    render(<ApplicationForm onSubmit={onSubmit} initialProfile={ApplicationProfile.MachineToMachine} />);
 
     await waitFor(() => {
       expect(screen.queryByText('Redirect URIs')).not.toBeInTheDocument();
@@ -170,7 +170,7 @@ describe('ApplicationForm policy railroading', () => {
     expect(screen.queryByRole('checkbox', { name: /require consent/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox', { name: /require pkce/i })).not.toBeInTheDocument();
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
-      type: ApplicationType.MachineToMachine,
+      profile: ApplicationProfile.MachineToMachine,
       clientType: ApplicationClientType.Confidential,
       allowedGrantTypes: ['client_credentials'],
       redirectUris: [],
@@ -181,7 +181,7 @@ describe('ApplicationForm policy railroading', () => {
   });
 
   it('shows native redirect guidance and reserved device messaging', () => {
-    render(<ApplicationForm onSubmit={vi.fn()} initialType={ApplicationType.Native} />);
+    render(<ApplicationForm onSubmit={vi.fn()} initialProfile={ApplicationProfile.Native} />);
 
     expect(screen.getByText(/device applications are reserved until the device authorization flow is implemented and tested/i)).toBeInTheDocument();
     expect(screen.getByText(/claimed https redirects are preferred/i)).toBeInTheDocument();

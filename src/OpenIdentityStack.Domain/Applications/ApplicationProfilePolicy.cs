@@ -1,7 +1,7 @@
 namespace OpenIdentityStack.Domain.Applications;
 
-public sealed record ApplicationTypePolicy(
-    ApplicationType ApplicationType,
+public sealed record ApplicationProfilePolicy(
+    ApplicationProfile ApplicationProfile,
     bool IsSelectable,
     string? UnavailabilityReason,
     ClientProfile DefaultClientProfile,

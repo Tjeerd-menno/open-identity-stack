@@ -3,7 +3,7 @@ namespace OpenIdentityStack.Domain.Applications;
 /// <summary>
 /// Product profile for a registered application.
 /// </summary>
-public enum ApplicationType
+public enum ApplicationProfile
 {
     MachineToMachine = 0,
     Web = 1,

@@ -12,7 +12,7 @@
 
 ## Decision: Model service accounts as machine-to-machine applications
 
-**Rationale**: Machine-to-machine access is a profile/capability of an OAuth application, not a separate registration type. `ApplicationType.MachineToMachine` captures the current service-account use case and enforces confidential-client and `client_credentials` behavior.
+**Rationale**: Machine-to-machine access is a profile/capability of an OAuth application, not a separate registration type. `ApplicationProfile.MachineToMachine` captures the current service-account use case and enforces confidential-client and `client_credentials` behavior.
 
 **Alternatives considered**:
 
@@ -96,9 +96,9 @@
 - Allow legacy grants in `Custom` without feature flags: rejected because it weakens safe-by-default behavior.
 - Drop legacy grant data during migration: rejected because it silently changes existing behavior.
 
-## Decision: Update AdminWeb around an application-type-first workflow
+## Decision: Update AdminWeb around an application-profile-first workflow
 
-**Rationale**: Application type determines safe defaults for grants, redirects, PKCE, consent, and credential behavior. A type-first wizard reduces misconfiguration and explains the product terms.
+**Rationale**: Application profile determines safe defaults for grants, redirects, PKCE, consent, and credential behavior. A profile-first wizard reduces misconfiguration and explains the product terms.
 
 **Alternatives considered**:
 

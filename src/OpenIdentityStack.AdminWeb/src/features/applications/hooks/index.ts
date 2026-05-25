@@ -3,7 +3,7 @@ export * from './useApplicationCredentials';
 export * from './useAddApplicationCertificate';
 export * from './useAddApplicationSecret';
 export * from './useApplications';
-export * from './useApplicationTypePolicies';
+export * from './useApplicationProfilePolicies';
 export * from './useCreateApplication';
 export * from './useDeleteApplication';
 export * from './useRevokeApplicationCredential';

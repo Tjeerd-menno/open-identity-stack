@@ -458,6 +458,10 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("Profile")
+                        .HasColumnType("integer")
+                        .HasColumnName("Profile");
+
                     b.Property<bool>("RequireConsent")
                         .HasColumnType("boolean");
 
@@ -468,9 +472,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Type")
                         .HasColumnType("integer");
 
                     b.PrimitiveCollection<string>("allowedGrantTypes")
@@ -499,11 +500,11 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_Applications_ClientId");
 
+                    b.HasIndex("Profile")
+                        .HasDatabaseName("IX_Applications_Profile");
+
                     b.HasIndex("Status")
                         .HasDatabaseName("IX_Applications_Status");
-
-                    b.HasIndex("Type")
-                        .HasDatabaseName("IX_Applications_Type");
 
                     b.ToTable("Applications", (string)null);
                 });

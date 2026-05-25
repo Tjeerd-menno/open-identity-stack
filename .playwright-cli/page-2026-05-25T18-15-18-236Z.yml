@@ -1,0 +1,16 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e8]: OM
+      - heading "OpenIdentityStack Admin" [level=3] [ref=e9]
+      - paragraph [ref=e10]: Redirecting to sign-in...
+    - generic [ref=e11]:
+      - button "Redirecting..." [disabled]:
+        - generic:
+          - img
+        - text: Redirecting...
+      - paragraph [ref=e13]: Secure OAuth2/OIDC authentication
+  - generic [ref=e14]:
+    - img [ref=e16]
+    - button "Open Tanstack query devtools" [ref=e64] [cursor=pointer]:
+      - img [ref=e65]

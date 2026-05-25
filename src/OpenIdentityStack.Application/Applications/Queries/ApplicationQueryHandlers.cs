@@ -19,7 +19,7 @@ public sealed class ListApplicationsQueryHandler : IListApplicationsQueryHandler
     public async Task<Result<PagedResult<ApplicationSummary>>> HandleAsync(
         int page = 1,
         int pageSize = 20,
-        ApplicationType? type = null,
+        ApplicationProfile? profile = null,
         ApplicationStatus? status = null,
         OAuthClientType? clientType = null,
         string? searchTerm = null,
@@ -31,7 +31,7 @@ public sealed class ListApplicationsQueryHandler : IListApplicationsQueryHandler
         (List<DomainApplication> items, int totalCount) = await this.repository.ListAsync(
             page,
             pageSize,
-            type,
+            profile,
             status,
             clientType,
             searchTerm,
@@ -42,7 +42,7 @@ public sealed class ListApplicationsQueryHandler : IListApplicationsQueryHandler
                 application.Id,
                 application.ClientId,
                 application.DisplayName,
-                application.Type,
+                application.Profile,
                 application.ClientType,
                 application.Status,
                 application.RequiresMigrationReview,
@@ -78,7 +78,7 @@ public sealed class GetApplicationQueryHandler : IGetApplicationQueryHandler
             application.ClientId,
             application.DisplayName,
             application.Description,
-            application.Type,
+            application.Profile,
             application.ClientType,
             application.Status,
             application.AllowedGrantTypes,
@@ -129,22 +129,22 @@ public sealed class ListApplicationCredentialsQueryHandler : IListApplicationCre
     }
 }
 
-public sealed class ListApplicationTypePoliciesQueryHandler : IListApplicationTypePoliciesQueryHandler
+public sealed class ListApplicationProfilePoliciesQueryHandler : IListApplicationProfilePoliciesQueryHandler
 {
-    public Task<Result<IReadOnlyList<ApplicationTypePolicyDetails>>> HandleAsync(
+    public Task<Result<IReadOnlyList<ApplicationProfilePolicyDetails>>> HandleAsync(
         CancellationToken cancellationToken = default)
     {
         var policies = Enum
-            .GetValues<ApplicationType>()
-            .Select(type => Map(ApplicationTypePolicyCatalog.GetPolicy(type)))
+            .GetValues<ApplicationProfile>()
+            .Select(profile => Map(ApplicationProfilePolicyCatalog.GetPolicy(profile)))
             .ToList();
 
-        return Task.FromResult<Result<IReadOnlyList<ApplicationTypePolicyDetails>>>(policies);
+        return Task.FromResult<Result<IReadOnlyList<ApplicationProfilePolicyDetails>>>(policies);
     }
 
-    private static ApplicationTypePolicyDetails Map(ApplicationTypePolicy policy) =>
+    private static ApplicationProfilePolicyDetails Map(ApplicationProfilePolicy policy) =>
         new(
-            policy.ApplicationType,
+            policy.ApplicationProfile,
             policy.IsSelectable,
             policy.UnavailabilityReason,
             policy.DefaultClientProfile,

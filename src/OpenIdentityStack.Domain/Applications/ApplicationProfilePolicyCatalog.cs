@@ -1,11 +1,11 @@
 namespace OpenIdentityStack.Domain.Applications;
 
-public static class ApplicationTypePolicyCatalog
+public static class ApplicationProfilePolicyCatalog
 {
-    private static readonly Dictionary<ApplicationType, ApplicationTypePolicy> policies = new()
+    private static readonly Dictionary<ApplicationProfile, ApplicationProfilePolicy> policies = new()
     {
-        [ApplicationType.Web] = new(
-            ApplicationType.Web,
+        [ApplicationProfile.Web] = new(
+            ApplicationProfile.Web,
             IsSelectable: true,
             UnavailabilityReason: null,
             DefaultClientProfile: ClientProfile.Confidential,
@@ -13,7 +13,7 @@ public static class ApplicationTypePolicyCatalog
             AllowedGrantTypes: CreateGrants("authorization_code", "refresh_token"),
             DefaultGrantTypes: CreateGrants("authorization_code"),
             Options: CreateOptions(
-                (ApplicationOptionKey.ApplicationType, ApplicationOptionAvailability.ReadOnly),
+                (ApplicationOptionKey.ApplicationProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.ClientProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.TokenEndpointAuthenticationMethod, ApplicationOptionAvailability.Available),
                 (ApplicationOptionKey.ClientSecrets, ApplicationOptionAvailability.Available),
@@ -41,8 +41,8 @@ public static class ApplicationTypePolicyCatalog
             DefaultRequirePkce: true,
             DefaultRequireConsent: true,
             RequiresRedirectUris: true),
-        [ApplicationType.SinglePage] = new(
-            ApplicationType.SinglePage,
+        [ApplicationProfile.SinglePage] = new(
+            ApplicationProfile.SinglePage,
             IsSelectable: true,
             UnavailabilityReason: null,
             DefaultClientProfile: ClientProfile.Public,
@@ -50,7 +50,7 @@ public static class ApplicationTypePolicyCatalog
             AllowedGrantTypes: CreateGrants("authorization_code", "refresh_token"),
             DefaultGrantTypes: CreateGrants("authorization_code"),
             Options: CreateOptions(
-                (ApplicationOptionKey.ApplicationType, ApplicationOptionAvailability.ReadOnly),
+                (ApplicationOptionKey.ApplicationProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.ClientProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.TokenEndpointAuthenticationMethod, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.ClientSecrets, ApplicationOptionAvailability.Hidden),
@@ -75,8 +75,8 @@ public static class ApplicationTypePolicyCatalog
             DefaultRequirePkce: true,
             DefaultRequireConsent: true,
             RequiresRedirectUris: true),
-        [ApplicationType.Native] = new(
-            ApplicationType.Native,
+        [ApplicationProfile.Native] = new(
+            ApplicationProfile.Native,
             IsSelectable: true,
             UnavailabilityReason: null,
             DefaultClientProfile: ClientProfile.Public,
@@ -84,7 +84,7 @@ public static class ApplicationTypePolicyCatalog
             AllowedGrantTypes: CreateGrants("authorization_code", "refresh_token"),
             DefaultGrantTypes: CreateGrants("authorization_code"),
             Options: CreateOptions(
-                (ApplicationOptionKey.ApplicationType, ApplicationOptionAvailability.ReadOnly),
+                (ApplicationOptionKey.ApplicationProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.ClientProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.TokenEndpointAuthenticationMethod, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.ClientSecrets, ApplicationOptionAvailability.Hidden),
@@ -110,8 +110,8 @@ public static class ApplicationTypePolicyCatalog
             DefaultRequirePkce: true,
             DefaultRequireConsent: true,
             RequiresRedirectUris: true),
-        [ApplicationType.MachineToMachine] = new(
-            ApplicationType.MachineToMachine,
+        [ApplicationProfile.MachineToMachine] = new(
+            ApplicationProfile.MachineToMachine,
             IsSelectable: true,
             UnavailabilityReason: null,
             DefaultClientProfile: ClientProfile.Confidential,
@@ -119,7 +119,7 @@ public static class ApplicationTypePolicyCatalog
             AllowedGrantTypes: CreateGrants("client_credentials"),
             DefaultGrantTypes: CreateGrants("client_credentials"),
             Options: CreateOptions(
-                (ApplicationOptionKey.ApplicationType, ApplicationOptionAvailability.ReadOnly),
+                (ApplicationOptionKey.ApplicationProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.ClientProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.TokenEndpointAuthenticationMethod, ApplicationOptionAvailability.Available),
                 (ApplicationOptionKey.ClientSecrets, ApplicationOptionAvailability.Available),
@@ -143,8 +143,8 @@ public static class ApplicationTypePolicyCatalog
             DefaultRequirePkce: false,
             DefaultRequireConsent: false,
             RequiresRedirectUris: false),
-        [ApplicationType.Device] = new(
-            ApplicationType.Device,
+        [ApplicationProfile.Device] = new(
+            ApplicationProfile.Device,
             IsSelectable: false,
             UnavailabilityReason: "Device applications remain reserved until device authorization flow support is implemented and verified.",
             DefaultClientProfile: ClientProfile.Public,
@@ -152,7 +152,7 @@ public static class ApplicationTypePolicyCatalog
             AllowedGrantTypes: CreateGrants("urn:ietf:params:oauth:grant-type:device_code", "refresh_token"),
             DefaultGrantTypes: CreateGrants("urn:ietf:params:oauth:grant-type:device_code"),
             Options: CreateOptions(
-                (ApplicationOptionKey.ApplicationType, ApplicationOptionAvailability.ReadOnly),
+                (ApplicationOptionKey.ApplicationProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.ClientProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.TokenEndpointAuthenticationMethod, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.ClientSecrets, ApplicationOptionAvailability.Hidden),
@@ -178,8 +178,8 @@ public static class ApplicationTypePolicyCatalog
             DefaultRequirePkce: false,
             DefaultRequireConsent: true,
             RequiresRedirectUris: false),
-        [ApplicationType.Custom] = new(
-            ApplicationType.Custom,
+        [ApplicationProfile.Custom] = new(
+            ApplicationProfile.Custom,
             IsSelectable: false,
             UnavailabilityReason: "Custom applications are reserved for legacy migration review.",
             DefaultClientProfile: ClientProfile.Public,
@@ -191,7 +191,7 @@ public static class ApplicationTypePolicyCatalog
                 "urn:ietf:params:oauth:grant-type:device_code"),
             DefaultGrantTypes: CreateGrants(),
             Options: CreateOptions(
-                (ApplicationOptionKey.ApplicationType, ApplicationOptionAvailability.ReadOnly),
+                (ApplicationOptionKey.ApplicationProfile, ApplicationOptionAvailability.ReadOnly),
                 (ApplicationOptionKey.ClientProfile, ApplicationOptionAvailability.Available),
                 (ApplicationOptionKey.TokenEndpointAuthenticationMethod, ApplicationOptionAvailability.Advanced),
                 (ApplicationOptionKey.ClientSecrets, ApplicationOptionAvailability.Available),
@@ -217,7 +217,7 @@ public static class ApplicationTypePolicyCatalog
             RequiresRedirectUris: false)
     };
 
-    public static ApplicationTypePolicy GetPolicy(ApplicationType type) => policies[type];
+    public static ApplicationProfilePolicy GetPolicy(ApplicationProfile profile) => policies[profile];
 
     private static HashSet<ClientProfile> CreateProfiles(params ClientProfile[] profiles) =>
         new HashSet<ClientProfile>(profiles);

@@ -7,7 +7,7 @@ public sealed record CreateApplicationCommand(
     string ClientId,
     string DisplayName,
     string? Description,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     IReadOnlyList<string> AllowedGrantTypes,
     IReadOnlyList<string> AllowedScopes,

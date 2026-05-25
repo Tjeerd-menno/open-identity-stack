@@ -34,11 +34,11 @@ internal static class ApplicationsApi
             .WithName("ListApplications")
             .WithSummary("Lists applications");
 
-        group.MapGet("policies/types", ListApplicationTypePolicies)
+        group.MapGet("policies/profiles", ListApplicationProfilePolicies)
             .RequireAuthorization(Permissions.Applications.Read)
-            .Produces<IReadOnlyList<ApplicationTypePolicyResponse>>(StatusCodes.Status200OK)
-            .WithName("ListApplicationTypePolicies")
-            .WithSummary("Lists application type policies");
+            .Produces<IReadOnlyList<ApplicationProfilePolicyResponse>>(StatusCodes.Status200OK)
+            .WithName("ListApplicationProfilePolicies")
+            .WithSummary("Lists application profile policies");
 
         group.MapGet("{id:guid}", GetApplication)
             .RequireAuthorization(Permissions.Applications.Read)
@@ -129,7 +129,7 @@ internal static class ApplicationsApi
             request.ClientId,
             request.DisplayName,
             request.Description,
-            request.Type,
+            request.Profile,
             request.ClientType,
             request.AllowedGrantTypes,
             request.AllowedScopes,
@@ -155,7 +155,7 @@ internal static class ApplicationsApi
             details.Id.Value,
             details.ClientId,
             details.DisplayName,
-            details.Type,
+            details.Profile,
             details.ClientType,
             details.Status,
             InitialSecret: null,
@@ -168,7 +168,7 @@ internal static class ApplicationsApi
         [FromServices] IListApplicationsQueryHandler listApplicationsQueryHandler,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] ApplicationType? type = null,
+        [FromQuery] ApplicationProfile? profile = null,
         [FromQuery] ApplicationStatus? status = null,
         [FromQuery] OAuthClientType? clientType = null,
         [FromQuery] string? search = null,
@@ -177,7 +177,7 @@ internal static class ApplicationsApi
         Result<PagedResult<ApplicationSummary>> result = await listApplicationsQueryHandler.HandleAsync(
             page,
             pageSize,
-            type,
+            profile,
             status,
             clientType,
             search,
@@ -192,7 +192,7 @@ internal static class ApplicationsApi
             summary.Id.Value,
             summary.ClientId,
             summary.DisplayName,
-            summary.Type,
+            summary.Profile,
             summary.ClientType,
             summary.Status,
             AllowedGrantTypes: [],
@@ -210,20 +210,20 @@ internal static class ApplicationsApi
             paged.HasNextPage));
     }
 
-    private static async Task<IResult> ListApplicationTypePolicies(
-        [FromServices] IListApplicationTypePoliciesQueryHandler listApplicationTypePoliciesQueryHandler,
+    private static async Task<IResult> ListApplicationProfilePolicies(
+        [FromServices] IListApplicationProfilePoliciesQueryHandler listApplicationProfilePoliciesQueryHandler,
         CancellationToken cancellationToken)
     {
-        Result<IReadOnlyList<ApplicationTypePolicyDetails>> result =
-            await listApplicationTypePoliciesQueryHandler.HandleAsync(cancellationToken);
+        Result<IReadOnlyList<ApplicationProfilePolicyDetails>> result =
+            await listApplicationProfilePoliciesQueryHandler.HandleAsync(cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
         }
 
         var responses = result.Value
-            .Select(policy => new ApplicationTypePolicyResponse(
-                policy.ApplicationType,
+            .Select(policy => new ApplicationProfilePolicyResponse(
+                policy.ApplicationProfile,
                 policy.IsSelectable,
                 policy.UnavailabilityReason,
                 policy.DefaultClientProfile,
@@ -274,7 +274,7 @@ internal static class ApplicationsApi
     {
         var command = new ConfigureApplicationOAuthCommand(
             new DomainApplicationId(id),
-            request.Type,
+            request.Profile,
             request.ClientType,
             request.AllowedGrantTypes,
             request.AllowedScopes,
@@ -437,7 +437,7 @@ internal static class ApplicationsApi
             details.ClientId,
             details.DisplayName,
             details.Description,
-            details.Type,
+            details.Profile,
             details.ClientType,
             details.Status,
             details.RedirectUris,

@@ -5,7 +5,7 @@ import type {
   ApplicationCredential,
   ApplicationListParams,
   ApplicationListResponse,
-  ApplicationTypePolicy,
+  ApplicationProfilePolicy,
   AddApplicationCertificateRequest,
   AddApplicationCertificateResponse,
   AddApplicationSecretRequest,
@@ -25,8 +25,8 @@ export async function getApplication(applicationId: string): Promise<Application
   return await apiClient.get<Application>(`/api/admin/applications/${applicationId}`);
 }
 
-export async function getApplicationTypePolicies(): Promise<ApplicationTypePolicy[]> {
-  return await apiClient.get<ApplicationTypePolicy[]>('/api/admin/applications/policies/types');
+export async function getApplicationProfilePolicies(): Promise<ApplicationProfilePolicy[]> {
+  return await apiClient.get<ApplicationProfilePolicy[]>('/api/admin/applications/policies/profiles');
 }
 
 export async function createApplication(

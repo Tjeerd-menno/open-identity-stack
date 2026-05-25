@@ -6,7 +6,7 @@ namespace OpenIdentityStack.Application.Applications.Commands;
 
 public sealed record ConfigureApplicationOAuthCommand(
     DomainApplicationId ApplicationId,
-    ApplicationType Type,
+    ApplicationProfile Profile,
     OAuthClientType ClientType,
     IReadOnlyList<string> AllowedGrantTypes,
     IReadOnlyList<string> AllowedScopes,

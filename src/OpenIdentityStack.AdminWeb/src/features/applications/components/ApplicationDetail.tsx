@@ -4,20 +4,20 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ApplicationClientType, ApplicationType } from '@/types';
+import { ApplicationClientType, ApplicationProfile } from '@/types';
 import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import { useApplication } from '../hooks/useApplication';
 import { useDeleteApplication } from '../hooks/useDeleteApplication';
 import { ApplicationCredentials } from './ApplicationCredentials';
 import { ApplicationStatusBadge } from './ApplicationStatusBadge';
 
-const applicationTypeLabels: Record<ApplicationType, string> = {
-  [ApplicationType.Web]: 'Web',
-  [ApplicationType.SinglePage]: 'Single Page',
-  [ApplicationType.Native]: 'Native',
-  [ApplicationType.MachineToMachine]: 'Machine-to-machine',
-  [ApplicationType.Device]: 'Device',
-  [ApplicationType.Custom]: 'Custom',
+const applicationProfileLabels: Record<ApplicationProfile, string> = {
+  [ApplicationProfile.Web]: 'Web',
+  [ApplicationProfile.SinglePage]: 'Single Page',
+  [ApplicationProfile.Native]: 'Native',
+  [ApplicationProfile.MachineToMachine]: 'Machine-to-machine',
+  [ApplicationProfile.Device]: 'Device',
+  [ApplicationProfile.Custom]: 'Custom',
 };
 
 const clientTypeLabels: Record<ApplicationClientType, string> = {
@@ -144,8 +144,8 @@ export function ApplicationDetail() {
               </div>
             </div>
             <div>
-              <div className="text-sm font-medium text-muted-foreground">Application Type</div>
-              <div className="mt-1">{applicationTypeLabels[application.type]}</div>
+              <div className="text-sm font-medium text-muted-foreground">Application Profile</div>
+              <div className="mt-1">{applicationProfileLabels[application.profile]}</div>
             </div>
             <div>
               <div className="text-sm font-medium text-muted-foreground">Client Type</div>

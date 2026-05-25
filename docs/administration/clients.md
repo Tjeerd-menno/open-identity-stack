@@ -13,7 +13,7 @@ Client records represent the applications that trust OpenIdentityStack for sign-
 ## Things to verify every time
 
 - the redirect URIs match the real application URLs exactly
-- the grant type matches the application type
+- the grant type matches the application profile
 - production and non-production clients are kept separate
 - secret rotation is scheduled and documented
 

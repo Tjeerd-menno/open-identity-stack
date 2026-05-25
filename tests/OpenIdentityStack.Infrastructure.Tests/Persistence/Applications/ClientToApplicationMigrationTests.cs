@@ -57,7 +57,7 @@ public sealed class ClientToApplicationMigrationTests : IClassFixture<SqliteTest
         application.ClientId.ShouldBe("web-client");
         application.DisplayName.ShouldBe("Display web-client");
         application.Description.ShouldBe("Legacy client");
-        application.Type.ShouldBe(ApplicationType.Web);
+        application.Profile.ShouldBe(ApplicationProfile.Web);
         application.ClientType.ShouldBe(OAuthClientType.Confidential);
         application.AllowedGrantTypes.ShouldBe(["authorization_code", "refresh_token"]);
         application.AllowedScopes.ShouldBe(["openid", "api"]);
@@ -84,7 +84,7 @@ public sealed class ClientToApplicationMigrationTests : IClassFixture<SqliteTest
 
         DomainApplication application = await this.dbContext.Applications.SingleAsync();
         application.ClientId.ShouldBe("spa-client");
-        application.Type.ShouldBe(ApplicationType.SinglePage);
+        application.Profile.ShouldBe(ApplicationProfile.SinglePage);
         application.ClientType.ShouldBe(OAuthClientType.Public);
         application.RequiresMigrationReview.ShouldBeTrue();
     }

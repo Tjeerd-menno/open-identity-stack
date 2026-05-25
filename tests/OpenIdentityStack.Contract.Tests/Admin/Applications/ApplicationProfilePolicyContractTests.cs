@@ -2,24 +2,24 @@ using System.Text.Json;
 
 namespace OpenIdentityStack.Contract.Tests.Admin.Applications;
 
-public sealed class ApplicationTypePolicyContractTests
+public sealed class ApplicationProfilePolicyContractTests
 {
     [Fact]
-    public void OpenApiContract_IncludesApplicationTypePoliciesPathAndSchema()
+    public void OpenApiContract_IncludesApplicationProfilePoliciesPathAndSchema()
     {
         string contract = File.ReadAllText(GetOpenApiContractPath());
 
-        contract.ShouldContain("/applications/policies/types");
-        contract.ShouldContain("ApplicationTypePolicyResponse");
+        contract.ShouldContain("/applications/policies/profiles");
+        contract.ShouldContain("ApplicationProfilePolicyResponse");
         contract.ShouldContain("defaultClientProfile");
     }
 
     [Fact]
-    public void ApplicationTypePolicyResponse_ExposesPolicyMetadataShape()
+    public void ApplicationProfilePolicyResponse_ExposesPolicyMetadataShape()
     {
         string responseJson = """
         {
-          "applicationType": "Web",
+          "applicationProfile": "Web",
           "isSelectable": true,
           "unavailabilityReason": null,
           "defaultClientProfile": "Confidential",
@@ -41,7 +41,7 @@ public sealed class ApplicationTypePolicyContractTests
         using var document = JsonDocument.Parse(responseJson);
         JsonElement root = document.RootElement;
 
-        root.GetProperty("applicationType").GetString().ShouldBe("Web");
+        root.GetProperty("applicationProfile").GetString().ShouldBe("Web");
         root.GetProperty("defaultClientProfile").GetString().ShouldBe("Confidential");
         root.GetProperty("allowedGrantTypes").EnumerateArray().Select(item => item.GetString()).ShouldContain("authorization_code");
         root.GetProperty("options").GetProperty("clientSecrets").GetString().ShouldBe("Available");
@@ -53,15 +53,15 @@ public sealed class ApplicationTypePolicyContractTests
     {
         string responseJson = """
         {
-          "error": "Validation.Application.TypeNotAvailable",
-          "message": "This application type is not available for administrator-managed configuration."
+          "error": "Validation.Application.ProfileNotAvailable",
+          "message": "This application profile is not available for administrator-managed configuration."
         }
         """;
 
         using var document = JsonDocument.Parse(responseJson);
         JsonElement root = document.RootElement;
 
-        root.GetProperty("error").GetString().ShouldBe("Validation.Application.TypeNotAvailable");
+        root.GetProperty("error").GetString().ShouldBe("Validation.Application.ProfileNotAvailable");
         string? message = root.GetProperty("message").GetString();
         message.ShouldNotBeNull();
         message.ShouldContain("not available");

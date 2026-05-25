@@ -21,7 +21,7 @@ public sealed class ApplicationTests
             "portal-web",
             "Portal Web",
             "Administrator portal",
-            ApplicationType.Web,
+            ApplicationProfile.Web,
             OAuthClientType.Confidential,
             ["authorization_code", "refresh_token"],
             ["openid", "profile"],
@@ -35,7 +35,7 @@ public sealed class ApplicationTests
         result.Value.ClientId.ShouldBe("portal-web");
         result.Value.DisplayName.ShouldBe("Portal Web");
         result.Value.Description.ShouldBe("Administrator portal");
-        result.Value.Type.ShouldBe(ApplicationType.Web);
+        result.Value.Profile.ShouldBe(ApplicationProfile.Web);
         result.Value.ClientType.ShouldBe(OAuthClientType.Confidential);
         result.Value.Status.ShouldBe(ApplicationStatus.Active);
         result.Value.AllowedGrantTypes.ShouldBe(["authorization_code", "refresh_token"]);
@@ -139,7 +139,7 @@ public sealed class ApplicationTests
             clientId,
             displayName,
             "Orders web application",
-            ApplicationType.Web,
+            ApplicationProfile.Web,
             OAuthClientType.Confidential,
             ["authorization_code"],
             ["openid", "orders.read"],
