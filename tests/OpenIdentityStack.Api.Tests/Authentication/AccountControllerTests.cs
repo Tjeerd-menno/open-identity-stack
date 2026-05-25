@@ -640,6 +640,46 @@ public class AccountControllerTests : IDisposable
         await this._authSettingsRepository.DidNotReceive().GetOrCreateAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task CanAccessLocalLogin_WithWhitespaceWrappedAdminEmail_TrimsBeforeLookup()
+    {
+        // Arrange
+        IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var settings = AuthenticationSettings.CreateDefault(dateTimeProvider);
+        Result setDefaultProviderResult = settings.SetDefaultProvider(
+            OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create(),
+            dateTimeProvider);
+        Assert.True(setDefaultProviderResult.IsSuccess);
+        this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(settings));
+
+        Result<Domain.Users.User> createAdminUserResult = Domain.Users.User.CreateLocal(
+            "admin@example.com",
+            "Admin User",
+            "hashed-password",
+            dateTimeProvider);
+        Assert.True(createAdminUserResult.IsSuccess);
+        Domain.Users.User adminUser = createAdminUserResult.Value;
+        this._userRepository.GetByEmailAsync("admin@example.com", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Domain.Users.User?>(adminUser));
+        this._permissionChecker.HasAnyPermissionAsync(
+                adminUser.Id,
+                Arg.Any<IReadOnlyCollection<string>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(true));
+
+        var request = new CanAccessLocalLoginRequest { Email = "  admin@example.com  " };
+
+        // Act
+        IActionResult result = await this._controller.CanAccessLocalLogin(request);
+
+        // Assert
+        JsonResult jsonResult = Assert.IsType<JsonResult>(result);
+        Assert.True(GetCanAccessValue(jsonResult));
+        await this._userRepository.Received(1).GetByEmailAsync("admin@example.com", Arg.Any<CancellationToken>());
+    }
+
     #endregion
 
     #region Edge Cases
