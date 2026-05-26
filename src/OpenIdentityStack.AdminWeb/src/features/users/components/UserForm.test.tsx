@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { UserStatus, type User } from '@/types';
@@ -35,13 +35,13 @@ describe('UserForm', () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<UserForm onSubmit={onSubmit} />);
 
-    await user.type(screen.getByLabelText(/email/i), 'john@example.com');
-    await user.type(screen.getByLabelText(/display name/i), 'John Doe');
-    await user.type(screen.getByLabelText(/password/i), 'Password1!');
-    await user.type(screen.getByLabelText(/given name/i), 'John');
-    await user.type(screen.getByLabelText(/family name/i), 'Doe');
-    await user.type(screen.getByLabelText(/preferred username/i), 'john.doe');
-    await user.type(screen.getByLabelText(/profile url/i), 'https://example.com/john');
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'john@example.com' } });
+    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'John Doe' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'Password1!' } });
+    fireEvent.change(screen.getByLabelText(/given name/i), { target: { value: 'John' } });
+    fireEvent.change(screen.getByLabelText(/family name/i), { target: { value: 'Doe' } });
+    fireEvent.change(screen.getByLabelText(/preferred username/i), { target: { value: 'john.doe' } });
+    fireEvent.change(screen.getByLabelText(/profile url/i), { target: { value: 'https://example.com/john' } });
     await user.click(screen.getByRole('button', { name: /create user/i }));
 
     await waitFor(() => {

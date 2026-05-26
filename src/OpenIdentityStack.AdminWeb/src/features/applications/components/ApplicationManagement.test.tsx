@@ -240,9 +240,11 @@ describe('Application management components', () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ApplicationForm onSubmit={onSubmit} />);
 
-    await user.type(screen.getByLabelText(/client id/i), 'orders-web');
-    await user.type(screen.getByLabelText(/display name/i), 'Orders Web');
-    await user.type(screen.getByPlaceholderText('https://example.com/callback'), 'https://orders.example.com/callback');
+    fireEvent.change(screen.getByLabelText(/client id/i), { target: { value: 'orders-web' } });
+    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Orders Web' } });
+    fireEvent.change(screen.getByPlaceholderText('https://example.com/callback'), {
+      target: { value: 'https://orders.example.com/callback' },
+    });
     await user.click(screen.getByRole('checkbox', { name: 'openid' }));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /create application/i }));

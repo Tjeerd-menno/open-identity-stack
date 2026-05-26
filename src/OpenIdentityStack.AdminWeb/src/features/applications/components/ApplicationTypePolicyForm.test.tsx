@@ -139,14 +139,16 @@ describe('ApplicationForm policy railroading', () => {
     });
   });
 
-  it('applies web defaults from the selected policy', () => {
+  it('applies web defaults from the selected policy', async () => {
     render(<ApplicationForm onSubmit={vi.fn()} />);
 
     expect(screen.getByText('Client Profile')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Confidential')).toBeInTheDocument();
-    expect(screen.getByText('authorization_code')).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: /refresh_token/i })).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: /require pkce/i })).toBeChecked();
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Confidential')).toBeInTheDocument();
+      expect(screen.getByText('authorization_code')).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /refresh_token/i })).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /require pkce/i })).toBeChecked();
+    });
   });
 
   it('railroads machine-to-machine applications to client_credentials with no redirect or consent controls', async () => {
@@ -180,11 +182,13 @@ describe('ApplicationForm policy railroading', () => {
     }));
   });
 
-  it('shows native redirect guidance and reserved device messaging', () => {
+  it('shows native redirect guidance and reserved device messaging', async () => {
     render(<ApplicationForm onSubmit={vi.fn()} initialProfile={ApplicationProfile.Native} />);
 
-    expect(screen.getByText(/device applications are reserved until the device authorization flow is implemented and tested/i)).toBeInTheDocument();
-    expect(screen.getByText(/claimed https redirects are preferred/i)).toBeInTheDocument();
-    expect(screen.getByText(/private scheme and loopback redirects are supported/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/device applications are reserved until the device authorization flow is implemented and tested/i)).toBeInTheDocument();
+      expect(screen.getByText(/claimed https redirects are preferred/i)).toBeInTheDocument();
+      expect(screen.getByText(/private scheme and loopback redirects are supported/i)).toBeInTheDocument();
+    });
   });
 });

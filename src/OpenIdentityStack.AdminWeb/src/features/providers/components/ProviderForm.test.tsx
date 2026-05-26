@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ProviderForm } from './ProviderForm';
@@ -9,12 +9,11 @@ describe('ProviderForm', () => {
     const onSubmit = vi.fn();
     render(<ProviderForm onSubmit={onSubmit} />);
 
-    await user.type(screen.getByLabelText(/^name$/i), 'google');
-    await user.type(screen.getByLabelText(/display name/i), 'Google');
-    await user.type(screen.getByLabelText(/authority/i), 'https://accounts.google.com');
-    await user.type(screen.getByLabelText(/client id/i), 'client-id');
-    await user.clear(screen.getByLabelText(/scopes/i));
-    await user.type(screen.getByLabelText(/scopes/i), 'openid profile email api');
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'google' } });
+    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Google' } });
+    fireEvent.change(screen.getByLabelText(/authority/i), { target: { value: 'https://accounts.google.com' } });
+    fireEvent.change(screen.getByLabelText(/client id/i), { target: { value: 'client-id' } });
+    fireEvent.change(screen.getByLabelText(/scopes/i), { target: { value: 'openid profile email api' } });
     await user.click(screen.getByRole('button', { name: /create provider/i }));
 
     await waitFor(() => {
