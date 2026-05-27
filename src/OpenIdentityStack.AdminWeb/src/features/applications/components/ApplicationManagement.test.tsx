@@ -18,6 +18,8 @@ const { navigate, hooks } = vi.hoisted(() => ({
     useAddApplicationCertificate: vi.fn(),
     useAddApplicationSecret: vi.fn(),
     useDeleteApplication: vi.fn(),
+    useDisableApplication: vi.fn(),
+    useEnableApplication: vi.fn(),
     useRevokeApplicationCredential: vi.fn(),
   },
 }));
@@ -57,6 +59,14 @@ vi.mock('../hooks/useAddApplicationSecret', () => ({
 
 vi.mock('../hooks/useDeleteApplication', () => ({
   useDeleteApplication: hooks.useDeleteApplication,
+}));
+
+vi.mock('../hooks/useDisableApplication', () => ({
+  useDisableApplication: hooks.useDisableApplication,
+}));
+
+vi.mock('../hooks/useEnableApplication', () => ({
+  useEnableApplication: hooks.useEnableApplication,
 }));
 
 vi.mock('../hooks/useRevokeApplicationCredential', () => ({
@@ -269,6 +279,8 @@ describe('Application management components', () => {
     hooks.useAddApplicationCertificate.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useAddApplicationSecret.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useDeleteApplication.mockReturnValue({ mutateAsync: vi.fn() });
+    hooks.useDisableApplication.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    hooks.useEnableApplication.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useRevokeApplicationCredential.mockReturnValue({ mutateAsync: vi.fn() });
 
     render(<ApplicationDetail />, { wrapper: MemoryRouter });
@@ -293,6 +305,8 @@ describe('Application management components', () => {
     hooks.useAddApplicationCertificate.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useAddApplicationSecret.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useDeleteApplication.mockReturnValue({ mutateAsync: vi.fn() });
+    hooks.useDisableApplication.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    hooks.useEnableApplication.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useRevokeApplicationCredential.mockReturnValue({ mutateAsync: vi.fn() });
 
     render(<ApplicationDetail />, { wrapper: MemoryRouter });

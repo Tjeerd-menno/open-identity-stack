@@ -25,6 +25,11 @@ public static class TestDataBuilder
     /// Create a builder for test service account data.
     /// </summary>
     public static ServiceAccountBuilder ServiceAccount() => new ServiceAccountBuilder();
+
+    /// <summary>
+    /// Create a builder for unified application test data.
+    /// </summary>
+    public static ApplicationBuilder Application() => new ApplicationBuilder();
 }
 
 /// <summary>
@@ -182,6 +187,44 @@ public class ServiceAccountBuilder
         {
             { "Client ID", ClientId },
             { "Display Name", DisplayName }
+        };
+    }
+}
+
+/// <summary>
+/// Builder for unified application test data.
+/// </summary>
+public class ApplicationBuilder
+{
+    public string DisplayName { get; private set; } = $"Test Application {DateTime.UtcNow.Ticks}";
+    public string ClientId { get; private set; } = $"test-app-{Guid.NewGuid():N}";
+    public string ProfileLabel { get; private set; } = "Machine-to-machine";
+
+    public ApplicationBuilder WithDisplayName(string displayName)
+    {
+        DisplayName = displayName;
+        return this;
+    }
+
+    public ApplicationBuilder WithClientId(string clientId)
+    {
+        ClientId = clientId;
+        return this;
+    }
+
+    public ApplicationBuilder WithProfileLabel(string profileLabel)
+    {
+        ProfileLabel = profileLabel;
+        return this;
+    }
+
+    public Dictionary<string, string> Build()
+    {
+        return new Dictionary<string, string>
+        {
+            { "Client ID", ClientId },
+            { "Display Name", DisplayName },
+            { "Application Profile", ProfileLabel }
         };
     }
 }

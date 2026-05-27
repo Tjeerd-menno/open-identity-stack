@@ -40,7 +40,7 @@ This planning phase created a comprehensive roadmap to extend E2E test coverage 
 - UserManagementTests (14 tests)
 - RoleManagementTests (8 tests)
 - GroupManagementTests (11 tests)
-- ServiceAccountManagementTests (11 tests)
+- ApplicationManagementTests (consolidated Applications aggregate coverage)
 - SessionManagementTests (5 tests)
 - ProviderManagementTests (8 tests)
 - DashboardTests (3 tests)

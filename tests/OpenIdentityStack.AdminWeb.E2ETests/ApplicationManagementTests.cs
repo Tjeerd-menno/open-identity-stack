@@ -1,0 +1,231 @@
+using System.Text.RegularExpressions;
+using Microsoft.Playwright;
+using OpenIdentityStack.AdminWeb.E2ETests.Fixtures;
+using OpenIdentityStack.AdminWeb.E2ETests.Helpers;
+
+namespace OpenIdentityStack.AdminWeb.E2ETests;
+
+/// <summary>
+/// E2E coverage for the consolidated Applications aggregate.
+/// Focuses on lifecycle, profile policy behavior, and credential management.
+/// </summary>
+public class ApplicationManagementTests : IAsyncLifetime
+{
+    private readonly AdminWebAppHostFixture fixture;
+    private IBrowserContext? context;
+    private IPage? page;
+
+    public ApplicationManagementTests(AdminWebAppHostFixture fixture)
+    {
+        this.fixture = fixture;
+    }
+
+    public async ValueTask InitializeAsync()
+    {
+        context = await fixture.CreateBrowserContextAsync();
+        page = await context.NewPageAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (page is not null) await page.CloseAsync();
+        if (context is not null) await context.CloseAsync();
+    }
+
+    [Fact]
+    public async Task ApplicationsList_ShouldRenderSearchAndCreateActions()
+    {
+        await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
+        await TestHelpers.NavigateToFeatureAsync(page!, "Applications");
+        await TestHelpers.WaitForDataTableAsync(page!);
+
+        await page!.GetByRole(AriaRole.Heading, new() { Name = "Applications", Exact = true })
+            .ShouldBeVisibleAsync("Applications heading should be visible");
+        await page.GetByPlaceholder("Search by client ID or display name...")
+            .ShouldBeVisibleAsync("Applications search input should be visible");
+        await page.GetByRole(AriaRole.Button, new() { Name = "New Application" })
+            .ShouldBeVisibleAsync("New Application button should be visible");
+
+        Task<IResponse> searchResponseTask = page.WaitForResponseAsync((response) =>
+            response.Url.Contains("/api/admin/applications", StringComparison.OrdinalIgnoreCase) &&
+            response.Url.Contains("search=", StringComparison.OrdinalIgnoreCase));
+
+        await page.GetByPlaceholder("Search by client ID or display name...").FillAsync("e2e");
+        IResponse searchResponse = await searchResponseTask;
+        searchResponse.Ok.ShouldBeTrue();
+        searchResponse.Url.ShouldContain("/api/admin/applications");
+        searchResponse.Url.ShouldNotContain("/api/admin/service-accounts");
+    }
+
+    [Fact]
+    public async Task CreateMachineToMachineApplication_ShouldRailroadPolicyAndShowDetail()
+    {
+        await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
+        (string applicationId, string clientId, string displayName) = await CreateMachineToMachineApplicationAsync();
+
+        page!.Url.ShouldContain($"/applications/{applicationId}");
+        await page.GetByRole(AriaRole.Heading, new() { Name = displayName, Exact = true })
+            .ShouldBeVisibleAsync("Application detail heading should be visible");
+        await page.GetByText(clientId).ShouldBeVisibleAsync("Client ID should be visible on detail page");
+        await page.Locator("[data-status='Active']").ShouldBeVisibleAsync("Application should start Active");
+    }
+
+    [Fact]
+    public async Task ApplicationLifecycle_ShouldDisableAndEnableFromDetail()
+    {
+        await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
+        await CreateMachineToMachineApplicationAsync();
+
+        await page!.GetByRole(AriaRole.Button, new() { Name = "Disable", Exact = true }).ClickAsync();
+        await page.Locator("[data-status='Disabled']").ShouldBeVisibleAsync("Application should be disabled");
+
+        await page.GetByRole(AriaRole.Button, new() { Name = "Enable", Exact = true }).ClickAsync();
+        await page.Locator("[data-status='Active']").ShouldBeVisibleAsync("Application should be re-enabled");
+    }
+
+    [Fact]
+    public async Task ApplicationDetail_ShouldDeleteApplicationAndRemoveItFromList()
+    {
+        await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
+        (_, string clientId, _) = await CreateMachineToMachineApplicationAsync();
+
+        await page!.GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true }).ClickAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Confirm", Exact = true }).ClickAsync();
+        await page.WaitForURLAsync("**/applications", new() { Timeout = 15000 });
+
+        await page.GetByPlaceholder("Search by client ID or display name...").FillAsync(clientId);
+        await page.WaitForTimeoutAsync(600);
+        await page.GetByText("No applications found")
+            .ShouldBeVisibleAsync("Deleted application should not appear in list");
+    }
+
+    [Fact]
+    public async Task ApplicationCredentials_ShouldAddSecretAndCertificateAndAllowRevocation()
+    {
+        await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
+        await CreateMachineToMachineApplicationAsync();
+
+        // Add secret and verify one-time display.
+        await page!.GetByRole(AriaRole.Button, new() { Name = "Add Secret", Exact = true }).ClickAsync();
+        await page.GetByLabel("Description").FillAsync("Primary secret");
+        await page.GetByRole(AriaRole.Button, new() { Name = "Add Secret", Exact = true }).Last.ClickAsync();
+        await page.GetByText("This secret is shown once. Copy it now and store it securely.")
+            .ShouldBeVisibleAsync("One-time secret warning should be visible");
+        await page.GetByRole(AriaRole.Button, new() { Name = "Done", Exact = true }).ClickAsync();
+
+        // Add certificate and revoke it.
+        string thumbprint = $"THUMBPRINT-{Guid.NewGuid():N}";
+        await page.GetByRole(AriaRole.Button, new() { Name = "Add Certificate", Exact = true }).ClickAsync();
+        await page.GetByLabel("Thumbprint").FillAsync(thumbprint);
+        await page.GetByLabel("Subject").FillAsync("CN=E2E App Cert");
+        await page.GetByLabel("Description").FillAsync("E2E certificate");
+        await page.GetByRole(AriaRole.Button, new() { Name = "Add Certificate", Exact = true }).Last.ClickAsync();
+
+        await page.GetByText(thumbprint).ShouldBeVisibleAsync("Certificate thumbprint should be listed");
+
+        ILocator revokeButton = page.GetByRole(AriaRole.Button, new() { Name = "Revoke", Exact = true }).First;
+        await revokeButton.ClickAsync();
+        await page.GetByText("Revoked").ShouldBeVisibleAsync("Revoked marker should be shown");
+    }
+
+    [Fact]
+    public async Task SinglePageApplication_ShouldBlockCredentialManagementAsPublicClient()
+    {
+        await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
+        await CreateSinglePageApplicationAsync();
+
+        await page!.GetByText("Public applications cannot use client secrets or certificates.")
+            .ShouldBeVisibleAsync("Public profile credential restriction should be visible");
+    }
+
+    [Fact]
+    public async Task CreateApplication_WithDuplicateClientId_ShouldShowValidationError()
+    {
+        await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
+        (_, string clientId, _) = await CreateMachineToMachineApplicationAsync();
+
+        await TestHelpers.NavigateToFeatureAsync(page!, "Applications");
+        await page!.GetByRole(AriaRole.Button, new() { Name = "New Application" }).ClickAsync();
+        await page.WaitForURLAsync("**/applications/new");
+
+        await page.GetByLabel("Client ID").FillAsync(clientId);
+        await page.GetByLabel("Display Name").FillAsync($"Duplicate {DateTime.UtcNow:HHmmssfff}");
+        await SelectApplicationProfileAsync("Machine-to-machine");
+        await page.GetByRole(AriaRole.Checkbox, new() { Name = "api", Exact = true }).CheckAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Create Application", Exact = true }).ClickAsync();
+
+        await page.GetByText(new Regex("already exists|conflict", RegexOptions.IgnoreCase))
+            .ShouldBeVisibleAsync("Duplicate clientId should surface a validation error");
+    }
+
+    private async Task<(string applicationId, string clientId, string displayName)> CreateMachineToMachineApplicationAsync()
+    {
+        string clientId = $"e2e-m2m-{Guid.NewGuid():N}";
+        string displayName = $"E2E M2M {DateTime.UtcNow:HHmmssfff}";
+        var requestUrls = new List<string>();
+        page!.Request += (_, request) =>
+        {
+            requestUrls.Add(request.Url);
+        };
+
+        await TestHelpers.NavigateToFeatureAsync(page!, "Applications");
+        await page!.GetByRole(AriaRole.Button, new() { Name = "New Application" }).ClickAsync();
+        await page.WaitForURLAsync("**/applications/new");
+
+        await page.GetByLabel("Client ID").FillAsync(clientId);
+        await page.GetByLabel("Display Name").FillAsync(displayName);
+        await SelectApplicationProfileAsync("Machine-to-machine");
+
+        await page.GetByText("Machine-to-machine applications use only the client credentials grant. Redirects, PKCE, and consent do not apply.")
+            .ShouldBeVisibleAsync("Machine-to-machine guidance should be visible");
+        (await page.GetByRole(AriaRole.Heading, new() { Name = "Redirect URIs", Exact = true }).CountAsync())
+            .ShouldBe(0);
+        await page.GetByText("client_credentials").ShouldBeVisibleAsync("Grant defaults should include client_credentials");
+        await page.GetByRole(AriaRole.Checkbox, new() { Name = "api", Exact = true }).CheckAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Create Application", Exact = true }).ClickAsync();
+        await page.WaitForURLAsync(new Regex(@"/applications/[0-9a-fA-F-]+$"), new() { Timeout = 15000 });
+        requestUrls.Any((url) => url.Contains("/api/admin/applications", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
+        requestUrls.Any((url) => url.Contains("/api/admin/service-accounts", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
+
+        string applicationId = GetApplicationIdFromUrl(page.Url);
+        return (applicationId, clientId, displayName);
+    }
+
+    private async Task<(string applicationId, string clientId)> CreateSinglePageApplicationAsync()
+    {
+        string clientId = $"e2e-spa-{Guid.NewGuid():N}";
+        string displayName = $"E2E SPA {DateTime.UtcNow:HHmmssfff}";
+
+        await TestHelpers.NavigateToFeatureAsync(page!, "Applications");
+        await page!.GetByRole(AriaRole.Button, new() { Name = "New Application" }).ClickAsync();
+        await page.WaitForURLAsync("**/applications/new");
+
+        await page.GetByLabel("Client ID").FillAsync(clientId);
+        await page.GetByLabel("Display Name").FillAsync(displayName);
+        await SelectApplicationProfileAsync("Single Page");
+
+        await page.GetByText("Browser applications are public clients. Shared secrets and certificates stay hidden, and PKCE is always required.")
+            .ShouldBeVisibleAsync("Single Page profile guidance should be visible");
+        await page.GetByPlaceholder("https://example.com/callback")
+            .First
+            .FillAsync("https://spa.example.com/callback");
+        await page.GetByRole(AriaRole.Checkbox, new() { Name = "openid", Exact = true }).CheckAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Create Application", Exact = true }).ClickAsync();
+        await page.WaitForURLAsync(new Regex(@"/applications/[0-9a-fA-F-]+$"), new() { Timeout = 15000 });
+
+        string applicationId = GetApplicationIdFromUrl(page.Url);
+        return (applicationId, clientId);
+    }
+
+    private async Task SelectApplicationProfileAsync(string profileLabel)
+    {
+        await page!.GetByRole(AriaRole.Combobox).First.ClickAsync();
+        await page.GetByRole(AriaRole.Option, new() { Name = profileLabel, Exact = true }).ClickAsync();
+    }
+
+    private static string GetApplicationIdFromUrl(string url)
+    {
+        var uri = new Uri(url);
+        return uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
+    }
+}

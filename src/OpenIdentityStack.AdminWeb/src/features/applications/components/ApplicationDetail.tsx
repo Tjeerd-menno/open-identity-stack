@@ -8,6 +8,8 @@ import { ApplicationClientType, ApplicationProfile } from '@/types';
 import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import { useApplication } from '../hooks/useApplication';
 import { useDeleteApplication } from '../hooks/useDeleteApplication';
+import { useDisableApplication } from '../hooks/useDisableApplication';
+import { useEnableApplication } from '../hooks/useEnableApplication';
 import { ApplicationCredentials } from './ApplicationCredentials';
 import { ApplicationStatusBadge } from './ApplicationStatusBadge';
 
@@ -30,6 +32,8 @@ export function ApplicationDetail() {
   const navigate = useNavigate();
   const { data: application, isLoading } = useApplication(id!);
   const deleteApplication = useDeleteApplication();
+  const disableApplication = useDisableApplication();
+  const enableApplication = useEnableApplication();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (isLoading) {
@@ -57,6 +61,22 @@ export function ApplicationDetail() {
       navigate('/applications');
     } catch (error) {
       console.error('Failed to delete application:', error);
+    }
+  };
+
+  const handleDisable = async () => {
+    try {
+      await disableApplication.mutateAsync(id!);
+    } catch (error) {
+      console.error('Failed to disable application:', error);
+    }
+  };
+
+  const handleEnable = async () => {
+    try {
+      await enableApplication.mutateAsync(id!);
+    } catch (error) {
+      console.error('Failed to enable application:', error);
     }
   };
 
@@ -89,6 +109,23 @@ export function ApplicationDetail() {
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
+          {application.status === 'Active' ? (
+            <Button
+              onClick={handleDisable}
+              variant="outline"
+              disabled={disableApplication.isPending}
+            >
+              Disable
+            </Button>
+          ) : (
+            <Button
+              onClick={handleEnable}
+              variant="outline"
+              disabled={enableApplication.isPending}
+            >
+              Enable
+            </Button>
+          )}
           <Button
             onClick={() => setShowDeleteConfirm(true)}
             variant="destructive"
