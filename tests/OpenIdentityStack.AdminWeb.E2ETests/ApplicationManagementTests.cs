@@ -46,9 +46,7 @@ public class ApplicationManagementTests : IAsyncLifetime
         await page.GetByRole(AriaRole.Button, new() { Name = "New Application" })
             .ShouldBeVisibleAsync("New Application button should be visible");
 
-        Task<IResponse> searchResponseTask = page.WaitForResponseAsync((response) =>
-            response.Url.Contains("/api/admin/applications", StringComparison.OrdinalIgnoreCase) &&
-            response.Url.Contains("search=", StringComparison.OrdinalIgnoreCase));
+        Task<IResponse> searchResponseTask = WaitForApplicationsSearchResponseAsync("e2e");
 
         await page.GetByPlaceholder("Search by client ID or display name...").FillAsync("e2e");
         IResponse searchResponse = await searchResponseTask;
@@ -93,8 +91,10 @@ public class ApplicationManagementTests : IAsyncLifetime
         await page.GetByRole(AriaRole.Button, new() { Name = "Confirm", Exact = true }).ClickAsync();
         await page.WaitForURLAsync("**/applications", new() { Timeout = 15000 });
 
+        Task<IResponse> searchResponseTask = WaitForApplicationsSearchResponseAsync(clientId);
         await page.GetByPlaceholder("Search by client ID or display name...").FillAsync(clientId);
-        await page.WaitForTimeoutAsync(600);
+        IResponse searchResponse = await searchResponseTask;
+        searchResponse.Ok.ShouldBeTrue();
         await page.GetByText("No applications found")
             .ShouldBeVisibleAsync("Deleted application should not appear in list");
     }
@@ -107,8 +107,9 @@ public class ApplicationManagementTests : IAsyncLifetime
 
         // Add secret and verify one-time display.
         await page!.GetByRole(AriaRole.Button, new() { Name = "Add Secret", Exact = true }).ClickAsync();
-        await page.GetByLabel("Description").FillAsync("Primary secret");
-        await page.GetByRole(AriaRole.Button, new() { Name = "Add Secret", Exact = true }).Last.ClickAsync();
+        ILocator addSecretDialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Add Secret", Exact = true });
+        await addSecretDialog.GetByLabel("Description").FillAsync("Primary secret");
+        await addSecretDialog.GetByRole(AriaRole.Button, new() { Name = "Add Secret", Exact = true }).ClickAsync();
         await page.GetByText("This secret is shown once. Copy it now and store it securely.")
             .ShouldBeVisibleAsync("One-time secret warning should be visible");
         await page.GetByRole(AriaRole.Button, new() { Name = "Done", Exact = true }).ClickAsync();
@@ -116,10 +117,11 @@ public class ApplicationManagementTests : IAsyncLifetime
         // Add certificate and revoke it.
         string thumbprint = $"THUMBPRINT-{Guid.NewGuid():N}";
         await page.GetByRole(AriaRole.Button, new() { Name = "Add Certificate", Exact = true }).ClickAsync();
-        await page.GetByLabel("Thumbprint").FillAsync(thumbprint);
-        await page.GetByLabel("Subject").FillAsync("CN=E2E App Cert");
-        await page.GetByLabel("Description").FillAsync("E2E certificate");
-        await page.GetByRole(AriaRole.Button, new() { Name = "Add Certificate", Exact = true }).Last.ClickAsync();
+        ILocator addCertificateDialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Add Certificate", Exact = true });
+        await addCertificateDialog.GetByLabel("Thumbprint").FillAsync(thumbprint);
+        await addCertificateDialog.GetByLabel("Subject").FillAsync("CN=E2E App Cert");
+        await addCertificateDialog.GetByLabel("Description").FillAsync("E2E certificate");
+        await addCertificateDialog.GetByRole(AriaRole.Button, new() { Name = "Add Certificate", Exact = true }).ClickAsync();
 
         await page.GetByText(thumbprint).ShouldBeVisibleAsync("Certificate thumbprint should be listed");
 
@@ -151,7 +153,7 @@ public class ApplicationManagementTests : IAsyncLifetime
         await page.GetByLabel("Client ID").FillAsync(clientId);
         await page.GetByLabel("Display Name").FillAsync($"Duplicate {DateTime.UtcNow:HHmmssfff}");
         await SelectApplicationProfileAsync("Machine-to-machine");
-        await page.GetByRole(AriaRole.Checkbox, new() { Name = "api", Exact = true }).CheckAsync();
+        await CheckScopeAsync("api");
         await page.GetByRole(AriaRole.Button, new() { Name = "Create Application", Exact = true }).ClickAsync();
 
         await page.GetByText(new Regex("already exists|conflict", RegexOptions.IgnoreCase))
@@ -181,7 +183,7 @@ public class ApplicationManagementTests : IAsyncLifetime
         (await page.GetByRole(AriaRole.Heading, new() { Name = "Redirect URIs", Exact = true }).CountAsync())
             .ShouldBe(0);
         await page.GetByText("client_credentials").ShouldBeVisibleAsync("Grant defaults should include client_credentials");
-        await page.GetByRole(AriaRole.Checkbox, new() { Name = "api", Exact = true }).CheckAsync();
+        await CheckScopeAsync("api");
         await page.GetByRole(AriaRole.Button, new() { Name = "Create Application", Exact = true }).ClickAsync();
         await page.WaitForURLAsync(new Regex(@"/applications/[0-9a-fA-F-]+$"), new() { Timeout = 15000 });
         requestUrls.Any((url) => url.Contains("/api/admin/applications", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
@@ -209,7 +211,7 @@ public class ApplicationManagementTests : IAsyncLifetime
         await page.GetByPlaceholder("https://example.com/callback")
             .First
             .FillAsync("https://spa.example.com/callback");
-        await page.GetByRole(AriaRole.Checkbox, new() { Name = "openid", Exact = true }).CheckAsync();
+        await CheckScopeAsync("openid");
         await page.GetByRole(AriaRole.Button, new() { Name = "Create Application", Exact = true }).ClickAsync();
         await page.WaitForURLAsync(new Regex(@"/applications/[0-9a-fA-F-]+$"), new() { Timeout = 15000 });
 
@@ -221,6 +223,25 @@ public class ApplicationManagementTests : IAsyncLifetime
     {
         await page!.GetByRole(AriaRole.Combobox).First.ClickAsync();
         await page.GetByRole(AriaRole.Option, new() { Name = profileLabel, Exact = true }).ClickAsync();
+    }
+
+    private Task<IResponse> WaitForApplicationsSearchResponseAsync(string searchTerm)
+    {
+        string encodedSearchTerm = Uri.EscapeDataString(searchTerm);
+        return page!.WaitForResponseAsync((response) =>
+            response.Url.Contains("/api/admin/applications", StringComparison.OrdinalIgnoreCase) &&
+            response.Url.Contains($"search={encodedSearchTerm}", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task CheckScopeAsync(string scopeName)
+    {
+        ILocator scopeCheckbox = page!.GetByRole(AriaRole.Checkbox, new() { Name = scopeName, Exact = true });
+        if (await scopeCheckbox.GetAttributeAsync("data-state") != "checked")
+        {
+            await scopeCheckbox.ClickAsync();
+        }
+
+        (await scopeCheckbox.GetAttributeAsync("data-state")).ShouldBe("checked");
     }
 
     private static string GetApplicationIdFromUrl(string url)
