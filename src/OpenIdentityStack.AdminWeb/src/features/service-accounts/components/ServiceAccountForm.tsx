@@ -4,7 +4,7 @@
  * Form for creating or updating service accounts
  */
 
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -21,32 +21,49 @@ const createSchema = z.object({
   allowedGrantTypes: z.array(z.string()).min(1, 'At least one grant type is required'),
 });
 
-const updateSchema = z.object({
+const editSchema = z.object({
+  clientId: z.string(),
   displayName: z.string().min(1, 'Display name is required').max(200),
   allowedScopes: z.array(z.string()).min(1, 'At least one scope is required'),
   allowedGrantTypes: z.array(z.string()).min(1, 'At least one grant type is required'),
 });
 
 type CreateFormData = z.infer<typeof createSchema>;
-type UpdateFormData = z.infer<typeof updateSchema>;
+interface UpdateFormData {
+  displayName: string;
+  allowedScopes: string[];
+  allowedGrantTypes: string[];
+}
+type ServiceAccountFormValues = z.infer<typeof editSchema>;
 
-interface ServiceAccountFormProps {
-  serviceAccount?: ServiceAccount;
+interface CreateServiceAccountFormProps {
+  serviceAccount?: undefined;
+  onSubmit: (data: CreateFormData) => Promise<void>;
+  isLoading?: boolean;
+}
+
+interface EditServiceAccountFormProps {
+  serviceAccount: ServiceAccount;
   onSubmit: (data: CreateFormData | UpdateFormData) => Promise<void>;
   isLoading?: boolean;
 }
 
+type ServiceAccountFormProps = CreateServiceAccountFormProps | EditServiceAccountFormProps;
+
 const availableScopes = ['api', 'openid', 'profile', 'email', 'roles'];
 const availableGrantTypes = ['client_credentials', 'authorization_code', 'refresh_token'];
 
-export function ServiceAccountForm({ serviceAccount, onSubmit, isLoading }: ServiceAccountFormProps) {
+export function ServiceAccountForm(props: ServiceAccountFormProps) {
+  const { isLoading } = props;
+  const serviceAccount = props.serviceAccount;
   const isEdit = !!serviceAccount;
-  const schema = isEdit ? updateSchema : createSchema;
+  const resolver = (isEdit ? zodResolver(editSchema) : zodResolver(createSchema)) as Resolver<ServiceAccountFormValues>;
 
-  const form = useForm<CreateFormData | UpdateFormData>({
-    resolver: zodResolver(schema),
+  const form = useForm<ServiceAccountFormValues>({
+    resolver,
     defaultValues: serviceAccount
       ? {
+          clientId: serviceAccount.clientId,
           displayName: serviceAccount.displayName,
           allowedScopes: serviceAccount.allowedScopes,
           allowedGrantTypes: serviceAccount.allowedGrantTypes,
@@ -59,9 +76,22 @@ export function ServiceAccountForm({ serviceAccount, onSubmit, isLoading }: Serv
         },
   });
 
+  const handleFormSubmit = async (data: ServiceAccountFormValues) => {
+    if (props.serviceAccount) {
+      await props.onSubmit({
+        displayName: data.displayName,
+        allowedScopes: data.allowedScopes,
+        allowedGrantTypes: data.allowedGrantTypes,
+      });
+      return;
+    }
+
+    await props.onSubmit(data);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>

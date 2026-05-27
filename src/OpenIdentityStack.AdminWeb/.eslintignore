@@ -1,8 +1,0 @@
-node_modules/
-dist/
-build/
-coverage/
-.vite/
-*.min.js
-playwright-report/
-test-results/

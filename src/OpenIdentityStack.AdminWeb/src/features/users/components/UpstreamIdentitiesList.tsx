@@ -18,7 +18,7 @@ interface UpstreamIdentitiesListProps {
 export function UpstreamIdentitiesList({ userId }: UpstreamIdentitiesListProps) {
   const { data: identities, isLoading } = useUpstreamIdentities(userId);
   const unlinkIdentity = useUnlinkIdentity();
-  const [_showLinkDialog, _setShowLinkDialog] = useState(false);
+  const [, setShowLinkDialog] = useState(false);
 
   const handleUnlink = async (providerId: string) => {
     try {
@@ -41,7 +41,7 @@ export function UpstreamIdentitiesList({ userId }: UpstreamIdentitiesListProps) 
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Linked Accounts</h3>
         <Button 
-          onClick={() => _setShowLinkDialog(true)}
+          onClick={() => setShowLinkDialog(true)}
           size="sm"
         >
           <Plus className="h-4 w-4 mr-1" />

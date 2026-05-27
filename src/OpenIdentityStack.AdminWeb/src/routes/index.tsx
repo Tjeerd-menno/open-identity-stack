@@ -24,11 +24,11 @@ import { RoleDetailPage } from '@/features/roles/pages/RoleDetailPage';
 // Group Management
 import { GroupsPage, GroupDetailPage, CreateGroupPage, EditGroupPage } from '@/features/groups';
 
-// Service Account Management
-import { ServiceAccountsPage, ServiceAccountDetailPage, CreateServiceAccountPage, EditServiceAccountPage } from '@/features/service-accounts';
-
 // Permissions
 import { ApplicationPermissionsPage, RegisterApplicationPage, RegisteredApplicationDetailPage } from '@/features/application-permissions';
+
+// Application Management
+import { ApplicationsPage, ApplicationDetailPage, CreateApplicationPage, EditApplicationPage } from '@/features/applications';
 
 // Session Management
 import { SessionsPage, SessionDetailPage } from '@/features/sessions';
@@ -38,9 +38,6 @@ import { ProvidersPage, CreateProviderPage, ProviderDetailPage, EditProviderPage
 
 // Settings
 import { SettingsPage } from '@/features/settings';
-
-// Client Management
-import { ClientsPage, CreateClientPage, ClientDetailPage, EditClientPage } from '@/features/clients';
 
 // Dashboard
 import { DashboardPage } from '@/features/dashboard';
@@ -128,22 +125,22 @@ export const router = createBrowserRouter([
         element: <EditGroupPage /> 
       },
       
-      // Service Account Management Routes
-      { 
-        path: 'service-accounts', 
-        element: <ServiceAccountsPage /> 
+      // Application Management Routes
+      {
+        path: 'applications',
+        element: <ApplicationsPage />
       },
-      { 
-        path: 'service-accounts/new', 
-        element: <CreateServiceAccountPage /> 
+      {
+        path: 'applications/new',
+        element: <CreateApplicationPage />
       },
-      { 
-        path: 'service-accounts/:id', 
-        element: <ServiceAccountDetailPage /> 
+      {
+        path: 'applications/:id',
+        element: <ApplicationDetailPage />
       },
-      { 
-        path: 'service-accounts/:id/edit', 
-        element: <EditServiceAccountPage /> 
+      {
+        path: 'applications/:id/edit',
+        element: <EditApplicationPage />
       },
 
       // Permissions Routes
@@ -186,24 +183,6 @@ export const router = createBrowserRouter([
       { 
         path: 'providers/:id/edit', 
         element: <EditProviderPage /> 
-      },
-      
-      // Client Management Routes
-      { 
-        path: 'clients', 
-        element: <ClientsPage /> 
-      },
-      { 
-        path: 'clients/new', 
-        element: <CreateClientPage /> 
-      },
-      { 
-        path: 'clients/:id', 
-        element: <ClientDetailPage /> 
-      },
-      { 
-        path: 'clients/:id/edit', 
-        element: <EditClientPage /> 
       },
       
       // Settings Route

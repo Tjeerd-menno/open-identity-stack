@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const renderAuthSnapshot = async () => {
-  const { AuthContext } = await import('./AuthContext');
+  const { AuthContext } = await import('./auth-context');
 
   const AuthSnapshot = () => {
     const auth = React.useContext(AuthContext);

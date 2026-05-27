@@ -1,4 +1,5 @@
-using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Applications.Commands;
+using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Domain.ServiceAccounts;
 
 using SharedKernel;
@@ -9,63 +10,53 @@ namespace OpenIdentityStack.Application.ServiceAccounts.Commands;
 /// </summary>
 public sealed class ValidateCertificateUseCase : IValidateCertificateUseCase
 {
-    private readonly IServiceAccountRepository serviceAccountRepository;
-    private readonly IDateTimeProvider dateTimeProvider;
+    private readonly IValidateApplicationCertificateUseCase applicationValidationUseCase;
 
-    public ValidateCertificateUseCase(
-        IServiceAccountRepository serviceAccountRepository,
-        IDateTimeProvider dateTimeProvider)
+    public ValidateCertificateUseCase(IValidateApplicationCertificateUseCase applicationValidationUseCase)
     {
-        this.serviceAccountRepository = serviceAccountRepository;
-        this.dateTimeProvider = dateTimeProvider;
+        this.applicationValidationUseCase = applicationValidationUseCase;
     }
 
     public async Task<Result<ValidateCertificateResult>> ExecuteAsync(
         ValidateCertificateCommand command,
         CancellationToken cancellationToken = default)
     {
-        // Validate input
-        if (string.IsNullOrWhiteSpace(command.ClientId))
+        Result<ValidateApplicationCredentialsResult> result =
+            await this.applicationValidationUseCase.ExecuteAsync(
+                new ValidateApplicationCertificateCommand(command.ClientId, command.CertificateThumbprint),
+                cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return MapError(result.Error);
+        }
+
+        ValidateApplicationCredentialsResult value = result.Value;
+        return new ValidateCertificateResult(
+            new ServiceAccountId(value.ApplicationId.Value),
+            value.ClientId,
+            value.DisplayName,
+            value.AllowedScopes,
+            value.AllowedGrantTypes);
+    }
+
+    private static DomainError MapError(DomainError error)
+    {
+        if (error.Code.EndsWith("Application.ClientIdRequired", StringComparison.Ordinal))
         {
             return ServiceAccountErrors.ClientIdRequired;
         }
 
-        if (string.IsNullOrWhiteSpace(command.CertificateThumbprint))
-        {
-            return ServiceAccountErrors.InvalidCredentials;
-        }
-
-        // Find the service account
-        ServiceAccount? serviceAccount = await this.serviceAccountRepository.GetByClientIdAsync(
-            command.ClientId,
-            cancellationToken);
-
-        if (serviceAccount is null)
-        {
-            return ServiceAccountErrors.InvalidCredentials;
-        }
-
-        // Check if the account is active
-        if (serviceAccount.Status != ServiceAccountStatus.Active)
+        if (error.Code.EndsWith("Application.Disabled", StringComparison.Ordinal))
         {
             return ServiceAccountErrors.AccountDisabled;
         }
 
-        // Find a valid certificate that matches the thumbprint
-        ClientCertificate? matchingCertificate = serviceAccount.FindValidCertificate(
-            command.CertificateThumbprint,
-            this.dateTimeProvider);
-
-        if (matchingCertificate is null)
+        if (error.Code.EndsWith("Application.InvalidCredentials", StringComparison.Ordinal))
         {
             return ServiceAccountErrors.InvalidCredentials;
         }
 
-        return new ValidateCertificateResult(
-            serviceAccount.Id,
-            serviceAccount.ClientId,
-            serviceAccount.DisplayName,
-            serviceAccount.AllowedScopes,
-            serviceAccount.AllowedGrantTypes);
+        return error;
     }
 }

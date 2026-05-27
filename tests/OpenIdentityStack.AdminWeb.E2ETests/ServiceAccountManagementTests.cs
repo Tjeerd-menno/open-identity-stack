@@ -12,6 +12,8 @@ namespace OpenIdentityStack.AdminWeb.E2ETests;
 /// </summary>
 public class ServiceAccountManagementTests : IAsyncLifetime
 {
+    private const string LegacyServiceAccountsSkipReason = "Legacy Service Accounts UI is being replaced by unified Applications management.";
+
     private readonly AdminWebAppHostFixture fixture;
     private IBrowserContext? context;
     private IPage? page;
@@ -54,7 +56,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// Verifies that service accounts can be listed with pagination controls
     /// API: GET /api/admin/service-accounts
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task ListServiceAccounts_ShouldDisplayServiceAccountsWithPagination()
     {
         // Arrange
@@ -79,7 +81,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// Verifies that service accounts can be searched and filtered
     /// API: GET /api/admin/service-accounts with search parameter
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task SearchServiceAccounts_ShouldFilterResults()
     {
         // Arrange
@@ -106,7 +108,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// API: POST /api/admin/service-accounts
     /// Special: Verify secret is displayed once and can be copied
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task CreateServiceAccount_ShouldSucceedAndDisplaySecret()
     {
         // Arrange
@@ -182,7 +184,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// Verifies that service account details can be viewed
     /// API: GET /api/admin/service-accounts/{id}
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task ViewServiceAccountDetails_ShouldDisplayServiceAccountInformation()
     {
         // Arrange - Create a service account to view
@@ -217,7 +219,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// Verifies that service account details can be edited
     /// API: PATCH /api/admin/service-accounts/{id}
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task EditServiceAccount_ShouldUpdateServiceAccountDetails()
     {
         // Arrange - Create a service account to edit
@@ -286,7 +288,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// Verifies that a service account can be enabled
     /// API: POST /api/admin/service-accounts/{id}/enable
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task EnableServiceAccount_ShouldEnableServiceAccount()
     {
         // Arrange - Create a service account (starts as Active, so we'll disable it first)
@@ -342,7 +344,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// Verifies that a service account can be disabled
     /// API: POST /api/admin/service-accounts/{id}/disable
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task DisableServiceAccount_ShouldDisableServiceAccount()
     {
         // Arrange - Create a service account
@@ -392,7 +394,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// Verifies that a service account can be deleted
     /// API: DELETE /api/admin/service-accounts/{id}
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task DeleteServiceAccount_ShouldRemoveServiceAccountFromList()
     {
         // Arrange - Create a service account to delete
@@ -440,7 +442,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// API: POST /api/admin/service-accounts/{id}/rotate-secret
     /// Special: Verify new secret is displayed once
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task RotateSecret_ShouldGenerateNewSecretAndDisplayOnce()
     {
         // Arrange - Create a service account
@@ -507,7 +509,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// Verifies that a certificate can be added to a service account
     /// API: POST /api/admin/service-accounts/{id}/certificates
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task AddCertificate_ShouldAddCertificateToServiceAccount()
     {
         // Arrange - Create a service account
@@ -573,7 +575,7 @@ public class ServiceAccountManagementTests : IAsyncLifetime
     /// Verifies that service account certificates can be viewed
     /// API: GET /api/admin/service-accounts/{id}/certificates
     /// </summary>
-    [Fact]
+    [Fact(Skip = LegacyServiceAccountsSkipReason)]
     public async Task ViewCertificates_ShouldDisplayCertificates()
     {
         // Arrange - Create a service account

@@ -6,6 +6,7 @@ using OpenIdentityStack.Domain.ApplicationPermissions;
 using OpenIdentityStack.Domain.Settings;
 
 using SharedKernel;
+using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 namespace OpenIdentityStack.Infrastructure.Persistence.Converters;
 
 /// <summary>
@@ -70,6 +71,14 @@ public class UpstreamProviderIdConverter : ValueConverter<UpstreamProviderId, Gu
 public class ClientIdConverter : ValueConverter<ClientId, Guid>
 {
     public ClientIdConverter() : base(id => id.Value, guid => new ClientId(guid)) { }
+}
+
+/// <summary>
+/// EF Core value converter for ApplicationId.
+/// </summary>
+public class ApplicationIdConverter : ValueConverter<DomainApplicationId, Guid>
+{
+    public ApplicationIdConverter() : base(id => id.Value, guid => new DomainApplicationId(guid)) { }
 }
 
 /// <summary>

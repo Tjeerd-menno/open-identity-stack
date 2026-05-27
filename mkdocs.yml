@@ -58,8 +58,10 @@ nav:
       - Health and observability: operations/health-and-observability.md
       - Database operations: operations/database-operations.md
       - Upgrades: operations/upgrades.md
+      - Applications migration: applications-migration.md
   - Administration:
       - Overview: administration/index.md
+      - Applications: admin-applications.md
       - Users and roles: administration/users-and-roles.md
       - Groups and delegation: administration/groups-and-delegation.md
       - Client applications: administration/clients.md

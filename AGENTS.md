@@ -21,11 +21,34 @@ Use .NET 10 and restore from the solution root:
 ## Testing Guidelines
 The repo uses Microsoft.Testing.Platform, xUnit-style .NET tests, Vitest for the admin UI, and Playwright-based E2E coverage through `OpenIdentityStack.AdminWeb.E2ETests`. Name test files `*Tests.cs` and keep test projects aligned to the production layer they verify. Build before `--test-modules` runs so the test executables exist. Keep coverage-relevant code out of generated files and migrations.
 
+## Agent Orchestration Guidelines
+For large or multi-phase work, prefer agent orchestration over a single long-running thread.
+
+Use subagents or fleet-style/background sessions when:
+- The task naturally splits across independent areas such as Domain/Application/API, AdminWeb, contracts/docs, or verification.
+- There are 2+ independent failing test files or subsystems.
+- The user says "continue" after a long implementation session and there are still multiple unchecked tasks.
+- `tasks.md` contains parallelizable `[P]` tasks or separate phases with non-overlapping file ownership.
+
+Do not parallelize when:
+- Multiple tasks edit the same files or shared model contracts.
+- A design decision is unresolved.
+- A failing test likely has one shared root cause.
+- The work requires one coherent refactor across layers.
+
+When using subagents, give each agent:
+- A narrow scope and explicit file boundaries.
+- The relevant spec/plan/tasks excerpts.
+- The exact verification command for its slice.
+- A requirement to report changed files, root cause, and validation output.
+
+The coordinating agent remains responsible for integration, conflict resolution, final build/test/docs verification, and task checkbox updates.
+
 ## Commit & Pull Request Guidelines
 Recent history favors short, imperative subjects such as `Add SonarQube scanning to CI workflows` or focused `Bump ...` dependency updates. Keep commits scoped and descriptive. Pull requests should explain the user-visible or operational impact, list validation performed, and link the relevant issue or spec when one exists. Include screenshots for `AdminWeb` UI changes, and call out doc or deployment updates when behavior changes.
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/005-introspection-endpoint/plan.md`
+`specs/006-unify-applications-model/plan.md`
 <!-- SPECKIT END -->

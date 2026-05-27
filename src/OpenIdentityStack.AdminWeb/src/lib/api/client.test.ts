@@ -1,19 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+type RequestConfig = {
+  headers: Record<string, string>;
+};
+
+type InterceptorError = {
+  response?: {
+    status?: number;
+    data?: unknown;
+  };
+  message: string;
+};
+
 const mockedAxios = vi.hoisted(() => {
-  let requestFulfilled: ((config: any) => any) | undefined;
-  let responseRejected: ((error: any) => Promise<never>) | undefined;
+  let requestFulfilled:
+    | ((config: RequestConfig) => RequestConfig | Promise<RequestConfig>)
+    | undefined;
+  let responseRejected: ((error: InterceptorError) => Promise<never>) | undefined;
 
   const instance = {
     interceptors: {
       request: {
-        use: vi.fn((onFulfilled: (config: any) => any) => {
+        use: vi.fn((onFulfilled: (config: RequestConfig) => RequestConfig | Promise<RequestConfig>) => {
           requestFulfilled = onFulfilled;
           return 0;
         }),
       },
       response: {
-        use: vi.fn((_onFulfilled: (value: any) => any, onRejected: (error: any) => Promise<never>) => {
+        use: vi.fn((_onFulfilled: (value: unknown) => unknown, onRejected: (error: InterceptorError) => Promise<never>) => {
           responseRejected = onRejected;
           return 0;
         }),

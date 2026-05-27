@@ -48,18 +48,6 @@ public sealed class AdminApiRouteMappingTests
     public static IEnumerable<object[]> GetApiExpectations()
     {
         yield return [new ApiExpectation(
-            "OpenIdentityStack.Api.Clients.ClientsApi",
-            "MapClientsApi",
-            "ClientsApi",
-            [
-                new("CreateClient", "api/admin/clients", "POST", Permissions.Clients.Write),
-                new("GetClient", "api/admin/clients/{id:guid}", "GET", Permissions.Clients.Read),
-                new("ListClients", "api/admin/clients", "GET", Permissions.Clients.Read),
-                new("UpdateClient", "api/admin/clients/{id:guid}", "PATCH", Permissions.Clients.Write),
-                new("DeleteClient", "api/admin/clients/{id:guid}", "DELETE", Permissions.Clients.Delete)
-            ])];
-
-        yield return [new ApiExpectation(
             "OpenIdentityStack.Api.Users.UsersApi",
             "MapUsersApi",
             "UsersApi",
@@ -126,22 +114,6 @@ public sealed class AdminApiRouteMappingTests
                 new("GetSession", "api/admin/sessions/{id:guid}", "GET", Permissions.Sessions.Read),
                 new("RevokeSession", "api/admin/sessions/{id:guid}", "DELETE", Permissions.Sessions.Revoke),
                 new("RevokeAllUserSessions", "api/admin/users/{userId:guid}/sessions", "DELETE", Permissions.Sessions.Revoke)
-            ])];
-
-        yield return [new ApiExpectation(
-            "OpenIdentityStack.Api.ServiceAccounts.ServiceAccountsApi",
-            "MapServiceAccountsApi",
-            "ServiceAccountsApi",
-            [
-                new("CreateServiceAccount", "api/admin/service-accounts", "POST", Permissions.ServiceAccounts.Write),
-                new("GetServiceAccount", "api/admin/service-accounts/{id:guid}", "GET", Permissions.ServiceAccounts.Read),
-                new("UpdateServiceAccount", "api/admin/service-accounts/{id:guid}", "PATCH", Permissions.ServiceAccounts.Write),
-                new("ListServiceAccounts", "api/admin/service-accounts", "GET", Permissions.ServiceAccounts.Read),
-                new("DeleteServiceAccount", "api/admin/service-accounts/{id:guid}", "DELETE", Permissions.ServiceAccounts.Delete),
-                new("DisableServiceAccount", "api/admin/service-accounts/{id:guid}/disable", "POST", Permissions.ServiceAccounts.Write),
-                new("EnableServiceAccount", "api/admin/service-accounts/{id:guid}/enable", "POST", Permissions.ServiceAccounts.Write),
-                new("RotateServiceAccountSecret", "api/admin/service-accounts/{id:guid}/rotate-secret", "POST", Permissions.ServiceAccounts.RotateSecret),
-                new("AddServiceAccountCertificate", "api/admin/service-accounts/{id:guid}/certificates", "POST", Permissions.ServiceAccounts.ManageCertificates)
             ])];
 
         yield return [new ApiExpectation(

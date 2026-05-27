@@ -7,13 +7,16 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Applications.Commands;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
 using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
+using OpenIdentityStack.Infrastructure.Identity;
 
 using SharedKernel;
+using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 namespace OpenIdentityStack.Api.Tests.Performance;
 
 /// <summary>
@@ -149,6 +152,51 @@ public sealed class AuthEndpointLatencyTests
         p50.ShouldBeLessThan(P50ThresholdMs, $"Logout P50 ({p50:F3}ms) exceeded {P50ThresholdMs}ms budget");
         p95.ShouldBeLessThan(P95ThresholdMs, $"Logout P95 ({p95:F3}ms) exceeded {P95ThresholdMs}ms budget");
         p99.ShouldBeLessThan(P99ThresholdMs, $"Logout P99 ({p99:F3}ms) exceeded {P99ThresholdMs}ms budget");
+    }
+
+    #endregion
+
+    #region Application Credential Lookup Latency
+
+    [Fact]
+    public async Task ApplicationClientAuthentication_LatencyPercentiles_MeetTargetsAndUseSingleApplicationLookup()
+    {
+        IValidateApplicationClientCredentialsUseCase validateCredentialsUseCase =
+            Substitute.For<IValidateApplicationClientCredentialsUseCase>();
+        IValidateApplicationCertificateUseCase validateCertificateUseCase =
+            Substitute.For<IValidateApplicationCertificateUseCase>();
+        validateCredentialsUseCase.ExecuteAsync(
+                Arg.Any<ValidateApplicationClientCredentialsCommand>(),
+                Arg.Any<CancellationToken>())
+            .Returns(CreateApplicationValidationResult());
+        var handler = new ApplicationClientAuthenticationHandler(validateCredentialsUseCase, validateCertificateUseCase);
+        var latencies = new List<double>(IterationCount);
+
+        for (int i = 0; i < 10; i++)
+        {
+            await handler.HandleAsync(CreateApplicationCredentialContext());
+        }
+
+        for (int i = 0; i < IterationCount; i++)
+        {
+            var sw = Stopwatch.StartNew();
+            await handler.HandleAsync(CreateApplicationCredentialContext());
+            sw.Stop();
+            latencies.Add(sw.Elapsed.TotalMilliseconds);
+        }
+
+        latencies.Sort();
+        double p50 = GetPercentile(latencies, 50);
+        double p95 = GetPercentile(latencies, 95);
+        double p99 = GetPercentile(latencies, 99);
+
+        p50.ShouldBeLessThan(P50ThresholdMs, $"Application credential validation P50 ({p50:F3}ms) exceeded {P50ThresholdMs}ms budget");
+        p95.ShouldBeLessThan(P95ThresholdMs, $"Application credential validation P95 ({p95:F3}ms) exceeded {P95ThresholdMs}ms budget");
+        p99.ShouldBeLessThan(P99ThresholdMs, $"Application credential validation P99 ({p99:F3}ms) exceeded {P99ThresholdMs}ms budget");
+        await validateCredentialsUseCase.Received(IterationCount + 10)
+            .ExecuteAsync(Arg.Any<ValidateApplicationClientCredentialsCommand>(), Arg.Any<CancellationToken>());
+        await validateCertificateUseCase.DidNotReceive()
+            .ExecuteAsync(Arg.Any<ValidateApplicationCertificateCommand>(), Arg.Any<CancellationToken>());
     }
 
     #endregion
@@ -295,6 +343,29 @@ public sealed class AuthEndpointLatencyTests
 
         return controller;
     }
+
+    private static OpenIddict.Server.OpenIddictServerEvents.ValidateTokenRequestContext CreateApplicationCredentialContext()
+    {
+        var transaction = new OpenIddict.Server.OpenIddictServerTransaction
+        {
+            Request = new OpenIddictRequest
+            {
+                GrantType = OpenIddictConstants.GrantTypes.ClientCredentials,
+                ClientId = "orders-worker",
+                ClientSecret = "secret"
+            }
+        };
+
+        return new OpenIddict.Server.OpenIddictServerEvents.ValidateTokenRequestContext(transaction);
+    }
+
+    private static Result<ValidateApplicationCredentialsResult> CreateApplicationValidationResult() =>
+        new ValidateApplicationCredentialsResult(
+            DomainApplicationId.NewId(),
+            "orders-worker",
+            "Orders worker",
+            ["orders.write"],
+            [OpenIddictConstants.GrantTypes.ClientCredentials]);
 
     private static LogoutController CreateMockedLogoutController()
     {

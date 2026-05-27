@@ -49,13 +49,11 @@ public class AppHostFixture : IAsyncLifetime
             "OpenIddict__Issuer",
             "https://issuer.example.com");
 
+        this.TestSeeder = await OpenIdentityStackTestSeeder.CreateAsync(ConnectionString);
+
         this.Factory = new OpenIdentityStackApiFactory();
         this.HttpClient = this.CreateClient();
         this.HttpClient.Timeout = RequestTimeout;
-
-        this.TestSeeder = await OpenIdentityStackTestSeeder.CreateAsync(
-            this.Factory.Services,
-            "OpenIdentityStack.Api.Tests");
     }
 
     /// <summary>

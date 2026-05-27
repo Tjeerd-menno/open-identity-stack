@@ -3,6 +3,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Applications;
+using OpenIdentityStack.Application.Applications.Commands;
+using OpenIdentityStack.Application.Applications.Queries;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Clients;
 using OpenIdentityStack.Application.Clients.Commands;
@@ -39,6 +42,7 @@ using OpenIdentityStack.Infrastructure.Persistence.Sessions;
 using OpenIdentityStack.Infrastructure.Persistence.Settings;
 using OpenIdentityStack.Infrastructure.Persistence.Users;
 using OpenIdentityStack.Infrastructure.ApplicationPermissions;
+using OpenIdentityStack.Infrastructure.Applications;
 
 using SharedKernel;
 namespace OpenIdentityStack.Infrastructure;
@@ -86,13 +90,23 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration,
         string environmentName)
     {
-        // Register DbContext with PostgreSQL
+        bool useSqliteForTesting =
+            string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase)
+            && IsSqliteConnectionString(connectionString);
+
         services.AddDbContext<OpenIdentityStackDbContext>(options =>
         {
-            options.UseNpgsql(connectionString, npgsqlOptions =>
+            if (useSqliteForTesting)
             {
-                npgsqlOptions.MigrationsAssembly(typeof(OpenIdentityStackDbContext).Assembly.FullName);
-            });
+                options.UseSqlite(connectionString);
+            }
+            else
+            {
+                options.UseNpgsql(connectionString, npgsqlOptions =>
+                {
+                    npgsqlOptions.MigrationsAssembly(typeof(OpenIdentityStackDbContext).Assembly.FullName);
+                });
+            }
 
             // Register OpenIddict entity sets
             options.UseOpenIddict();
@@ -168,12 +182,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddSingleton<IEnvironmentProvider, EnvironmentProvider>();
         services.AddScoped<IAuditLog, AuditLogService>();
-        services.AddScoped<IClientApplicationRegistrar, OpenIddictClientApplicationRegistrar>();
         services.AddSingleton<ISecretProtector, AesSecretProtector>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IPasswordPolicyValidator, PasswordPolicyValidator>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IServiceAccountRepository, ServiceAccountRepository>();
+        services.AddScoped<IApplicationRepository, ApplicationRepository>();
+        services.AddScoped<IApplicationProtocolProjection, OpenIddictApplicationProjection>();
         services.AddScoped<IApplicationPermissionRegistryRepository, ApplicationPermissionRegistryRepository>();
         services.AddScoped<IRolePermissionDependencyReader, RolePermissionDependencyReader>();
         services.AddScoped<IApplicationPermissionAuthorizationService, ApplicationPermissionAuthorizationService>();
@@ -243,6 +258,26 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAddCertificateUseCase, AddCertificateUseCase>();
         services.AddScoped<IDisableServiceAccountUseCase, DisableServiceAccountUseCase>();
         services.AddScoped<IEnableServiceAccountUseCase, EnableServiceAccountUseCase>();
+
+        // Register application use cases
+        services.AddScoped<ApplicationLifecycleUseCases>();
+        services.AddScoped<ICreateApplicationUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
+        services.AddScoped<IUpdateApplicationMetadataUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
+        services.AddScoped<IConfigureApplicationOAuthUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
+        services.AddScoped<IDisableApplicationUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
+        services.AddScoped<IEnableApplicationUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
+        services.AddScoped<IDeleteApplicationUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
+        services.AddScoped<ApplicationCredentialUseCases>();
+        services.AddScoped<IAddApplicationSecretUseCase>(provider => provider.GetRequiredService<ApplicationCredentialUseCases>());
+        services.AddScoped<IAddApplicationCertificateUseCase>(provider => provider.GetRequiredService<ApplicationCredentialUseCases>());
+        services.AddScoped<IRevokeApplicationCredentialUseCase>(provider => provider.GetRequiredService<ApplicationCredentialUseCases>());
+        services.AddScoped<ApplicationCredentialValidationUseCases>();
+        services.AddScoped<IValidateApplicationClientCredentialsUseCase>(provider => provider.GetRequiredService<ApplicationCredentialValidationUseCases>());
+        services.AddScoped<IValidateApplicationCertificateUseCase>(provider => provider.GetRequiredService<ApplicationCredentialValidationUseCases>());
+        services.AddScoped<IListApplicationsQueryHandler, ListApplicationsQueryHandler>();
+        services.AddScoped<IGetApplicationQueryHandler, GetApplicationQueryHandler>();
+        services.AddScoped<IListApplicationCredentialsQueryHandler, ListApplicationCredentialsQueryHandler>();
+        services.AddScoped<IListApplicationProfilePoliciesQueryHandler, ListApplicationProfilePoliciesQueryHandler>();
 
         // Register application permission registry use cases
         services.AddScoped<RegisterApplicationUseCase>();

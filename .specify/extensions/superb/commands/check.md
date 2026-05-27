@@ -29,8 +29,10 @@ Search for installed skills in this exact order:
 
 1. `./.agents/skills/`
 2. `~/.agents/skills/`
+3. `~/.copilot/installed-plugins/superpowers-marketplace/superpowers/skills/`
 
-Workspace wins over global when both contain the same skill.
+Workspace wins over global and Copilot plugin skills when more than one root
+contains the same skill. Global wins over Copilot plugin skills.
 
 A skill is considered **available** only if all of the following are true:
 
@@ -75,6 +77,7 @@ Produce a compact diagnostic report:
 **Discovery roots**
 - Workspace: [path]
 - Global: [path]
+- Copilot plugin: [path]
 
 ## Skill Status
 
@@ -82,7 +85,7 @@ Produce a compact diagnostic report:
 |-------|----------|--------|------|--------|
 | test-driven-development | Hard | workspace | ./.agents/skills/test-driven-development/SKILL.md | READY |
 | verification-before-completion | Hard | global | ~/.agents/skills/verification-before-completion/SKILL.md | READY |
-| systematic-debugging | Optional | — | — | MISSING |
+| systematic-debugging | Optional | copilot-plugin | ~/.copilot/installed-plugins/superpowers-marketplace/superpowers/skills/systematic-debugging/SKILL.md | READY |
 
 ## Hook Readiness
 
@@ -114,7 +117,7 @@ Produce a compact diagnostic report:
 
 ## Failure Rules
 
-- If both discovery roots are missing, report `BLOCKED`
+- If all discovery roots are missing, report `BLOCKED`
 - If any hard requirement is missing, report `BLOCKED`
 - If only optional skills are missing, report `PARTIAL`
 - If all hard requirements are installed, the main bridge hooks are `READY`
