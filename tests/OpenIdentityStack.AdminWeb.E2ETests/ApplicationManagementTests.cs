@@ -88,8 +88,10 @@ public class ApplicationManagementTests : IAsyncLifetime
         (_, string clientId, _) = await CreateMachineToMachineApplicationAsync();
 
         await page!.GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true }).ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { Name = "Confirm", Exact = true }).ClickAsync();
-        await page.WaitForURLAsync("**/applications", new() { Timeout = 15000 });
+        ILocator deleteDialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Delete Application", Exact = true });
+        await Task.WhenAll(
+            page.WaitForURLAsync("**/applications", new() { Timeout = 15000 }),
+            deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Confirm", Exact = true }).ClickAsync());
 
         Task<IResponse> searchResponseTask = WaitForApplicationsSearchResponseAsync(clientId);
         await page.GetByPlaceholder("Search by client ID or display name...").FillAsync(clientId);
@@ -110,9 +112,11 @@ public class ApplicationManagementTests : IAsyncLifetime
         ILocator addSecretDialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Add Secret", Exact = true });
         await addSecretDialog.GetByLabel("Description").FillAsync("Primary secret");
         await addSecretDialog.GetByRole(AriaRole.Button, new() { Name = "Add Secret", Exact = true }).ClickAsync();
-        await page.GetByText("This secret is shown once. Copy it now and store it securely.")
+        await addSecretDialog.GetByText("Client secret created")
+            .ShouldBeVisibleAsync("One-time secret result should be visible");
+        await addSecretDialog.GetByText("You will not be able to see this secret again. Store it securely now.")
             .ShouldBeVisibleAsync("One-time secret warning should be visible");
-        await page.GetByRole(AriaRole.Button, new() { Name = "Done", Exact = true }).ClickAsync();
+        await addSecretDialog.GetByRole(AriaRole.Button, new() { Name = "Done", Exact = true }).ClickAsync();
 
         // Add certificate and revoke it.
         string thumbprint = $"THUMBPRINT-{Guid.NewGuid():N}";

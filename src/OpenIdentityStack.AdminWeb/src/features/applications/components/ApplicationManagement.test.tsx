@@ -273,6 +273,25 @@ describe('Application management components', () => {
     }));
   });
 
+  it('surfaces create application submission errors', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockRejectedValue(new Error('Application client ID already exists.'));
+    render(<ApplicationForm onSubmit={onSubmit} />);
+
+    fireEvent.change(screen.getByLabelText(/client id/i), { target: { value: 'orders-web' } });
+    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Orders Web' } });
+    fireEvent.change(screen.getByPlaceholderText('https://example.com/callback'), {
+      target: { value: 'https://orders.example.com/callback' },
+    });
+    await user.click(screen.getByRole('checkbox', { name: 'openid' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /create application/i }));
+    });
+
+    expect(onSubmit).toHaveBeenCalled();
+    expect(screen.getByText('Application client ID already exists.')).toBeInTheDocument();
+  });
+
   it('renders application detail baseline information', () => {
     hooks.useApplication.mockReturnValue({ data: application, isLoading: false });
     hooks.useApplicationCredentials.mockReturnValue({ data: [], isLoading: false });

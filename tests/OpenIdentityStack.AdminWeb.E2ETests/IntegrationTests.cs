@@ -179,7 +179,13 @@ public class IntegrationTests : IAsyncLifetime
         // Navigate back to Users list (creation may leave us on detail page)
         await TestHelpers.NavigateToFeatureAsync(page!, "Users");
         await TestHelpers.WaitForDataTableAsync(page!);
-        await TestHelpers.SearchInListAsync(page!, userEmail);
+        string encodedUserEmail = Uri.EscapeDataString(userEmail);
+        Task<IResponse> searchResponseTask = page.WaitForResponseAsync((response) =>
+            response.Url.Contains("/api/admin/users", StringComparison.OrdinalIgnoreCase) &&
+            response.Url.Contains($"search={encodedUserEmail}", StringComparison.OrdinalIgnoreCase) &&
+            response.Ok);
+        await page.GetByPlaceholder("Search users by email or name...").FillAsync(userEmail);
+        await searchResponseTask;
         await TestHelpers.WaitForTableRowAsync(page!, userEmail, timeoutMs: 30000);
         await TestHelpers.ClickTableRowAsync(page!, userEmail);
 

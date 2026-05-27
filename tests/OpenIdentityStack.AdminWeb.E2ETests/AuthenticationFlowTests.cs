@@ -55,7 +55,7 @@ public class AuthenticationFlowTests : IAsyncLifetime
     public async Task Login_ShouldRedirectToOIDCAndReturnWithToken()
     {
         // Arrange
-        string url = fixture.AdminWebUrl ?? throw new InvalidOperationException("AdminWeb URL is null");
+        string url = (fixture.AdminWebUrl ?? throw new InvalidOperationException("AdminWeb URL is null")).TrimEnd('/');
         
         // Act - Navigate to admin web app
         await page!.GotoAsync(url);
