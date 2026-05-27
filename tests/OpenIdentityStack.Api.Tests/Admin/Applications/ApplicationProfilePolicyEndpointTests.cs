@@ -50,7 +50,7 @@ public sealed class ApplicationProfilePolicyEndpointTests(AppHostFixture fixture
             ClientId = $"spa-{Guid.NewGuid():N}",
             DisplayName = "Orders SPA",
             Description = "Orders browser app",
-            Type = "SinglePage",
+            Profile = "SinglePage",
             ClientType = "Public",
             AllowedGrantTypes = new[] { "authorization_code" },
             AllowedScopes = new[] { "openid", "orders.read" },
@@ -65,7 +65,7 @@ public sealed class ApplicationProfilePolicyEndpointTests(AppHostFixture fixture
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
         json.ShouldNotBeNull();
-        json["type"]?.GetValue<string>().ShouldBe("SinglePage");
+        json["profile"]?.GetValue<string>().ShouldBe("SinglePage");
         json["clientType"]?.GetValue<string>().ShouldBe("Public");
     }
 
@@ -77,7 +77,7 @@ public sealed class ApplicationProfilePolicyEndpointTests(AppHostFixture fixture
             ClientId = $"device-{Guid.NewGuid():N}",
             DisplayName = "Living Room Device",
             Description = "Device flow app",
-            Type = "Device",
+            Profile = "Device",
             ClientType = "Public",
             AllowedGrantTypes = new[] { "urn:ietf:params:oauth:grant-type:device_code" },
             AllowedScopes = new[] { "openid" },
@@ -103,7 +103,7 @@ public sealed class ApplicationProfilePolicyEndpointTests(AppHostFixture fixture
             ClientId = $"worker-{Guid.NewGuid():N}",
             DisplayName = "Orders Worker",
             Description = "Background worker",
-            Type = "MachineToMachine",
+            Profile = "MachineToMachine",
             ClientType = "Confidential",
             AllowedGrantTypes = new[] { "client_credentials" },
             AllowedScopes = new[] { "orders.read" },
@@ -122,13 +122,13 @@ public sealed class ApplicationProfilePolicyEndpointTests(AppHostFixture fixture
     }
 
     [Fact]
-    public async Task ConfigureApplicationOAuth_WhenTypeChanges_ReturnsBadRequest()
+    public async Task ConfigureApplicationOAuth_WhenProfileChanges_ReturnsBadRequest()
     {
         JsonNode created = await this.CreateApplicationAsync();
         Guid id = created["id"]?.GetValue<Guid>() ?? throw new InvalidOperationException("ID not returned.");
         var request = new
         {
-            Type = "MachineToMachine",
+            Profile = "MachineToMachine",
             ClientType = "Confidential",
             AllowedGrantTypes = new[] { "client_credentials" },
             AllowedScopes = new[] { "orders.read" },
@@ -162,7 +162,7 @@ public sealed class ApplicationProfilePolicyEndpointTests(AppHostFixture fixture
             ClientId = $"web-{Guid.NewGuid():N}",
             DisplayName = "Orders Web",
             Description = "Orders web app",
-            Type = "Web",
+            Profile = "Web",
             ClientType = "Confidential",
             AllowedGrantTypes = new[] { "authorization_code" },
             AllowedScopes = new[] { "openid", "orders.read" },

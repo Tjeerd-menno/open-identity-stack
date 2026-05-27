@@ -110,7 +110,7 @@ public sealed class ApplicationClientCredentialsFlowTests(AppHostFixture fixture
                 ClientId = clientId,
                 DisplayName = "Token Worker",
                 Description = "Token worker application",
-                Type = "MachineToMachine",
+                Profile = "MachineToMachine",
                 ClientType = "Confidential",
                 AllowedGrantTypes = ClientCredentialsGrantTypes,
                 AllowedScopes = ApiScopes,
