@@ -19,6 +19,7 @@ bld/
 
 # VS Code
 .vscode/
+.playwright-cli/
 
 # Rider
 .idea/
