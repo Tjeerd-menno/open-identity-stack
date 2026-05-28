@@ -88,10 +88,15 @@ public class ApplicationManagementTests : IAsyncLifetime
         (_, string clientId, _) = await CreateMachineToMachineApplicationAsync();
 
         await page!.GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true }).ClickAsync();
+        
+        // Wait for the dialog to become visible before interacting with it
         ILocator deleteDialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Delete Application", Exact = true });
-        await Task.WhenAll(
-            page.WaitForURLAsync("**/applications", new() { Timeout = 15000 }),
-            deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Confirm", Exact = true }).ClickAsync());
+        await deleteDialog.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+        
+        // Start waiting for the URL change, then click the confirm button
+        Task urlChangeTask = page.WaitForURLAsync("**/applications", new() { Timeout = 15000 });
+        await deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Confirm", Exact = true }).ClickAsync();
+        await urlChangeTask;
 
         Task<IResponse> searchResponseTask = WaitForApplicationsSearchResponseAsync(clientId);
         await page.GetByPlaceholder("Search by client ID or display name...").FillAsync(clientId);
