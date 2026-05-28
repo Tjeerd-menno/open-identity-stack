@@ -87,21 +87,19 @@ public class ApplicationManagementTests : IAsyncLifetime
         await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
         (_, string clientId, _) = await CreateMachineToMachineApplicationAsync();
 
-        // Click delete button
+        // Click delete button and wait for dialog
         await page!.GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true }).ClickAsync();
         
-        // Wait for dialog to appear
         ILocator deleteDialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Delete Application", Exact = true });
         await deleteDialog.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         
-        // Click confirm button and wait for dialog to disappear (indicating delete completed)
+        // Click confirm and wait for navigation to applications list
         ILocator confirmButton = deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Confirm", Exact = true });
-        await confirmButton.ClickAsync();
-        await deleteDialog.WaitForAsync(new() { State = WaitForSelectorState.Hidden, Timeout = 15000 });
-        
-        // Wait for navigation after dialog closes
-        await page.WaitForURLAsync(new Regex(@"/applications(?:/|$)"), new() { Timeout = 15000 });
+        await Task.WhenAll(
+            page.WaitForURLAsync(new Regex(@"/applications/?$"), new() { Timeout = 20000 }),
+            confirmButton.ClickAsync());
 
+        // Verify application is deleted by searching
         Task<IResponse> searchResponseTask = WaitForApplicationsSearchResponseAsync(clientId);
         await page.GetByPlaceholder("Search by client ID or display name...").FillAsync(clientId);
         IResponse searchResponse = await searchResponseTask;
