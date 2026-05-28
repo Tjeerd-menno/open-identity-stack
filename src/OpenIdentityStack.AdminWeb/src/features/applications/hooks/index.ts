@@ -6,5 +6,7 @@ export * from './useApplications';
 export * from './useApplicationProfilePolicies';
 export * from './useCreateApplication';
 export * from './useDeleteApplication';
+export * from './useDisableApplication';
+export * from './useEnableApplication';
 export * from './useRevokeApplicationCredential';
 export * from './useUpdateApplication';

@@ -24,7 +24,7 @@ This project contains browser-based E2E tests that verify the Admin Web App func
 Tests for the MVP foundation:
 - Home page loading
 - Sidebar navigation visibility
-- Navigation to all admin modules (Users, Roles, Groups, Service Accounts, Sessions, Providers)
+- Navigation to all admin modules (Users, Roles, Groups, Applications, Sessions, Providers)
 - Header UI elements (title, logout button)
 
 ### Test Fixture
@@ -39,6 +39,8 @@ Tests for the MVP foundation:
 - .NET 10 SDK
 - Docker (for PostgreSQL container)
 - Node.js 22+ (for AdminWeb)
+- Playwright Chromium runtime installed for the generated test harness
+- Aspire testing parameter `Parameters__default-admin-password` available (set automatically by test helpers/fixture)
 
 ### Run Tests
 ```bash
@@ -50,7 +52,18 @@ dotnet test tests/OpenIdentityStack.AdminWeb.E2ETests --logger "console;verbosit
 ```
 
 ### First Run
-On first run, Playwright will automatically install the Chromium browser. This is handled by the test setup.
+Install Playwright Chromium once before running E2E tests:
+
+```bash
+# build once to generate the playwright install script
+dotnet build tests/OpenIdentityStack.AdminWeb.E2ETests
+
+# Linux/macOS
+./tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.sh install chromium
+
+# PowerShell
+pwsh tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium
+```
 
 ## Writing New E2E Tests
 
@@ -150,7 +163,7 @@ var roleData = TestDataBuilder.Role()
 - **UserManagementTests** (14 tests) - Complete user CRUD, role assignment, identity linking
 - **RoleManagementTests** (8 tests) - Role CRUD, permissions management
 - **GroupManagementTests** (11 tests) - Group CRUD, member management, mappings
-- **ServiceAccountManagementTests** (11 tests) - Service account lifecycle, secret rotation, certificates
+- **ApplicationManagementTests** (new consolidated suite) - Unified application lifecycle, profile policy guardrails, and credential lifecycle
 - **SessionManagementTests** (5 tests) - Session viewing and revocation
 - **ProviderManagementTests** (8 tests) - OIDC/OAuth2/SAML2 provider configuration
 - **DashboardTests** (3 tests) - Dashboard metrics and navigation
@@ -183,7 +196,7 @@ These tests run in the CI pipeline:
 - Increase timeout in `AdminWebAppHostFixture.DefaultTimeout`
 
 ### Playwright browser not found
-- Run: `pwsh bin/Debug/net10.0/playwright.ps1 install chromium`
+- Run: `pwsh tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium`
 - CI installs Chromium explicitly in `.github/workflows/ci.yml`
 
 ### PostgreSQL container issues

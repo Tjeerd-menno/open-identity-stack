@@ -18,6 +18,8 @@ const { navigate, hooks } = vi.hoisted(() => ({
     useAddApplicationCertificate: vi.fn(),
     useAddApplicationSecret: vi.fn(),
     useDeleteApplication: vi.fn(),
+    useDisableApplication: vi.fn(),
+    useEnableApplication: vi.fn(),
     useRevokeApplicationCredential: vi.fn(),
   },
 }));
@@ -57,6 +59,14 @@ vi.mock('../hooks/useAddApplicationSecret', () => ({
 
 vi.mock('../hooks/useDeleteApplication', () => ({
   useDeleteApplication: hooks.useDeleteApplication,
+}));
+
+vi.mock('../hooks/useDisableApplication', () => ({
+  useDisableApplication: hooks.useDisableApplication,
+}));
+
+vi.mock('../hooks/useEnableApplication', () => ({
+  useEnableApplication: hooks.useEnableApplication,
 }));
 
 vi.mock('../hooks/useRevokeApplicationCredential', () => ({
@@ -263,12 +273,33 @@ describe('Application management components', () => {
     }));
   });
 
+  it('surfaces create application submission errors', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockRejectedValue(new Error('Application client ID already exists.'));
+    render(<ApplicationForm onSubmit={onSubmit} />);
+
+    fireEvent.change(screen.getByLabelText(/client id/i), { target: { value: 'orders-web' } });
+    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Orders Web' } });
+    fireEvent.change(screen.getByPlaceholderText('https://example.com/callback'), {
+      target: { value: 'https://orders.example.com/callback' },
+    });
+    await user.click(screen.getByRole('checkbox', { name: 'openid' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /create application/i }));
+    });
+
+    expect(onSubmit).toHaveBeenCalled();
+    expect(screen.getByText('Application client ID already exists.')).toBeInTheDocument();
+  });
+
   it('renders application detail baseline information', () => {
     hooks.useApplication.mockReturnValue({ data: application, isLoading: false });
     hooks.useApplicationCredentials.mockReturnValue({ data: [], isLoading: false });
     hooks.useAddApplicationCertificate.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useAddApplicationSecret.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useDeleteApplication.mockReturnValue({ mutateAsync: vi.fn() });
+    hooks.useDisableApplication.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    hooks.useEnableApplication.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useRevokeApplicationCredential.mockReturnValue({ mutateAsync: vi.fn() });
 
     render(<ApplicationDetail />, { wrapper: MemoryRouter });
@@ -293,6 +324,8 @@ describe('Application management components', () => {
     hooks.useAddApplicationCertificate.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useAddApplicationSecret.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useDeleteApplication.mockReturnValue({ mutateAsync: vi.fn() });
+    hooks.useDisableApplication.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    hooks.useEnableApplication.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     hooks.useRevokeApplicationCredential.mockReturnValue({ mutateAsync: vi.fn() });
 
     render(<ApplicationDetail />, { wrapper: MemoryRouter });

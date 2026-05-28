@@ -4,6 +4,7 @@ using Aspire.Hosting.Testing;
 using Microsoft.Playwright;
 using OpenIdentityStack.AdminWeb.E2ETests.Fixtures;
 using OpenIdentityStack.Testing;
+using System.IO;
 
 [assembly: AssemblyFixture(typeof(AdminWebAppHostFixture))]
 
@@ -18,6 +19,8 @@ public class AdminWebAppHostFixture : IAsyncLifetime
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
+    private const string DefaultAdminPasswordParameter = "Parameters__default-admin-password";
+    private const string DefaultAdminPassword = "Test1234@Test1234";
     
     public IDistributedApplicationTestingBuilder? Builder { get; private set; }
     public DistributedApplication? App { get; private set; }
@@ -29,6 +32,8 @@ public class AdminWebAppHostFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
+        EnsureRequiredAspireParameters();
+
         // Reference the AppHost project type to ensure it's loaded
         _ = typeof(AppHostProject::Projects.OpenIdentityStack_AppHost);
 
@@ -59,6 +64,8 @@ public class AdminWebAppHostFixture : IAsyncLifetime
         await SeedTestDataAsync();
 
         Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+        EnsureChromiumRuntimeIsAvailable(Playwright);
+
         Browser = await Playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
         {
             Headless = true
@@ -153,5 +160,27 @@ public class AdminWebAppHostFixture : IAsyncLifetime
         }
 
         return connectionString;
+    }
+
+    private static void EnsureRequiredAspireParameters()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(DefaultAdminPasswordParameter)))
+        {
+            Environment.SetEnvironmentVariable(DefaultAdminPasswordParameter, DefaultAdminPassword);
+        }
+    }
+
+    private static void EnsureChromiumRuntimeIsAvailable(IPlaywright playwright)
+    {
+        string executablePath = playwright.Chromium.ExecutablePath;
+        if (!File.Exists(executablePath))
+        {
+            throw new InvalidOperationException(
+                "Playwright Chromium runtime was not found for AdminWeb E2E tests. " +
+                "Install browsers using the generated Playwright script (for example: " +
+                "'pwsh tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium' " +
+                "or './tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.sh install chromium') " +
+                "and rerun the tests.");
+        }
     }
 }

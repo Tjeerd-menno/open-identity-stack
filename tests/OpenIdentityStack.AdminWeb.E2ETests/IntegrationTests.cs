@@ -11,8 +11,6 @@ namespace OpenIdentityStack.AdminWeb.E2ETests;
 /// </summary>
 public class IntegrationTests : IAsyncLifetime
 {
-    private const string LegacyServiceAccountsSkipReason = "Legacy Service Accounts UI is being replaced by unified Applications management.";
-
     private readonly AdminWebAppHostFixture fixture;
     private IBrowserContext? context;
     private IPage? page;
@@ -141,72 +139,7 @@ public class IntegrationTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// TC-I02: Service Account Full Lifecycle
-    /// Verifies the complete lifecycle of a service account from creation to deletion.
-    /// Tests: POST /api/admin/service-accounts, POST /api/admin/service-accounts/{id}/rotate-secret,
-    ///        POST /api/admin/service-accounts/{id}/disable, POST /api/admin/service-accounts/{id}/enable,
-    ///        DELETE /api/admin/service-accounts/{id}
-    /// </summary>
-    [Fact(Skip = LegacyServiceAccountsSkipReason)]
-    public async Task ServiceAccountFullLifecycle_ShouldCompleteAllOperations()
-    {
-        Console.WriteLine("TC-I02: Service Account Full Lifecycle - Starting integration test");
-
-        // Arrange - Login
-        await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
-
-        string saId = Guid.NewGuid().ToString().Substring(0, 8);
-        string saName = $"IntegSA_{saId}";
-
-        // Step 1: Create service account
-        Console.WriteLine("Step 1: Creating service account...");
-        await TestHelpers.NavigateToFeatureAsync(page!, "Service Accounts");
-        await page!.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Create|Add|New", RegexOptions.IgnoreCase) }).ClickAsync();
-        await Task.Delay(1000);
-
-        Dictionary<string, string> saData = TestDataBuilder.ServiceAccount()
-            .WithDisplayName(saName)
-            .Build();
-
-        await TestHelpers.FillFormFieldsAsync(page!, saData);
-        
-        // Select at least one scope (required by ServiceAccountForm)
-        // Radix UI checkboxes are button[role='checkbox'], use ClickAsync()
-        ILocator firstScopeCheckbox = page!.GetByRole(AriaRole.Checkbox).First;
-        await firstScopeCheckbox.ClickAsync();
-        
-        await page!.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Save|Create|Submit", RegexOptions.IgnoreCase) }).ClickAsync();
-        await Task.Delay(2000);
-        Console.WriteLine($"✓ Service account created: {saName}");
-
-        // Step 2: Delete account
-        Console.WriteLine("Step 2: Deleting service account...");
-        await TestHelpers.NavigateToFeatureAsync(page!, "Service Accounts");
-        await TestHelpers.SearchInListAsync(page!, saName);
-        await TestHelpers.ClickTableRowAsync(page!, saName);
-        await Task.Delay(1500);
-
-        ILocator deleteButton = page!.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Delete", RegexOptions.IgnoreCase) });
-        if (await deleteButton.IsVisibleAsync())
-        {
-            await deleteButton.ClickAsync();
-            await Task.Delay(1000);
-
-            // Confirm deletion
-            ILocator confirmButton = page!.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Confirm|Delete|Yes", RegexOptions.IgnoreCase) });
-            if (await confirmButton.IsVisibleAsync())
-            {
-                await confirmButton.ClickAsync();
-                await Task.Delay(1500);
-                Console.WriteLine("✓ Service account deleted");
-            }
-        }
-
-        Console.WriteLine("TC-I02: Service Account Full Lifecycle - Test completed successfully");
-    }
-
-    /// <summary>
-    /// TC-I03: Session Management After User Disable
+    /// TC-I02: Session Management After User Disable
     /// Verifies that disabling a user affects their sessions appropriately.
     /// Tests: POST /api/admin/users, POST /api/admin/users/{id}/disable, GET /api/admin/sessions
     /// </summary>
@@ -246,7 +179,13 @@ public class IntegrationTests : IAsyncLifetime
         // Navigate back to Users list (creation may leave us on detail page)
         await TestHelpers.NavigateToFeatureAsync(page!, "Users");
         await TestHelpers.WaitForDataTableAsync(page!);
-        await TestHelpers.SearchInListAsync(page!, userEmail);
+        string encodedUserEmail = Uri.EscapeDataString(userEmail);
+        Task<IResponse> searchResponseTask = page.WaitForResponseAsync((response) =>
+            response.Url.Contains("/api/admin/users", StringComparison.OrdinalIgnoreCase) &&
+            response.Url.Contains($"search={encodedUserEmail}", StringComparison.OrdinalIgnoreCase) &&
+            response.Ok);
+        await page.GetByPlaceholder("Search users by email or name...").FillAsync(userEmail);
+        await searchResponseTask;
         await TestHelpers.WaitForTableRowAsync(page!, userEmail, timeoutMs: 30000);
         await TestHelpers.ClickTableRowAsync(page!, userEmail);
 

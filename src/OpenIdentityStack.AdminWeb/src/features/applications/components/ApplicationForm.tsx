@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, X } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -105,6 +105,7 @@ function CreateApplicationForm({
   initialProfile,
   isLoading,
 }: Omit<CreateApplicationFormProps, 'application'>) {
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const policiesQuery = useApplicationProfilePolicies();
   const form = useForm<CreateApplicationFormData>({
     resolver: zodResolver(createSchema),
@@ -257,7 +258,22 @@ function CreateApplicationForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={handleSubmit(async (data) => onSubmit(data))} className="space-y-6">
+      <form
+        onSubmit={handleSubmit(async (data) => {
+          setSubmitError(null);
+          try {
+            await onSubmit(data);
+          } catch (unknownError) {
+            setSubmitError(toSubmissionErrorMessage(unknownError, 'Failed to create application.'));
+          }
+        })}
+        className="space-y-6"
+      >
+        {submitError && (
+          <Alert variant="destructive">
+            <AlertDescription>{submitError}</AlertDescription>
+          </Alert>
+        )}
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
@@ -590,6 +606,7 @@ function UpdateApplicationForm({
   onSubmit,
   isLoading,
 }: UpdateApplicationFormProps) {
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const form = useForm<UpdateApplicationFormData>({
     resolver: zodResolver(updateSchema),
     defaultValues: {
@@ -600,7 +617,22 @@ function UpdateApplicationForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(async (data) => onSubmit(data))} className="space-y-6">
+      <form
+        onSubmit={form.handleSubmit(async (data) => {
+          setSubmitError(null);
+          try {
+            await onSubmit(data);
+          } catch (unknownError) {
+            setSubmitError(toSubmissionErrorMessage(unknownError, 'Failed to update application.'));
+          }
+        })}
+        className="space-y-6"
+      >
+        {submitError && (
+          <Alert variant="destructive">
+            <AlertDescription>{submitError}</AlertDescription>
+          </Alert>
+        )}
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
@@ -688,4 +720,10 @@ function isOptionReadOnly(policy: ApplicationProfilePolicy, key: string) {
 
 function areSameValues(left: string[], right: string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function toSubmissionErrorMessage(unknownError: unknown, fallbackMessage: string) {
+  return unknownError instanceof Error && unknownError.message
+    ? unknownError.message
+    : fallbackMessage;
 }
