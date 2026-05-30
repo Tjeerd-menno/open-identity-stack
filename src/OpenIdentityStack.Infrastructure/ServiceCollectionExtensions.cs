@@ -174,9 +174,6 @@ public static class ServiceCollectionExtensions
         AddRepositories(services);
         AddInfrastructureDomainServices(services);
         AddInfrastructureUseCases(services);
-
-        // Register Application-layer use cases and query handlers.
-        services.AddApplication();
     }
 
     private static void AddPlatformServices(IServiceCollection services)
@@ -195,6 +192,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IServiceAccountRepository, ServiceAccountRepository>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IApplicationPermissionRegistryRepository, ApplicationPermissionRegistryRepository>();
+        services.AddScoped<IPermissionAssignmentStore, RolePermissionAssignmentStore>();
+        services.AddScoped<IApplicationPermissionTransactionRunner, ApplicationPermissionTransactionRunner>();
+        services.AddHttpClient<IRemotePermissionManifestFetcher, RemotePermissionManifestFetcher>()
+            .ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddScoped<IPermissionDiagnosticsReader, PermissionDiagnosticsReader>();
         services.AddScoped<IUpstreamProviderRepository, UpstreamProviderRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();

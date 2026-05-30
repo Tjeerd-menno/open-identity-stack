@@ -9,7 +9,15 @@ public interface IApplicationPermissionRegistryRepository
 {
     Task<bool> ExistsByIdentifierAsync(string applicationIdentifier, CancellationToken cancellationToken = default);
 
+    Task<bool> ExistsByManifestBaseUrlAsync(string manifestBaseUrl, CancellationToken cancellationToken = default);
+
     Task AddAsync(RegisteredApplication application, CancellationToken cancellationToken = default);
+
+    Task<ApplicationPermissionHistoryDto> ListHistoryAsync(
+        string? applicationIdentifier,
+        bool includeApplications,
+        bool includePermissions,
+        CancellationToken cancellationToken = default);
 
     Task<RegisteredApplication?> GetByIdAsync(RegisteredApplicationId id, CancellationToken cancellationToken = default);
 

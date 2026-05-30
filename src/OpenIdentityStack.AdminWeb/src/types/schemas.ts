@@ -51,12 +51,14 @@ export const createRoleSchema = z.object({
   displayName: z.string().min(1, 'Display name is required').max(100),
   description: z.string().max(500).optional(),
   permissions: z.array(z.string()).min(1, 'At least one permission is required'),
+  acknowledgeWildcardGrant: z.boolean().optional(),
 });
 
 export const updateRoleSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional(),
   permissions: z.array(z.string()).min(1).optional(),
+  acknowledgeWildcardGrant: z.boolean().optional(),
 });
 
 // ============================================================================

@@ -153,6 +153,18 @@ public class AppHostFixture : IAsyncLifetime
         });
     }
 
+    public async Task ExecuteDbContextAsync(Func<OpenIdentityStackDbContext, Task> operation)
+    {
+        if (this.Factory is null)
+        {
+            throw new InvalidOperationException("Factory is not initialized.");
+        }
+
+        using IServiceScope scope = this.Factory.Services.CreateScope();
+        OpenIdentityStackDbContext dbContext = scope.ServiceProvider.GetRequiredService<OpenIdentityStackDbContext>();
+        await operation(dbContext);
+    }
+
     public async Task<Guid> CreateSessionAsync(
         Guid userId,
         string? ipAddress = null,

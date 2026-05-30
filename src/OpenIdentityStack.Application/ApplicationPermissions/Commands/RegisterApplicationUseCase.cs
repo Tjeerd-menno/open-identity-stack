@@ -118,7 +118,17 @@ public sealed class RegisterApplicationUseCase : IRegisterApplicationUseCase, IR
             return Task.FromResult(true);
         }
 
+        public Task<bool> CanAdministerRegistryAsync(string actorId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(true);
+        }
+
         public Task<bool> CanManageApplicationAsync(string actorId, string applicationOwnerId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> CanManageApplicationAsync(string actorId, RegisteredApplication application, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(true);
         }

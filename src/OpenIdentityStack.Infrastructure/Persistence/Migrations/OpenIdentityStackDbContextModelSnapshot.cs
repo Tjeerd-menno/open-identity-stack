@@ -291,6 +291,25 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("RegisteredApplicationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("RemoveReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RemovedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ReplacementFullPermissionKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ReplacementNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<string>("UpdatedBy")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -372,6 +391,17 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("DeleteReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -383,6 +413,15 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ManifestBaseUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<string>("ManifestVersion")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
@@ -399,6 +438,11 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset?>("RetiredAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SchemaVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<string>("Status")
                         .IsRequired()

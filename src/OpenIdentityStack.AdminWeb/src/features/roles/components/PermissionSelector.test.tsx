@@ -1,26 +1,52 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
 import { PermissionSelector } from './PermissionSelector';
 
 const { useAssignablePermissionCatalog } = vi.hoisted(() => ({
   useAssignablePermissionCatalog: vi.fn(),
 }));
 
+const { getPlatformPermissionCatalog } = vi.hoisted(() => ({
+  getPlatformPermissionCatalog: vi.fn(),
+}));
+
 vi.mock('@/features/application-permissions/hooks', () => ({
   useAssignablePermissionCatalog,
 }));
+
+vi.mock('../api/roles-api', () => ({
+  getPlatformPermissionCatalog,
+}));
+
+function renderSelector(ui: ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
 
 describe('PermissionSelector', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useAssignablePermissionCatalog.mockReturnValue({ data: undefined });
+    getPlatformPermissionCatalog.mockResolvedValue({
+      items: [
+        { permission: 'users:read', resource: 'users', action: 'read', kind: 'concrete', displayName: 'Read Users', assignable: true },
+        { permission: 'users:create', resource: 'users', action: 'create', kind: 'concrete', displayName: 'Create Users', assignable: true },
+        { permission: 'roles:read', resource: 'roles', action: 'read', kind: 'concrete', displayName: 'Read Roles', assignable: true },
+        { permission: 'providers:delete', resource: 'providers', action: 'delete', kind: 'concrete', displayName: 'Delete Providers', assignable: true },
+      ],
+    });
   });
 
   it('checks selected permissions and emits added permissions', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<PermissionSelector selectedPermissions={['users:read']} onChange={onChange} />);
+    renderSelector(<PermissionSelector selectedPermissions={['users:read']} onChange={onChange} />);
 
     expect(screen.getByLabelText('Read Users')).toBeChecked();
 
@@ -32,7 +58,7 @@ describe('PermissionSelector', () => {
   it('emits removed permissions', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<PermissionSelector selectedPermissions={['users:read', 'roles:read']} onChange={onChange} />);
+    renderSelector(<PermissionSelector selectedPermissions={['users:read', 'roles:read']} onChange={onChange} />);
 
     await user.click(screen.getByLabelText('Read Users'));
 
@@ -54,7 +80,7 @@ describe('PermissionSelector', () => {
       },
     });
 
-    render(<PermissionSelector selectedPermissions={['inventory:read']} onChange={vi.fn()} />);
+    renderSelector(<PermissionSelector selectedPermissions={['inventory:read']} onChange={vi.fn()} />);
 
     await user.click(screen.getByRole('tab', { name: 'Inventory API' }));
 
@@ -78,7 +104,7 @@ describe('PermissionSelector', () => {
       },
     });
 
-    render(<PermissionSelector selectedPermissions={['read:patients']} onChange={vi.fn()} />);
+    renderSelector(<PermissionSelector selectedPermissions={['read:patients']} onChange={vi.fn()} />);
 
     expect(screen.getAllByRole('tab')[0]).toHaveTextContent('Built-in');
     await user.click(screen.getByRole('tab', { name: 'Patient API' }));
@@ -89,7 +115,7 @@ describe('PermissionSelector', () => {
   });
 
   it('disables all checkboxes when requested', () => {
-    render(<PermissionSelector selectedPermissions={[]} onChange={vi.fn()} disabled />);
+    renderSelector(<PermissionSelector selectedPermissions={[]} onChange={vi.fn()} disabled />);
 
     expect(screen.getByLabelText('Read Users')).toBeDisabled();
     expect(screen.getByLabelText('Delete Providers')).toBeDisabled();

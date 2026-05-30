@@ -207,6 +207,7 @@ app.MapPublicProfilesApi();
 app.MapRolesApi();
 app.MapGroupsApi();
 app.MapSessionsApi();
+app.MapPermissionsApi();
 app.MapApplicationPermissionsApi();
 app.MapProvidersApi();
 app.MapAuthenticationSettingsApi();

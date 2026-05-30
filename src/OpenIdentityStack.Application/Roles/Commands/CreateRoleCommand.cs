@@ -6,11 +6,13 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <param name="DisplayName">The display name of the role. If null, uses the name.</param>
 /// <param name="Description">Optional description of the role.</param>
 /// <param name="Permissions">The permissions to assign to the role.</param>
+/// <param name="AcknowledgeWildcardGrant">Whether the caller acknowledged broad wildcard grants.</param>
 public sealed record CreateRoleCommand(
     string Name,
     string? DisplayName,
     string? Description,
-    IReadOnlyList<string>? Permissions);
+    IReadOnlyList<string>? Permissions,
+    bool AcknowledgeWildcardGrant = false);
 
 /// <summary>
 /// Response containing the created role details.
@@ -20,9 +22,11 @@ public sealed record CreateRoleCommand(
 /// <param name="DisplayName">The display name of the role.</param>
 /// <param name="Description">The description of the role.</param>
 /// <param name="IsActive">Whether the role is active.</param>
+/// <param name="Permissions">The role permissions.</param>
 public sealed record CreateRoleResponse(
     Guid Id,
     string Name,
     string DisplayName,
     string Description,
-    bool IsActive);
+    bool IsActive,
+    IReadOnlyList<string> Permissions);

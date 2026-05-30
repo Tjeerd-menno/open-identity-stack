@@ -554,11 +554,17 @@ describe('admin API clients', () => {
       await getRegisteredApplications({ page: 2, search: 'inventory' });
       await getRegisteredApplication('application-1');
       await registerPermissionManifest({
-        application: {
-          id: 'inventory-api',
-          name: 'Inventory API',
+        manifest: {
+          schemaVersion: '1.0.0',
+          application: {
+            id: 'inventory-api',
+            displayName: 'Inventory API',
+            version: '1.0.0',
+          },
+          permissions: [{ key: 'inventory:read', displayName: 'Read inventory', description: 'Read inventory' }],
         },
-        permissions: [{ name: 'read:inventory', description: 'Read inventory' }],
+        ownerId: 'owner-1',
+        ownerType: 'user',
       });
       await updateRegisteredApplication('application-1', {
         displayName: 'Inventory',
@@ -581,7 +587,7 @@ describe('admin API clients', () => {
       expect(apiClient.post).toHaveBeenNthCalledWith(
         1,
         '/api/admin/application-permissions/applications',
-        expect.objectContaining({ application: expect.objectContaining({ id: 'inventory-api' }) })
+        expect.objectContaining({ manifest: expect.objectContaining({ application: expect.objectContaining({ id: 'inventory-api' }) }) })
       );
       expect(apiClient.patch).toHaveBeenCalledWith(
         '/api/admin/application-permissions/applications/application-1',
