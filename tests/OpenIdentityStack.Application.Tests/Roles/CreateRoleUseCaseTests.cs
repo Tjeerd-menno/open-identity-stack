@@ -18,7 +18,12 @@ public sealed class CreateRoleUseCaseTests
         this.permissionAssignmentValidator = Substitute.For<IPermissionAssignmentValidator>();
         
         // By default, allow all permissions for existing tests
-        this.permissionAssignmentValidator.ValidateAssignableAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
+        this.permissionAssignmentValidator
+            .ValidateAssignableAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        this.permissionAssignmentValidator
+            .ValidateAssignableAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
         
         this.useCase = new CreateRoleUseCase(this.roleRepository, this.permissionAssignmentValidator);
     }
@@ -48,6 +53,26 @@ public sealed class CreateRoleUseCaseTests
         addedRole.Permissions.ShouldBe(["users:read", "users:write"]);
         await this.roleRepository.Received(1).AddAsync(addedRole, Arg.Any<CancellationToken>());
         await this.roleRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithWildcardGrantAcknowledgement_PassesAcknowledgementToValidator()
+    {
+        string[] permissions = ["users:*"];
+        var command = new CreateRoleCommand(
+            "Administrators",
+            "Administrators",
+            null,
+            permissions,
+            AcknowledgeWildcardGrant: true);
+        this.roleRepository.ExistsByNameAsync("administrators", Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        Result<CreateRoleResponse> result = await this.useCase.ExecuteAsync(command);
+
+        result.IsSuccess.ShouldBeTrue();
+        await this.permissionAssignmentValidator.Received(1)
+            .ValidateAssignableAsync(permissions, true, Arg.Any<CancellationToken>());
     }
 
     [Fact]
