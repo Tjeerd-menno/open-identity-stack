@@ -37,6 +37,6 @@ When changing these use cases, check:
 
 The best regression tests for this area are:
 
-- application-layer tests that verify the transaction runner is part of the path
+- application-layer tests that verify explicit transaction coordination is part of the path
 - infrastructure tests for the concrete transaction runner
 - E2E tests that keep destructive flows visible when backend ordering breaks
