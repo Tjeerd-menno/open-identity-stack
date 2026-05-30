@@ -153,6 +153,11 @@ while IFS= read -r spec_path; do
     continue
   fi
 
+  if [[ "${current_version%%.*}" -eq 0 ]]; then
+    echo "Skipping '$spec_path'; API version '$current_version' is a pre-release (major < 1); breaking changes are allowed."
+    continue
+  fi
+
   echo "Checking '$spec_path' for breaking changes at API version '$current_version'."
   if ! docker run --rm \
     -v "${base_temp_root}:/base:ro" \
