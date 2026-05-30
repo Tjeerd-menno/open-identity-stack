@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +6,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(OpenIdentityStackDbContext))]
+    [Migration("20260530172000_AddApplicationPermissionReplacementGuidance")]
     public partial class AddApplicationPermissionReplacementGuidance : Migration
     {
         /// <inheritdoc />
