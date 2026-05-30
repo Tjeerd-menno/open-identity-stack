@@ -29,6 +29,8 @@ public sealed class ApplicationCredentialUseCaseTests
         this.passwordHasher.HashPassword(Arg.Any<string>()).Returns("hashed-secret");
         this.projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success());
+        this.projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
         this.credentialUseCases = new ApplicationCredentialUseCases(
             this.repository,
             this.projection,
@@ -81,7 +83,13 @@ public sealed class ApplicationCredentialUseCaseTests
 
         result.IsSuccess.ShouldBeTrue();
         credential.RevokedAt.ShouldBe(this.now);
-        await this.projection.Received(1).UpsertAsync(application, Arg.Any<string>(), Arg.Any<CancellationToken>());
+
+        // Revoking a credential must sync protocol state without rotating the client secret.
+        await this.projection.Received(1).UpsertAsync(application, Arg.Any<CancellationToken>());
+        await this.projection.DidNotReceive().UpsertAsync(
+            Arg.Any<DomainApplication>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

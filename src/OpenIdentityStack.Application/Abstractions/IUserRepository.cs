@@ -18,6 +18,17 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(UserId id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the users matching the supplied identifiers in a single batch.
+    /// Identifiers that do not match an existing user are omitted from the result.
+    /// The order of the returned users is not guaranteed; callers that need a
+    /// specific ordering should reorder by id.
+    /// </summary>
+    /// <param name="ids">The user IDs to load.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The users that were found for the supplied identifiers.</returns>
+    Task<IReadOnlyList<User>> GetByIdsAsync(IEnumerable<UserId> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets a user by their email address.
     /// </summary>
     /// <param name="email">The email address.</param>

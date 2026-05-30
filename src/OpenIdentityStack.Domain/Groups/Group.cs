@@ -137,23 +137,25 @@ public sealed class Group : AggregateRoot<GroupId>
         return false;
     }
 
-    public void AddMember(UserId userId, UserId assignedBy, IDateTimeProvider dateTimeProvider)
+    public Result AddMember(UserId userId, UserId assignedBy, IDateTimeProvider dateTimeProvider)
     {
         if (userId == UserId.Empty)
         {
-            return;
+            return GroupErrors.UserIdRequired;
         }
 
+        // Idempotent: adding an existing member is a successful no-op.
         if (this.memberships.Any(m => m.UserId == userId))
         {
-            return;
+            return Result.Success();
         }
 
         this.memberships.Add(new GroupMembership(this.Id, userId, dateTimeProvider.UtcNow, assignedBy));
         this.ModifiedAt = dateTimeProvider.UtcNow;
+        return Result.Success();
     }
 
-    public void RemoveMember(UserId userId, IDateTimeProvider dateTimeProvider)
+    public Result RemoveMember(UserId userId, IDateTimeProvider dateTimeProvider)
     {
         GroupMembership? membership = this.memberships.FirstOrDefault(m => m.UserId == userId);
         if (membership != null)
@@ -161,24 +163,36 @@ public sealed class Group : AggregateRoot<GroupId>
             this.memberships.Remove(membership);
             this.ModifiedAt = dateTimeProvider.UtcNow;
         }
+
+        return Result.Success();
     }
 
-    public void AddMapping(MappingType type, string target, string? value, TokenTarget tokenTarget, IDateTimeProvider dateTimeProvider)
+    public Result AddMapping(MappingType type, string target, string? value, TokenTarget tokenTarget, IDateTimeProvider dateTimeProvider)
     {
-        var mapping = GroupMapping.Create(type, target, value, tokenTarget);
+        Result<GroupMapping> mappingResult = GroupMapping.Create(type, target, value, tokenTarget);
+        if (mappingResult.IsFailure)
+        {
+            return mappingResult.Error;
+        }
+
+        GroupMapping mapping = mappingResult.Value;
         if (!this.mappings.Contains(mapping))
         {
             this.mappings.Add(mapping);
             this.ModifiedAt = dateTimeProvider.UtcNow;
         }
+
+        return Result.Success();
     }
 
-    public void RemoveMapping(GroupMapping mapping, IDateTimeProvider dateTimeProvider)
+    public Result RemoveMapping(GroupMapping mapping, IDateTimeProvider dateTimeProvider)
     {
         if (this.mappings.Remove(mapping))
         {
             this.ModifiedAt = dateTimeProvider.UtcNow;
         }
+
+        return Result.Success();
     }
 }
 
@@ -188,7 +202,5 @@ public static class GroupErrors
     public static readonly DomainError NameTooLong = new("Group.NameTooLong", "Group name cannot exceed 128 characters.");
     public static readonly DomainError DescriptionTooLong = new("Group.DescriptionTooLong", "Description cannot exceed 512 characters.");
     public static readonly DomainError CircularReference = new("Group.CircularReference", "Circular parent group reference detected.");
+    public static readonly DomainError UserIdRequired = new("Group.UserIdRequired", "User id is required.");
 }
-
-// Placeholder for DomainException if not defined globally
-// public class DomainException : Exception { public DomainException(Error error) : base(error.Message) { } }

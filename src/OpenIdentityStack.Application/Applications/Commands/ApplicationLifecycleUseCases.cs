@@ -387,7 +387,8 @@ public sealed class ApplicationCredentialUseCases :
             return revokeResult;
         }
 
-        Result projectionResult = await this.projection.UpsertAsync(application, GenerateSecret(), cancellationToken);
+        // Revoking a credential must not rotate the live client secret; sync state without changing it.
+        Result projectionResult = await this.projection.UpsertAsync(application, cancellationToken);
         if (projectionResult.IsFailure)
         {
             return projectionResult.Error;

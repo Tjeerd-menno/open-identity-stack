@@ -43,10 +43,12 @@ public sealed class AddUserToGroupUseCase : IAddUserToGroupUseCase
         }
         
         // Add member via aggregate
-        group.AddMember(command.UserId, command.AssignedBy, this.dateTimeProvider);
+        Result addResult = group.AddMember(command.UserId, command.AssignedBy, this.dateTimeProvider);
+        if (addResult.IsFailure)
+        {
+            return addResult;
+        }
 
-        // Save
-        // Assuming EF Core tracks changes to the loaded group entity
         await this.groupRepository.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
