@@ -46,6 +46,13 @@ The coordinating agent remains responsible for integration, conflict resolution,
 
 ## Commit & Pull Request Guidelines
 Recent history favors short, imperative subjects such as `Add SonarQube scanning to CI workflows` or focused `Bump ...` dependency updates. Keep commits scoped and descriptive. Pull requests should explain the user-visible or operational impact, list validation performed, and link the relevant issue or spec when one exists. Include screenshots for `AdminWeb` UI changes, and call out doc or deployment updates when behavior changes.
+For cross-layer features, prefer smaller PR slices when the work naturally separates into contracts/domain/application, infrastructure/migrations, and AdminWeb/E2E. Large PRs make review and CI failures harder to localize.
+Before opening a PR, sanity-check the changes against the repo's recurring failure modes:
+- OpenAPI contract and versioning changes are intentional and documented.
+- E2E tests wait on concrete UI or network conditions instead of fixed sleeps.
+- Radix-based controls are exercised with role/state-aware selectors instead of native input helpers.
+- Transactional delete or manifest flows do not rely on no-op transaction boundaries.
+- Renames update user-facing labels, validation messages, tests, and contracts consistently.
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,

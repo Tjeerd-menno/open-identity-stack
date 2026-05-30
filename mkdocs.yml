@@ -105,6 +105,7 @@ nav:
           - Coverage interpretation: reference/UNDERSTANDING_COVERAGE.md
           - GHCR publishing: reference/GHCR-PUBLISHING.md
           - Production config guide: reference/OPENIDENTITYSTACK_PRODUCTION.md
+          - Application permission transaction notes: engineering/application-permission-transaction-notes.md
       - Certification workbench:
           - OIDC negative review automation plan: certification/oidf-negative-review-automation-plan.md
           - OpenID Connect certification scope: certification/openid-connect-certification-scope.md
