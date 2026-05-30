@@ -60,6 +60,21 @@ var pact = PactHelper.CreatePactBuilder("AdminWeb", "OpenIdentityStack.Api")
 dotnet test tests/OpenIdentityStack.Contract.Tests
 ```
 
+## OpenAPI Versioning Rules
+
+The CI scripts under `scripts/ci/compare-openapi-breaking-changes.ps1` and `.sh` compare OpenAPI specs found under `specs/**/contracts`.
+
+- Removing an existing spec file is treated as a breaking change.
+- New spec files are skipped until a base version exists on the comparison branch.
+- Breaking-change comparison only runs when `info.version` is unchanged between base and current.
+- When `info.version` changes, CI skips the breaking-change diff for that spec and reports the version change instead.
+
+Use that behavior intentionally:
+
+- Keep the old spec path in place when a rename would otherwise look like a removal.
+- Bump `info.version` when you intentionally want to declare a new contract version.
+- Do not treat version bumps as a way to hide accidental contract drift; pair them with a note in the PR summary.
+
 ## Placement Rule
 
 When adding a test, place it here only if it can fail because the API contract changed in a way that affects a consumer. If the test needs a real database, verifies persisted state, or executes a multi-step workflow, put it in `OpenIdentityStack.Api.Tests`.

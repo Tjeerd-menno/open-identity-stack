@@ -12,9 +12,10 @@ This planning phase created a comprehensive roadmap to extend E2E test coverage 
 
 1. **README.md** - Start here! Quick reference and links to all resources
 2. **E2E_TEST_EXTENSION_SUMMARY.md** - Executive summary (5 min read)
-3. **E2E_TEST_PLAN.md** - Complete test plan with all test cases (20 min read)
-4. **E2E_TEST_VISUALIZATION.md** - Visual diagrams and charts (10 min read)
-5. **IMPLEMENTATION_CHECKLIST.md** - Track implementation progress
+3. **PLAYWRIGHT_PATTERNS.md** - Selector and waiting guidance for stable tests
+4. **E2E_TEST_PLAN.md** - Complete test plan with all test cases (20 min read)
+5. **E2E_TEST_VISUALIZATION.md** - Visual diagrams and charts (10 min read)
+6. **IMPLEMENTATION_CHECKLIST.md** - Track implementation progress
 
 ### Code Files
 
@@ -146,6 +147,7 @@ OpenIdentityStack.AdminWeb.E2ETests/
 
 - **Full Test Plan**: [E2E_TEST_PLAN.md](E2E_TEST_PLAN.md)
 - **Executive Summary**: [E2E_TEST_EXTENSION_SUMMARY.md](E2E_TEST_EXTENSION_SUMMARY.md)
+- **Playwright Patterns**: [PLAYWRIGHT_PATTERNS.md](PLAYWRIGHT_PATTERNS.md)
 - **Visual Diagrams**: [E2E_TEST_VISUALIZATION.md](E2E_TEST_VISUALIZATION.md)
 - **Implementation Checklist**: [IMPLEMENTATION_CHECKLIST.md](IMPLEMENTATION_CHECKLIST.md)
 - **Helper Methods**: [Helpers/TestHelpers.cs](Helpers/TestHelpers.cs)
