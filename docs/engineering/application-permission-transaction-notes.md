@@ -7,8 +7,8 @@ This note documents the transaction boundary assumptions that have shown up in t
 The registry workflow mixes:
 
 - aggregate updates in `ApplicationPermissionMaintenanceUseCases`
-- manifest apply and destructive change flows in `ApplicationPermissionManifestUseCases`
-- permission assignment cleanup through `IPermissionAssignmentStore`
+- manifest apply and destructive change flows in `RegisterApplicationUseCase` (`IRegisterPermissionManifestUseCase`)
+- permission assignment validation through `IPermissionAssignmentValidator`
 - infrastructure-side projection and persistence work
 
 That combination is sensitive to operation ordering during delete and manifest-apply paths.
