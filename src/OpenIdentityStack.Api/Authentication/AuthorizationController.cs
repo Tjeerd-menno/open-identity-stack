@@ -44,6 +44,7 @@ public class AuthorizationController : ControllerBase
     private readonly IAddClientSessionUseCase addClientSessionUseCase;
     private readonly IValidateSessionQueryHandler validateSessionQueryHandler;
     private readonly IOpenIddictRequestService requestService;
+    private readonly IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository;
     private readonly IHostEnvironment? environment;
 
     public AuthorizationController(
@@ -55,6 +56,7 @@ public class AuthorizationController : ControllerBase
         IAddClientSessionUseCase addClientSessionUseCase,
         IValidateSessionQueryHandler validateSessionQueryHandler,
         IOpenIddictRequestService requestService,
+        IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null,
         IHostEnvironment? environment = null)
     {
         this.applicationManager = applicationManager;
@@ -65,6 +67,7 @@ public class AuthorizationController : ControllerBase
         this.addClientSessionUseCase = addClientSessionUseCase;
         this.validateSessionQueryHandler = validateSessionQueryHandler;
         this.requestService = requestService;
+        this.applicationPermissionRegistryRepository = applicationPermissionRegistryRepository;
         this.environment = environment;
     }
 
@@ -234,9 +237,8 @@ public class AuthorizationController : ControllerBase
                  foreach (RoleDto role in rolesResult.Value)
                  {
                      identity.AddClaim(new Claim(Claims.Role, role.Name));
-                     
-                     // Add permission claims from each role
-                     foreach (string permission in role.Permissions)
+
+                     foreach (string permission in await this.ExpandPermissionClaimsAsync(role.Permissions))
                      {
                          identity.AddClaim(new Claim("permission", permission));
                      }
@@ -552,6 +554,83 @@ public class AuthorizationController : ControllerBase
             .SelectMany(static claim => claim.Value.Split(
                 [' ', ','],
                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    private async Task<IReadOnlyList<string>> ExpandPermissionClaimsAsync(IEnumerable<string> assignedPermissions)
+    {
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<string>();
+
+        foreach (string assignedPermission in assignedPermissions)
+        {
+            string normalized = assignedPermission.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                continue;
+            }
+
+            if (!normalized.Contains('*', StringComparison.Ordinal))
+            {
+                if (emitted.Add(normalized))
+                {
+                    result.Add(normalized);
+                }
+
+                continue;
+            }
+
+            IReadOnlyList<string> expanded = await this.ExpandWildcardPermissionAsync(normalized).ConfigureAwait(false);
+
+            if (expanded.Count == 0)
+            {
+                throw new InvalidOperationException($"Permission wildcard '{normalized}' could not be expanded.");
+            }
+
+            foreach (string permission in expanded)
+            {
+                if (emitted.Add(permission))
+                {
+                    result.Add(permission);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<IReadOnlyList<string>> ExpandWildcardPermissionAsync(string normalizedPermission)
+    {
+        IReadOnlyList<string> platformPermissions = normalizedPermission == OpenIdentityStack.Application.Authorization.Permissions.All
+            ? OpenIdentityStack.Application.Authorization.Permissions.GetAllPermissions()
+            : OpenIdentityStack.Application.Authorization.Permissions.GetAllPermissions()
+                .Where(requiredPermission => OpenIdentityStack.Application.Authorization.Permissions.Matches(normalizedPermission, requiredPermission))
+                .ToList();
+
+        if (platformPermissions.Count > 0)
+        {
+            return platformPermissions;
+        }
+
+        string[] parts = normalizedPermission.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length != 3 || parts[2] != "*" || this.applicationPermissionRegistryRepository is null)
+        {
+            return [];
+        }
+
+        Domain.ApplicationPermissions.RegisteredApplication? application =
+            await this.applicationPermissionRegistryRepository.GetByIdentifierAsync(parts[0], this.HttpContext.RequestAborted).ConfigureAwait(false);
+
+        if (application is null || application.Status != Domain.ApplicationPermissions.ApplicationLifecycleStatus.Active)
+        {
+            return [];
+        }
+
+        string prefix = $"{parts[1]}:";
+        return application.Permissions
+            .Where(permission => permission.PermissionKey.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Select(permission => permission.FullPermissionKey)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 
     private static IEnumerable<string> GetDestinations(Claim claim)
     {

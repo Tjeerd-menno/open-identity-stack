@@ -11,20 +11,20 @@ tags:
   - name: ServicePermissionRegistry
   - name: PermissionCatalog
 paths:
-  /api/admin/service-permissions/services:
+  /api/admin/application-permissions/applications:
     get:
       tags: [ServicePermissionRegistry]
       operationId: listRegisteredServices
       summary: List registered services/APIs and permission summaries
       security:
-        - openIddictBearer: [service-permissions:read]
+        - openIddictBearer: [application-permissions:read]
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
         - name: search
           in: query
           schema: { type: string, maxLength: 200 }
-        - name: ownerId
+        - name: owner
           in: query
           schema: { type: string, maxLength: 200 }
         - name: status
@@ -43,7 +43,7 @@ paths:
       operationId: registerService
       summary: Register a service/API and initial permissions atomically
       security:
-        - openIddictBearer: [service-permissions:write]
+        - openIddictBearer: [application-permissions:write]
       requestBody:
         required: true
         content:
@@ -59,15 +59,15 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
-  /api/admin/service-permissions/services/{serviceId}:
+  /api/admin/application-permissions/applications/{applicationId}:
     get:
       tags: [ServicePermissionRegistry]
       operationId: getRegisteredService
       summary: Get a registered service/API with permissions and ownership details
       security:
-        - openIddictBearer: [service-permissions:read]
+        - openIddictBearer: [application-permissions:read]
       parameters:
-        - $ref: '#/components/parameters/ServiceId'
+        - $ref: '#/components/parameters/ApplicationId'
         - name: includeRetiredPermissions
           in: query
           schema: { type: boolean, default: true }
@@ -85,9 +85,9 @@ paths:
       operationId: updateRegisteredService
       summary: Update mutable service/API metadata
       security:
-        - openIddictBearer: [service-permissions:write]
+        - openIddictBearer: [application-permissions:write]
       parameters:
-        - $ref: '#/components/parameters/ServiceId'
+        - $ref: '#/components/parameters/ApplicationId'
         - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
@@ -106,15 +106,15 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
-  /api/admin/service-permissions/services/{serviceId}/lifecycle:
+  /api/admin/application-permissions/applications/{applicationId}/lifecycle:
     post:
       tags: [ServicePermissionRegistry]
       operationId: changeServiceLifecycle
       summary: Disable, retire, or restore a service after dependency review
       security:
-        - openIddictBearer: [service-permissions:write]
+        - openIddictBearer: [application-permissions:write]
       parameters:
-        - $ref: '#/components/parameters/ServiceId'
+        - $ref: '#/components/parameters/ApplicationId'
         - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
@@ -133,15 +133,15 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
-  /api/admin/service-permissions/services/{serviceId}/ownership:
+  /api/admin/application-permissions/applications/{applicationId}/ownership:
     post:
       tags: [ServicePermissionRegistry]
       operationId: transferServiceOwnership
       summary: Transfer ownership or update delegated maintainers
       security:
-        - openIddictBearer: [service-permissions:admin]
+        - openIddictBearer: [application-permissions:admin]
       parameters:
-        - $ref: '#/components/parameters/ServiceId'
+        - $ref: '#/components/parameters/ApplicationId'
         - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
@@ -159,15 +159,15 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
-  /api/admin/service-permissions/services/{serviceId}/permissions:
+  /api/admin/application-permissions/applications/{applicationId}/permissions:
     post:
       tags: [ServicePermissionRegistry]
       operationId: addServicePermission
       summary: Add a new permission to a registered service/API
       security:
-        - openIddictBearer: [service-permissions:write]
+        - openIddictBearer: [application-permissions:write]
       parameters:
-        - $ref: '#/components/parameters/ServiceId'
+        - $ref: '#/components/parameters/ApplicationId'
         - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
@@ -186,13 +186,13 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
-  /api/admin/service-permissions/permissions/{permissionId}:
+  /api/admin/application-permissions/permissions/{permissionId}:
     patch:
       tags: [ServicePermissionRegistry]
       operationId: updateServicePermission
       summary: Update mutable permission metadata
       security:
-        - openIddictBearer: [service-permissions:write]
+        - openIddictBearer: [application-permissions:write]
       parameters:
         - $ref: '#/components/parameters/PermissionId'
         - $ref: '#/components/parameters/IfMatch'
@@ -212,40 +212,13 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
-  /api/admin/service-permissions/permissions/{permissionId}/lifecycle:
-    post:
-      tags: [ServicePermissionRegistry]
-      operationId: changePermissionLifecycle
-      summary: Deprecate, disable, retire, or restore a permission
-      security:
-        - openIddictBearer: [service-permissions:write]
-      parameters:
-        - $ref: '#/components/parameters/PermissionId'
-        - $ref: '#/components/parameters/IfMatch'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ChangePermissionLifecycleRequest' }
-      responses:
-        '200':
-          description: Permission lifecycle changed
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ServicePermissionResponse' }
-        '400': { $ref: '#/components/responses/ValidationProblem' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '412': { $ref: '#/components/responses/PreconditionFailed' }
-  /api/admin/service-permissions/permissions/{permissionId}/dependencies:
+  /api/admin/application-permissions/permissions/{permissionId}/dependencies:
     get:
       tags: [ServicePermissionRegistry]
       operationId: getPermissionDependencies
       summary: Get role and administrative dependencies for a permission
       security:
-        - openIddictBearer: [service-permissions:read]
+        - openIddictBearer: [application-permissions:read]
       parameters:
         - $ref: '#/components/parameters/PermissionId'
         - name: includeInactive
@@ -260,7 +233,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/service-permissions/catalog:
+  /api/admin/application-permissions/catalog:
     get:
       tags: [PermissionCatalog]
       operationId: listAssignablePermissionCatalog
@@ -273,12 +246,9 @@ paths:
         - name: search
           in: query
           schema: { type: string, maxLength: 200 }
-        - name: serviceIdentifier
+        - name: applicationIdentifier
           in: query
           schema: { type: string, maxLength: 63 }
-        - name: status
-          in: query
-          schema: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
         - name: assignableOnly
           in: query
           schema: { type: boolean, default: true }
@@ -299,9 +269,9 @@ components:
           authorizationUrl: /connect/authorize
           tokenUrl: /connect/token
           scopes:
-            service-permissions:read: Read registry data
-            service-permissions:write: Register and maintain owned service permissions
-            service-permissions:admin: Transfer ownership and perform administrator overrides
+            application-permissions:read: Read registry data
+            application-permissions:write: Register and maintain owned application permissions
+            application-permissions:admin: Transfer ownership and perform administrator overrides
             roles:read: Read role and permission catalog data
   parameters:
     Page:
@@ -312,8 +282,8 @@ components:
       name: pageSize
       in: query
       schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
-    ServiceId:
-      name: serviceId
+    ApplicationId:
+      name: applicationId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -363,9 +333,6 @@ components:
     ServiceLifecycleStatus:
       type: string
       enum: [active, disabled, retired]
-    PermissionLifecycleStatus:
-      type: string
-      enum: [active, deprecated, disabled, retired]
     OwnerType:
       type: string
       enum: [user, group, externalGroup]
@@ -436,13 +403,6 @@ components:
         status: { $ref: '#/components/schemas/ServiceLifecycleStatus' }
         reason: { type: string, minLength: 1, maxLength: 500 }
         acknowledgeDependencies: { type: boolean, default: false }
-    ChangePermissionLifecycleRequest:
-      type: object
-      required: [status, reason]
-      properties:
-        status: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
-        reason: { type: string, minLength: 1, maxLength: 500 }
-        acknowledgeDependencies: { type: boolean, default: false }
     TransferOwnershipRequest:
       type: object
       required: [owner, reason]
@@ -473,9 +433,6 @@ components:
         owner: { $ref: '#/components/schemas/OwnerResponse' }
         status: { $ref: '#/components/schemas/ServiceLifecycleStatus' }
         activePermissionCount: { type: integer, minimum: 0 }
-        deprecatedPermissionCount: { type: integer, minimum: 0 }
-        disabledPermissionCount: { type: integer, minimum: 0 }
-        retiredPermissionCount: { type: integer, minimum: 0 }
         updatedAt: { type: string, format: date-time }
     RegisteredServiceResponse:
       allOf:
@@ -497,7 +454,7 @@ components:
               items: { $ref: '#/components/schemas/ServicePermissionResponse' }
     ServicePermissionResponse:
       type: object
-      required: [id, serviceId, permissionKey, fullPermissionKey, displayName, status, isAssignable, createdAt, updatedAt, concurrencyToken]
+      required: [id, serviceId, permissionKey, fullPermissionKey, displayName, createdAt, updatedAt, concurrencyToken]
       properties:
         id: { type: string, format: uuid }
         serviceId: { type: string, format: uuid }
@@ -507,15 +464,10 @@ components:
         description: { type: string }
         intendedUse: { type: string }
         documentationUrl: { type: string, format: uri }
-        status: { $ref: '#/components/schemas/PermissionLifecycleStatus' }
-        isAssignable: { type: boolean }
         createdAt: { type: string, format: date-time }
         createdBy: { type: string }
         updatedAt: { type: string, format: date-time }
         updatedBy: { type: string }
-        deprecatedAt: { type: string, format: date-time }
-        disabledAt: { type: string, format: date-time }
-        retiredAt: { type: string, format: date-time }
         concurrencyToken: { type: string }
     OwnerResponse:
       type: object

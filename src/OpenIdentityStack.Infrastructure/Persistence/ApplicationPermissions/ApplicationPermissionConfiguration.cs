@@ -48,6 +48,19 @@ public sealed class ApplicationPermissionConfiguration : IEntityTypeConfiguratio
 
         builder.Property(p => p.CreatedAt).IsRequired();
         builder.Property(p => p.ModifiedAt);
+        builder.Property(p => p.RemovedAt);
+
+        builder.Property(p => p.RemovedBy)
+            .HasMaxLength(256);
+
+        builder.Property(p => p.RemoveReason)
+            .HasMaxLength(1000);
+
+        builder.Property(p => p.ReplacementFullPermissionKey)
+            .HasMaxLength(200);
+
+        builder.Property(p => p.ReplacementNote)
+            .HasMaxLength(1000);
 
         builder.HasIndex(p => p.FullPermissionKey)
             .IsUnique()

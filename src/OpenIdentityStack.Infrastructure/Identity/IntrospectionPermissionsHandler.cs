@@ -3,8 +3,10 @@ using System.Security.Claims;
 
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
+using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Users.Queries;
+using OpenIdentityStack.Domain.ApplicationPermissions;
 
 using SharedKernel;
 
@@ -14,10 +16,14 @@ internal sealed class IntrospectionPermissionsHandler :
     IOpenIddictServerHandler<OpenIddictServerEvents.HandleIntrospectionRequestContext>
 {
     private readonly IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler;
+    private readonly IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository;
 
-    public IntrospectionPermissionsHandler(IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler)
+    public IntrospectionPermissionsHandler(
+        IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler,
+        IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null)
     {
         this.getUserEffectiveRolesQueryHandler = getUserEffectiveRolesQueryHandler;
+        this.applicationPermissionRegistryRepository = applicationPermissionRegistryRepository;
     }
 
     public async ValueTask HandleAsync(OpenIddictServerEvents.HandleIntrospectionRequestContext context)
@@ -64,7 +70,51 @@ internal sealed class IntrospectionPermissionsHandler :
             permissions.AddRange(GetPermissionClaims(principal));
         }
 
-        return FilterPermissionsForCaller(permissions, requestingClientId);
+        IReadOnlyList<string> expandedPermissions = await this.ExpandDynamicWildcardsAsync(
+            permissions,
+            requestingClientId,
+            cancellationToken).ConfigureAwait(false);
+
+        return FilterPermissionsForCaller(expandedPermissions, requestingClientId);
+    }
+
+    private async Task<IReadOnlyList<string>> ExpandDynamicWildcardsAsync(
+        IEnumerable<string> permissions,
+        string? requestingClientId,
+        CancellationToken cancellationToken)
+    {
+        if (this.applicationPermissionRegistryRepository is null || string.IsNullOrWhiteSpace(requestingClientId))
+        {
+            return permissions.ToList();
+        }
+
+        var expanded = new List<string>();
+        foreach (string permission in permissions)
+        {
+            string[] parts = permission.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length != 3
+                || parts[2] != "*"
+                || !string.Equals(parts[0], requestingClientId, StringComparison.OrdinalIgnoreCase))
+            {
+                expanded.Add(permission);
+                continue;
+            }
+
+            RegisteredApplication? application = await this.applicationPermissionRegistryRepository
+                .GetByIdentifierAsync(parts[0], cancellationToken)
+                .ConfigureAwait(false);
+            if (application is null || application.Status != ApplicationLifecycleStatus.Active)
+            {
+                continue;
+            }
+
+            string prefix = $"{parts[1]}:";
+            expanded.AddRange(application.Permissions
+                .Where(applicationPermission => applicationPermission.PermissionKey.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                .Select(applicationPermission => applicationPermission.FullPermissionKey));
+        }
+
+        return expanded;
     }
 
     private static List<string> FilterPermissionsForCaller(
@@ -94,8 +144,16 @@ internal sealed class IntrospectionPermissionsHandler :
     }
 
     private static bool IsPermissionRelevantToCaller(string permission, string requestingClientId) =>
-        string.Equals(permission, OpenIdentityStack.Application.Authorization.Permissions.All, StringComparison.Ordinal)
-        || permission.StartsWith($"{requestingClientId}:", StringComparison.OrdinalIgnoreCase);
+        IsConcreteDynamicPermission(permission, requestingClientId);
+
+    private static bool IsConcreteDynamicPermission(string permission, string requestingClientId)
+    {
+        string[] parts = permission.Split(':');
+        return parts.Length == 3
+            && parts.All(static part => !string.IsNullOrWhiteSpace(part))
+            && !parts.Any(static part => part == "*")
+            && string.Equals(parts[0], requestingClientId, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static IEnumerable<string> GetPermissionClaims(ClaimsPrincipal principal) =>
         principal.FindAll("permission")

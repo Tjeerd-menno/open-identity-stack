@@ -164,7 +164,8 @@ internal static class RolesApi
             request.Name,
             request.DisplayName,
             request.Description,
-            request.Permissions);
+            request.Permissions,
+            request.AcknowledgeWildcardGrant);
         Result<CreateRoleResponse> result = await createRoleUseCase.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
@@ -184,7 +185,8 @@ internal static class RolesApi
             DisplayName = result.Value.DisplayName,
             Description = result.Value.Description,
             IsSystemRole = false,
-            IsActive = result.Value.IsActive
+            IsActive = result.Value.IsActive,
+            Permissions = result.Value.Permissions
         };
 
         return TypedResults.Created($"/api/admin/roles/{response.Id}", response);
@@ -313,10 +315,14 @@ internal static class RolesApi
             return TypedResults.NotFound(new { error = "Role not found." });
         }
 
-        Result validationResult = await permissionAssignmentValidator.ValidateAssignableAsync(request.Permissions, cancellationToken);
+        IEnumerable<string> newPermissions = request.Permissions.Except(role.Permissions, StringComparer.OrdinalIgnoreCase);
+        Result validationResult = await permissionAssignmentValidator.ValidateAssignableAsync(
+            newPermissions,
+            request.AcknowledgeWildcardGrant,
+            cancellationToken);
         if (validationResult.IsFailure)
         {
-            return TypedResults.BadRequest(new { error = validationResult.Error.Description });
+            return MapPermissionValidationFailure(validationResult.Error);
         }
 
         role.SetPermissions(request.Permissions);
@@ -340,10 +346,13 @@ internal static class RolesApi
             return TypedResults.NotFound(new { error = "Role not found." });
         }
 
-        Result validationResult = await permissionAssignmentValidator.ValidateAssignableAsync([request.Permission], cancellationToken);
+        Result validationResult = await permissionAssignmentValidator.ValidateAssignableAsync(
+            [request.Permission],
+            request.AcknowledgeWildcardGrant,
+            cancellationToken);
         if (validationResult.IsFailure)
         {
-            return TypedResults.BadRequest(new { error = validationResult.Error.Description });
+            return MapPermissionValidationFailure(validationResult.Error);
         }
 
         Result result = role.AddPermission(request.Permission);
@@ -414,5 +423,12 @@ internal static class RolesApi
             IsActive = dto.IsActive,
             Permissions = dto.Permissions
         };
+    }
+
+    private static IResult MapPermissionValidationFailure(DomainError error)
+    {
+        return error.Code.Contains("Conflict", StringComparison.OrdinalIgnoreCase)
+            ? TypedResults.Conflict(new { error = error.Description })
+            : TypedResults.BadRequest(new { error = error.Description });
     }
 }

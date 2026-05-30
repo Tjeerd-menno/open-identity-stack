@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -37,6 +38,7 @@ const roleFormSchema = z.object({
   permissions: z
     .array(z.string())
     .min(1, 'At least one permission is required'),
+  acknowledgeWildcardGrant: z.boolean().optional(),
 });
 
 type RoleFormData = z.infer<typeof roleFormSchema>;
@@ -79,6 +81,7 @@ export function RoleForm({ role, onSubmit, onCancel, isLoading = false }: RoleFo
       displayName: role?.displayName || '',
       description: role?.description || '',
       permissions: role?.permissions || [],
+      acknowledgeWildcardGrant: false,
     },
   });
 
@@ -90,6 +93,7 @@ export function RoleForm({ role, onSubmit, onCancel, isLoading = false }: RoleFo
         displayName: role.displayName,
         description: role.description || '',
         permissions: role.permissions,
+        acknowledgeWildcardGrant: false,
       });
     }
   }, [role, form]);
@@ -102,6 +106,7 @@ export function RoleForm({ role, onSubmit, onCancel, isLoading = false }: RoleFo
         displayName: data.displayName,
         description: data.description,
         permissions: data.permissions,
+        ...(data.acknowledgeWildcardGrant ? { acknowledgeWildcardGrant: true } : {}),
       };
       onSubmit(updateData);
     } else {
@@ -111,10 +116,14 @@ export function RoleForm({ role, onSubmit, onCancel, isLoading = false }: RoleFo
         displayName: data.displayName,
         description: data.description,
         permissions: data.permissions,
+        ...(data.acknowledgeWildcardGrant ? { acknowledgeWildcardGrant: true } : {}),
       };
       onSubmit(createData);
     }
   };
+
+  const selectedPermissions = useWatch({ control: form.control, name: 'permissions' }) ?? [];
+  const hasWildcardGrant = selectedPermissions.some((permission) => permission === '*' || permission.endsWith(':*'));
 
   return (
     <Form {...form}>
@@ -208,6 +217,34 @@ export function RoleForm({ role, onSubmit, onCancel, isLoading = false }: RoleFo
             </FormItem>
           )}
         />
+
+        {hasWildcardGrant && (
+          <FormField
+            control={form.control}
+            name="acknowledgeWildcardGrant"
+            render={({ field }) => (
+              <FormItem className="rounded-md border p-4">
+                <div className="flex items-start gap-3">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value ?? false}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                      aria-label="Acknowledge wildcard grant"
+                    />
+                  </FormControl>
+                  <div className="space-y-1">
+                    <FormLabel>Acknowledge wildcard grant</FormLabel>
+                    <FormDescription>
+                      This role includes a broad wildcard permission grant.
+                    </FormDescription>
+                  </div>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         {/* Action buttons */}
         <div className="flex justify-end space-x-4">

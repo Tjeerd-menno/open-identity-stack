@@ -8,6 +8,41 @@ public sealed class RegisteredApplicationRegistrationTests
     private readonly TestDateTimeProvider dateTimeProvider = new(new DateTimeOffset(2026, 1, 18, 12, 0, 0, TimeSpan.Zero));
 
     [Fact]
+    public void Register_WithResourceActionPermissionKey_PrefixesApplicationIdentifier()
+    {
+        Result<RegisteredApplication> result = RegisteredApplication.Register(
+            "orders-api",
+            "Orders API",
+            "Manages orders",
+            "owner-1",
+            OwnerType.User,
+            [Permission("order:cancel", "Cancel order")],
+            "actor-1",
+            this.dateTimeProvider);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Permissions[0].PermissionKey.ShouldBe("order:cancel");
+        result.Value.Permissions[0].FullPermissionKey.ShouldBe("orders-api:order:cancel");
+    }
+
+    [Fact]
+    public void Register_WithSingleSegmentPermissionKey_ReturnsValidationError()
+    {
+        Result<RegisteredApplication> result = RegisteredApplication.Register(
+            "orders-api",
+            "Orders API",
+            "Manages orders",
+            "owner-1",
+            OwnerType.User,
+            [Permission("read-orders", "Read orders")],
+            "actor-1",
+            this.dateTimeProvider);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.ApplicationPermission.PermissionKeyInvalidFormat");
+    }
+
+    [Fact]
     public void Register_WithValidData_ReturnsActiveServiceWithPermissions()
     {
         Result<RegisteredApplication> result = RegisteredApplication.Register(
@@ -16,7 +51,7 @@ public sealed class RegisteredApplicationRegistrationTests
             "Manages orders",
             "owner-1",
             OwnerType.User,
-            [Permission("read-orders", "Read orders"), Permission("write-orders", "Write orders")],
+            [Permission("order:read", "Read orders"), Permission("order:write", "Write orders")],
             "actor-1",
             this.dateTimeProvider);
 
@@ -24,7 +59,7 @@ public sealed class RegisteredApplicationRegistrationTests
         result.Value.ApplicationIdentifier.ShouldBe("orders-api");
         result.Value.Status.ShouldBe(ApplicationLifecycleStatus.Active);
         result.Value.Permissions.Count.ShouldBe(2);
-        result.Value.Permissions[0].FullPermissionKey.ShouldBe("orders-api:read-orders");
+        result.Value.Permissions[0].FullPermissionKey.ShouldBe("orders-api:order:read");
     }
 
     [Fact]
@@ -36,17 +71,17 @@ public sealed class RegisteredApplicationRegistrationTests
             null,
             "owner-1",
             OwnerType.User,
-            [Permission(" Read-Orders ", "Read orders")],
+            [Permission(" Order:Read ", "Read orders")],
             "actor-1",
             this.dateTimeProvider);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ApplicationIdentifier.ShouldBe("orders-api");
-        result.Value.Permissions[0].PermissionKey.ShouldBe("read-orders");
+        result.Value.Permissions[0].PermissionKey.ShouldBe("order:read");
     }
 
     [Fact]
-    public void Register_WithManifestPermissionName_PreservesPermissionNameAsFullKey()
+    public void Register_WithManifestPermissionKey_PrefixesApplicationIdentifier()
     {
         Result<RegisteredApplication> result = RegisteredApplication.Register(
             "patient-api",
@@ -60,7 +95,7 @@ public sealed class RegisteredApplicationRegistrationTests
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Permissions[0].PermissionKey.ShouldBe("read:patients");
-        result.Value.Permissions[0].FullPermissionKey.ShouldBe("read:patients");
+        result.Value.Permissions[0].FullPermissionKey.ShouldBe("patient-api:read:patients");
         result.Value.Permissions[0].Description.ShouldBe("Allows reading patient data");
         result.Value.Permissions[0].Category.ShouldBe("Patients");
     }
@@ -68,7 +103,7 @@ public sealed class RegisteredApplicationRegistrationTests
     [Fact]
     public void Register_WithManifestPermissionNameExceedingColumnLimit_ReturnsValidationError()
     {
-        string permissionName = "read:" + new string('a', 60);
+        string permissionName = "read:" + new string('a', 64);
 
         Result<RegisteredApplication> result = RegisteredApplication.Register(
             "patient-api",
@@ -97,7 +132,7 @@ public sealed class RegisteredApplicationRegistrationTests
             null,
             "owner-1",
             OwnerType.User,
-            [Permission("read-orders", "Read orders")],
+            [Permission("order:read", "Read orders")],
             "actor-1",
             this.dateTimeProvider);
 
@@ -113,7 +148,7 @@ public sealed class RegisteredApplicationRegistrationTests
             null,
             "owner-1",
             OwnerType.User,
-            [Permission("read-users", "Read users")],
+            [Permission("user:read", "Read users")],
             "actor-1",
             this.dateTimeProvider,
             ["users"]);
@@ -131,7 +166,7 @@ public sealed class RegisteredApplicationRegistrationTests
             null,
             "owner-1",
             OwnerType.User,
-            [Permission("read-orders", "Read orders"), Permission("READ-ORDERS", "Read orders duplicate")],
+            [Permission("order:read", "Read orders"), Permission("ORDER:READ", "Read orders duplicate")],
             "actor-1",
             this.dateTimeProvider);
 

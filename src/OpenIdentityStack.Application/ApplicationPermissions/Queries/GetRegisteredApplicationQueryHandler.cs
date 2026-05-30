@@ -32,7 +32,7 @@ public sealed class GetRegisteredApplicationQueryHandler : IGetRegisteredApplica
 
     private static RegisteredApplicationDto MapToDto(RegisteredApplication application)
     {
-        var permissions = application.Permissions.Select(p => new ApplicationPermissionDto(
+        var permissions = application.Permissions.Where(static p => !p.IsRemoved).Select(p => new ApplicationPermissionDto(
             p.Id.Value,
             p.PermissionKey,
             p.FullPermissionKey,
@@ -43,7 +43,7 @@ public sealed class GetRegisteredApplicationQueryHandler : IGetRegisteredApplica
             p.ModifiedAt,
             application.ApplicationIdentifier,
             application.DisplayName,
-            application.Description)).ToList();
+            application.ManifestVersion)).ToList();
 
         var maintainers = application.Maintainers.Select(m => new DelegatedMaintainerDto(
             m.Id.Value,
@@ -64,6 +64,9 @@ public sealed class GetRegisteredApplicationQueryHandler : IGetRegisteredApplica
             application.ModifiedAt,
             application.ConcurrencyToken,
             permissions,
-            maintainers);
+            maintainers,
+            application.SchemaVersion,
+            application.ManifestVersion,
+            application.ManifestBaseUrl);
     }
 }

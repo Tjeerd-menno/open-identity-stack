@@ -2,19 +2,34 @@ namespace OpenIdentityStack.Api.Admin.Requests.ApplicationPermissions;
 
 public sealed record PermissionManifestApplicationRequest(
     string Id,
-    string Name,
-    string? Version);
+    string DisplayName,
+    string? Description,
+    string Version);
 
 public sealed record PermissionManifestEntryRequest(
-    string Name,
-    string Description,
+    string Key,
+    string DisplayName,
+    string? Description,
     string? Category);
 
 public sealed record PermissionManifestRequest(
+    string SchemaVersion,
     PermissionManifestApplicationRequest Application,
     IReadOnlyList<PermissionManifestEntryRequest> Permissions);
 
+public sealed record CreatePermissionManifestRequest(
+    PermissionManifestRequest Manifest,
+    string OwnerId,
+    string OwnerType,
+    string? ManifestBaseUrl);
+
+public sealed record ManifestUpdateRequest(
+    PermissionManifestRequest Manifest,
+    uint? ConcurrencyToken);
+
 public sealed record ImportPermissionManifestRequest(string Endpoint);
+
+public sealed record RemoteImportRequest(uint? ConcurrencyToken);
 
 public sealed record UpdateRegisteredApplicationRequest(
     string DisplayName,
@@ -34,8 +49,25 @@ public sealed record UpdateApplicationPermissionRequest(
     string? Category,
     uint? ConcurrencyToken);
 
+public sealed record DeleteApplicationPermissionRequest(
+    string Reason,
+    uint? ConcurrencyToken);
+
+public sealed record DeleteRegisteredApplicationRequest(
+    string Reason,
+    uint? ConcurrencyToken);
+
+public sealed record ReplacementGuidanceRequest(
+    string ReplacementFullPermissionKey,
+    string ReplacementNote,
+    uint? ConcurrencyToken);
+
 public sealed record ChangeApplicationLifecycleRequest(
     string Status,
+    bool AcknowledgeDependencies,
+    uint? ConcurrencyToken);
+
+public sealed record ApplicationLifecycleActionRequest(
     bool AcknowledgeDependencies,
     uint? ConcurrencyToken);
 
