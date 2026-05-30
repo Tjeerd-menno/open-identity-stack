@@ -160,16 +160,14 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddInfrastructure_RegistersClientApplicationRegistrar_AsScoped()
+    public void AddInfrastructure_DoesNotRegisterLegacyClientApplicationRegistrar()
     {
         var services = new ServiceCollection();
 
         services.AddInfrastructure("Host=localhost;Database=test;Username=test;Password=test", BuildTestConfiguration(), "Testing");
 
         ServiceDescriptor? descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IClientApplicationRegistrar));
-        descriptor.ShouldNotBeNull();
-        descriptor.ImplementationType.ShouldBe(typeof(OpenIddictClientApplicationRegistrar));
-        descriptor.Lifetime.ShouldBe(ServiceLifetime.Scoped);
+        descriptor.ShouldBeNull();
     }
 
     [Fact]

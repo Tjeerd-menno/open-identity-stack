@@ -77,6 +77,55 @@ public sealed class AuditLogServiceTests : IClassFixture<SqliteTestFixture>, IAs
         entry.Timestamp.ShouldBe(TestTime);
     }
 
+    [Theory]
+    [InlineData("Application.Created")]
+    [InlineData("Application.Updated")]
+    [InlineData("Application.Disabled")]
+    [InlineData("Application.Deleted")]
+    public async Task LogAsync_ForApplicationLifecycleEvents_PersistsApplicationAuditEntry(string action)
+    {
+        await this.auditLogService.LogAsync(
+            "system",
+            action,
+            "Application",
+            "application-123",
+            "ClientId: orders-worker");
+
+        await using OpenIdentityStackDbContext freshContext = this.fixture.CreateDbContext();
+        AuditLogEntry entry = await freshContext.AuditLogEntries.SingleAsync();
+        entry.UserId.ShouldBe("system");
+        entry.Action.ShouldBe(action);
+        entry.EntityType.ShouldBe("Application");
+        entry.EntityId.ShouldBe("application-123");
+        entry.Details.ShouldBe("ClientId: orders-worker");
+        entry.Timestamp.ShouldBe(TestTime);
+    }
+
+    [Theory]
+    [InlineData("ApplicationCredential.SecretAdded")]
+    [InlineData("ApplicationCredential.CertificateAdded")]
+    [InlineData("ApplicationCredential.SecretRotated")]
+    [InlineData("ApplicationCredential.Revoked")]
+    [InlineData("ApplicationCredential.Used")]
+    public async Task LogAsync_ForApplicationCredentialLifecycleEvents_PersistsApplicationAuditEntry(string action)
+    {
+        await this.auditLogService.LogAsync(
+            "system",
+            action,
+            "Application",
+            "application-123",
+            "CredentialId: credential-456");
+
+        await using OpenIdentityStackDbContext freshContext = this.fixture.CreateDbContext();
+        AuditLogEntry entry = await freshContext.AuditLogEntries.SingleAsync();
+        entry.UserId.ShouldBe("system");
+        entry.Action.ShouldBe(action);
+        entry.EntityType.ShouldBe("Application");
+        entry.EntityId.ShouldBe("application-123");
+        entry.Details.ShouldBe("CredentialId: credential-456");
+        entry.Timestamp.ShouldBe(TestTime);
+    }
+
     [Fact]
     public async Task LogAsync_UsesDateTimeProviderForTimestamp()
     {

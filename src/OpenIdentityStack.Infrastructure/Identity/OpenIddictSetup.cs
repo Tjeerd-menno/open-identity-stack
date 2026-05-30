@@ -181,8 +181,7 @@ public static class OpenIddictSetup
                     options.DisableAccessTokenEncryption();
                 }
 
-                // Add ServiceAccount validation handler for custom client validation
-                options.AddServiceAccountValidation();
+                options.AddApplicationClientAuthentication();
 
                 // Enrich successful token introspection responses with caller-filtered
                 // permission metadata while keeping OpenIddict's client authentication

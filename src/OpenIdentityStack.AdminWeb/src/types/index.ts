@@ -531,6 +531,175 @@ export interface ClientCreatedResponse {
 }
 
 // ============================================================================
+// Unified Application Management
+// ============================================================================
+
+export const ApplicationProfile = {
+  Web: 'Web',
+  SinglePage: 'SinglePage',
+  Native: 'Native',
+  MachineToMachine: 'MachineToMachine',
+  Device: 'Device',
+  Custom: 'Custom',
+} as const;
+export type ApplicationProfile = typeof ApplicationProfile[keyof typeof ApplicationProfile];
+
+export const ApplicationClientType = {
+  Confidential: 'Confidential',
+  Public: 'Public',
+} as const;
+export type ApplicationClientType = typeof ApplicationClientType[keyof typeof ApplicationClientType];
+
+export const ApplicationOptionAvailability = {
+  Hidden: 'Hidden',
+  ReadOnly: 'ReadOnly',
+  Available: 'Available',
+  Advanced: 'Advanced',
+} as const;
+export type ApplicationOptionAvailability =
+  typeof ApplicationOptionAvailability[keyof typeof ApplicationOptionAvailability];
+
+export type ApplicationStatus = 'Active' | 'Disabled';
+
+export interface ApplicationProfilePolicy {
+  applicationProfile: ApplicationProfile;
+  isSelectable: boolean;
+  unavailabilityReason: string | null;
+  defaultClientProfile: ApplicationClientType;
+  allowedClientProfiles: ApplicationClientType[];
+  allowedGrantTypes: string[];
+  defaultGrantTypes: string[];
+  options: Record<string, ApplicationOptionAvailability>;
+  requirePkce: boolean;
+  defaultRequirePkce: boolean;
+  defaultRequireConsent: boolean;
+  requiresRedirectUris: boolean;
+}
+
+export interface Application {
+  id: string;
+  clientId: string;
+  displayName: string;
+  description: string | null;
+  profile: ApplicationProfile;
+  clientType: ApplicationClientType;
+  status: ApplicationStatus;
+  redirectUris: string[];
+  postLogoutRedirectUris: string[];
+  allowedScopes: string[];
+  allowedGrantTypes: string[];
+  requirePkce: boolean;
+  requireConsent: boolean;
+  credentialCount: number;
+  certificateCount: number;
+  requiresMigrationReview: boolean;
+  migrationSource: string | null;
+  createdAt: string;
+  modifiedAt: string | null;
+}
+
+export interface ApplicationListItem {
+  id: string;
+  clientId: string;
+  displayName: string;
+  profile: ApplicationProfile;
+  clientType: ApplicationClientType;
+  status: ApplicationStatus;
+  allowedGrantTypes: string[];
+  credentialCount: number;
+  createdAt: string;
+  modifiedAt: string | null;
+}
+
+export interface ApplicationListResponse {
+  items: ApplicationListItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
+export interface ApplicationListParams extends PaginationParams {
+  profile?: ApplicationProfile;
+  status?: ApplicationStatus;
+  clientType?: ApplicationClientType;
+}
+
+export interface CreateApplicationRequest {
+  clientId: string;
+  displayName: string;
+  description?: string | null;
+  profile: ApplicationProfile;
+  clientType: ApplicationClientType;
+  allowedGrantTypes: string[];
+  allowedScopes: string[];
+  redirectUris: string[];
+  postLogoutRedirectUris: string[];
+  requirePkce: boolean;
+  requireConsent: boolean;
+}
+
+export interface UpdateApplicationMetadataRequest {
+  displayName: string;
+  description?: string | null;
+}
+
+export type ConfigureApplicationOAuthRequest = Omit<
+  CreateApplicationRequest,
+  'clientId' | 'displayName' | 'description'
+>;
+
+export interface ApplicationCreatedResponse {
+  id: string;
+  clientId: string;
+  displayName: string;
+  profile: ApplicationProfile;
+  clientType: ApplicationClientType;
+  status: ApplicationStatus;
+  initialSecret: string | null;
+  createdAt: string;
+}
+
+export type ApplicationCredentialType = 'ClientSecret' | 'X509Certificate';
+
+export interface ApplicationCredential {
+  id: string;
+  applicationId: string;
+  type: ApplicationCredentialType;
+  thumbprint: string | null;
+  subject: string | null;
+  description: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface AddApplicationSecretRequest {
+  description?: string | null;
+  expiresAt?: string | null;
+  revokeExisting: boolean;
+}
+
+export interface AddApplicationSecretResponse {
+  credentialId: string;
+  clientSecret: string;
+}
+
+export interface AddApplicationCertificateRequest {
+  thumbprint: string;
+  subject?: string | null;
+  description?: string | null;
+  expiresAt?: string | null;
+}
+
+export interface AddApplicationCertificateResponse {
+  credentialId: string;
+}
+
+// ============================================================================
 // Authentication Settings
 // ============================================================================
 

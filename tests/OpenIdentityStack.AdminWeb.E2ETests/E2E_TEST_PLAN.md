@@ -4,6 +4,28 @@
 
 This document outlines a comprehensive plan to extend the E2E test suite for the OpenIdentityStack AdminWeb application. The goal is to achieve complete end-to-end test coverage for all main functions and API endpoints in the AdminWeb application.
 
+## Consolidated Application Aggregate Coverage Matrix
+
+This matrix defines priority coverage for the unified Applications model that replaced legacy service-account-first administration.
+
+| Risk | Scenario | UI Surface | API Surface | Priority |
+| --- | --- | --- | --- | --- |
+| Broken provisioning | Create machine-to-machine application with policy defaults | `/applications/new` | `POST /api/admin/applications` | Critical |
+| One-time secret leakage/regression | Add secret and verify one-time display | Application detail credentials dialog | `POST /api/admin/applications/{id}/credentials/client-secrets` | Critical |
+| Access control drift | Disable and re-enable application from detail | Application detail lifecycle action | `POST /api/admin/applications/{id}/disable`, `POST /api/admin/applications/{id}/enable` | Critical |
+| Destructive lifecycle safety | Delete application and verify removal from list | Application detail + list | `DELETE /api/admin/applications/{id}` | Critical |
+| Policy railroading drift | Profile-specific form behavior for Machine-to-machine and Single Page | Application create form | `GET /api/admin/applications/policies/profiles` + create request validation | Critical |
+| Credential lifecycle failures | Add certificate and revoke credential | Application detail credentials tab | `POST /credentials/certificates`, `DELETE /credentials/{credentialId}` | Important |
+| Public client hardening | Public application blocks secret/certificate management | Application detail credentials tab | Credential endpoints rejected by policy | Important |
+| Data discoverability | Search/pagination in applications list | `/applications` list | `GET /api/admin/applications?page=&search=` | Important |
+| Error-path integrity | Duplicate clientId and policy violations surface deterministic errors | Application create form | Validation errors from create/configure | Important |
+
+## Runtime Prerequisites (Aspire + Playwright)
+
+- `Parameters__default-admin-password` must be set for AppHost/DbMigrator startup (fixture now enforces default when missing).
+- Playwright Chromium runtime must be installed for this test project before execution.
+- E2E test startup now fails fast with an actionable message when Chromium runtime is unavailable.
+
 ## Current Test Coverage
 
 ### Existing Tests

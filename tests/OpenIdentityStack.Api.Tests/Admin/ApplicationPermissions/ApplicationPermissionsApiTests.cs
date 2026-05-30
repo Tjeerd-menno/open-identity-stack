@@ -242,6 +242,83 @@ public sealed class ApplicationPermissionsApiTests(AppHostFixture fixture) : IAs
         applyJson["result"]!["removedPermissions"]!.AsArray().Count.ShouldBe(1);
     }
 
+    [Fact]
+    public async Task RegisterApplicationManifest_WhenApplicationIsMissing_ReturnsBadRequest()
+    {
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Post,
+            "/api/admin/application-permissions/applications",
+            new
+            {
+                Manifest = new
+                {
+                    SchemaVersion = "1.0.0",
+                    Permissions = new[]
+                    {
+                        new
+                        {
+                            Key = "patient:read",
+                            DisplayName = "Read patients",
+                            Description = "Allows reading patient data",
+                            Category = "Patients",
+                        },
+                    },
+                },
+                OwnerId = this.actorId.ToString(),
+                OwnerType = "User",
+                ManifestBaseUrl = (string?)null,
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonNode json = await ReadJsonAsync(response);
+        json["error"]!.GetValue<string>().ShouldBe("PermissionManifest.ApplicationRequired");
+    }
+
+    [Fact]
+    public async Task RegisterApplicationManifest_WhenPermissionsAreMissing_ReturnsBadRequest()
+    {
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Post,
+            "/api/admin/application-permissions/applications",
+            new
+            {
+                Manifest = new
+                {
+                    SchemaVersion = "1.0.0",
+                    Application = new
+                    {
+                        Id = "patient-api",
+                        DisplayName = "Patient API",
+                        Description = (string?)null,
+                        Version = "1.0.0",
+                    },
+                },
+                OwnerId = this.actorId.ToString(),
+                OwnerType = "User",
+                ManifestBaseUrl = (string?)null,
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonNode json = await ReadJsonAsync(response);
+        json["error"]!.GetValue<string>().ShouldBe("PermissionManifest.PermissionsRequired");
+    }
+
+    [Fact]
+    public async Task ImportApplicationManifest_WhenEndpointIsNotWellKnownPermissionsUrl_ReturnsBadRequest()
+    {
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Post,
+            "/api/admin/application-permissions/applications/import",
+            new
+            {
+                Endpoint = "https://patient.example/permissions",
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonNode json = await ReadJsonAsync(response);
+        json["error"]!.GetValue<string>().ShouldBe("PermissionManifest.EndpointInvalid");
+    }
+
     private async Task<Guid> CreateApplicationAsync(string applicationIdentifier, string? manifestBaseUrl = null)
     {
         HttpResponseMessage response = await this.SendRequestAsync(

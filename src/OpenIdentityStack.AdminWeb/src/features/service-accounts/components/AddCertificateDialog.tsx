@@ -19,6 +19,9 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+const getDefaultCertificateExpiry = (): string =>
+  new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
 interface AddCertificateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,16 +38,19 @@ export function AddCertificateDialog({ open, onOpenChange, serviceAccountId }: A
     },
   });
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (data: FormData) => {
     try {
-      const defaultExpirationDate = new Date();
-      defaultExpirationDate.setFullYear(defaultExpirationDate.getFullYear() + 1);
+      if (data.certificate.trim().length === 0) {
+        form.setError('certificate', { message: 'Certificate is required' });
+        return;
+      }
+
       await addCertificate.mutateAsync({ 
         serviceAccountId, 
         data: { 
           thumbprint: 'auto', // Server will extract from certificate
           subject: 'auto', // Server will extract from certificate
-          expiresAt: defaultExpirationDate.toISOString(), // Default 1 year
+          expiresAt: getDefaultCertificateExpiry(), // Default 1 year
         } 
       });
       form.reset();

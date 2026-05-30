@@ -7,6 +7,42 @@ import axios, { type AxiosInstance, AxiosError, type InternalAxiosRequestConfig 
 import type { ApiError } from '@/types';
 import { getRuntimeConfig } from '@/config/runtime-config';
 
+type ApiErrorPayload = Partial<ApiError> & {
+  message?: string;
+  error?: string;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const toApiErrorPayload = (value: unknown): ApiErrorPayload | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const errors = value.errors;
+  return {
+    type: typeof value.type === 'string' ? value.type : undefined,
+    title: typeof value.title === 'string' ? value.title : undefined,
+    detail: typeof value.detail === 'string' ? value.detail : undefined,
+    message: typeof value.message === 'string' ? value.message : undefined,
+    errorCode:
+      typeof value.errorCode === 'string'
+      ? value.errorCode
+      : typeof value.error === 'string'
+        ? value.error
+        : undefined,
+    errors: isRecord(errors)
+      ? Object.fromEntries(
+          Object.entries(errors).filter(
+            (entry): entry is [string, string[]] =>
+              Array.isArray(entry[1]) && entry[1].every((item) => typeof item === 'string')
+          )
+        )
+      : undefined,
+  };
+};
+
 /**
  * Base API client with Axios
  */
@@ -64,7 +100,7 @@ class ApiClient {
     // T061: Response interceptor: handle errors and 401 unauthorized
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
+      (error: AxiosError<ApiErrorPayload>) => {
         // Handle 401 Unauthorized - trigger logout
         if (error.response?.status === 401) {
           console.warn('Received 401 Unauthorized response, logging out...');
@@ -82,10 +118,10 @@ class ApiClient {
   /**
    * Handle and normalize API errors
    */
-  private handleError(error: AxiosError): ApiError {
+  private handleError(error: AxiosError<ApiErrorPayload>): ApiError {
     if (error.response) {
       // Server responded with error status
-      const data = this.asErrorData(error.response.data);
+      const data = toApiErrorPayload(error.response.data);
       return {
         type: data?.type || 'https://tools.ietf.org/html/rfc7231#section-6.5.1',
         title: data?.title || 'An error occurred',
@@ -113,14 +149,13 @@ class ApiClient {
     }
   }
 
-  private asErrorData(data: unknown): Partial<ApiError> & { message?: string; error?: string } {
-    return data && typeof data === 'object' ? data as Partial<ApiError> & { message?: string; error?: string } : {};
-  }
-
   /**
    * GET request
    */
-  async get<T>(url: string, params?: object): Promise<T> {
+  async get<T, TParams extends object | undefined = object | undefined>(
+    url: string,
+    params?: TParams
+  ): Promise<T> {
     const response = await this.client.get<T>(url, { params });
     return response.data;
   }
@@ -128,7 +163,7 @@ class ApiClient {
   /**
    * POST request
    */
-  async post<T>(url: string, data?: unknown): Promise<T> {
+  async post<T, TBody = unknown>(url: string, data?: TBody): Promise<T> {
     const response = await this.client.post<T>(url, data);
     return response.data;
   }
@@ -136,7 +171,7 @@ class ApiClient {
   /**
    * PUT request
    */
-  async put<T>(url: string, data?: unknown): Promise<T> {
+  async put<T, TBody = unknown>(url: string, data?: TBody): Promise<T> {
     const response = await this.client.put<T>(url, data);
     return response.data;
   }
@@ -144,7 +179,7 @@ class ApiClient {
   /**
    * PATCH request
    */
-  async patch<T>(url: string, data?: unknown): Promise<T> {
+  async patch<T, TBody = unknown>(url: string, data?: TBody): Promise<T> {
     const response = await this.client.patch<T>(url, data);
     return response.data;
   }

@@ -1,22 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockedAxios = vi.hoisted(() => {
-  type AxiosLikeConfig = { headers?: Record<string, string> };
-  type AxiosLikeError = { response?: { status: number; data?: unknown }; request?: unknown; message?: string };
+type RequestConfig = {
+  headers: Record<string, string>;
+};
 
-  let requestFulfilled: ((config: AxiosLikeConfig) => AxiosLikeConfig | Promise<AxiosLikeConfig>) | undefined;
-  let responseRejected: ((error: AxiosLikeError) => Promise<never>) | undefined;
+type InterceptorError = {
+  response?: {
+    status?: number;
+    data?: unknown;
+  };
+  message: string;
+};
+
+const mockedAxios = vi.hoisted(() => {
+  let requestFulfilled:
+    | ((config: RequestConfig) => RequestConfig | Promise<RequestConfig>)
+    | undefined;
+  let responseRejected: ((error: InterceptorError) => Promise<never>) | undefined;
 
   const instance = {
     interceptors: {
       request: {
-        use: vi.fn((onFulfilled: (config: AxiosLikeConfig) => AxiosLikeConfig | Promise<AxiosLikeConfig>) => {
+        use: vi.fn((onFulfilled: (config: RequestConfig) => RequestConfig | Promise<RequestConfig>) => {
           requestFulfilled = onFulfilled;
           return 0;
         }),
       },
       response: {
-        use: vi.fn((_onFulfilled: (value: unknown) => unknown, onRejected: (error: AxiosLikeError) => Promise<never>) => {
+        use: vi.fn((_onFulfilled: (value: unknown) => unknown, onRejected: (error: InterceptorError) => Promise<never>) => {
           responseRejected = onRejected;
           return 0;
         }),
@@ -68,7 +79,7 @@ describe('ApiClient', () => {
     const config = await requestFulfilled?.({ headers: {} });
 
     expect(tokenProvider).toHaveBeenCalledOnce();
-    expect(config?.headers?.Authorization).toBe('Bearer token-123');
+    expect(config?.headers.Authorization).toBe('Bearer token-123');
   });
 
   it('triggers the logout handler and normalizes 401 errors in the response interceptor', async () => {

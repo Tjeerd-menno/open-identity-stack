@@ -7,12 +7,17 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Resolve-FeatureJson {
-    $scriptRelativePath = 'scripts/powershell/check-prerequisites.ps1'
+    $scriptRelativePaths = @(
+        '.specify/scripts/powershell/check-prerequisites.ps1',
+        'scripts/powershell/check-prerequisites.ps1'
+    )
     $scriptCandidates = [System.Collections.Generic.List[string]]::new()
     $scriptPath = $null
 
     if ((Get-Location).Path) {
-        $scriptCandidates.Add((Join-Path (Get-Location).Path $scriptRelativePath))
+        foreach ($scriptRelativePath in $scriptRelativePaths) {
+            $scriptCandidates.Add((Join-Path (Get-Location).Path $scriptRelativePath))
+        }
     }
 
     $currentScriptDir = if ($PSScriptRoot) {
@@ -24,10 +29,14 @@ function Resolve-FeatureJson {
     }
 
     if ($currentScriptDir) {
-        # Try extension scripts dir and project root relative to script location
+        # Try extension scripts dir and repository layouts relative to script location.
         $scriptCandidates.Add((Join-Path $currentScriptDir 'check-prerequisites.ps1'))
-        $projectRootPath = Join-Path $currentScriptDir '../../..'
-        $scriptCandidates.Add((Join-Path $projectRootPath $scriptRelativePath))
+        $specifyRootPath = Join-Path $currentScriptDir '../../../..'
+        $repositoryRootPath = Join-Path $currentScriptDir '../../../../..'
+        $scriptCandidates.Add((Join-Path $specifyRootPath 'scripts/powershell/check-prerequisites.ps1'))
+        foreach ($scriptRelativePath in $scriptRelativePaths) {
+            $scriptCandidates.Add((Join-Path $repositoryRootPath $scriptRelativePath))
+        }
     }
 
     foreach ($candidate in $scriptCandidates) {

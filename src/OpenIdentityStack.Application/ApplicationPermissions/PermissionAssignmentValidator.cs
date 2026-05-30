@@ -15,11 +15,10 @@ public sealed class PermissionAssignmentValidator : IPermissionAssignmentValidat
         Permissions.Users.All,
         Permissions.Roles.All,
         Permissions.Groups.All,
-        Permissions.ServiceAccounts.All,
+        Permissions.Applications.All,
         Permissions.ApplicationPermissions.All,
         Permissions.Sessions.All,
         Permissions.Providers.All,
-        Permissions.Clients.All,
         Permissions.AuditLogs.All,
         Permissions.System.All
     };
@@ -30,11 +29,10 @@ public sealed class PermissionAssignmentValidator : IPermissionAssignmentValidat
         Permissions.Users.All,
         Permissions.Roles.All,
         Permissions.Groups.All,
-        Permissions.ServiceAccounts.All,
+        Permissions.Applications.All,
         Permissions.ApplicationPermissions.All,
         Permissions.Sessions.All,
         Permissions.Providers.All,
-        Permissions.Clients.All,
         Permissions.AuditLogs.All,
         Permissions.System.All
     };

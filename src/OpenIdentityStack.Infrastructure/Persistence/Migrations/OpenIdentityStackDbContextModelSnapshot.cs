@@ -469,6 +469,148 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.ToTable("RegisteredApplications", (string)null);
                 });
 
+            modelBuilder.Entity("OpenIdentityStack.Domain.Applications.Application", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("Id");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("ClientType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("MigrationSource")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Profile")
+                        .HasColumnType("integer")
+                        .HasColumnName("Profile");
+
+                    b.Property<bool>("RequireConsent")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequirePkce")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequiresMigrationReview")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.PrimitiveCollection<string>("allowedGrantTypes")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("AllowedGrantTypes");
+
+                    b.PrimitiveCollection<string>("allowedScopes")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("AllowedScopes");
+
+                    b.PrimitiveCollection<string>("postLogoutRedirectUris")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("PostLogoutRedirectUris");
+
+                    b.PrimitiveCollection<string>("redirectUris")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("RedirectUris");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Applications_ClientId");
+
+                    b.HasIndex("Profile")
+                        .HasDatabaseName("IX_Applications_Profile");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_Applications_Status");
+
+                    b.ToTable("Applications", (string)null);
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Domain.Applications.ApplicationCredential", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SecretHash")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("Thumbprint")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId")
+                        .HasDatabaseName("IX_ApplicationCredentials_ApplicationId");
+
+                    b.HasIndex("ApplicationId", "Thumbprint")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ApplicationCredentials_ApplicationId_Thumbprint")
+                        .HasFilter("\"Thumbprint\" IS NOT NULL AND \"RevokedAt\" IS NULL");
+
+                    b.HasIndex("ApplicationId", "Type", "RevokedAt")
+                        .HasDatabaseName("IX_ApplicationCredentials_ApplicationId_Type_RevokedAt");
+
+                    b.ToTable("ApplicationCredentials", (string)null);
+                });
+
             modelBuilder.Entity("OpenIdentityStack.Domain.Clients.Client", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1140,6 +1282,15 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OpenIdentityStack.Domain.Applications.ApplicationCredential", b =>
+                {
+                    b.HasOne("OpenIdentityStack.Domain.Applications.Application", null)
+                        .WithMany("Credentials")
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("OpenIdentityStack.Domain.Federation.UpstreamProvider", b =>
                 {
                     b.OwnsMany("OpenIdentityStack.Domain.Federation.ClaimMapping", "ClaimMappings", b1 =>
@@ -1385,6 +1536,11 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.Navigation("Maintainers");
 
                     b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Domain.Applications.Application", b =>
+                {
+                    b.Navigation("Credentials");
                 });
 
             modelBuilder.Entity("OpenIdentityStack.Domain.Groups.Group", b =>

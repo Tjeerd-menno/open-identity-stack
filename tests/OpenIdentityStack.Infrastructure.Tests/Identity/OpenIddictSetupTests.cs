@@ -115,6 +115,16 @@ public sealed class OpenIddictSetupTests
         options.MaximumRefireCount.ShouldBe(4);
     }
 
+    [Fact]
+    public void AddOpenIddictConfiguration_RegistersApplicationClientAuthentication()
+    {
+        ServiceCollection services = BuildServices();
+
+        services.ShouldContain(descriptor => descriptor.ServiceType == typeof(ApplicationClientAuthenticationHandler));
+        services.ShouldContain(descriptor => descriptor.ServiceType == typeof(ApplicationClientAuthenticationHandler.RequireClientCredentialsGrantType));
+        services.ShouldNotContain(descriptor => descriptor.ServiceType.Name == "ServiceAccountValidationHandler");
+    }
+
     private static ServiceProvider BuildProvider(IReadOnlyDictionary<string, string?>? values = null)
     {
         return BuildServices(values).BuildServiceProvider();

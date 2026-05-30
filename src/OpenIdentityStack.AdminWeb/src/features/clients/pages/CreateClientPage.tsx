@@ -97,7 +97,7 @@ export function CreateClientPage() {
         </div>
 
         <ClientForm
-          onSubmit={(data) => handleSubmit(data as CreateClientFormData)}
+          onSubmit={handleSubmit}
           isLoading={createClient.isPending}
         />
       </div>

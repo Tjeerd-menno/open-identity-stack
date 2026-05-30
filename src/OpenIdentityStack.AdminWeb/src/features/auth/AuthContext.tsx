@@ -6,10 +6,17 @@
  * Provides authentication methods and user information to the app.
  */
 
-import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { User, UserManager } from 'oidc-client-ts';
 import { oidcConfig, extractPermissions, extractDisplayName } from './services/oidc-config';
 import { apiClient } from '@/lib/api/client';
+import {
+  AuthContext,
+  type AuthContextValue,
+  type AuthProviderProps,
+  type AuthState,
+  type AuthenticatedUser,
+} from './auth-context';
 
 // E2E Test Mode - bypasses real OIDC authentication
 const isE2ETestMode = import.meta.env.VITE_E2E_TEST_MODE === 'true';
@@ -17,39 +24,6 @@ const isE2ETestMode = import.meta.env.VITE_E2E_TEST_MODE === 'true';
 // Debug logging for E2E test mode detection
 console.log('[AuthContext] VITE_E2E_TEST_MODE:', import.meta.env.VITE_E2E_TEST_MODE);
 console.log('[AuthContext] isE2ETestMode:', isE2ETestMode);
-
-/**
- * Authenticated user information
- */
-export interface AuthenticatedUser {
-  sub: string; // Subject (user ID)
-  email: string;
-  name: string; // Display name
-  permissions: string[]; // Granted permissions
-}
-
-/**
- * Authentication state
- */
-export interface AuthState {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  isLoggingOut: boolean; // True when logout is in progress
-  user: AuthenticatedUser | null;
-  accessToken: string | null;
-  error: string | null;
-}
-
-/**
- * Authentication context value
- */
-export interface AuthContextValue extends AuthState {
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
-  signinCallback: () => Promise<void>;
-  signinSilentCallback: () => Promise<void>;
-  getAccessToken: () => Promise<string | null>;
-}
 
 /**
  * Initial authentication state
@@ -62,18 +36,6 @@ const initialAuthState: AuthState = {
   accessToken: null,
   error: null,
 };
-
-/**
- * Authentication context
- */
-export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-/**
- * Props for AuthProvider component
- */
-export interface AuthProviderProps {
-  children: React.ReactNode;
-}
 
 /**
  * Authentication provider component

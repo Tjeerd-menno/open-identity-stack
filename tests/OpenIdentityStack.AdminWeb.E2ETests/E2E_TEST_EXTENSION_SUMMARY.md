@@ -13,13 +13,26 @@ This document summarizes the comprehensive plan for extending E2E test coverage 
 
 ## Test Coverage Overview
 
+### Consolidated Application Aggregate Focus
+
+The highest-risk E2E focus is now the unified `Application` aggregate:
+
+- `POST/GET/PATCH/DELETE /api/admin/applications`
+- `POST /api/admin/applications/{id}/disable`
+- `POST /api/admin/applications/{id}/enable`
+- `GET /api/admin/applications/policies/profiles`
+- Credential lifecycle endpoints under `/api/admin/applications/{id}/credentials/*`
+
+This replaces legacy service-account-first E2E intent and aligns with the consolidated admin model.
+
 ### Features Covered
 - ✅ **Authentication** (Already implemented - 6 tests)
 - ✅ **Layout & Navigation** (Already implemented - 8 tests)
+- 📋 **Applications (Unified Aggregate)** (priority suite in progress)
 - 📋 **User Management** (14 tests planned)
 - 📋 **Role Management** (8 tests planned)
 - 📋 **Group Management** (11 tests planned)
-- 📋 **Service Account Management** (11 tests planned)
+- 📋 **Service Account Management** (legacy/transition suite)
 - 📋 **Session Management** (5 tests planned)
 - 📋 **Provider Management** (8 tests planned)
 - 📋 **Dashboard** (3 tests planned)
@@ -115,6 +128,7 @@ This document summarizes the comprehensive plan for extending E2E test coverage 
   - ServiceAccountBuilder
 
 ### 3. Test Classes (To Be Implemented)
+- 📋 ApplicationManagementTests.cs (consolidated applications lifecycle + policy + credentials)
 - 📋 UserManagementTests.cs
 - 📋 RoleManagementTests.cs
 - 📋 GroupManagementTests.cs

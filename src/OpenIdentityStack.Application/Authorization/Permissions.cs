@@ -52,19 +52,6 @@ public static class Permissions
     }
 
     /// <summary>
-    /// Service account management permissions.
-    /// </summary>
-    public static class ServiceAccounts
-    {
-        public const string Read = "service-accounts:read";
-        public const string Write = "service-accounts:write";
-        public const string Delete = "service-accounts:delete";
-        public const string RotateSecret = "service-accounts:rotate-secret";
-        public const string ManageCertificates = "service-accounts:manage-certificates";
-        public const string All = "service-accounts:*";
-    }
-
-    /// <summary>
     /// Application permission registry permissions.
     /// </summary>
     public static class ApplicationPermissions
@@ -97,15 +84,16 @@ public static class Permissions
     }
 
     /// <summary>
-    /// Client application management permissions.
+    /// Unified application management permissions.
     /// </summary>
-    public static class Clients
+    public static class Applications
     {
-        public const string Read = "clients:read";
-        public const string Write = "clients:write";
-        public const string Delete = "clients:delete";
-        public const string ManageSecrets = "clients:manage-secrets";
-        public const string All = "clients:*";
+        public const string Read = "applications:read";
+        public const string Write = "applications:write";
+        public const string Delete = "applications:delete";
+        public const string ManageCredentials = "applications:manage-credentials";
+        public const string ManageCertificates = "applications:manage-certificates";
+        public const string All = "applications:*";
     }
 
     /// <summary>
@@ -135,12 +123,11 @@ public static class Permissions
         Users.Read, Users.Write, Users.Delete, Users.Disable, Users.ResetPassword,
         Roles.Read, Roles.Write, Roles.Delete, Roles.Assign,
         Groups.Read, Groups.Write, Groups.Delete, Groups.ManageMembers,
-        ServiceAccounts.Read, ServiceAccounts.Write, ServiceAccounts.Delete, 
-        ServiceAccounts.RotateSecret, ServiceAccounts.ManageCertificates,
+        Applications.Read, Applications.Write, Applications.Delete,
+        Applications.ManageCredentials, Applications.ManageCertificates,
         ApplicationPermissions.Read, ApplicationPermissions.Write, ApplicationPermissions.Admin,
         Sessions.Read, Sessions.Revoke,
         Providers.Read, Providers.Write, Providers.Delete,
-        Clients.Read, Clients.Write, Clients.Delete, Clients.ManageSecrets,
         AuditLogs.Read,
         System.ManageSettings, System.ViewMetrics
     ];

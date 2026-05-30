@@ -1,0 +1,161 @@
+using System.Text.Json;
+using OpenIdentityStack.Application.Common;
+using OpenIdentityStack.Domain.Applications;
+using SharedKernel;
+using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
+using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
+
+namespace OpenIdentityStack.Application.Applications.Queries;
+
+public sealed class ListApplicationsQueryHandler : IListApplicationsQueryHandler
+{
+    private readonly IApplicationRepository repository;
+
+    public ListApplicationsQueryHandler(IApplicationRepository repository)
+    {
+        this.repository = repository;
+    }
+
+    public async Task<Result<PagedResult<ApplicationSummary>>> HandleAsync(
+        int page = 1,
+        int pageSize = 20,
+        ApplicationProfile? profile = null,
+        ApplicationStatus? status = null,
+        OAuthClientType? clientType = null,
+        string? searchTerm = null,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        (List<DomainApplication> items, int totalCount) = await this.repository.ListAsync(
+            page,
+            pageSize,
+            profile,
+            status,
+            clientType,
+            searchTerm,
+            cancellationToken);
+
+        var summaries = items
+            .Select(application => new ApplicationSummary(
+                application.Id,
+                application.ClientId,
+                application.DisplayName,
+                application.Profile,
+                application.ClientType,
+                application.Status,
+                application.RequiresMigrationReview,
+                application.CreatedAt,
+                application.ModifiedAt))
+            .ToList();
+
+        return PagedResult<ApplicationSummary>.Create(summaries, page, pageSize, totalCount);
+    }
+}
+
+public sealed class GetApplicationQueryHandler : IGetApplicationQueryHandler
+{
+    private readonly IApplicationRepository repository;
+
+    public GetApplicationQueryHandler(IApplicationRepository repository)
+    {
+        this.repository = repository;
+    }
+
+    public async Task<Result<ApplicationDetails>> HandleAsync(
+        DomainApplicationId applicationId,
+        CancellationToken cancellationToken = default)
+    {
+        DomainApplication? application = await this.repository.GetByIdAsync(applicationId, cancellationToken);
+        if (application is null)
+        {
+            return ApplicationErrors.NotFound;
+        }
+
+        return new ApplicationDetails(
+            application.Id,
+            application.ClientId,
+            application.DisplayName,
+            application.Description,
+            application.Profile,
+            application.ClientType,
+            application.Status,
+            application.AllowedGrantTypes,
+            application.AllowedScopes,
+            application.RedirectUris,
+            application.PostLogoutRedirectUris,
+            application.RequirePkce,
+            application.RequireConsent,
+            application.RequiresMigrationReview,
+            application.MigrationSource,
+            application.CreatedAt,
+            application.ModifiedAt);
+    }
+}
+
+public sealed class ListApplicationCredentialsQueryHandler : IListApplicationCredentialsQueryHandler
+{
+    private readonly IApplicationRepository repository;
+
+    public ListApplicationCredentialsQueryHandler(IApplicationRepository repository)
+    {
+        this.repository = repository;
+    }
+
+    public async Task<Result<IReadOnlyList<ApplicationCredentialDetails>>> HandleAsync(
+        ListApplicationCredentialsQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        DomainApplication? application = await this.repository.GetByIdAsync(query.ApplicationId, cancellationToken);
+        if (application is null)
+        {
+            return ApplicationErrors.NotFound;
+        }
+
+        return application.Credentials
+            .Select(credential => new ApplicationCredentialDetails(
+                credential.Id,
+                application.Id,
+                credential.Type,
+                credential.Thumbprint,
+                credential.Subject,
+                credential.Description,
+                credential.ExpiresAt,
+                credential.CreatedAt,
+                credential.LastUsedAt,
+                credential.RevokedAt))
+            .ToList();
+    }
+}
+
+public sealed class ListApplicationProfilePoliciesQueryHandler : IListApplicationProfilePoliciesQueryHandler
+{
+    public Task<Result<IReadOnlyList<ApplicationProfilePolicyDetails>>> HandleAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var policies = Enum
+            .GetValues<ApplicationProfile>()
+            .Select(profile => Map(ApplicationProfilePolicyCatalog.GetPolicy(profile)))
+            .ToList();
+
+        return Task.FromResult<Result<IReadOnlyList<ApplicationProfilePolicyDetails>>>(policies);
+    }
+
+    private static ApplicationProfilePolicyDetails Map(ApplicationProfilePolicy policy) =>
+        new(
+            policy.ApplicationProfile,
+            policy.IsSelectable,
+            policy.UnavailabilityReason,
+            policy.DefaultClientProfile,
+            policy.AllowedClientProfiles.OrderBy(profile => profile).ToList(),
+            policy.AllowedGrantTypes.OrderBy(grantType => grantType, StringComparer.OrdinalIgnoreCase).ToList(),
+            policy.DefaultGrantTypes.OrderBy(grantType => grantType, StringComparer.OrdinalIgnoreCase).ToList(),
+            policy.Options.ToDictionary(
+                pair => JsonNamingPolicy.CamelCase.ConvertName(pair.Key.ToString()),
+                pair => pair.Value),
+            policy.RequirePkce,
+            policy.DefaultRequirePkce,
+            policy.DefaultRequireConsent,
+            policy.RequiresRedirectUris);
+}

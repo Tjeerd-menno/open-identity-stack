@@ -34,17 +34,28 @@ const updateGroupSchema = z.object({
 type CreateGroupFormData = z.infer<typeof createGroupSchema>;
 type UpdateGroupFormData = z.infer<typeof updateGroupSchema>;
 
-interface GroupFormProps {
-  group?: Group;
-  onSubmit: (data: CreateGroupFormData | UpdateGroupFormData) => Promise<void>;
+interface CreateGroupFormProps {
+  group?: undefined;
+  onSubmit: (data: CreateGroupFormData) => Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
 }
 
-export function GroupForm({ group, onSubmit, onCancel, isSubmitting }: GroupFormProps) {
+interface EditGroupFormProps {
+  group: Group;
+  onSubmit: (data: UpdateGroupFormData) => Promise<void>;
+  onCancel?: () => void;
+  isSubmitting?: boolean;
+}
+
+type GroupFormProps = CreateGroupFormProps | EditGroupFormProps;
+
+export function GroupForm(props: GroupFormProps) {
+  const { onCancel, isSubmitting } = props;
+  const group = props.group;
   const isEditMode = !!group;
 
-  const form = useForm<CreateGroupFormData | UpdateGroupFormData>({
+  const form = useForm<CreateGroupFormData>({
     resolver: zodResolver(isEditMode ? updateGroupSchema : createGroupSchema),
     defaultValues: isEditMode
       ? {
@@ -57,8 +68,8 @@ export function GroupForm({ group, onSubmit, onCancel, isSubmitting }: GroupForm
         },
   });
 
-  const handleSubmit = async (data: CreateGroupFormData | UpdateGroupFormData) => {
-    await onSubmit(data);
+  const handleSubmit = async (data: CreateGroupFormData) => {
+    await props.onSubmit(data);
   };
 
   return (

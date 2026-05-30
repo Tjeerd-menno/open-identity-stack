@@ -8,7 +8,7 @@ vi.mock('../services/oidc-config', () => ({
   extractDisplayName: vi.fn(() => 'Mock User'),
 }));
 
-import { AuthContext, type AuthContextValue } from '../AuthContext';
+import { AuthContext, type AuthContextValue } from '../auth-context';
 import { useAllPermissions, useAuth, usePermission, usePermissions } from './useAuth';
 
 const mockAuthValue = (overrides: Partial<AuthContextValue> = {}): AuthContextValue => ({

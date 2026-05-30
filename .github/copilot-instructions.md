@@ -52,7 +52,16 @@ public interface ICreateUserUseCase {
 ```
 Registration happens in `ServiceCollectionExtensions.AddCommonServices()`.
 
+#### OpenIddict Projection
+Domain `Application` aggregates are projected into OpenIddict's store. Two recurring gotchas:
+- **Product naming vs protocol naming:** use `ApplicationProfile`/`profile` everywhere product-facing (Domain, Application, API, contracts, persistence, AdminWeb, docs). The name `ApplicationType` is retained **only** at the OpenIddict adapter/protocol boundary. Do not reintroduce `ApplicationType`/`type` into product-facing code.
+- **Confidential apps need a secret:** OpenIddict rejects confidential applications that have no `ClientSecret`, surfacing as `Application.ProjectionFailed`. Ensure a credential exists (or the app is public/disabled) before projecting.
+
 ## Developer Workflow
+
+### Agent workflow
+
+For Spec Kit feature work, prefer the `speckit-phase-implementer` project agent. It should split large phases into subagents or fleet/background sessions when tasks are independent, while keeping final integration and verification in one coordinating session.
 
 ### Running the Application
 ```bash
@@ -63,15 +72,25 @@ dotnet run
 Aspire Dashboard opens automatically. Database migrations apply on startup in Development/Testing.
 
 ### Running Tests
-```bash
-# All tests
-dotnet test
 
-# Specific project
+> ⚠️ **Do not run the whole solution at once.** `dotnet test` over the full solution (and the full AdminWeb Vitest run) has repeatedly *hung* and had to be killed. Always scope test runs to a single project/module.
+
+```bash
+# A single focused project (preferred for the dev loop)
 dotnet test --project tests/OpenIdentityStack.Domain.Tests/OpenIdentityStack.Domain.Tests.csproj
 dotnet test --project tests/OpenIdentityStack.Api.UnitTests/OpenIdentityStack.Api.UnitTests.csproj
+
+# Run a single test / namespace (Microsoft.Testing.Platform syntax)
+dotnet test --project tests/OpenIdentityStack.Domain.Tests/... -- --filter-method "*CreateApplication*"
+dotnet test --project tests/OpenIdentityStack.Domain.Tests/... -- --filter-namespace "*Applications*"
+
+# CI-style sequential run for API/integration modules (build first so the DLLs exist)
+dotnet build OpenIdentityStack.slnx --no-restore
+dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Api.Tests.dll" --max-parallel-test-modules 1 --no-build --no-restore
 ```
-Tests use xUnit v3 with `[Fact]`/`[Theory]`. API tests use Aspire integration testing via `AppHostFixture`.
+Tests use Microsoft.Testing.Platform with xUnit v3 (`[Fact]`/`[Theory]`). API tests use Aspire integration testing via `AppHostFixture`.
+
+**API integration-test infrastructure gotcha:** `AppHostFixture` uses a shared SQLite test database. It must be seeded **before** the API host starts, otherwise startup services hit `DataProtectionKeys`/`upstream_providers` before the schema is created and the suite hangs. If you see bootstrap hangs, check seed ordering in `AppHostFixture` rather than the test body.
 
 ### EF Core Migrations
 ```bash
@@ -79,6 +98,8 @@ cd src/OpenIdentityStack.Infrastructure
 dotnet ef migrations add <MigrationName> --startup-project ../OpenIdentityStack.Api
 dotnet ef database update --startup-project ../OpenIdentityStack.Api
 ```
+
+> ⚠️ **After any change to an entity or the `DbContext`, add a migration before running AppHost.** Otherwise the `openidentitystack-db-migrator` resource fails on startup with `PendingModelChangesWarning`, and because `api` waits for the migrator to exit successfully, the whole Aspire stack appears broken even though the real cause is a missing migration.
 
 ## API Structure
 

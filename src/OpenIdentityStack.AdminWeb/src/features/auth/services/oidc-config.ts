@@ -12,6 +12,43 @@ import { getRuntimeConfig } from '@/config/runtime-config';
 // E2E Test Mode - bypasses real OIDC configuration
 const isE2ETestMode = import.meta.env.VITE_E2E_TEST_MODE === 'true';
 
+type OidcClaims = Record<string, unknown>;
+type OidcUserLike =
+  | {
+      profile?: unknown;
+      access_token?: unknown;
+    }
+  | null
+  | undefined;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const toStringArray = (value: unknown): string[] => {
+  if (typeof value === 'string') {
+    return [value];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+
+  return [];
+};
+
+const toClaims = (value: unknown): OidcClaims | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  return value;
+};
+
+const getStringClaim = (claims: OidcClaims, claim: string): string | undefined => {
+  const value = claims[claim];
+  return typeof value === 'string' ? value : undefined;
+};
+
 /**
  * Get the OIDC authority URL from environment variables
  */
@@ -96,54 +133,38 @@ export const oidcConfig: UserManagerSettings = {
  * @param user - OIDC user object
  * @returns Array of permission strings
  */
-type ClaimsBag = Record<string, unknown>;
-type OidcUserClaims = {
-  profile?: unknown;
-  access_token?: string;
-};
-
-function toStringArray(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.filter((item): item is string => typeof item === 'string');
-  }
-
-  return typeof value === 'string' ? [value] : [];
-}
-
-function parseClaims(value: unknown): ClaimsBag | null {
-  return value && typeof value === 'object' ? value as ClaimsBag : null;
-}
-
-export const extractPermissions = (user: OidcUserClaims | null | undefined): string[] => {
+export const extractPermissions = (user: OidcUserLike): string[] => {
   if (!user) return [];
 
   const standardScopes = ['openid', 'profile', 'email', 'api', 'offline_access'];
 
   const fromProfile = (profile: unknown): string[] => {
-    if (!profile) return [];
-    const claims = parseClaims(profile);
+    const claims = toClaims(profile);
     if (!claims) return [];
 
-    const permissions = toStringArray(claims.permission);
-    if (permissions.length > 0) {
-      return permissions;
+    const permissionClaims = toStringArray(claims.permission);
+    if (permissionClaims.length > 0) {
+      return permissionClaims;
     }
 
-    const pluralPermissions = toStringArray(claims.permissions);
-    if (pluralPermissions.length > 0) {
-      return pluralPermissions;
+    const permissionsClaims = toStringArray(claims.permissions);
+    if (permissionsClaims.length > 0) {
+      return permissionsClaims;
     }
 
     if (claims.scope) {
       const scopes = typeof claims.scope === 'string'
         ? claims.scope.split(' ')
         : toStringArray(claims.scope);
-      return scopes.filter((scope) => !standardScopes.includes(scope));
+      return scopes.filter((s: string) => !standardScopes.includes(s));
     }
 
-    const roleList = toStringArray(claims.role).concat(toStringArray(claims.roles));
-    if (roleList.some((role) => role === 'admin' || role === 'super-admin')) {
-      return ['*'];
+    const roles = claims.role ?? claims.roles;
+    if (roles) {
+      const roleList = toStringArray(roles);
+      if (roleList.some((r: string) => r === 'admin' || r === 'super-admin')) {
+        return ['*'];
+      }
     }
 
     return [];
@@ -159,7 +180,7 @@ export const extractPermissions = (user: OidcUserClaims | null | undefined): str
       const payload = user.access_token.split('.')[1];
       const normalized = payload.replaceAll('-', '+').replaceAll('_', '/');
       const padded = normalized.padEnd(normalized.length + (4 - (normalized.length % 4)) % 4, '=');
-      const decoded: unknown = JSON.parse(atob(padded));
+      const decoded = JSON.parse(atob(padded));
       const tokenPermissions = fromProfile(decoded);
       if (tokenPermissions.length > 0) {
         return tokenPermissions;
@@ -178,17 +199,20 @@ export const extractPermissions = (user: OidcUserClaims | null | undefined): str
  * @param user - OIDC user object
  * @returns Display name string
  */
-export const extractDisplayName = (user: OidcUserClaims | null | undefined): string => {
+export const extractDisplayName = (user: OidcUserLike): string => {
   if (!user?.profile) return 'Unknown User';
   
-  const profile = user.profile as ClaimsBag;
+  const profile = toClaims(user.profile);
+  if (!profile) {
+    return 'Unknown User';
+  }
   
   // Try different claim formats
   return (
-    toStringArray(profile.name)[0] ||
-    toStringArray(profile.display_name)[0] ||
-    toStringArray(profile.preferred_username)[0] ||
-    toStringArray(profile.email)[0] ||
+    getStringClaim(profile, 'name') ||
+    getStringClaim(profile, 'display_name') ||
+    getStringClaim(profile, 'preferred_username') ||
+    getStringClaim(profile, 'email') ||
     'Unknown User'
   );
 };

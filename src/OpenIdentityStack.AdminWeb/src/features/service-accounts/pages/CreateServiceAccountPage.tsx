@@ -79,7 +79,7 @@ export function CreateServiceAccountPage() {
         </div>
 
         <ServiceAccountForm
-          onSubmit={(data) => handleSubmit(data as CreateServiceAccountRequest)}
+          onSubmit={handleSubmit}
           isLoading={createServiceAccount.isPending}
         />
       </div>

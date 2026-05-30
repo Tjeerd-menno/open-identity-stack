@@ -4,7 +4,7 @@
  * Form for creating or updating clients
  */
 
-import { useForm, type UseFormReturn } from 'react-hook-form';
+import { useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -39,36 +39,63 @@ const createSchema = z.object({
   path: ['redirectUris'],
 });
 
-const updateSchema = z.object({
+const editSchema = z.object({
+  clientId: z.string(),
   displayName: z.string().min(1, 'Display name is required').max(200),
+  clientType: z.number().int().min(0).max(1),
   description: z.string().optional(),
+  redirectUris: z.array(z.string()).default([]),
+  postLogoutRedirectUris: z.array(z.string()).default([]),
+  allowedScopes: z.array(z.string()).default([]),
+  allowedGrantTypes: z.array(z.string()).default([]),
+  requirePkce: z.boolean(),
+  requireConsent: z.boolean(),
 });
 
 export type CreateClientFormData = z.infer<typeof createSchema>;
-export type UpdateClientFormData = z.infer<typeof updateSchema>;
+export interface UpdateClientFormData {
+  displayName: string;
+  description?: string;
+}
+type ClientFormValues = z.infer<typeof editSchema>;
 
-type CreateFormData = CreateClientFormData;
-type UpdateFormData = UpdateClientFormData;
-
-interface ClientFormProps {
-  client?: Client;
-  onSubmit: (data: CreateFormData | UpdateFormData) => Promise<void>;
+interface CreateClientFormProps {
+  client?: undefined;
+  onSubmit: (data: CreateClientFormData) => Promise<void>;
   isLoading?: boolean;
 }
+
+interface EditClientFormProps {
+  client: Client;
+  onSubmit: (data: UpdateClientFormData) => Promise<void>;
+  isLoading?: boolean;
+}
+
+type ClientFormProps = CreateClientFormProps | EditClientFormProps;
 
 const availableScopes = ['openid', 'profile', 'email', 'offline_access', 'roles'];
 const availableGrantTypes = ['authorization_code', 'client_credentials', 'refresh_token', 'implicit'];
 
-export function ClientForm({ client, onSubmit, isLoading }: ClientFormProps) {
+export function ClientForm(props: ClientFormProps) {
+  const { isLoading } = props;
+  const client = props.client;
   const isEdit = !!client;
-  const schema = isEdit ? updateSchema : createSchema;
+  const resolver = (isEdit ? zodResolver(editSchema) : zodResolver(createSchema)) as Resolver<ClientFormValues>;
 
-  const form = useForm<CreateFormData | UpdateFormData>({
-    resolver: zodResolver(schema),
+  const form = useForm<ClientFormValues>({
+    resolver,
     defaultValues: client
       ? {
+          clientId: client.clientIdValue,
           displayName: client.displayName,
+          clientType: client.clientType,
           description: client.description || '',
+          redirectUris: client.redirectUris,
+          postLogoutRedirectUris: client.postLogoutRedirectUris,
+          allowedScopes: client.allowedScopes,
+          allowedGrantTypes: client.allowedGrantTypes,
+          requirePkce: client.requirePkce,
+          requireConsent: client.requireConsent,
         }
       : {
           clientId: '',
@@ -84,19 +111,60 @@ export function ClientForm({ client, onSubmit, isLoading }: ClientFormProps) {
         },
   });
 
-  const createForm = form as unknown as UseFormReturn<CreateFormData>;
-  const redirectUriFields = createForm.watch('redirectUris');
-  const postLogoutUriFields = createForm.watch('postLogoutRedirectUris');
-  const appendRedirectUri = () => createForm.setValue('redirectUris', [...redirectUriFields, '']);
-  const removeRedirectUri = (index: number) =>
-    createForm.setValue('redirectUris', redirectUriFields.filter((_, itemIndex) => itemIndex !== index));
-  const appendPostLogoutUri = () => createForm.setValue('postLogoutRedirectUris', [...postLogoutUriFields, '']);
-  const removePostLogoutUri = (index: number) =>
-    createForm.setValue('postLogoutRedirectUris', postLogoutUriFields.filter((_, itemIndex) => itemIndex !== index));
+  const redirectUriFields = useWatch({ control: form.control, name: 'redirectUris' }) ?? [];
+  const postLogoutUriFields = useWatch({ control: form.control, name: 'postLogoutRedirectUris' }) ?? [];
+
+  const appendRedirectUri = () => {
+    form.setValue('redirectUris', [...redirectUriFields, ''], {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  const removeRedirectUri = (index: number) => {
+    form.setValue(
+      'redirectUris',
+      redirectUriFields.filter((_, currentIndex) => currentIndex !== index),
+      {
+        shouldDirty: true,
+        shouldValidate: true,
+      }
+    );
+  };
+
+  const appendPostLogoutUri = () => {
+    form.setValue('postLogoutRedirectUris', [...postLogoutUriFields, ''], {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  const removePostLogoutUri = (index: number) => {
+    form.setValue(
+      'postLogoutRedirectUris',
+      postLogoutUriFields.filter((_, currentIndex) => currentIndex !== index),
+      {
+        shouldDirty: true,
+        shouldValidate: true,
+      }
+    );
+  };
+
+  const handleFormSubmit = async (data: ClientFormValues) => {
+    if (props.client) {
+      await props.onSubmit({
+        displayName: data.displayName,
+        description: data.description,
+      });
+      return;
+    }
+
+    await props.onSubmit(data);
+  };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
@@ -201,10 +269,10 @@ export function ClientForm({ client, onSubmit, isLoading }: ClientFormProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {redirectUriFields.map((_field, index) => (
+                {redirectUriFields.map((_, index) => (
                   <FormField
-                    key={index}
-                    control={createForm.control}
+                    key={`redirect-uri-${index}`}
+                    control={form.control}
                     name={`redirectUris.${index}`}
                     render={({ field }) => (
                       <FormItem>
@@ -247,10 +315,10 @@ export function ClientForm({ client, onSubmit, isLoading }: ClientFormProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {postLogoutUriFields.map((_field, index) => (
+                {postLogoutUriFields.map((_, index) => (
                   <FormField
-                    key={index}
-                    control={createForm.control}
+                    key={`post-logout-uri-${index}`}
+                    control={form.control}
                     name={`postLogoutRedirectUris.${index}`}
                     render={({ field }) => (
                       <FormItem>

@@ -25,8 +25,9 @@ Look for `test-driven-development/SKILL.md` in this exact order:
 
 1. `./.agents/skills/test-driven-development/SKILL.md`
 2. `~/.agents/skills/test-driven-development/SKILL.md`
+3. `~/.copilot/installed-plugins/superpowers-marketplace/superpowers/skills/test-driven-development/SKILL.md`
 
-If the workspace and global copies both exist, use the workspace copy.
+If multiple copies exist, prefer workspace, then global, then Copilot plugin.
 
 If no readable file is found, **STOP**:
 
@@ -34,15 +35,15 @@ If no readable file is found, **STOP**:
 ERROR: Required superpowers skill `test-driven-development` not found.
 Run /speckit.superb.check for diagnostics.
 
-TIP: Ensure superpowers is installed and its skills are in `./.agents/skills/`
-or `~/.agents/skills/`. You can use the `superpowers` tool to manage skills.
+TIP: Ensure superpowers is installed and its skills are in `./.agents/skills/`,
+`~/.agents/skills/`, or the Copilot plugin superpowers skill root.
 ```
 
 Report the source you resolved before continuing:
 
 ```text
 Using installed skill: test-driven-development
-Source: [workspace|global]
+Source: [workspace|global|copilot-plugin]
 Path: [resolved path]
 ```
 

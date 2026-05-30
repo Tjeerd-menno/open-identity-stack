@@ -6,9 +6,22 @@
  */
 
 import React, { useCallback } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, type Location } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+
+interface ProtectedRouteState {
+  from?: Location;
+}
+
+function getFromPathname(state: unknown): string | undefined {
+  if (typeof state !== 'object' || state === null || !('from' in state)) {
+    return undefined;
+  }
+
+  const { from } = state as ProtectedRouteState;
+  return from?.pathname;
+}
 
 /**
  * Props for ProtectedRoute component
@@ -109,7 +122,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 export const AccessDenied: React.FC = () => {
   const location = useLocation();
   const { logout } = useAuth();
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+  const from = getFromPathname(location.state);
 
   const handleSignOut = useCallback(async () => {
     console.log('[AccessDenied] Sign out button clicked');

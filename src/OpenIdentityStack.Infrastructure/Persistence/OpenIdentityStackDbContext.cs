@@ -17,6 +17,9 @@ using OpenIdentityStack.Infrastructure.Audit;
 using OpenIdentityStack.Infrastructure.Persistence.Converters;
 
 using SharedKernel;
+using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
+using DomainApplicationCredential = OpenIdentityStack.Domain.Applications.ApplicationCredential;
+using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 namespace OpenIdentityStack.Infrastructure.Persistence;
 
 /// <summary>
@@ -84,6 +87,16 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
     /// Gets or sets the Clients DbSet.
     /// </summary>
     public DbSet<Client> Clients => this.Set<Client>();
+
+    /// <summary>
+    /// Gets or sets the Applications DbSet.
+    /// </summary>
+    public DbSet<DomainApplication> Applications => this.Set<DomainApplication>();
+
+    /// <summary>
+    /// Gets or sets the ApplicationCredentials DbSet.
+    /// </summary>
+    public DbSet<DomainApplicationCredential> ApplicationCredentials => this.Set<DomainApplicationCredential>();
 
     /// <summary>
     /// Gets or sets the AuthenticationSettings DbSet.
@@ -182,6 +195,10 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
         configurationBuilder
             .Properties<ClientId>()
             .HaveConversion<ClientIdConverter>();
+
+        configurationBuilder
+            .Properties<DomainApplicationId>()
+            .HaveConversion<ApplicationIdConverter>();
 
         configurationBuilder
             .Properties<AuthenticationSettingsId>()

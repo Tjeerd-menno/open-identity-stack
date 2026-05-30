@@ -13,7 +13,8 @@ OpenIdentityStack is an OpenIddict-based identity and access management stack bu
 - Local email/password authentication with secure password hashing.
 - External OIDC/OAuth2 federation providers.
 - Role-based access control with groups, permissions, and delegated administration.
-- Service accounts, client management, certificate support, and secret rotation.
+- Unified Applications model for web, native, API, and machine-to-machine registrations.
+- OAuth client management, certificate support, and secret rotation.
 - User sessions, session revocation, upstream identities, and logout endpoints.
 - React/Vite admin web UI.
 - Dedicated database migrator for schema updates and development seeding.
@@ -115,6 +116,26 @@ See [GHCR publishing](docs/GHCR-PUBLISHING.md) for image names, tags, triggers, 
 | `VITE_API_BASE_URL` | Admin web API base URL | AppHost-provided locally |
 
 Production deployments must provide persistent data-protection storage and OpenIddict signing/encryption certificates. Development and Testing environments may use ephemeral development certificates.
+
+## Admin API example
+
+Create new software registrations through the unified Applications API:
+
+```http
+POST /api/admin/applications
+Content-Type: application/json
+
+{
+  "clientId": "orders-worker",
+  "displayName": "Orders worker",
+  "applicationProfile": "machine-to-machine",
+  "clientType": "confidential",
+  "grantTypes": ["client_credentials"],
+  "scopes": ["orders.write"]
+}
+```
+
+Legacy `/api/admin/clients` and `/api/admin/service-accounts` routes are removed in the Applications rollout. Use `/api/admin/applications` for new and migrated integrations.
 
 ## License
 

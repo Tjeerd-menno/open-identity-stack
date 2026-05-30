@@ -164,7 +164,7 @@ public class AdminWebLayoutTests : IAsyncLifetime
 
         // Act & Assert - Verify all navigation items are present
         // Use Exact = true to avoid matching multiple elements (e.g., "Sessions" vs "View active sessions")
-        string[] expectedItems = new[] { "Users", "Roles", "Groups", "Service Accounts", "Clients", "Sessions", "Providers", "Settings" };
+        string[] expectedItems = new[] { "Users", "Roles", "Groups", "Applications", "Permissions", "Sessions", "Providers", "Settings" };
         
         foreach (string? item in expectedItems)
         {
@@ -216,17 +216,17 @@ public class AdminWebLayoutTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Navigation_ShouldNavigateToServiceAccountsPage()
+    public async Task Navigation_ShouldNavigateToApplicationsPage()
     {
         // Arrange - Login first
         await LoginAsTestAdminAsync();
         
         // Act
-        await page!.GetByRole(AriaRole.Link, new() { Name = "Service Accounts" }).ClickAsync();
-        await page.WaitForURLAsync("**/service-accounts");
+        await page!.GetByRole(AriaRole.Link, new() { Name = "Applications" }).ClickAsync();
+        await page.WaitForURLAsync("**/applications");
         
         // Assert
-        page.Url.ShouldContain("/service-accounts");
+        page.Url.ShouldContain("/applications");
     }
 
     [Fact]
