@@ -106,17 +106,17 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
         IRolePermissionDependencyReader dependencyReader,
         IApplicationPermissionAuditWriter auditWriter,
         IDateTimeProvider dateTimeProvider,
-        IPermissionAssignmentStore? permissionAssignmentStore = null,
-        IApplicationPermissionTransactionRunner? transactionRunner = null,
+        IPermissionAssignmentStore permissionAssignmentStore,
+        IApplicationPermissionTransactionRunner transactionRunner,
         IPermissionDiagnosticsReader? diagnosticsReader = null)
     {
         this.repository = repository;
         this.authorizationService = authorizationService;
         this.dependencyReader = dependencyReader;
-        this.permissionAssignmentStore = permissionAssignmentStore ?? new NoopPermissionAssignmentStore();
+        this.permissionAssignmentStore = permissionAssignmentStore;
         this.auditWriter = auditWriter;
         this.dateTimeProvider = dateTimeProvider;
-        this.transactionRunner = transactionRunner ?? new NoopApplicationPermissionTransactionRunner();
+        this.transactionRunner = transactionRunner;
         this.diagnosticsReader = diagnosticsReader;
     }
 
@@ -708,31 +708,4 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
             ConcurrencyToken: application.ConcurrencyToken);
     }
 
-    private sealed class NoopPermissionAssignmentStore : IPermissionAssignmentStore
-    {
-        public Task<IReadOnlyList<PermissionAssignmentImpactDto>> PreviewRemovalImpactAsync(
-            PermissionAssignmentRemovalPlan plan,
-            CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<IReadOnlyList<PermissionAssignmentImpactDto>>([]);
-        }
-
-        public Task<Result<IReadOnlyList<PermissionAssignmentImpactDto>>> RemoveAssignmentsAsync(
-            PermissionAssignmentRemovalPlan plan,
-            string actorId,
-            CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<Result<IReadOnlyList<PermissionAssignmentImpactDto>>>(Array.Empty<PermissionAssignmentImpactDto>());
-        }
-    }
-
-    private sealed class NoopApplicationPermissionTransactionRunner : IApplicationPermissionTransactionRunner
-    {
-        public async Task<Result<T>> ExecuteAsync<T>(
-            Func<CancellationToken, Task<Result<T>>> operation,
-            CancellationToken cancellationToken = default)
-        {
-            return await operation(cancellationToken).ConfigureAwait(false);
-        }
-    }
 }

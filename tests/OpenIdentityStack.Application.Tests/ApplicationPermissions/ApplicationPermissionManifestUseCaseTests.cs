@@ -19,6 +19,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
     private readonly IApplicationPermissionAuthorizationService authorizationService;
     private readonly IApplicationPermissionAuditWriter auditWriter;
     private readonly IPermissionAssignmentStore permissionAssignmentStore;
+    private readonly IApplicationPermissionTransactionRunner transactionRunner;
     private readonly IRemotePermissionManifestFetcher remoteManifestFetcher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly ApplicationPermissionManifestUseCases useCases;
@@ -30,6 +31,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         this.auditWriter = Substitute.For<IApplicationPermissionAuditWriter>();
         this.permissionAssignmentStore = Substitute.For<IPermissionAssignmentStore>();
         this.remoteManifestFetcher = Substitute.For<IRemotePermissionManifestFetcher>();
+        this.transactionRunner = new PassthroughTransactionRunner();
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.dateTimeProvider.UtcNow.Returns(new DateTimeOffset(2026, 5, 29, 10, 0, 0, TimeSpan.Zero));
         this.authorizationService.CanRegisterApplicationAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
@@ -41,7 +43,18 @@ public sealed class ApplicationPermissionManifestUseCaseTests
             this.auditWriter,
             this.dateTimeProvider,
             this.permissionAssignmentStore,
+            this.transactionRunner,
             remoteManifestFetcher: this.remoteManifestFetcher);
+    }
+
+    private sealed class PassthroughTransactionRunner : IApplicationPermissionTransactionRunner
+    {
+        public Task<Result<T>> ExecuteAsync<T>(
+            Func<CancellationToken, Task<Result<T>>> operation,
+            CancellationToken cancellationToken = default)
+        {
+            return operation(cancellationToken);
+        }
     }
 
     [Fact]
@@ -144,6 +157,23 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Conflict.PermissionManifest.VersionNotNewer");
         await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ApplyAsync_WithNumericallyGreaterPrereleaseVersion_IsAccepted()
+    {
+        RegisteredApplication application = CreateApplication("1.0.0-alpha.2");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+
+        Result<RegisteredApplicationDto> result = await this.useCases.ApplyAsync(new ApplyApplicationPermissionManifestCommand(
+            application.Id.Value,
+            ValidManifest("1.0.0-alpha.10"),
+            "actor-1",
+            application.ConcurrencyToken));
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ManifestVersion.ShouldBe("1.0.0-alpha.10");
+        await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

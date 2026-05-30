@@ -32,16 +32,16 @@ public sealed class ApplicationPermissionManifestUseCases
         IApplicationPermissionAuthorizationService authorizationService,
         IApplicationPermissionAuditWriter auditWriter,
         IDateTimeProvider dateTimeProvider,
-        IPermissionAssignmentStore? permissionAssignmentStore = null,
-        IApplicationPermissionTransactionRunner? transactionRunner = null,
+        IPermissionAssignmentStore permissionAssignmentStore,
+        IApplicationPermissionTransactionRunner transactionRunner,
         IRemotePermissionManifestFetcher? remoteManifestFetcher = null)
     {
         this.repository = repository;
         this.authorizationService = authorizationService;
         this.auditWriter = auditWriter;
         this.dateTimeProvider = dateTimeProvider;
-        this.permissionAssignmentStore = permissionAssignmentStore ?? new NoopPermissionAssignmentStore();
-        this.transactionRunner = transactionRunner ?? new NoopApplicationPermissionTransactionRunner();
+        this.permissionAssignmentStore = permissionAssignmentStore;
+        this.transactionRunner = transactionRunner;
         this.remoteManifestFetcher = remoteManifestFetcher;
     }
 
@@ -435,7 +435,7 @@ public sealed class ApplicationPermissionManifestUseCases
         var requestedKeys = command.Manifest.Permissions.Select(permission => permission.Key).ToHashSet(StringComparer.Ordinal);
         var activePermissions = application.Permissions.Where(static permission => !permission.IsRemoved).ToList();
         var removals = activePermissions.Where(permission => !requestedKeys.Contains(permission.PermissionKey)).ToList();
-        var additions = command.Manifest.Permissions
+        var permissionCreateResults = command.Manifest.Permissions
             .Where(permission => activePermissions.All(existing => existing.PermissionKey != permission.Key))
             .Select(permission => ApplicationPermission.Create(
                 application.Id,
@@ -445,7 +445,17 @@ public sealed class ApplicationPermissionManifestUseCases
                 permission.Description,
                 permission.Category,
                 command.ActorId,
-                this.dateTimeProvider).Value)
+                this.dateTimeProvider))
+            .ToList();
+
+        Result<ApplicationPermission>? firstFailure = permissionCreateResults.FirstOrDefault(result => result.IsFailure);
+        if (firstFailure is not null && firstFailure.IsFailure)
+        {
+            return firstFailure.Error;
+        }
+
+        var additions = permissionCreateResults
+            .Select(permissionResult => permissionResult.Value)
             .ToList();
         var metadataUpdates = command.Manifest.Permissions
             .Select(permission => activePermissions.FirstOrDefault(existing => existing.PermissionKey == permission.Key))
@@ -498,7 +508,63 @@ public sealed class ApplicationPermissionManifestUseCases
             return -1;
         }
 
-        return string.CompareOrdinal(parsedLeft.Prerelease, parsedRight.Prerelease);
+        return CompareSemVerPreRelease(parsedLeft.Prerelease, parsedRight.Prerelease);
+    }
+
+    private static int CompareSemVerPreRelease(string? left, string? right)
+    {
+        if (left is null && right is null)
+        {
+            return 0;
+        }
+
+        if (left is null)
+        {
+            return 1;
+        }
+
+        if (right is null)
+        {
+            return -1;
+        }
+
+        string[] parsedLeft = left?.Split('.', StringSplitOptions.None) ?? Array.Empty<string>();
+        string[] parsedRight = right?.Split('.', StringSplitOptions.None) ?? Array.Empty<string>();
+
+        int maxLength = Math.Min(parsedLeft.Length, parsedRight.Length);
+        for (int i = 0; i < maxLength; i++)
+        {
+            int segmentComparison = CompareSemVerIdentifier(parsedLeft[i], parsedRight[i]);
+            if (segmentComparison != 0)
+            {
+                return segmentComparison;
+            }
+        }
+
+        return parsedLeft.Length.CompareTo(parsedRight.Length);
+    }
+
+    private static int CompareSemVerIdentifier(string left, string right)
+    {
+        bool leftIsNumeric = int.TryParse(left, out int leftValue);
+        bool rightIsNumeric = int.TryParse(right, out int rightValue);
+
+        if (leftIsNumeric && rightIsNumeric)
+        {
+            return leftValue.CompareTo(rightValue);
+        }
+
+        if (leftIsNumeric)
+        {
+            return -1;
+        }
+
+        if (rightIsNumeric)
+        {
+            return 1;
+        }
+
+        return string.Compare(left, right, StringComparison.Ordinal);
     }
 
     private static string? NormalizeManifestBaseUrl(string? manifestBaseUrl)
@@ -570,34 +636,6 @@ public sealed class ApplicationPermissionManifestUseCases
         IReadOnlyList<ApplicationPermission> MetadataUpdates,
         IReadOnlyList<ApplicationPermission> Removals,
         PermissionAssignmentRemovalPlan AssignmentRemovalPlan);
-
-    private sealed class NoopPermissionAssignmentStore : IPermissionAssignmentStore
-    {
-        public Task<IReadOnlyList<PermissionAssignmentImpactDto>> PreviewRemovalImpactAsync(
-            PermissionAssignmentRemovalPlan plan,
-            CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<IReadOnlyList<PermissionAssignmentImpactDto>>([]);
-        }
-
-        public Task<Result<IReadOnlyList<PermissionAssignmentImpactDto>>> RemoveAssignmentsAsync(
-            PermissionAssignmentRemovalPlan plan,
-            string actorId,
-            CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<Result<IReadOnlyList<PermissionAssignmentImpactDto>>>(Array.Empty<PermissionAssignmentImpactDto>());
-        }
-    }
-
-    private sealed class NoopApplicationPermissionTransactionRunner : IApplicationPermissionTransactionRunner
-    {
-        public async Task<Result<T>> ExecuteAsync<T>(
-            Func<CancellationToken, Task<Result<T>>> operation,
-            CancellationToken cancellationToken = default)
-        {
-            return await operation(cancellationToken).ConfigureAwait(false);
-        }
-    }
 
     private readonly record struct ParsedSemVer(int Major, int Minor, int Patch, string? Prerelease)
     {

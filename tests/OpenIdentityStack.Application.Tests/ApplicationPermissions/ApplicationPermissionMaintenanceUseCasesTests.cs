@@ -15,6 +15,7 @@ public sealed class ApplicationPermissionMaintenanceUseCasesTests
     private readonly IApplicationPermissionAuthorizationService authorizationService;
     private readonly IRolePermissionDependencyReader dependencyReader;
     private readonly IPermissionAssignmentStore permissionAssignmentStore;
+    private readonly IApplicationPermissionTransactionRunner transactionRunner;
     private readonly IApplicationPermissionAuditWriter auditWriter;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly ApplicationPermissionMaintenanceUseCases useCases;
@@ -25,6 +26,7 @@ public sealed class ApplicationPermissionMaintenanceUseCasesTests
         this.authorizationService = Substitute.For<IApplicationPermissionAuthorizationService>();
         this.dependencyReader = Substitute.For<IRolePermissionDependencyReader>();
         this.permissionAssignmentStore = Substitute.For<IPermissionAssignmentStore>();
+        this.transactionRunner = new PassthroughTransactionRunner();
         this.auditWriter = Substitute.For<IApplicationPermissionAuditWriter>();
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.dateTimeProvider.UtcNow.Returns(new DateTimeOffset(2026, 5, 20, 12, 0, 0, TimeSpan.Zero));
@@ -35,7 +37,18 @@ public sealed class ApplicationPermissionMaintenanceUseCasesTests
             this.dependencyReader,
             this.auditWriter,
             this.dateTimeProvider,
-            this.permissionAssignmentStore);
+            this.permissionAssignmentStore,
+            this.transactionRunner);
+    }
+
+    private sealed class PassthroughTransactionRunner : IApplicationPermissionTransactionRunner
+    {
+        public Task<Result<T>> ExecuteAsync<T>(
+            Func<CancellationToken, Task<Result<T>>> operation,
+            CancellationToken cancellationToken = default)
+        {
+            return operation(cancellationToken);
+        }
     }
 
     [Fact]
