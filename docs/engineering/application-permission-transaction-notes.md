@@ -15,7 +15,7 @@ That combination is sensitive to operation ordering during delete and manifest-a
 
 ## Working Rule
 
-Use a real `IApplicationPermissionTransactionRunner` for flows that can:
+Use an explicit transaction coordination design for flows that can:
 
 - remove permissions
 - delete or disable registered applications
