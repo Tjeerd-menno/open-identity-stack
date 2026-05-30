@@ -27,6 +27,30 @@ public sealed class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<User>> GetByIdsAsync(IEnumerable<UserId> ids, CancellationToken cancellationToken = default)
+    {
+        // Distinct guards against duplicate identifiers; chunking keeps each IN clause
+        // well within provider parameter limits for large pages.
+        const int chunkSize = 500;
+        var distinctIds = ids.Distinct().ToList();
+        if (distinctIds.Count == 0)
+        {
+            return [];
+        }
+
+        var users = new List<User>(distinctIds.Count);
+        foreach (UserId[] chunk in distinctIds.Chunk(chunkSize))
+        {
+            List<User> batch = await this.dbContext.Users
+                .Where(u => chunk.Contains(u.Id))
+                .ToListAsync(cancellationToken);
+            users.AddRange(batch);
+        }
+
+        return users;
+    }
+
+    /// <inheritdoc />
     public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(email))

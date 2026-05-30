@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.DataProtection;
 using OpenIdentityStack.Infrastructure;
 using OpenIdentityStack.Application;
@@ -16,10 +15,7 @@ using OpenIdentityStack.Api.Sessions;
 using OpenIdentityStack.Api.Federation;
 using OpenIdentityStack.Api.Settings;
 using OpenIdentityStack.Infrastructure.Identity;
-using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Hosting.WindowsServices;
-using System.Threading.RateLimiting;
 using OpenIdentityStack.Infrastructure.Persistence;
  
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -53,128 +49,8 @@ builder.Services.AddControllersWithViews()
 builder.Services.AddDefaultHttpJsonOptions(); // Also configure Minimal API JSON serialization
 builder.Services.AddRazorPages();
 builder.Services.AddOpenApi();
-bool disableRateLimiting = builder.Environment.IsEnvironment("Testing") || builder.Environment.IsDevelopment();
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy("InteractiveLogin", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            GetClientPartitionKey(httpContext, "login"),
-            _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = disableRateLimiting ? int.MaxValue : 5,
-                Window = TimeSpan.FromMinutes(5),
-                QueueLimit = 0
-            }));
-
-    options.AddPolicy("TokenEndpoint", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            GetClientPartitionKey(httpContext, "token"),
-            _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = disableRateLimiting ? int.MaxValue : 30,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0
-            }));
-
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
-    {
-        if (httpContext.Request.Path.StartsWithSegments("/connect/introspect", StringComparison.OrdinalIgnoreCase))
-        {
-            return RateLimitPartition.GetFixedWindowLimiter(
-                GetClientPartitionKey(httpContext, "introspection"),
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = disableRateLimiting ? int.MaxValue : 60,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0
-                });
-        }
-
-        return RateLimitPartition.GetNoLimiter("default");
-    });
-});
-builder.Services.AddProblemDetails(options =>
-{
-    options.CustomizeProblemDetails = context =>
-    {
-        HttpContext httpContext = context.HttpContext;
-        ProblemDetails problemDetails = context.ProblemDetails;
-        
-        // Get the exception if this is from exception handler middleware
-        Exception? exception = context.Exception;
-        
-        // Special handling for cancellation exceptions - these are normal for OIDC flows
-        // where the client closes the connection after receiving the token
-        // Skip processing if response has already started or request was aborted
-        if (exception is TaskCanceledException or OperationCanceledException)
-        {
-            if (httpContext.Response.HasStarted || httpContext.RequestAborted.IsCancellationRequested)
-            {
-                return;
-            }
-        }
-
-        // Map exceptions to status codes and titles
-        if (exception is not null && exception is not TaskCanceledException and not OperationCanceledException)
-        {
-            (int statusCode, string title) = exception switch
-            {
-                Microsoft.AspNetCore.Http.BadHttpRequestException => (StatusCodes.Status400BadRequest, "Bad Request"),
-                ArgumentException => (StatusCodes.Status400BadRequest, "Bad Request"),
-                UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
-                KeyNotFoundException => (StatusCodes.Status404NotFound, "Not Found"),
-                InvalidOperationException => (StatusCodes.Status409Conflict, "Conflict"),
-                _ => (StatusCodes.Status500InternalServerError, "Internal Server Error")
-            };
-            
-            problemDetails.Status = statusCode;
-            problemDetails.Title = title;
-            httpContext.Response.StatusCode = statusCode;
-        }
-
-        problemDetails.Instance = httpContext.Request.Path;
-        problemDetails.Extensions["traceId"] = httpContext.TraceIdentifier;
-
-        if (exception is not null && exception.Data.Contains("ErrorCode"))
-        {
-            problemDetails.Extensions["errorCode"] = exception.Data["ErrorCode"];
-        }
-
-        if (exception is not null)
-        {
-            IHostEnvironment environment = httpContext.RequestServices.GetRequiredService<IHostEnvironment>();
-            if (environment.IsDevelopment())
-            {
-                problemDetails.Detail = exception.Message;
-            }
-            else
-            {
-                problemDetails.Detail = exception switch
-                {
-                    Microsoft.AspNetCore.Http.BadHttpRequestException => "The request body is invalid or malformed.",
-                    ArgumentException => exception.Message,
-                    UnauthorizedAccessException => "You are not authorized to perform this action.",
-                    KeyNotFoundException => "The requested resource was not found.",
-                    InvalidOperationException => exception.Message,
-                    _ => "An unexpected error occurred. Please try again later."
-                };
-            }
-        }
-        
-        // Set RFC 7231/7235 Type URIs for backward compatibility
-        int currentStatusCode = problemDetails.Status ?? httpContext.Response.StatusCode;
-        problemDetails.Type = currentStatusCode switch
-        {
-            StatusCodes.Status400BadRequest => "https://tools.ietf.org/html/rfc7231#section-6.5.1",
-            StatusCodes.Status401Unauthorized => "https://tools.ietf.org/html/rfc7235#section-3.1",
-            StatusCodes.Status404NotFound => "https://tools.ietf.org/html/rfc7231#section-6.5.4",
-            StatusCodes.Status409Conflict => "https://tools.ietf.org/html/rfc7231#section-6.5.8",
-            StatusCodes.Status500InternalServerError => "https://tools.ietf.org/html/rfc7231#section-6.6.1",
-            _ => problemDetails.Type ?? "https://tools.ietf.org/html/rfc7231#section-6.6.1" // Default to 500 error
-        };
-    };
-});
+builder.Services.AddConfiguredRateLimiting(builder.Environment);
+builder.Services.AddConfiguredProblemDetails();
 
 builder.Services.AddDataProtection()
     .SetApplicationName("OpenIdentityStack")
@@ -345,13 +221,5 @@ app.MapGet("/", () => "OpenIdentityStack API is running")
     .WithName("Root");
 
 await app.RunAsync();
-
-static string GetClientPartitionKey(HttpContext httpContext, string suffix)
-{
-    string client = httpContext.Connection.RemoteIpAddress?.ToString()
-        ?? "unknown";
-
-    return $"{suffix}:{client}";
-}
 
 public partial class Program;

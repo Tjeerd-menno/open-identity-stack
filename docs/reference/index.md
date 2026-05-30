@@ -14,6 +14,7 @@ The files below are engineering and contributor-focused notes that support imple
 - [Code Coverage Summary](CODE_COVERAGE_SUMMARY.md)
 - [Code Coverage Analysis](CODE_COVERAGE_ANALYSIS.md)
 - [Contract Test Migration Guide](CONTRACT-TEST-MIGRATION-GUIDE.md)
+- [Deferred Backend Remediation Items](DEFERRED-BACKEND-REMEDIATION-ITEMS.md)
 - [GHCR Publishing](GHCR-PUBLISHING.md)
 - [Production Configuration](OPENIDENTITYSTACK_PRODUCTION.md)
 - [Testing Strategy](TESTING-STRATEGY.md)

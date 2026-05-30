@@ -18,16 +18,16 @@ public class GroupMapping : ValueObject
         this.TokenTarget = tokenTarget;
     }
 
-    public static GroupMapping Create(MappingType type, string target, string? value, TokenTarget tokenTarget)
+    public static Result<GroupMapping> Create(MappingType type, string target, string? value, TokenTarget tokenTarget)
     {
         if (string.IsNullOrWhiteSpace(target))
         {
-            throw new ArgumentException("Target cannot be empty", nameof(target));
+            return GroupMappingErrors.TargetRequired;
         }
 
         if (type == MappingType.Role && !string.IsNullOrEmpty(value))
         {
-            throw new ArgumentException("Role mappings should not have a value", nameof(value));
+            return GroupMappingErrors.RoleMappingValueNotAllowed;
         }
 
         return new GroupMapping(type, target, value, tokenTarget);
@@ -37,7 +37,16 @@ public class GroupMapping : ValueObject
     {
         yield return this.Type;
         yield return this.Target;
-        yield return this.Value?.ToUpperInvariant() ?? string.Empty; // Case insensitive value comparison usually? Or keep sensitive. Let's keep sensitive for now unless spec says otherwise, but strings often null. Common to use object.
+        yield return this.Value?.ToUpperInvariant() ?? string.Empty;
         yield return this.TokenTarget;
     }
+}
+
+public static class GroupMappingErrors
+{
+    public static readonly DomainError TargetRequired =
+        DomainError.Validation("GroupMapping.TargetRequired", "Target cannot be empty.");
+
+    public static readonly DomainError RoleMappingValueNotAllowed =
+        DomainError.Validation("GroupMapping.RoleMappingValueNotAllowed", "Role mappings should not have a value.");
 }

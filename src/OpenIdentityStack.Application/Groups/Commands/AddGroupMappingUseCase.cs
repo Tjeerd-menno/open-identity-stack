@@ -30,18 +30,15 @@ public sealed class AddGroupMappingUseCase : IAddGroupMappingUseCase
             return new DomainError("Group.NotFound", "Group not found.");
         }
 
-        try
+        Result addResult = group.AddMapping(
+            command.Type,
+            command.Target,
+            command.Value,
+            command.TokenTarget,
+            this.dateTimeProvider);
+        if (addResult.IsFailure)
         {
-            group.AddMapping(
-                command.Type,
-                command.Target,
-                command.Value,
-                command.TokenTarget,
-                this.dateTimeProvider);
-        }
-        catch (ArgumentException ex)
-        {
-             return DomainError.Validation("GroupMapping.Invalid", ex.Message);
+            return addResult;
         }
 
         await this.groupRepository.SaveChangesAsync(cancellationToken);

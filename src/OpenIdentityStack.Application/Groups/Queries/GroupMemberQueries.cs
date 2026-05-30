@@ -32,7 +32,8 @@ public class ListGroupMembersQueryHandler : IListGroupMembersQueryHandler
             return new DomainError("Group.NotFound", "Group not found");
         }
 
-        // Simple in-memory pagination for MVP. Ideally repo supports specific query.
+        // Paginate membership IDs first (preserving AssignedAt-desc order), then batch-load
+        // the corresponding users. Missing users are skipped without backfilling the page.
         var memberIds = group.Memberships
             .OrderByDescending(m => m.AssignedAt)
             .Skip((page - 1) * pageSize)
@@ -40,21 +41,16 @@ public class ListGroupMembersQueryHandler : IListGroupMembersQueryHandler
             .Select(m => m.UserId)
             .ToList();
 
-        // N+1 or batch load. IUserRepository might need GetBatchAsync.
-        // Assuming getting individualy for now or iterating.
-        // Actually, let's just return IDs if User details aren't strictly required by spec?
-        // Spec says "List group members" -> "UserListResponse" -> "UserResponse".
-        // I need to fetch users. I'll rely on generic ListAsync with filter?
-        // Or adding `GetUsersByIdsAsync` to IUserRepository.
-        
-        var users = new List<UserListItem>();
-        foreach(UserId userId in memberIds)
+        IReadOnlyList<User> loadedUsers = await this.userRepository.GetByIdsAsync(memberIds, cancellationToken);
+        var usersById = loadedUsers.ToDictionary(u => u.Id);
+
+        var users = new List<UserListItem>(memberIds.Count);
+        foreach (UserId userId in memberIds)
         {
-            User? user = await this.userRepository.GetByIdAsync(userId, cancellationToken);
-             if (user is not null)
-             {
-                 users.Add(new UserListItem(user.Id, user.Email!, user.DisplayName ?? string.Empty, user.Status, user.CreatedAt));
-             }
+            if (usersById.TryGetValue(userId, out User? user))
+            {
+                users.Add(new UserListItem(user.Id, user.Email!, user.DisplayName ?? string.Empty, user.Status, user.CreatedAt));
+            }
         }
 
         return new UserListResponse(users, null);

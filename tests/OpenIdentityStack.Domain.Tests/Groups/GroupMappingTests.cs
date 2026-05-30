@@ -1,5 +1,6 @@
 using OpenIdentityStack.Domain.Groups;
 
+using SharedKernel;
 namespace OpenIdentityStack.Domain.Tests.Groups;
 
 public class GroupMappingTests
@@ -8,7 +9,7 @@ public class GroupMappingTests
     public void Create_ShouldCreateMapping_WhenValidValues()
     {
         // Act
-        var mapping = GroupMapping.Create(MappingType.Claim, "department", "IT", TokenTarget.Both);
+        GroupMapping mapping = GroupMapping.Create(MappingType.Claim, "department", "IT", TokenTarget.Both).Value;
 
         // Assert
         mapping.Type.ShouldBe(MappingType.Claim);
@@ -18,30 +19,32 @@ public class GroupMappingTests
     }
 
     [Fact]
-    public void Create_ShouldThrow_WhenTargetIsEmpty()
+    public void Create_ShouldFail_WhenTargetIsEmpty()
     {
         // Act
-        Func<GroupMapping> act = () => GroupMapping.Create(MappingType.Claim, "", "value", TokenTarget.AccessToken);
+        Result<GroupMapping> result = GroupMapping.Create(MappingType.Claim, "", "value", TokenTarget.AccessToken);
 
         // Assert
-        Should.Throw<ArgumentException>(act);
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(GroupMappingErrors.TargetRequired);
     }
 
     [Fact]
-    public void Create_ShouldThrow_WhenRoleHasValue()
+    public void Create_ShouldFail_WhenRoleHasValue()
     {
         // Act
-        Func<GroupMapping> act = () => GroupMapping.Create(MappingType.Role, "Admin", "SomeValue", TokenTarget.AccessToken);
+        Result<GroupMapping> result = GroupMapping.Create(MappingType.Role, "Admin", "SomeValue", TokenTarget.AccessToken);
 
         // Assert
-        Should.Throw<ArgumentException>(act).Message.ShouldContain("Role mappings should not have a value");
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(GroupMappingErrors.RoleMappingValueNotAllowed);
     }
 
     [Fact]
     public void Create_ShouldAllowNullValue_ForClaim()
     {
         // Act
-        var mapping = GroupMapping.Create(MappingType.Claim, "premium", null, TokenTarget.AccessToken);
+        GroupMapping mapping = GroupMapping.Create(MappingType.Claim, "premium", null, TokenTarget.AccessToken).Value;
 
         // Assert
         mapping.Value.ShouldBeNull();
@@ -51,9 +54,9 @@ public class GroupMappingTests
     public void Equality_ShouldWorkCorrectly()
     {
         // Arrange
-        var m1 = GroupMapping.Create(MappingType.Role, "Admin", null, TokenTarget.AccessToken);
-        var m2 = GroupMapping.Create(MappingType.Role, "Admin", null, TokenTarget.AccessToken);
-        var m3 = GroupMapping.Create(MappingType.Role, "User", null, TokenTarget.AccessToken);
+        GroupMapping m1 = GroupMapping.Create(MappingType.Role, "Admin", null, TokenTarget.AccessToken).Value;
+        GroupMapping m2 = GroupMapping.Create(MappingType.Role, "Admin", null, TokenTarget.AccessToken).Value;
+        GroupMapping m3 = GroupMapping.Create(MappingType.Role, "User", null, TokenTarget.AccessToken).Value;
 
         // Assert
         m1.ShouldBe(m2);
