@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
@@ -38,6 +39,7 @@ public class AuthorizationControllerTests
     private readonly IAddClientSessionUseCase _addClientSessionUseCase;
     private readonly IValidateSessionQueryHandler _validateSessionQueryHandler;
     private readonly IOpenIddictRequestService _requestService;
+    private readonly IApplicationPermissionRegistryRepository _applicationPermissionRegistryRepository;
     private readonly AuthorizationController _controller;
 
     public AuthorizationControllerTests()
@@ -50,6 +52,7 @@ public class AuthorizationControllerTests
         this._addClientSessionUseCase = Substitute.For<IAddClientSessionUseCase>();
         this._validateSessionQueryHandler = Substitute.For<IValidateSessionQueryHandler>();
         this._requestService = Substitute.For<IOpenIddictRequestService>();
+        this._applicationPermissionRegistryRepository = Substitute.For<IApplicationPermissionRegistryRepository>();
 
         this._controller = new AuthorizationController(
             this._applicationManager,
@@ -59,7 +62,8 @@ public class AuthorizationControllerTests
             this._getGroupClaimsForUserQueryHandler,
             this._addClientSessionUseCase,
             this._validateSessionQueryHandler,
-            this._requestService);
+            this._requestService,
+            this._applicationPermissionRegistryRepository);
 
         var httpContext = new DefaultHttpContext();
         this._controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
@@ -376,6 +380,156 @@ public class AuthorizationControllerTests
         // Assert
         SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
         Assert.Contains(signIn.Principal!.Claims, c => c.Type == OpenIddictConstants.Claims.Role && c.Value == "Admin");
+    }
+
+    [Fact]
+    public async Task Authorize_ExpandsWildcardRolePermissionsToConcretePermissionClaims()
+    {
+        var userId = Guid.NewGuid();
+        var request = new OpenIddictRequest { ClientId = "test-client" };
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
+            "Cookies"));
+        this._controller.ControllerContext.HttpContext.User = principal;
+
+        var roleDto = new RoleDto(
+            RoleId.Create().Value,
+            "User Admin",
+            "User Admin",
+            "User administration",
+            IsSystemRole: false,
+            IsActive: true,
+            Permissions: [Permissions.Users.All]);
+        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { roleDto });
+        this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
+        this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
+            .Returns(AsyncEnumerable.Empty<string>());
+
+        IActionResult result = await this._controller.Authorize();
+
+        SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
+        IReadOnlyList<string> permissionClaims = signIn.Principal!.FindAll("permission").Select(claim => claim.Value).ToList();
+        permissionClaims.ShouldContain(Permissions.Users.Read);
+        permissionClaims.ShouldContain(Permissions.Users.Write);
+        permissionClaims.ShouldNotContain(Permissions.Users.All);
+    }
+
+    [Fact]
+    public async Task Authorize_EmitsConcreteDynamicPermissionClaims()
+    {
+        var userId = Guid.NewGuid();
+        var request = new OpenIddictRequest { ClientId = "orders-api" };
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
+            "Cookies"));
+        this._controller.ControllerContext.HttpContext.User = principal;
+
+        var roleDto = new RoleDto(
+            RoleId.Create().Value,
+            "Order Reader",
+            "Order Reader",
+            "Order permissions",
+            IsSystemRole: false,
+            IsActive: true,
+            Permissions: ["orders-api:order:read"]);
+        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { roleDto });
+        this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
+        this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
+            .Returns(AsyncEnumerable.Empty<string>());
+
+        IActionResult result = await this._controller.Authorize();
+
+        SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
+        IReadOnlyList<string> permissionClaims = signIn.Principal!.FindAll("permission").Select(claim => claim.Value).ToList();
+        permissionClaims.ShouldBe(["orders-api:order:read"]);
+    }
+
+    [Fact]
+    public async Task Authorize_ExpandsDynamicWildcardRolePermissionsToConcretePermissionClaims()
+    {
+        var userId = Guid.NewGuid();
+        var request = new OpenIddictRequest { ClientId = "orders-api" };
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
+            "Cookies"));
+        this._controller.ControllerContext.HttpContext.User = principal;
+
+        var roleDto = new RoleDto(
+            RoleId.Create().Value,
+            "Order Admin",
+            "Order Admin",
+            "Order permissions",
+            IsSystemRole: false,
+            IsActive: true,
+            Permissions: ["orders-api:order:*"]);
+        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { roleDto });
+        this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
+        this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
+            .Returns(AsyncEnumerable.Empty<string>());
+
+        IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        dateTimeProvider.UtcNow.Returns(new DateTimeOffset(2026, 1, 18, 12, 0, 0, TimeSpan.Zero));
+        Result<OpenIdentityStack.Domain.ApplicationPermissions.RegisteredApplication> applicationResult =
+            OpenIdentityStack.Domain.ApplicationPermissions.RegisteredApplication.Register(
+                "orders-api",
+                "Orders API",
+                null,
+                "owner-1",
+                OpenIdentityStack.Domain.ApplicationPermissions.OwnerType.User,
+                [("order:read", "Read orders", null, null), ("order:write", "Write orders", null, null)],
+                "actor-1",
+                dateTimeProvider);
+        this._applicationPermissionRegistryRepository.GetByIdentifierAsync("orders-api", Arg.Any<CancellationToken>())
+            .Returns(applicationResult.Value);
+
+        IActionResult result = await this._controller.Authorize();
+
+        SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
+        IReadOnlyList<string> permissionClaims = signIn.Principal!.FindAll("permission").Select(claim => claim.Value).ToList();
+        permissionClaims.ShouldBe(["orders-api:order:read", "orders-api:order:write"]);
+        permissionClaims.ShouldNotContain("orders-api:order:*");
+    }
+
+    [Fact]
+    public async Task Authorize_FailsClosedWhenDynamicWildcardCannotBeExpanded()
+    {
+        var userId = Guid.NewGuid();
+        var request = new OpenIddictRequest { ClientId = "orders-api" };
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
+            "Cookies"));
+        this._controller.ControllerContext.HttpContext.User = principal;
+
+        var roleDto = new RoleDto(
+            RoleId.Create().Value,
+            "Order Admin",
+            "Order Admin",
+            "Order permissions",
+            IsSystemRole: false,
+            IsActive: true,
+            Permissions: ["orders-api:order:*"]);
+        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { roleDto });
+        this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
+        this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
+            .Returns(AsyncEnumerable.Empty<string>());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => this._controller.Authorize());
     }
 
     [Fact]

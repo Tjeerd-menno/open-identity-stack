@@ -30,7 +30,7 @@ public sealed class IntrospectionPermissionsHandlerTests
             "Patient permissions",
             IsSystemRole: false,
             IsActive: true,
-            Permissions: ["patient-api:read-patients", "patient-api:write-patients", "inventory-api:read-stock"]);
+            Permissions: ["patient-api:patient:read", "patient-api:patient:write", "inventory-api:stock:read"]);
 
         this.getUserEffectiveRolesQueryHandler.HandleAsync(
                 Arg.Is<UserId>(id => id.Value == userId),
@@ -41,7 +41,33 @@ public sealed class IntrospectionPermissionsHandlerTests
         await handler.HandleAsync(context);
 
         // Assert
-        GetPermissions(context).ShouldBe(["patient-api:read-patients", "patient-api:write-patients"]);
+        GetPermissions(context).ShouldBe(["patient-api:patient:read", "patient-api:patient:write"]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_EmitsConcreteDynamicPermissionsOnlyAndOmitsPlatformAndWildcardPermissions()
+    {
+        var userId = Guid.NewGuid();
+        var handler = new IntrospectionPermissionsHandler(this.getUserEffectiveRolesQueryHandler);
+        HandleIntrospectionRequestContext context = CreateContext("patient-api", userId.ToString());
+
+        var role = new RoleDto(
+            Guid.NewGuid(),
+            "patient-admin",
+            "Patient Admin",
+            "Patient permissions",
+            IsSystemRole: false,
+            IsActive: true,
+            Permissions: ["*", "users:read", "patient-api:patient:*", "patient-api:patient:read"]);
+
+        this.getUserEffectiveRolesQueryHandler.HandleAsync(
+                Arg.Is<UserId>(id => id.Value == userId),
+                Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { role });
+
+        await handler.HandleAsync(context);
+
+        GetPermissions(context).ShouldBe(["patient-api:patient:read"]);
     }
 
     [Fact]
@@ -52,15 +78,15 @@ public sealed class IntrospectionPermissionsHandlerTests
         HandleIntrospectionRequestContext context = CreateContext("patient-api", "service-account");
         context.GenericTokenPrincipal = new ClaimsPrincipal(new ClaimsIdentity(
         [
-            new Claim("permission", "patient-api:read-patients inventory-api:read-stock"),
-            new Claim("permissions", "patient-api:write-patients")
+            new Claim("permission", "patient-api:patient:read inventory-api:stock:read"),
+            new Claim("permissions", "patient-api:patient:write")
         ]));
 
         // Act
         await handler.HandleAsync(context);
 
         // Assert
-        GetPermissions(context).ShouldBe(["patient-api:read-patients", "patient-api:write-patients"]);
+        GetPermissions(context).ShouldBe(["patient-api:patient:read", "patient-api:patient:write"]);
         await this.getUserEffectiveRolesQueryHandler.DidNotReceive().HandleAsync(
             Arg.Any<UserId>(),
             Arg.Any<CancellationToken>());

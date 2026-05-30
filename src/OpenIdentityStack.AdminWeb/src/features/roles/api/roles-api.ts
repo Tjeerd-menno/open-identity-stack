@@ -4,6 +4,7 @@ import type {
   RoleListItem,
   CreateRoleRequest,
   UpdateRoleRequest,
+  PlatformPermissionCatalogResponse,
   PaginatedResponse,
   PaginationParams,
 } from '@/types';
@@ -150,4 +151,8 @@ export async function getAvailablePermissions(): Promise<string[]> {
   } catch {
     return builtInPermissions;
   }
+}
+
+export async function getPlatformPermissionCatalog(): Promise<PlatformPermissionCatalogResponse> {
+  return await apiClient.get<PlatformPermissionCatalogResponse>('/api/admin/permissions/platform');
 }

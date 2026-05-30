@@ -179,11 +179,7 @@ internal static class GroupsApi
         Result result = await updateGroupUseCase.ExecuteAsync(new UpdateGroupCommand(new GroupId(id), request.Name, request.Description));
         if (!result.IsSuccess)
         {
-            if (result.Error.Code == "Group.NotFound")
-            {
-                return TypedResults.NotFound();
-            }
-            return TypedResults.BadRequest(result.Error);
+            return MapFailure(result.Error);
         }
 
         Group? group = await getGroupQueryHandler.HandleAsync(new GroupId(id));
@@ -209,11 +205,7 @@ internal static class GroupsApi
         Result result = await deleteGroupUseCase.ExecuteAsync(new DeleteGroupCommand(new GroupId(id)));
         if (!result.IsSuccess)
         {
-            if (result.Error.Code == "Group.NotFound")
-            {
-                return TypedResults.NotFound();
-            }
-            return TypedResults.BadRequest(result.Error);
+            return MapFailure(result.Error);
         }
         return TypedResults.NoContent();
     }
@@ -227,11 +219,7 @@ internal static class GroupsApi
         Result<UserListResponse> result = await listGroupMembersQueryHandler.HandleAsync(new GroupId(id), page, pageSize);
         if (!result.IsSuccess)
         {
-            if (result.Error.Code == "Group.NotFound")
-            {
-                return TypedResults.NotFound();
-            }
-            return TypedResults.BadRequest(result.Error);
+            return MapFailure(result.Error);
         }
         return TypedResults.Ok(result.Value);
     }
@@ -246,11 +234,7 @@ internal static class GroupsApi
             new AddUserToGroupCommand(new GroupId(id), new UserId(userId), GetCurrentUserId(httpContext)));
         if (!result.IsSuccess)
         {
-            if (result.Error.Code == "Group.NotFound")
-            {
-                return TypedResults.NotFound();
-            }
-            return TypedResults.BadRequest(result.Error);
+            return MapFailure(result.Error);
         }
         return TypedResults.Created($"/api/admin/groups/{id}/members");
     }
@@ -263,11 +247,7 @@ internal static class GroupsApi
         Result result = await removeUserFromGroupUseCase.ExecuteAsync(new RemoveUserFromGroupCommand(new GroupId(id), new UserId(userId)));
         if (!result.IsSuccess)
         {
-            if (result.Error.Code == "Group.NotFound")
-            {
-                return TypedResults.NotFound();
-            }
-            return TypedResults.BadRequest(result.Error);
+            return MapFailure(result.Error);
         }
         return TypedResults.NoContent();
     }
@@ -388,11 +368,7 @@ internal static class GroupsApi
 
         if (!result.IsSuccess)
         {
-            if (result.Error.Code == "Group.NotFound")
-            {
-                return TypedResults.NotFound();
-            }
-            return TypedResults.BadRequest(result.Error);
+            return MapFailure(result.Error);
         }
 
         return TypedResults.Created($"/api/admin/groups/{id}/mappings");
@@ -406,12 +382,22 @@ internal static class GroupsApi
         Result result = await removeGroupMappingUseCase.ExecuteAsync(new RemoveGroupMappingCommand(new GroupId(id), mappingId));
         if (!result.IsSuccess)
         {
-            if (result.Error.Code == "Group.NotFound" || result.Error.Code == "GroupMapping.NotFound")
-            {
-                return TypedResults.NotFound();
-            }
-            return TypedResults.BadRequest(result.Error);
+            return MapFailure(result.Error);
         }
         return TypedResults.NoContent();
+    }
+
+    /// <summary>
+    /// Maps a failed group operation to an HTTP result: not-found errors return 404,
+    /// all other errors return 400 with the domain error payload.
+    /// </summary>
+    private static IResult MapFailure(DomainError error)
+    {
+        if (error.Code is "Group.NotFound" or "GroupMapping.NotFound")
+        {
+            return TypedResults.NotFound();
+        }
+
+        return TypedResults.BadRequest(error);
     }
 }

@@ -19,7 +19,7 @@ Replace hard-coded service permission definitions with a persisted, auditable Se
 **Project Type**: Clean Architecture web/API service with feature slices across `OpenIdentityStack.Domain`, `OpenIdentityStack.Application`, `OpenIdentityStack.Infrastructure`, `OpenIdentityStack.Api`, and matching test projects  
 **Performance Goals**: Meet constitution targets (P50 ≤100ms, P95 ≤250ms, P99 ≤500ms) for registry list/search/catalog endpoints; support services with at least 100 permissions; allow administrators to locate impacted roles for status changes within 1 minute  
 **Constraints**: Preserve stable service identifiers and permission keys; reject invalid updates atomically; enforce owner/delegated-maintainer/admin authorization; never silently delete active-use permissions; audit accepted, denied, validation-failed, and conflicting attempts; avoid sensitive error disclosure  
-**Scale/Scope**: Multi-service registry, each service up to at least 100 permissions initially, existing RBAC roles storing string permissions, lifecycle states `active`, `deprecated`, `disabled`, `retired`, and historical visibility for assigned/audited permissions
+**Scale/Scope**: Multi-service registry, each service up to at least 100 permissions initially, existing RBAC roles storing string permissions, application lifecycle states `active`, `disabled`, `retired`, permissions that are either defined or absent, and historical visibility for assigned/audited permissions
 
 ## Constitution Check
 
@@ -62,7 +62,6 @@ No constitution violations or unjustified gate failures are present.
     ├── ServiceOwner.cs
     ├── DelegatedMaintainer.cs
     ├── ServiceLifecycleStatus.cs
-    ├── PermissionLifecycleStatus.cs
     ├── RoleAssignmentDependency.cs
     └── ServicePermissionAuditEvent.cs
 

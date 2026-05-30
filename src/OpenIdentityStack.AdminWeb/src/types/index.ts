@@ -186,12 +186,14 @@ export interface CreateRoleRequest {
   displayName: string;
   description?: string;
   permissions: string[];
+  acknowledgeWildcardGrant?: boolean;
 }
 
 export interface UpdateRoleRequest {
   displayName?: string;
   description?: string;
   permissions?: string[];
+  acknowledgeWildcardGrant?: boolean;
 }
 
 export type RoleListResponse = PaginatedResponse<RoleListItem>;
@@ -740,6 +742,74 @@ export interface ApplicationPermission {
   applicationId?: string | null;
   applicationName?: string | null;
   applicationVersion?: string | null;
+  kind?: 'concrete' | 'wildcard';
+  assignable?: boolean;
+  resourceOrAggregate?: string | null;
+  coveredPermissionCount?: number | null;
+  isRemoved?: boolean;
+  removedAt?: string | null;
+  removedBy?: string | null;
+  removeReason?: string | null;
+  replacementFullPermissionKey?: string | null;
+  replacementNote?: string | null;
+  concurrencyToken?: number;
+}
+
+export interface RemovedPermissionDetail {
+  id: string;
+  applicationId: string;
+  applicationIdentifier: string;
+  permissionKey: string;
+  fullPermissionKey: string;
+  displayName: string;
+  removedAt: string;
+  removedBy: string;
+  removeReason: string;
+  replacementFullPermissionKey: string | null;
+  replacementNote: string | null;
+  concurrencyToken: number;
+}
+
+export interface DeletedApplicationHistory {
+  id: string;
+  applicationIdentifier: string;
+  displayName: string;
+  deletedAt: string;
+  deletedBy: string;
+  deleteReason: string;
+}
+
+export interface ApplicationPermissionHistory {
+  deletedApplications: DeletedApplicationHistory[];
+  removedPermissions: RemovedPermissionDetail[];
+}
+
+export interface PermissionDiagnosticIssue {
+  kind: string;
+  assignmentStore: string;
+  assignmentId: string;
+  assignmentDisplayName: string | null;
+  permission: string;
+  message: string;
+}
+
+export interface PermissionDiagnostics {
+  issues: PermissionDiagnosticIssue[];
+}
+
+export interface ReplacementGuidanceRequest {
+  replacementFullPermissionKey: string;
+  replacementNote: string;
+  concurrencyToken?: number;
+}
+
+export interface PlatformPermissionCatalogItem {
+  permission: string;
+  resource: string;
+  action: string;
+  kind: 'concrete' | 'wildcard';
+  displayName: string;
+  assignable: boolean;
 }
 
 export interface DelegatedMaintainer {
@@ -755,6 +825,9 @@ export interface RegisteredApplication {
   applicationIdentifier: string;
   displayName: string;
   description: string | null;
+  schemaVersion: string;
+  manifestVersion: string;
+  manifestBaseUrl: string | null;
   ownerId: string;
   ownerType: string;
   status: string;
@@ -763,6 +836,42 @@ export interface RegisteredApplication {
   concurrencyToken: number;
   permissions: ApplicationPermission[];
   maintainers: DelegatedMaintainer[];
+}
+
+export interface PermissionAssignmentImpact {
+  assignmentStore: string;
+  assignmentId: string;
+  assignmentDisplayName: string;
+  permission: string;
+  impactKind: string;
+}
+
+export interface DestructiveOperationResult {
+  removedPermissions: ApplicationPermission[];
+  exactAssignmentsRemoved: PermissionAssignmentImpact[];
+  wildcardAssignmentsRemoved: PermissionAssignmentImpact[];
+  wildcardAssignmentsImpacted: PermissionAssignmentImpact[];
+  metadataUpdated: boolean;
+  manifestVersionAdvanced: boolean;
+  auditId?: string | null;
+}
+
+export interface ManifestPreview {
+  applicationId: string;
+  currentManifestVersion: string;
+  requestedManifestVersion: string;
+  hasChanges: boolean;
+  versionWillAdvance: boolean;
+  isDestructive: boolean;
+  additions: ApplicationPermission[];
+  metadataUpdates: ApplicationPermission[];
+  removals: ApplicationPermission[];
+  assignmentImpacts: PermissionAssignmentImpact[];
+}
+
+export interface ManifestApplyResult {
+  application: RegisteredApplication;
+  result: DestructiveOperationResult;
 }
 
 export interface RegisteredApplicationListItem {
@@ -785,19 +894,28 @@ export interface ApplicationPermissionInput {
 
 export interface PermissionManifestApplication {
   id: string;
-  name: string;
-  version?: string | null;
+  displayName: string;
+  description?: string | null;
+  version: string;
 }
 
 export interface PermissionManifestPermission {
-  name: string;
-  description: string;
+  key: string;
+  displayName: string;
+  description?: string | null;
   category?: string | null;
 }
 
 export interface PermissionManifestRequest {
-  application: PermissionManifestApplication;
-  permissions: PermissionManifestPermission[];
+  manifest: {
+    schemaVersion: string;
+    application: PermissionManifestApplication;
+    permissions: PermissionManifestPermission[];
+  };
+  ownerId: string;
+  ownerType: string;
+  manifestBaseUrl?: string | null;
+  acknowledgeRedeclare?: boolean;
 }
 
 export interface ImportPermissionManifestRequest {
@@ -843,3 +961,6 @@ export interface RoleAssignmentDependency {
 
 export type RegisteredApplicationListResponse = PaginatedResponse<RegisteredApplicationListItem>;
 export type AssignablePermissionCatalogResponse = PaginatedResponse<ApplicationPermission>;
+export interface PlatformPermissionCatalogResponse {
+  items: PlatformPermissionCatalogItem[];
+}

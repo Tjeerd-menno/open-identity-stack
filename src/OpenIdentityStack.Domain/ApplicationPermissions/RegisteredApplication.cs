@@ -29,6 +29,12 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
 
     public string? Description { get; private set; }
 
+    public string SchemaVersion { get; private set; } = "1.0.0";
+
+    public string ManifestVersion { get; private set; } = "0.0.0";
+
+    public string? ManifestBaseUrl { get; private set; }
+
     public string OwnerId { get; private set; } = string.Empty;
 
     public OwnerType OwnerType { get; private set; }
@@ -42,6 +48,14 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
     public DateTimeOffset? DisabledAt { get; private set; }
 
     public DateTimeOffset? RetiredAt { get; private set; }
+
+    public DateTimeOffset? DeletedAt { get; private set; }
+
+    public string? DeletedBy { get; private set; }
+
+    public string? DeleteReason { get; private set; }
+
+    public bool IsDeleted => this.DeletedAt.HasValue;
 
     public uint ConcurrencyToken { get; private set; }
 
@@ -62,7 +76,10 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
         IEnumerable<(string Key, string DisplayName, string? Description, string? Category)> permissions,
         string createdBy,
         IDateTimeProvider dateTimeProvider,
-        IEnumerable<string>? reservedIdentifiers = null)
+        IEnumerable<string>? reservedIdentifiers = null,
+        string schemaVersion = "1.0.0",
+        string manifestVersion = "0.0.0",
+        string? manifestBaseUrl = null)
     {
         if (string.IsNullOrWhiteSpace(applicationIdentifier))
         {
@@ -119,6 +136,9 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
             ApplicationIdentifier = normalized,
             DisplayName = displayName.Trim(),
             Description = description?.Trim(),
+            SchemaVersion = schemaVersion.Trim(),
+            ManifestVersion = manifestVersion.Trim(),
+            ManifestBaseUrl = NormalizeManifestBaseUrl(manifestBaseUrl),
             OwnerId = ownerId.Trim(),
             OwnerType = ownerType,
             Status = ApplicationLifecycleStatus.Active,
@@ -147,6 +167,25 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
         }
 
         return application;
+    }
+
+    public Result ApplyManifestMetadata(
+        string displayName,
+        string? description,
+        string schemaVersion,
+        string manifestVersion,
+        string updatedBy,
+        IDateTimeProvider dateTimeProvider)
+    {
+        Result result = this.UpdateMetadata(displayName, description, updatedBy, dateTimeProvider);
+        if (result.IsFailure)
+        {
+            return result;
+        }
+
+        this.SchemaVersion = schemaVersion.Trim();
+        this.ManifestVersion = manifestVersion.Trim();
+        return Result.Success();
     }
 
     public Result UpdateMetadata(
@@ -232,6 +271,60 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
 
         this.Touch(updatedBy, dateTimeProvider);
         return Result.Success();
+    }
+
+    public Result RemovePermission(
+        ApplicationPermissionId permissionId,
+        string removedBy,
+        string removeReason,
+        IDateTimeProvider dateTimeProvider)
+    {
+        ApplicationPermission? permission = this.permissions.FirstOrDefault(p => p.Id == permissionId && !p.IsRemoved);
+        if (permission is null)
+        {
+            return PermissionNotFound;
+        }
+
+        permission.MarkRemoved(removedBy, removeReason, dateTimeProvider);
+        this.Touch(removedBy, dateTimeProvider);
+        return Result.Success();
+    }
+
+    public Result SetPermissionReplacementGuidance(
+        ApplicationPermissionId permissionId,
+        string replacementFullPermissionKey,
+        string replacementNote,
+        string updatedBy,
+        IDateTimeProvider dateTimeProvider)
+    {
+        ApplicationPermission? permission = this.permissions.FirstOrDefault(p => p.Id == permissionId);
+        if (permission is null)
+        {
+            return PermissionNotFound;
+        }
+
+        Result result = permission.SetReplacementGuidance(replacementFullPermissionKey, replacementNote, updatedBy, dateTimeProvider);
+        if (result.IsFailure)
+        {
+            return result;
+        }
+
+        this.Touch(updatedBy, dateTimeProvider);
+        return Result.Success();
+    }
+
+    public void MarkDeleted(string deletedBy, string deleteReason, IDateTimeProvider dateTimeProvider)
+    {
+        this.DeletedAt = dateTimeProvider.UtcNow;
+        this.DeletedBy = deletedBy;
+        this.DeleteReason = deleteReason;
+
+        foreach (ApplicationPermission permission in this.permissions.Where(static permission => !permission.IsRemoved))
+        {
+            permission.MarkRemoved(deletedBy, deleteReason, dateTimeProvider);
+        }
+
+        this.Touch(deletedBy, dateTimeProvider);
     }
 
     public Result ChangeStatus(
@@ -323,6 +416,13 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
         this.UpdatedBy = updatedBy;
         this.ConcurrencyToken++;
         this.SetModified(dateTimeProvider.UtcNow);
+    }
+
+    private static string? NormalizeManifestBaseUrl(string? manifestBaseUrl)
+    {
+        return string.IsNullOrWhiteSpace(manifestBaseUrl)
+            ? null
+            : manifestBaseUrl.Trim().TrimEnd('/');
     }
 
     [GeneratedRegex(@"^[a-z][a-z0-9-]{2,62}$")]

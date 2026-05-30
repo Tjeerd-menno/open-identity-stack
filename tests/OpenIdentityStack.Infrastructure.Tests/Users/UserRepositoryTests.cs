@@ -98,6 +98,65 @@ public sealed class UserRepositoryTests : IClassFixture<SqliteTestFixture>, IAsy
 
     #endregion
 
+    #region GetByIdsAsync Tests
+
+    [Fact]
+    public async Task GetByIdsAsync_ReturnsOnlyRequestedUsers()
+    {
+        // Arrange
+        User user1 = await this.SeedUserAsync("user1@example.com", "User One", "hash1");
+        User user2 = await this.SeedUserAsync("user2@example.com", "User Two", "hash2");
+        await this.SeedUserAsync("user3@example.com", "User Three", "hash3");
+
+        // Act
+        IReadOnlyList<User> result = await this._repository.GetByIdsAsync([user1.Id, user2.Id]);
+
+        // Assert
+        result.Count.ShouldBe(2);
+        result.Select(u => u.Id).ShouldBe([user1.Id, user2.Id], ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task GetByIdsAsync_SkipsMissingIds()
+    {
+        // Arrange
+        User user1 = await this.SeedUserAsync("user1@example.com", "User One", "hash1");
+        var missingId = UserId.Create();
+
+        // Act
+        IReadOnlyList<User> result = await this._repository.GetByIdsAsync([user1.Id, missingId]);
+
+        // Assert
+        result.Count.ShouldBe(1);
+        result[0].Id.ShouldBe(user1.Id);
+    }
+
+    [Fact]
+    public async Task GetByIdsAsync_EmptyInput_ReturnsEmpty()
+    {
+        // Act
+        IReadOnlyList<User> result = await this._repository.GetByIdsAsync([]);
+
+        // Assert
+        result.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetByIdsAsync_DeduplicatesRepeatedIds()
+    {
+        // Arrange
+        User user1 = await this.SeedUserAsync("user1@example.com", "User One", "hash1");
+
+        // Act
+        IReadOnlyList<User> result = await this._repository.GetByIdsAsync([user1.Id, user1.Id]);
+
+        // Assert
+        result.Count.ShouldBe(1);
+        result[0].Id.ShouldBe(user1.Id);
+    }
+
+    #endregion
+
     #region GetByEmailAsync Tests
 
     [Fact]

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The registry introduces first-class records for services/APIs and the permissions they expose. Stable identifiers are immutable RBAC/audit keys. Metadata and lifecycle status change through authorized use cases. Hard deletion is avoided when permissions have dependencies or audit history.
+The registry introduces first-class records for services/APIs and the permissions they expose. Stable identifiers are immutable RBAC/audit keys. Application metadata and lifecycle status change through authorized use cases. Permissions are either defined or absent; removal is dependency-aware when permissions have dependencies or audit history.
 
 ## Entity: RegisteredService
 
@@ -70,11 +70,8 @@ Represents a permission exposed by a registered service.
 | `DisplayName` | `string` | Yes | Human-readable label. |
 | `Description` | `string` | No | Admin-facing detail. |
 | `Category` | `string` | No | Optional grouping label from the permission manifest. |
-| `Status` | `PermissionLifecycleStatus` | Yes | `active`, `deprecated`, `disabled`, `retired`. |
-| `IsAssignable` | `bool` | Yes | Derived from service status, permission status, and policy. |
 | `CreatedAt` / `CreatedBy` | timestamp/string | Yes | Audit metadata. |
 | `UpdatedAt` / `UpdatedBy` | timestamp/string | Yes | Audit metadata. |
-| `DeprecatedAt` / `DisabledAt` / `RetiredAt` | timestamp? | No | Lifecycle timestamps. |
 | `ConcurrencyToken` | row version/token | Yes | Rejects conflicting updates. |
 
 ### Relationships
@@ -92,27 +89,9 @@ Represents a permission exposed by a registered service.
 - `FullPermissionKey` must not collide with reserved platform permissions or wildcard keys.
 - `DisplayName` is required and limited to 120 characters.
 - `Description` and `Category` are each limited to 1,000 characters.
-- Metadata updates may change display name, description, category, and status, but not stable keys.
-
-### State Transitions
-
-```text
-active -> deprecated -> active
-active -> disabled -> active
-active -> retired
-deprecated -> disabled
-deprecated -> retired
-disabled -> active      # when restoration policy permits
-disabled -> retired
-retired -> active       # administrator restoration only
-retired -> deprecated   # not allowed
-```
-
-- `active`: available for new role assignments.
-- `deprecated`: retained and visible; new assignments are blocked by default or require explicit override.
-- `disabled`: unavailable for new assignments and highlighted in role/access review views.
-- `retired`: historical visibility only.
-- Hard deletion is blocked when dependencies or audit requirements exist.
+- Metadata updates may change display name, description, and category, but not stable keys.
+- Permissions do not have lifecycle states. A permission is either defined by its registered service or absent from the registry.
+- Removal is blocked when dependencies or audit requirements require the historical permission key to remain attributable.
 
 ## Entity: DelegatedMaintainer
 
@@ -167,7 +146,7 @@ Audit records must not contain secrets, raw tokens, or unnecessary sensitive per
 - Unique index: `RegisteredServices.ServiceIdentifier`.
 - Unique index: `ServicePermissions(RegisteredServiceId, PermissionKey)`.
 - Unique index: `ServicePermissions.FullPermissionKey`.
-- Index owner, service status, permission status, full permission key, and updated timestamp.
+- Index owner, service status, full permission key, and updated timestamp.
 - Use optimistic concurrency tokens on service and permission records.
 - Store enum values as strings for readability and migration safety.
 - Keep OpenIddict tables unchanged; integrate through use cases and RBAC validation.

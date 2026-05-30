@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Common;
+using OpenIdentityStack.Application.ApplicationPermissions.Commands;
 using OpenIdentityStack.Application.ApplicationPermissions.Dtos;
 using OpenIdentityStack.Application.ApplicationPermissions.Queries;
 using OpenIdentityStack.Domain.ApplicationPermissions;
@@ -20,12 +21,63 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
     {
         string normalized = applicationIdentifier.Trim().ToLowerInvariant();
         return await this.dbContext.RegisteredApplications
-            .AnyAsync(s => s.ApplicationIdentifier == normalized, cancellationToken);
+            .AnyAsync(s => s.ApplicationIdentifier == normalized && s.DeletedAt == null, cancellationToken);
+    }
+
+    public async Task<bool> ExistsByManifestBaseUrlAsync(string manifestBaseUrl, CancellationToken cancellationToken = default)
+    {
+        string normalized = manifestBaseUrl.Trim().TrimEnd('/');
+        return await this.dbContext.RegisteredApplications
+            .AnyAsync(s => s.ManifestBaseUrl == normalized && s.DeletedAt == null, cancellationToken);
     }
 
     public async Task AddAsync(RegisteredApplication application, CancellationToken cancellationToken = default)
     {
         await this.dbContext.RegisteredApplications.AddAsync(application, cancellationToken);
+    }
+
+    public async Task<ApplicationPermissionHistoryDto> ListHistoryAsync(
+        string? applicationIdentifier,
+        bool includeApplications,
+        bool includePermissions,
+        CancellationToken cancellationToken = default)
+    {
+        string? normalizedIdentifier = string.IsNullOrWhiteSpace(applicationIdentifier)
+            ? null
+            : applicationIdentifier.Trim().ToLowerInvariant();
+
+        IQueryable<RegisteredApplication> applicationsQuery = this.dbContext.RegisteredApplications
+            .AsNoTracking()
+            .Include(application => application.Permissions);
+
+        if (!string.IsNullOrEmpty(normalizedIdentifier))
+        {
+            applicationsQuery = applicationsQuery.Where(application => application.ApplicationIdentifier == normalizedIdentifier);
+        }
+
+        List<RegisteredApplication> applications = await applicationsQuery
+            .OrderBy(application => application.ApplicationIdentifier)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        List<DeletedApplicationHistoryDto> deletedApplications = includeApplications
+            ? applications
+                .Where(application => application.IsDeleted)
+                .Select(ApplicationPermissionMaintenanceUseCases.MapSummary)
+                .ToList()
+            : [];
+
+        List<RemovedPermissionDetailDto> removedPermissions = includePermissions
+            ? applications
+                .SelectMany(application => application.Permissions
+                    .Where(permission => permission.IsRemoved)
+                    .Select(permission => ApplicationPermissionMaintenanceUseCases.MapRemovedPermission(application, permission)))
+                .OrderBy(permission => permission.ApplicationIdentifier, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(permission => permission.PermissionKey, StringComparer.OrdinalIgnoreCase)
+                .ToList()
+            : [];
+
+        return new ApplicationPermissionHistoryDto(deletedApplications, removedPermissions);
     }
 
     public async Task<RegisteredApplication?> GetByIdAsync(RegisteredApplicationId id, CancellationToken cancellationToken = default)
@@ -58,14 +110,16 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
         string normalized = fullPermissionKey.Trim().ToLowerInvariant();
         return await this.dbContext.ApplicationPermissions
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.FullPermissionKey == normalized, cancellationToken);
+            .FirstOrDefaultAsync(p => p.FullPermissionKey == normalized && p.RemovedAt == null, cancellationToken);
     }
 
     public async Task<PagedResult<RegisteredApplicationSummaryDto>> ListApplicationsAsync(ListRegisteredApplicationsQuery query, CancellationToken cancellationToken = default)
     {
         int page = Math.Max(query.Page, 1);
         int pageSize = Math.Clamp(query.PageSize, 1, 100);
-        IQueryable<RegisteredApplication> applications = this.dbContext.RegisteredApplications.AsNoTracking();
+        IQueryable<RegisteredApplication> applications = this.dbContext.RegisteredApplications
+            .AsNoTracking()
+            .Where(application => application.DeletedAt == null);
 
         if (!string.IsNullOrWhiteSpace(query.StatusFilter) && Enum.TryParse(query.StatusFilter, ignoreCase: true, out ApplicationLifecycleStatus status))
         {
@@ -97,7 +151,7 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
                 application.DisplayName,
                 application.OwnerId,
                 application.Status.ToString(),
-                application.Permissions.Count,
+                application.Permissions.Count(permission => permission.RemovedAt == null),
                 application.CreatedAt,
                 application.ModifiedAt))
             .ToListAsync(cancellationToken);
@@ -117,7 +171,10 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
                 application => application.Id,
                 (permission, application) => new { Permission = permission, Application = application });
 
-        catalog = catalog.Where(item => item.Application.Status == ApplicationLifecycleStatus.Active);
+        catalog = catalog.Where(item =>
+            item.Application.Status == ApplicationLifecycleStatus.Active
+            && item.Application.DeletedAt == null
+            && item.Permission.RemovedAt == null);
 
         if (!string.IsNullOrWhiteSpace(query.ApplicationIdentifier))
         {
@@ -134,12 +191,9 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
                 || EF.Functions.Like(item.Application.DisplayName, search));
         }
 
-        int totalCount = await catalog.CountAsync(cancellationToken);
-        List<ApplicationPermissionDto> items = await catalog
+        List<ApplicationPermissionDto> concreteItems = await catalog
             .OrderBy(item => item.Application.DisplayName)
             .ThenBy(item => item.Permission.FullPermissionKey)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
             .Select(item => new ApplicationPermissionDto(
                 item.Permission.Id.Value,
                 item.Permission.PermissionKey,
@@ -151,10 +205,57 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
                 item.Permission.ModifiedAt,
                 item.Application.ApplicationIdentifier,
                 item.Application.DisplayName,
-                item.Application.Description))
+                item.Application.ManifestVersion,
+                "concrete",
+                true,
+                null,
+                null))
             .ToListAsync(cancellationToken);
 
-        return PagedResult<ApplicationPermissionDto>.Create(items, page, pageSize, totalCount);
+        var wildcardItems = concreteItems
+            .GroupBy(
+                item =>
+                {
+                    string[] keyParts = item.PermissionKey.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                    return new
+                    {
+                        item.ApplicationId,
+                        item.ApplicationName,
+                        item.ApplicationVersion,
+                        ResourceOrAggregate = keyParts.Length > 1 ? keyParts[0] : item.PermissionKey,
+                    };
+                })
+            .Select(group => new ApplicationPermissionDto(
+                Guid.Empty,
+                $"{group.Key.ResourceOrAggregate}:*",
+                $"{group.Key.ApplicationId}:{group.Key.ResourceOrAggregate}:*",
+                $"{group.Key.ApplicationName} {ToTitle(group.Key.ResourceOrAggregate)} All",
+                $"Grants all current {group.Key.ResourceOrAggregate} permissions for {group.Key.ApplicationName}.",
+                group.Key.ResourceOrAggregate,
+                DateTimeOffset.MinValue,
+                null,
+                group.Key.ApplicationId,
+                group.Key.ApplicationName,
+                group.Key.ApplicationVersion,
+                "wildcard",
+                true,
+                group.Key.ResourceOrAggregate,
+                group.Count()))
+            .ToList();
+
+        var allItems = concreteItems
+            .Concat(wildcardItems)
+            .OrderBy(item => item.ApplicationName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Kind == "wildcard" ? 0 : 1)
+            .ThenBy(item => item.FullPermissionKey, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var pageItems = allItems
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return PagedResult<ApplicationPermissionDto>.Create(pageItems, page, pageSize, allItems.Count);
     }
 
     public async Task<bool> IsPermissionAssignableAsync(string fullPermissionKey, CancellationToken cancellationToken = default)
@@ -167,12 +268,26 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
                 application => application.Id,
                 (permission, application) => new { Permission = permission, Application = application })
             .AnyAsync(
-                item => item.Permission.FullPermissionKey == normalized && item.Application.Status == ApplicationLifecycleStatus.Active,
+                item => item.Permission.FullPermissionKey == normalized
+                    && item.Application.Status == ApplicationLifecycleStatus.Active
+                    && item.Application.DeletedAt == null
+                    && item.Permission.RemovedAt == null,
                 cancellationToken);
     }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         await this.dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static string ToTitle(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        return string.Join(' ', value.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(part => string.Concat(part[..1].ToUpperInvariant(), part.AsSpan(1))));
     }
 }

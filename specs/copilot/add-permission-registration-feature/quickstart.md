@@ -103,4 +103,4 @@ Verify:
 - Use indexed filters for search, owner, status, and permission key lookups.
 - Avoid N+1 loading of permissions/dependencies.
 - Validate P50/P95/P99 API response targets from the constitution for representative catalog sizes.
-- Confirm administrators can locate impacted roles for a permission lifecycle change within 1 minute.
+- Confirm administrators can locate impacted roles for a removed permission within 1 minute.

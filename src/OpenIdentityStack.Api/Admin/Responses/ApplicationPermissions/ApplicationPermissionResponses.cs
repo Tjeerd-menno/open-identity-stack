@@ -20,3 +20,6 @@ public sealed record AssignablePermissionCatalogResponse(
     int PageSize,
     int TotalCount,
     int TotalPages);
+
+public sealed record PlatformPermissionCatalogResponse(
+    IReadOnlyList<PlatformPermissionCatalogItemDto> Items);

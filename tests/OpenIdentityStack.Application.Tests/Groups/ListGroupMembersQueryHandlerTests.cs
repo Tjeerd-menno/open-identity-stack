@@ -60,6 +60,10 @@ public sealed class ListGroupMembersQueryHandlerTests
             .GetByIdAsync(group.Id, Arg.Any<CancellationToken>())
             .Returns(group);
 
+        this._userRepository
+            .GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<User>());
+
         // Act
         Result<UserListResponse> result = await this._handler.HandleAsync(group.Id);
 
@@ -85,8 +89,8 @@ public sealed class ListGroupMembersQueryHandlerTests
             .Returns(group);
 
         this._userRepository
-            .GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
-            .Returns(user);
+            .GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<User> { user });
 
         // Act
         Result<UserListResponse> result = await this._handler.HandleAsync(group.Id);
@@ -111,15 +115,15 @@ public sealed class ListGroupMembersQueryHandlerTests
             User user = userResult.Value;
             users.Add(user);
             group.AddMember(user.Id, AdminUserId, this._dateTimeProvider);
-
-            this._userRepository
-                .GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
-                .Returns(user);
         }
 
         this._groupRepository
             .GetByIdAsync(group.Id, Arg.Any<CancellationToken>())
             .Returns(group);
+
+        this._userRepository
+            .GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>())
+            .Returns(users);
 
         // Act - request page 1 with size 2
         Result<UserListResponse> result = await this._handler.HandleAsync(group.Id, page: 1, pageSize: 2);
@@ -144,15 +148,15 @@ public sealed class ListGroupMembersQueryHandlerTests
             User user = userResult.Value;
             users.Add(user);
             group.AddMember(user.Id, AdminUserId, this._dateTimeProvider);
-
-            this._userRepository
-                .GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
-                .Returns(user);
         }
 
         this._groupRepository
             .GetByIdAsync(group.Id, Arg.Any<CancellationToken>())
             .Returns(group);
+
+        this._userRepository
+            .GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>())
+            .Returns(users);
 
         // Act - request page 2 with size 2
         Result<UserListResponse> result = await this._handler.HandleAsync(group.Id, page: 2, pageSize: 2);
@@ -176,8 +180,8 @@ public sealed class ListGroupMembersQueryHandlerTests
             .Returns(group);
 
         this._userRepository
-            .GetByIdAsync(orphanedUserId, Arg.Any<CancellationToken>())
-            .Returns((User?)null);
+            .GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<User>());
 
         // Act
         Result<UserListResponse> result = await this._handler.HandleAsync(group.Id);
@@ -204,8 +208,8 @@ public sealed class ListGroupMembersQueryHandlerTests
             .Returns(group);
 
         this._userRepository
-            .GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
-            .Returns(user);
+            .GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<User> { user });
 
         // Act
         Result<UserListResponse> result = await this._handler.HandleAsync(group.Id);
@@ -219,6 +223,77 @@ public sealed class ListGroupMembersQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_OutputOrder_FollowsMembershipOrderNotRepositoryOrder()
+    {
+        // Arrange
+        Group group = this.CreateGroup("order-group", "Order");
+
+        Result<User> firstResult = User.CreateLocal("first@test.com", "First", "hash", this._dateTimeProvider);
+        Result<User> secondResult = User.CreateLocal("second@test.com", "Second", "hash", this._dateTimeProvider);
+        User first = firstResult.Value;
+        User second = secondResult.Value;
+
+        group.AddMember(first.Id, AdminUserId, this._dateTimeProvider);
+        group.AddMember(second.Id, AdminUserId, this._dateTimeProvider);
+
+        this._groupRepository
+            .GetByIdAsync(group.Id, Arg.Any<CancellationToken>())
+            .Returns(group);
+
+        // Repository returns the users in the opposite order to the membership order.
+        this._userRepository
+            .GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<User> { second, first });
+
+        // Act
+        Result<UserListResponse> result = await this._handler.HandleAsync(group.Id);
+
+        // Assert - output follows membership order (stable, insertion order for equal AssignedAt)
+        result.IsSuccess.ShouldBeTrue();
+        var items = result.Value.Items.ToList();
+        items.Count.ShouldBe(2);
+        items[0].Id.ShouldBe(first.Id);
+        items[1].Id.ShouldBe(second.Id);
+    }
+
+    [Fact]
+    public async Task HandleAsync_MissingUserOnPage_DoesNotBackfillFromNextPage()
+    {
+        // Arrange
+        Group group = this.CreateGroup("backfill-group", "Backfill");
+
+        Result<User> firstResult = User.CreateLocal("first@test.com", "First", "hash", this._dateTimeProvider);
+        Result<User> secondResult = User.CreateLocal("second@test.com", "Second", "hash", this._dateTimeProvider);
+        Result<User> thirdResult = User.CreateLocal("third@test.com", "Third", "hash", this._dateTimeProvider);
+        User first = firstResult.Value;
+        User second = secondResult.Value;
+        User third = thirdResult.Value;
+
+        group.AddMember(first.Id, AdminUserId, this._dateTimeProvider);
+        group.AddMember(second.Id, AdminUserId, this._dateTimeProvider);
+        group.AddMember(third.Id, AdminUserId, this._dateTimeProvider);
+
+        this._groupRepository
+            .GetByIdAsync(group.Id, Arg.Any<CancellationToken>())
+            .Returns(group);
+
+        // First member's user is missing; only the second member's user is returned.
+        // The third member belongs to the next page and must not backfill page 1.
+        this._userRepository
+            .GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<User> { second });
+
+        // Act - page 1, size 2 -> members [first, second]; first missing
+        Result<UserListResponse> result = await this._handler.HandleAsync(group.Id, page: 1, pageSize: 2);
+
+        // Assert - only the found member on this page, no backfill from page 2
+        result.IsSuccess.ShouldBeTrue();
+        var items = result.Value.Items.ToList();
+        items.Count.ShouldBe(1);
+        items[0].Id.ShouldBe(second.Id);
+    }
+
+    [Fact]
     public async Task HandleAsync_DefaultPagination_Uses20PageSize()
     {
         // Arrange
@@ -227,6 +302,10 @@ public sealed class ListGroupMembersQueryHandlerTests
         this._groupRepository
             .GetByIdAsync(group.Id, Arg.Any<CancellationToken>())
             .Returns(group);
+
+        this._userRepository
+            .GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<User>());
 
         // Act - use defaults
         Result<UserListResponse> result = await this._handler.HandleAsync(group.Id);

@@ -11,6 +11,8 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 /// </summary>
 public sealed class RolesEndpointWorkflowTests(AppHostFixture fixture) : IAsyncLifetime
 {
+    private static readonly string[] wildcardPermissions = ["users:*"];
+
     private readonly AppHostFixture _fixture = fixture;
     private HttpClient _client = null!;
     private string? _accessToken;
@@ -164,6 +166,39 @@ public sealed class RolesEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
+    [Fact]
+    public async Task CreateRole_WithWildcardPermissionWithoutAcknowledgement_Returns409Conflict()
+    {
+        var request = new
+        {
+            Name = $"role-{Guid.NewGuid():N}",
+            Description = "Broad grant role",
+            Permissions = wildcardPermissions
+        };
+
+        HttpResponseMessage response = await this.SendRequestAsync(HttpMethod.Post, "/api/admin/roles", request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task CreateRole_WithWildcardPermissionAndAcknowledgement_Returns201Created()
+    {
+        var request = new
+        {
+            Name = $"role-{Guid.NewGuid():N}",
+            Description = "Broad grant role",
+            Permissions = wildcardPermissions,
+            AcknowledgeWildcardGrant = true
+        };
+
+        HttpResponseMessage response = await this.SendRequestAsync(HttpMethod.Post, "/api/admin/roles", request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
+        json?["permissions"]?.AsArray().Select(p => p?.GetValue<string>()).ShouldContain("users:*");
+    }
+
     #endregion
 
     #region Get Role
@@ -260,6 +295,87 @@ public sealed class RolesEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    #endregion
+
+    #region Role Permissions
+
+    [Fact]
+    public async Task AddPermission_WithWildcardPermissionWithoutAcknowledgement_Returns409Conflict()
+    {
+        Guid roleId = await this.CreateRoleAsync();
+
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Post,
+            $"/api/admin/roles/{roleId}/permissions",
+            new { Permission = "users:*" });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task AddPermission_WithWildcardPermissionAndAcknowledgement_Returns200Ok()
+    {
+        Guid roleId = await this.CreateRoleAsync();
+
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Post,
+            $"/api/admin/roles/{roleId}/permissions",
+            new { Permission = "users:*", AcknowledgeWildcardGrant = true });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
+        json?["permissions"]?.AsArray().Select(p => p?.GetValue<string>()).ShouldContain("users:*");
+    }
+
+    [Fact]
+    public async Task SetPermissions_WithWildcardPermissionWithoutAcknowledgement_Returns409Conflict()
+    {
+        Guid roleId = await this.CreateRoleAsync();
+
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Put,
+            $"/api/admin/roles/{roleId}/permissions",
+            new { Permissions = wildcardPermissions });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task SetPermissions_WithWildcardPermissionAndAcknowledgement_Returns200Ok()
+    {
+        Guid roleId = await this.CreateRoleAsync();
+
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Put,
+            $"/api/admin/roles/{roleId}/permissions",
+            new { Permissions = wildcardPermissions, AcknowledgeWildcardGrant = true });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
+        json?["permissions"]?.AsArray().Select(p => p?.GetValue<string>()).ShouldContain("users:*");
+    }
+
+    [Fact]
+    public async Task RemovePermission_WithWildcardPermission_Returns200Ok()
+    {
+        var createRequest = new
+        {
+            Name = $"role-{Guid.NewGuid():N}",
+            Permissions = wildcardPermissions,
+            AcknowledgeWildcardGrant = true
+        };
+        HttpResponseMessage create = await this.SendRequestAsync(HttpMethod.Post, "/api/admin/roles", createRequest);
+        create.StatusCode.ShouldBe(HttpStatusCode.Created);
+        JsonNode? created = await create.Content.ReadFromJsonAsync<JsonNode>();
+        Guid roleId = created?["id"]?.GetValue<Guid>() ?? throw new InvalidOperationException("Role ID not returned.");
+
+        HttpResponseMessage response = await this.SendRequestAsync(HttpMethod.Delete, $"/api/admin/roles/{roleId}/permissions/users%3A%2A");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
+        json?["permissions"]?.AsArray().Select(p => p?.GetValue<string>()).ShouldNotContain("users:*");
     }
 
     #endregion

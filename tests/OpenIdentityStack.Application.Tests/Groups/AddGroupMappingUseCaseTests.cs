@@ -117,7 +117,7 @@ public sealed class AddGroupMappingUseCaseTests
 
         // Assert
         result.IsFailure.ShouldBeTrue();
-        result.Error.Code.ShouldContain("Invalid");
+        result.Error.ShouldBe(GroupMappingErrors.TargetRequired);
     }
 
     [Fact]
