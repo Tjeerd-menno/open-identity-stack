@@ -3,12 +3,18 @@ import type {
   AddDelegatedMaintainerRequest,
   AddApplicationPermissionRequest,
   AssignablePermissionCatalogResponse,
+  ApplicationPermissionHistory,
   ChangeLifecycleRequest,
   ImportPermissionManifestRequest,
+  ManifestApplyResult,
+  ManifestPreview,
   PaginationParams,
+  PermissionDiagnostics,
   PermissionManifestRequest,
   RegisteredApplication,
   RegisteredApplicationListResponse,
+  RemovedPermissionDetail,
+  ReplacementGuidanceRequest,
   RoleAssignmentDependency,
   TransferApplicationOwnershipRequest,
   UpdateRegisteredApplicationRequest,
@@ -25,8 +31,34 @@ export async function getRegisteredApplication(id: string): Promise<RegisteredAp
 }
 
 export async function registerPermissionManifest(data: PermissionManifestRequest): Promise<{ id: string }> {
-  const response = await apiClient.post<{ applicationId: string; applicationIdentifier: string; permissionsRegistered: number }>(`${BASE_PATH}/applications`, data);
-  return { id: response.applicationId };
+  const response = await apiClient.post<{ id?: string; applicationId?: string }>(`${BASE_PATH}/applications`, data);
+  return { id: response.id ?? response.applicationId ?? '' };
+}
+
+export async function previewPermissionManifest(id: string, data: PermissionManifestRequest, concurrencyToken?: number): Promise<ManifestPreview> {
+  return await apiClient.post<ManifestPreview>(`${BASE_PATH}/applications/${id}/manifest/preview`, {
+    manifest: data.manifest,
+    concurrencyToken,
+  });
+}
+
+export async function applyPermissionManifest(id: string, data: PermissionManifestRequest, concurrencyToken?: number): Promise<ManifestApplyResult> {
+  return await apiClient.post<ManifestApplyResult>(`${BASE_PATH}/applications/${id}/manifest`, {
+    manifest: data.manifest,
+    concurrencyToken,
+  });
+}
+
+export async function previewRemotePermissionManifest(id: string, concurrencyToken?: number): Promise<ManifestPreview> {
+  return await apiClient.post<ManifestPreview>(`${BASE_PATH}/applications/${id}/import/preview`, {
+    concurrencyToken,
+  });
+}
+
+export async function applyRemotePermissionManifest(id: string, concurrencyToken?: number): Promise<ManifestApplyResult> {
+  return await apiClient.post<ManifestApplyResult>(`${BASE_PATH}/applications/${id}/import`, {
+    concurrencyToken,
+  });
 }
 
 export async function importPermissionManifestFromEndpoint(endpoint: string): Promise<{ id: string }> {
@@ -67,4 +99,19 @@ export async function removeDelegatedMaintainer(id: string, principalId: string,
 
 export async function getAssignablePermissionCatalog(params: PaginationParams = {}): Promise<AssignablePermissionCatalogResponse> {
   return await apiClient.get<AssignablePermissionCatalogResponse>(`${BASE_PATH}/catalog`, params);
+}
+
+export async function getApplicationPermissionHistory(params: { applicationIdentifier?: string } = {}): Promise<ApplicationPermissionHistory> {
+  return await apiClient.get<ApplicationPermissionHistory>(`${BASE_PATH}/history`, params);
+}
+
+export async function getApplicationPermissionDiagnostics(): Promise<PermissionDiagnostics> {
+  return await apiClient.get<PermissionDiagnostics>(`${BASE_PATH}/diagnostics`);
+}
+
+export async function updateRemovedPermissionReplacement(
+  permissionId: string,
+  data: ReplacementGuidanceRequest
+): Promise<RemovedPermissionDetail> {
+  return await apiClient.patch<RemovedPermissionDetail>(`${BASE_PATH}/permissions/${permissionId}/replacement`, data);
 }

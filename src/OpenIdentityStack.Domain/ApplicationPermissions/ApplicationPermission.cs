@@ -10,7 +10,7 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
     private static readonly Regex permissionKeyRegex = GeneratePermissionKeyRegex();
 
     public static readonly DomainError PermissionKeyRequired = DomainError.Validation("ApplicationPermission.PermissionKeyRequired", "Permission key is required.");
-    public static readonly DomainError PermissionKeyInvalidFormat = DomainError.Validation("ApplicationPermission.PermissionKeyInvalidFormat", "Permission key must be an action key or permission name such as read-patients or read:patients.");
+    public static readonly DomainError PermissionKeyInvalidFormat = DomainError.Validation("ApplicationPermission.PermissionKeyInvalidFormat", "Permission key must match resourceOrAggregate:action.");
     public static readonly DomainError DisplayNameRequired = DomainError.Validation("ApplicationPermission.DisplayNameRequired", "Display name is required.");
     public static readonly DomainError DisplayNameTooLong = DomainError.Validation("ApplicationPermission.DisplayNameTooLong", "Display name must not exceed 120 characters.");
     public static readonly DomainError DescriptionTooLong = DomainError.Validation("ApplicationPermission.DescriptionTooLong", "Description must not exceed 1000 characters.");
@@ -31,6 +31,18 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
     public string CreatedBy { get; private set; } = string.Empty;
 
     public string UpdatedBy { get; private set; } = string.Empty;
+
+    public DateTimeOffset? RemovedAt { get; private set; }
+
+    public string? RemovedBy { get; private set; }
+
+    public string? RemoveReason { get; private set; }
+
+    public string? ReplacementFullPermissionKey { get; private set; }
+
+    public string? ReplacementNote { get; private set; }
+
+    public bool IsRemoved => this.RemovedAt.HasValue;
 
     private ApplicationPermission()
     {
@@ -83,7 +95,7 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
             Id = ApplicationPermissionId.Create(),
             RegisteredApplicationId = registeredApplicationId,
             PermissionKey = normalizedKey,
-            FullPermissionKey = normalizedKey.Contains(':', StringComparison.Ordinal) ? normalizedKey : $"{applicationIdentifier}:{normalizedKey}",
+            FullPermissionKey = $"{applicationIdentifier}:{normalizedKey}",
             DisplayName = displayName.Trim(),
             Description = description?.Trim(),
             Category = category?.Trim(),
@@ -130,6 +142,53 @@ public sealed partial class ApplicationPermission : Entity<ApplicationPermission
         return Result.Success();
     }
 
-    [GeneratedRegex(@"^(?=.{2,63}$)[a-z][a-z0-9-]{1,62}(:[a-z][a-z0-9-]{1,62})?$")]
+    internal void MarkRemoved(string removedBy, string removeReason, IDateTimeProvider dateTimeProvider)
+    {
+        this.RemovedAt = dateTimeProvider.UtcNow;
+        this.RemovedBy = removedBy;
+        this.RemoveReason = removeReason;
+        this.UpdatedBy = removedBy;
+        this.SetModified(dateTimeProvider.UtcNow);
+    }
+
+    internal Result SetReplacementGuidance(
+        string replacementFullPermissionKey,
+        string replacementNote,
+        string updatedBy,
+        IDateTimeProvider dateTimeProvider)
+    {
+        if (!this.IsRemoved)
+        {
+            return DomainError.Conflict("ApplicationPermission.NotRemoved", "Replacement guidance can only be added to removed permissions.");
+        }
+
+        if (string.IsNullOrWhiteSpace(replacementFullPermissionKey))
+        {
+            return DomainError.Validation("ApplicationPermission.ReplacementRequired", "Replacement permission is required.");
+        }
+
+        if (replacementFullPermissionKey.Length > 200)
+        {
+            return DomainError.Validation("ApplicationPermission.ReplacementTooLong", "Replacement permission must not exceed 200 characters.");
+        }
+
+        if (string.IsNullOrWhiteSpace(replacementNote))
+        {
+            return DomainError.Validation("ApplicationPermission.ReplacementNoteRequired", "Replacement note is required.");
+        }
+
+        if (replacementNote.Length > 1000)
+        {
+            return DomainError.Validation("ApplicationPermission.ReplacementNoteTooLong", "Replacement note must not exceed 1000 characters.");
+        }
+
+        this.ReplacementFullPermissionKey = replacementFullPermissionKey.Trim().ToLowerInvariant();
+        this.ReplacementNote = replacementNote.Trim();
+        this.UpdatedBy = updatedBy;
+        this.SetModified(dateTimeProvider.UtcNow);
+        return Result.Success();
+    }
+
+    [GeneratedRegex(@"^[a-z][a-z0-9-]{1,62}:[a-z][a-z0-9-]{1,62}$")]
     private static partial Regex GeneratePermissionKeyRegex();
 }

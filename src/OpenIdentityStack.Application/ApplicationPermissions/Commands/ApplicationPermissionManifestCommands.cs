@@ -1,0 +1,22 @@
+using OpenIdentityStack.Application.ApplicationPermissions.Validators;
+using OpenIdentityStack.Domain.ApplicationPermissions;
+
+namespace OpenIdentityStack.Application.ApplicationPermissions.Commands;
+
+public sealed record CreateApplicationPermissionManifestCommand(
+    PermissionManifestDocument Manifest,
+    string OwnerId,
+    OwnerType OwnerType,
+    string? ManifestBaseUrl,
+    string ActorId);
+
+public sealed record ApplyApplicationPermissionManifestCommand(
+    Guid ApplicationId,
+    PermissionManifestDocument Manifest,
+    string ActorId,
+    uint? ExpectedConcurrencyToken);
+
+public sealed record RemoteApplicationPermissionManifestCommand(
+    Guid ApplicationId,
+    string ActorId,
+    uint? ExpectedConcurrencyToken);

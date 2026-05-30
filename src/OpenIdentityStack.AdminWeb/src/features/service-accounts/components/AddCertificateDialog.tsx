@@ -35,14 +35,16 @@ export function AddCertificateDialog({ open, onOpenChange, serviceAccountId }: A
     },
   });
 
-  const handleSubmit = async (_data: FormData) => {
+  const handleSubmit = async () => {
     try {
+      const defaultExpirationDate = new Date();
+      defaultExpirationDate.setFullYear(defaultExpirationDate.getFullYear() + 1);
       await addCertificate.mutateAsync({ 
         serviceAccountId, 
         data: { 
           thumbprint: 'auto', // Server will extract from certificate
           subject: 'auto', // Server will extract from certificate
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // Default 1 year
+          expiresAt: defaultExpirationDate.toISOString(), // Default 1 year
         } 
       });
       form.reset();

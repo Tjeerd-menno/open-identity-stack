@@ -42,8 +42,8 @@ public sealed class ApplicationPermissionRegistryRepositoryTests : IClassFixture
         RegisteredApplication application = CreateApplication(
             "orders-api",
             [
-                ("read-orders", "Read orders", null, null),
-                ("write-orders", "Write orders", null, null),
+                ("order:read", "Read orders", null, null),
+                ("order:write", "Write orders", null, null),
             ]);
         await this.repository.AddAsync(application);
         await this.repository.SaveChangesAsync();
@@ -56,6 +56,147 @@ public sealed class ApplicationPermissionRegistryRepositoryTests : IClassFixture
         result.Items[0].ApplicationIdentifier.ShouldBe("orders-api");
         result.Items[0].PermissionCount.ShouldBe(2);
         this.dbContext.ChangeTracker.Entries<ApplicationPermission>().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task ListApplicationsAsync_ExcludesDeletedApplicationsAndRemovedPermissionsFromCounts()
+    {
+        RegisteredApplication activeApplication = CreateApplication(
+            "orders-api",
+            [
+                ("order:read", "Read orders", null, null),
+                ("order:write", "Write orders", null, null),
+            ]);
+        ApplicationPermission removedPermission = activeApplication.Permissions.Single(permission => permission.PermissionKey == "order:write");
+        activeApplication.RemovePermission(
+            removedPermission.Id,
+            "admin-1",
+            "Permission is no longer supported.",
+            this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+
+        RegisteredApplication deletedApplication = CreateApplication(
+            "billing-api",
+            [
+                ("invoice:read", "Read invoices", null, null),
+            ]);
+        deletedApplication.MarkDeleted("admin-1", "Application retired.", this.dateTimeProvider);
+
+        await this.repository.AddAsync(activeApplication);
+        await this.repository.AddAsync(deletedApplication);
+        await this.repository.SaveChangesAsync();
+        this.dbContext.ChangeTracker.Clear();
+
+        PagedResult<RegisteredApplicationSummaryDto> result = await this.repository.ListApplicationsAsync(new ListRegisteredApplicationsQuery());
+
+        result.TotalCount.ShouldBe(1);
+        result.Items.ShouldHaveSingleItem();
+        result.Items[0].ApplicationIdentifier.ShouldBe("orders-api");
+        result.Items[0].PermissionCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ListAssignablePermissionCatalogAsync_ExcludesRemovedPermissionsAndDeletedApplications()
+    {
+        RegisteredApplication activeApplication = CreateApplication(
+            "orders-api",
+            [
+                ("order:read", "Read orders", null, null),
+                ("order:write", "Write orders", null, null),
+            ]);
+        ApplicationPermission removedPermission = activeApplication.Permissions.Single(permission => permission.PermissionKey == "order:write");
+        activeApplication.RemovePermission(
+            removedPermission.Id,
+            "admin-1",
+            "Permission is no longer supported.",
+            this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+
+        RegisteredApplication deletedApplication = CreateApplication(
+            "billing-api",
+            [
+                ("invoice:read", "Read invoices", null, null),
+            ]);
+        deletedApplication.MarkDeleted("admin-1", "Application retired.", this.dateTimeProvider);
+
+        await this.repository.AddAsync(activeApplication);
+        await this.repository.AddAsync(deletedApplication);
+        await this.repository.SaveChangesAsync();
+        this.dbContext.ChangeTracker.Clear();
+
+        PagedResult<ApplicationPermissionDto> result = await this.repository.ListAssignablePermissionCatalogAsync(new ListAssignablePermissionCatalogQuery());
+
+        result.Items.Select(item => item.FullPermissionKey).ShouldBe(
+            [
+                "orders-api:order:*",
+                "orders-api:order:read",
+            ],
+            ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task IsPermissionAssignableAsync_ReturnsFalseForRemovedPermissionsAndDeletedApplications()
+    {
+        RegisteredApplication activeApplication = CreateApplication(
+            "orders-api",
+            [
+                ("order:read", "Read orders", null, null),
+                ("order:write", "Write orders", null, null),
+            ]);
+        ApplicationPermission removedPermission = activeApplication.Permissions.Single(permission => permission.PermissionKey == "order:write");
+        activeApplication.RemovePermission(
+            removedPermission.Id,
+            "admin-1",
+            "Permission is no longer supported.",
+            this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+
+        RegisteredApplication deletedApplication = CreateApplication(
+            "billing-api",
+            [
+                ("invoice:read", "Read invoices", null, null),
+            ]);
+        deletedApplication.MarkDeleted("admin-1", "Application retired.", this.dateTimeProvider);
+
+        await this.repository.AddAsync(activeApplication);
+        await this.repository.AddAsync(deletedApplication);
+        await this.repository.SaveChangesAsync();
+        this.dbContext.ChangeTracker.Clear();
+
+        (await this.repository.IsPermissionAssignableAsync("orders-api:order:read")).ShouldBeTrue();
+        (await this.repository.IsPermissionAssignableAsync("orders-api:order:write")).ShouldBeFalse();
+        (await this.repository.IsPermissionAssignableAsync("billing-api:invoice:read")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task TombstoneMetadata_RoundTripsThroughPersistence()
+    {
+        RegisteredApplication application = CreateApplication(
+            "orders-api",
+            [
+                ("order:read", "Read orders", null, null),
+            ]);
+        ApplicationPermission permission = application.Permissions.Single();
+        application.RemovePermission(
+            permission.Id,
+            "admin-1",
+            "Permission is no longer supported.",
+            this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+        application.MarkDeleted("admin-1", "Application retired.", this.dateTimeProvider);
+
+        await this.repository.AddAsync(application);
+        await this.repository.SaveChangesAsync();
+        this.dbContext.ChangeTracker.Clear();
+
+        RegisteredApplication? persisted = await this.repository.GetByIdentifierAsync("orders-api");
+
+        persisted.ShouldNotBeNull();
+        persisted.IsDeleted.ShouldBeTrue();
+        persisted.DeletedAt.ShouldBe(this.dateTimeProvider.UtcNow);
+        persisted.DeletedBy.ShouldBe("admin-1");
+        persisted.DeleteReason.ShouldBe("Application retired.");
+        ApplicationPermission persistedPermission = persisted.Permissions.Single();
+        persistedPermission.IsRemoved.ShouldBeTrue();
+        persistedPermission.RemovedAt.ShouldBe(this.dateTimeProvider.UtcNow);
+        persistedPermission.RemovedBy.ShouldBe("admin-1");
+        persistedPermission.RemoveReason.ShouldBe("Permission is no longer supported.");
     }
 
     private RegisteredApplication CreateApplication(

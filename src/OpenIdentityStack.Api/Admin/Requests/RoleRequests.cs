@@ -30,6 +30,11 @@ public sealed record CreateRoleRequest
     /// Gets or sets the permissions to assign to the role.
     /// </summary>
     public IReadOnlyList<string>? Permissions { get; init; }
+
+    /// <summary>
+    /// Gets or sets whether the caller acknowledged broad wildcard grants.
+    /// </summary>
+    public bool AcknowledgeWildcardGrant { get; init; }
 }
 
 /// <summary>
@@ -55,6 +60,11 @@ public sealed record SetRolePermissionsRequest
     /// </summary>
     [Required]
     public required IReadOnlyList<string> Permissions { get; init; }
+
+    /// <summary>
+    /// Gets or sets whether the caller acknowledged broad wildcard grants.
+    /// </summary>
+    public bool AcknowledgeWildcardGrant { get; init; }
 }
 
 /// <summary>
@@ -68,6 +78,11 @@ public sealed record AddPermissionRequest
     [Required]
     [StringLength(100, MinimumLength = 1)]
     public required string Permission { get; init; }
+
+    /// <summary>
+    /// Gets or sets whether the caller acknowledged broad wildcard grants.
+    /// </summary>
+    public bool AcknowledgeWildcardGrant { get; init; }
 }
 
 /// <summary>

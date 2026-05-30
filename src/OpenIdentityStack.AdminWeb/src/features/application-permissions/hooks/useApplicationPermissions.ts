@@ -2,12 +2,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   addDelegatedMaintainer,
   addApplicationPermission,
+  applyPermissionManifest,
+  applyRemotePermissionManifest,
   changeApplicationLifecycle,
+  getApplicationPermissionDiagnostics,
   getAssignablePermissionCatalog,
   getPermissionDependencies,
   getRegisteredApplication,
   getRegisteredApplications,
   importPermissionManifestFromEndpoint,
+  previewPermissionManifest,
+  previewRemotePermissionManifest,
   registerPermissionManifest,
   removeDelegatedMaintainer,
   transferApplicationOwnership,
@@ -45,6 +50,14 @@ export function useAssignablePermissionCatalog(params?: PaginationParams) {
   return useQuery({
     queryKey: [APPLICATION_PERMISSIONS_QUERY_KEY, 'catalog', params],
     queryFn: () => getAssignablePermissionCatalog(params),
+    staleTime: 30000,
+  });
+}
+
+export function useApplicationPermissionDiagnostics() {
+  return useQuery({
+    queryKey: [APPLICATION_PERMISSIONS_QUERY_KEY, 'diagnostics'],
+    queryFn: () => getApplicationPermissionDiagnostics(),
     staleTime: 30000,
   });
 }
@@ -95,6 +108,30 @@ export function useAddApplicationPermission(id: string) {
       await queryClient.invalidateQueries({ queryKey: [APPLICATION_PERMISSIONS_QUERY_KEY] });
     },
   });
+}
+
+export function useManifestMutations(id: string, concurrencyToken?: number) {
+  const queryClient = useQueryClient();
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: [APPLICATION_PERMISSIONS_QUERY_KEY] });
+  };
+
+  return {
+    preview: useMutation({
+      mutationFn: (data: PermissionManifestRequest) => previewPermissionManifest(id, data, concurrencyToken),
+    }),
+    apply: useMutation({
+      mutationFn: (data: PermissionManifestRequest) => applyPermissionManifest(id, data, concurrencyToken),
+      onSuccess: invalidate,
+    }),
+    previewRemote: useMutation({
+      mutationFn: () => previewRemotePermissionManifest(id, concurrencyToken),
+    }),
+    applyRemote: useMutation({
+      mutationFn: () => applyRemotePermissionManifest(id, concurrencyToken),
+      onSuccess: invalidate,
+    }),
+  };
 }
 
 export function useChangeApplicationLifecycle(id: string) {

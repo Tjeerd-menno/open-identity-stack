@@ -26,6 +26,26 @@ public sealed record UpdateApplicationPermissionCommand(
     string ActorId,
     uint? ExpectedConcurrencyToken);
 
+public sealed record DeleteApplicationPermissionCommand(
+    Guid PermissionId,
+    string Reason,
+    string ActorId,
+    uint? ExpectedConcurrencyToken);
+
+public sealed record PreviewDeleteApplicationPermissionCommand(
+    Guid PermissionId,
+    string ActorId);
+
+public sealed record DeleteRegisteredApplicationCommand(
+    Guid ApplicationId,
+    string Reason,
+    string ActorId,
+    uint? ExpectedConcurrencyToken);
+
+public sealed record PreviewDeleteRegisteredApplicationCommand(
+    Guid ApplicationId,
+    string ActorId);
+
 public sealed record ChangeRegisteredApplicationLifecycleCommand(
     Guid ApplicationId,
     ApplicationLifecycleStatus Status,
@@ -52,3 +72,18 @@ public sealed record RemoveDelegatedMaintainerCommand(
     string PrincipalId,
     string ActorId,
     uint? ExpectedConcurrencyToken);
+
+public sealed record UpdateRemovedPermissionReplacementCommand(
+    Guid PermissionId,
+    string ReplacementFullPermissionKey,
+    string ReplacementNote,
+    string ActorId,
+    uint? ExpectedConcurrencyToken);
+
+public sealed record ListApplicationPermissionHistoryQuery(
+    string? ApplicationIdentifier,
+    bool IncludeApplications,
+    bool IncludePermissions,
+    string ActorId);
+
+public sealed record ListApplicationPermissionDiagnosticsQuery(string ActorId);

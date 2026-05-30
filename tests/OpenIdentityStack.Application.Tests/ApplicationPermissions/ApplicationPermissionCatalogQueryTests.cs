@@ -42,7 +42,7 @@ public sealed class ApplicationPermissionCatalogQueryTests
         PagedResult<ApplicationPermissionDto> result = await handler.HandleAsync(new ListAssignablePermissionCatalogQuery());
 
         result.TotalCount.ShouldBe(1);
-        result.Items[0].FullPermissionKey.ShouldBe("orders-api:read-orders");
+        result.Items[0].FullPermissionKey.ShouldBe("orders-api:order:read");
         result.Items[0].Category.ShouldBeNull();
     }
 
@@ -89,7 +89,7 @@ public sealed class ApplicationPermissionCatalogQueryTests
             null,
             "owner-1",
             OwnerType.User,
-            [("read-orders", "Read orders", null, null)],
+            [("order:read", "Read orders", null, null)],
             "actor-1",
             this.dateTimeProvider);
         return result.Value;

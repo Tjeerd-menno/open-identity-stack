@@ -11,16 +11,16 @@
 
 ## Decision: Keep RBAC permission values as stable strings while validating new assignments against the registry
 
-**Rationale**: Existing roles store permissions as strings and `Permissions.Matches` supports exact and wildcard matches. Keeping string keys avoids disruptive migration of role storage and token claim semantics. The registry becomes the source of truth for new service-exposed assignments: active permissions are assignable; deprecated, disabled, retired, or disabled-service permissions remain visible but are blocked or warned for new assignments according to policy.
+**Rationale**: Existing roles store permissions as strings and `Permissions.Matches` supports exact and wildcard matches. Keeping string keys avoids disruptive migration of role storage and token claim semantics. The registry becomes the source of truth for new service-exposed assignments: permissions defined by active services are assignable; missing permissions or permissions from disabled services remain visible for existing assignments but are blocked or warned for new assignments according to policy.
 
 **Alternatives considered**:
 - Replace role permissions with foreign keys immediately: rejected for initial delivery because it risks breaking current roles and authorization behavior.
 - Duplicate registry and role data without validation: rejected because the registry would not be authoritative.
 - Remove wildcard support: rejected because existing authorization semantics rely on it.
 
-## Decision: Model service and permission lifecycle in the domain
+## Decision: Model application lifecycle in the domain and keep permissions defined-or-absent
 
-**Rationale**: Registration, stable identifier immutability, owner/delegation rules, permission uniqueness, status changes, restoration, and deletion safeguards are domain invariants. The domain should expose explicit lifecycle transitions for services (`active`, `disabled`, `retired`) and permissions (`active`, `deprecated`, `disabled`, `retired`).
+**Rationale**: Registration, stable identifier immutability, owner/delegation rules, permission uniqueness, application status changes, restoration, and deletion safeguards are domain invariants. The domain should expose explicit lifecycle transitions for applications (`active`, `disabled`, `retired`). Permissions should not expose lifecycle states; each permission is either defined by the application or absent from the registry.
 
 **Alternatives considered**:
 - Put rules in API handlers only: rejected because invariants would be duplicated and bypassable.
@@ -56,7 +56,7 @@
 
 ## Decision: Query role dependencies before unsafe lifecycle transitions
 
-**Rationale**: FR-010 and FR-011 require preventing silent breakage and showing impacted roles/assignments. Infrastructure should implement an `IRolePermissionDependencyReader` over existing role permission data for exact keys and wildcard-related dependencies. Lifecycle transitions to disabled/retired and any delete-like operation must surface dependencies and block unsafe destructive changes.
+**Rationale**: FR-010 and FR-011 require preventing silent breakage and showing impacted roles/assignments. Infrastructure should implement an `IRolePermissionDependencyReader` over existing role permission data for exact keys and wildcard-related dependencies. Application lifecycle transitions to disabled/retired and any permission removal operation must surface dependencies and block unsafe destructive changes.
 
 **Alternatives considered**:
 - Skip dependency checks: rejected by acceptance criteria.

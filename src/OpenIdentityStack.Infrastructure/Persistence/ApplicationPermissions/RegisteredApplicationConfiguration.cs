@@ -27,6 +27,17 @@ public sealed class RegisteredApplicationConfiguration : IEntityTypeConfiguratio
         builder.Property(s => s.Description)
             .HasMaxLength(1000);
 
+        builder.Property(s => s.SchemaVersion)
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.Property(s => s.ManifestVersion)
+            .HasMaxLength(100)
+            .IsRequired();
+
+        builder.Property(s => s.ManifestBaseUrl)
+            .HasMaxLength(2048);
+
         builder.Property(s => s.OwnerId)
             .HasMaxLength(256)
             .IsRequired();
@@ -53,6 +64,14 @@ public sealed class RegisteredApplicationConfiguration : IEntityTypeConfiguratio
         builder.Property(s => s.ModifiedAt);
         builder.Property(s => s.DisabledAt);
         builder.Property(s => s.RetiredAt);
+        builder.Property(s => s.DeletedAt);
+
+        builder.Property(s => s.DeletedBy)
+            .HasMaxLength(256);
+
+        builder.Property(s => s.DeleteReason)
+            .HasMaxLength(1000);
+
         builder.Property(s => s.ConcurrencyToken).IsConcurrencyToken();
 
         builder.HasMany(s => s.Permissions)

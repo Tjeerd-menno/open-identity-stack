@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useAssignablePermissionCatalog } from '@/features/application-permissions/hooks';
 import { cn } from '@/lib/utils';
+import { getPlatformPermissionCatalog } from '../api/roles-api';
 
 type PermissionOption = {
   value: string;
@@ -46,6 +48,11 @@ export function PermissionSelector({
   disabled = false,
 }: PermissionSelectorProps) {
   const { data: catalog } = useAssignablePermissionCatalog({ page: 1, pageSize: 100 });
+  const { data: platformCatalog } = useQuery({
+    queryKey: ['roles', 'platform-permission-catalog'],
+    queryFn: getPlatformPermissionCatalog,
+    staleTime: 30000,
+  });
   const [activeTab, setActiveTab] = useState('built-in');
   const selected = new Set(selectedPermissions);
 
@@ -60,7 +67,7 @@ export function PermissionSelector({
     onChange(Array.from(newSelected));
   };
 
-  const builtInGroups: Record<string, PermissionOption[]> = {
+  const fallbackBuiltInGroups: Record<string, PermissionOption[]> = {
     Users: [
       { value: 'users:read', label: 'Read Users' },
       { value: 'users:create', label: 'Create Users' },
@@ -96,6 +103,21 @@ export function PermissionSelector({
       { value: 'providers:delete', label: 'Delete Providers' },
     ],
   };
+  const builtInGroups = platformCatalog?.items.reduce<Record<string, PermissionOption[]>>((groups, item) => {
+    if (!item.assignable) {
+      return groups;
+    }
+
+    const groupName = item.resource === '*' ? 'All Platform' : toTitle(item.resource);
+    groups[groupName] ??= [];
+    groups[groupName].push({
+      value: item.permission,
+      label: item.displayName,
+      description: item.kind === 'wildcard' ? 'Broad platform grant' : undefined,
+      category: item.kind,
+    });
+    return groups;
+  }, {}) ?? fallbackBuiltInGroups;
 
   const applicationTabs = new Map<string, PermissionTab>();
   for (const permission of catalog?.items ?? []) {
@@ -111,7 +133,9 @@ export function PermissionSelector({
     existing.groups[category].push({
       value: permission.fullPermissionKey,
       label: permission.displayName,
-      description: permission.description,
+      description: permission.kind === 'wildcard'
+        ? `Broad application grant covering ${permission.coveredPermissionCount ?? 0} permissions`
+        : permission.description,
       category,
     });
     applicationTabs.set(applicationId, existing);
@@ -195,4 +219,16 @@ export function PermissionSelector({
       </div>
     </div>
   );
+}
+
+function toTitle(value: string) {
+  if (value === '*') {
+    return 'All Platform';
+  }
+
+  return value
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

@@ -4,7 +4,7 @@
  * Form for creating or updating clients
  */
 
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -84,15 +84,15 @@ export function ClientForm({ client, onSubmit, isLoading }: ClientFormProps) {
         },
   });
 
-  const { fields: redirectUriFields, append: appendRedirectUri, remove: removeRedirectUri } = useFieldArray({
-    control: form.control as any,
-    name: 'redirectUris',
-  });
-
-  const { fields: postLogoutUriFields, append: appendPostLogoutUri, remove: removePostLogoutUri } = useFieldArray({
-    control: form.control as any,
-    name: 'postLogoutRedirectUris',
-  });
+  const createForm = form as unknown as UseFormReturn<CreateFormData>;
+  const redirectUriFields = createForm.watch('redirectUris');
+  const postLogoutUriFields = createForm.watch('postLogoutRedirectUris');
+  const appendRedirectUri = () => createForm.setValue('redirectUris', [...redirectUriFields, '']);
+  const removeRedirectUri = (index: number) =>
+    createForm.setValue('redirectUris', redirectUriFields.filter((_, itemIndex) => itemIndex !== index));
+  const appendPostLogoutUri = () => createForm.setValue('postLogoutRedirectUris', [...postLogoutUriFields, '']);
+  const removePostLogoutUri = (index: number) =>
+    createForm.setValue('postLogoutRedirectUris', postLogoutUriFields.filter((_, itemIndex) => itemIndex !== index));
 
   return (
     <Form {...form}>
@@ -201,10 +201,10 @@ export function ClientForm({ client, onSubmit, isLoading }: ClientFormProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {redirectUriFields.map((field, index) => (
+                {redirectUriFields.map((_field, index) => (
                   <FormField
-                    key={field.id}
-                    control={form.control as any}
+                    key={index}
+                    control={createForm.control}
                     name={`redirectUris.${index}`}
                     render={({ field }) => (
                       <FormItem>
@@ -230,7 +230,7 @@ export function ClientForm({ client, onSubmit, isLoading }: ClientFormProps) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => appendRedirectUri('')}
+                  onClick={appendRedirectUri}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Redirect URI
@@ -247,10 +247,10 @@ export function ClientForm({ client, onSubmit, isLoading }: ClientFormProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {postLogoutUriFields.map((field, index) => (
+                {postLogoutUriFields.map((_field, index) => (
                   <FormField
-                    key={field.id}
-                    control={form.control as any}
+                    key={index}
+                    control={createForm.control}
                     name={`postLogoutRedirectUris.${index}`}
                     render={({ field }) => (
                       <FormItem>
@@ -276,7 +276,7 @@ export function ClientForm({ client, onSubmit, isLoading }: ClientFormProps) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => appendPostLogoutUri('')}
+                  onClick={appendPostLogoutUri}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Post Logout Redirect URI

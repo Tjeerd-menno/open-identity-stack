@@ -68,7 +68,7 @@ public sealed class CreateRoleUseCase : ICreateRoleUseCase
         if (command.Permissions is { Count: > 0 })
         {
             Result validationResult = await this.permissionAssignmentValidator
-                .ValidateAssignableAsync(command.Permissions, cancellationToken)
+                .ValidateAssignableAsync(command.Permissions, command.AcknowledgeWildcardGrant, cancellationToken)
                 .ConfigureAwait(false);
             if (validationResult.IsFailure)
             {
@@ -87,12 +87,23 @@ public sealed class CreateRoleUseCase : ICreateRoleUseCase
             role.Name,
             role.DisplayName,
             role.Description,
-            role.IsActive);
+            role.IsActive,
+            role.Permissions);
     }
 
     private sealed class AllowAllPermissionAssignmentValidator : IPermissionAssignmentValidator
     {
-        public Task<Result> ValidateAssignableAsync(IEnumerable<string> permissions, CancellationToken cancellationToken = default)
+        public Task<Result> ValidateAssignableAsync(
+            IEnumerable<string> permissions,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result.Success());
+        }
+
+        public Task<Result> ValidateAssignableAsync(
+            IEnumerable<string> permissions,
+            bool acknowledgeWildcardGrant,
+            CancellationToken cancellationToken = default)
         {
             return Task.FromResult(Result.Success());
         }

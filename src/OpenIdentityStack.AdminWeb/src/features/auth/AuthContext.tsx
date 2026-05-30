@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * T051: Create AuthContext with UserManager from oidc-client-ts
  * 

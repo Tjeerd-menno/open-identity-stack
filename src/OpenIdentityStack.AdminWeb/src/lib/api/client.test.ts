@@ -1,19 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockedAxios = vi.hoisted(() => {
-  let requestFulfilled: ((config: any) => any) | undefined;
-  let responseRejected: ((error: any) => Promise<never>) | undefined;
+  type AxiosLikeConfig = { headers?: Record<string, string> };
+  type AxiosLikeError = { response?: { status: number; data?: unknown }; request?: unknown; message?: string };
+
+  let requestFulfilled: ((config: AxiosLikeConfig) => AxiosLikeConfig | Promise<AxiosLikeConfig>) | undefined;
+  let responseRejected: ((error: AxiosLikeError) => Promise<never>) | undefined;
 
   const instance = {
     interceptors: {
       request: {
-        use: vi.fn((onFulfilled: (config: any) => any) => {
+        use: vi.fn((onFulfilled: (config: AxiosLikeConfig) => AxiosLikeConfig | Promise<AxiosLikeConfig>) => {
           requestFulfilled = onFulfilled;
           return 0;
         }),
       },
       response: {
-        use: vi.fn((_onFulfilled: (value: any) => any, onRejected: (error: any) => Promise<never>) => {
+        use: vi.fn((_onFulfilled: (value: unknown) => unknown, onRejected: (error: AxiosLikeError) => Promise<never>) => {
           responseRejected = onRejected;
           return 0;
         }),
@@ -65,7 +68,7 @@ describe('ApiClient', () => {
     const config = await requestFulfilled?.({ headers: {} });
 
     expect(tokenProvider).toHaveBeenCalledOnce();
-    expect(config?.headers.Authorization).toBe('Bearer token-123');
+    expect(config?.headers?.Authorization).toBe('Bearer token-123');
   });
 
   it('triggers the logout handler and normalizes 401 errors in the response interceptor', async () => {

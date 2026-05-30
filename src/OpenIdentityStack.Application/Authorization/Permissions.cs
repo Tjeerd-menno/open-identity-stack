@@ -3,8 +3,9 @@ namespace OpenIdentityStack.Application.Authorization;
 /// <summary>
 /// Defines all admin permissions in the format "resource:operation".
 /// Permissions support wildcards:
-/// - "*" matches all permissions
-/// - "resource:*" matches all operations on a resource
+/// - "*" matches all platform permissions
+/// - "resource:*" matches all operations on a platform resource
+/// - "application:resource:*" matches all operations on a dynamic application resource
 /// </summary>
 public static class Permissions
 {
@@ -158,10 +159,12 @@ public static class Permissions
             return false;
         }
 
-        // Full wildcard matches everything
+        string[] requiredParts = requiredPermission.Split(':');
+
+        // Full wildcard only applies to platform permissions.
         if (grantedPermission == All)
         {
-            return true;
+            return requiredParts.Length == 2;
         }
 
         // Exact match
@@ -170,13 +173,17 @@ public static class Permissions
             return true;
         }
 
-        // Resource wildcard match (e.g., "users:*" matches "users:read")
-        if (grantedPermission.EndsWith(":*", StringComparison.OrdinalIgnoreCase))
+        // Terminal prefix wildcard matches exactly one trailing permission segment.
+        if (grantedPermission.EndsWith(":*", StringComparison.OrdinalIgnoreCase) &&
+            grantedPermission.IndexOf('*', StringComparison.OrdinalIgnoreCase) == grantedPermission.Length - 1)
         {
             string grantedResource = grantedPermission[..^2]; // Remove ":*"
-            string[] requiredParts = requiredPermission.Split(':');
-            if (requiredParts.Length >= 1 && 
-                string.Equals(grantedResource, requiredParts[0], StringComparison.OrdinalIgnoreCase))
+            string[] grantedParts = grantedResource.Split(':');
+            if (requiredParts.Length == grantedParts.Length + 1 &&
+                string.Equals(
+                    grantedResource,
+                    string.Join(':', requiredParts[..grantedParts.Length]),
+                    StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }

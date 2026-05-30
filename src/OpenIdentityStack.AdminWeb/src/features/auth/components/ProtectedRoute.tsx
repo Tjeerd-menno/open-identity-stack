@@ -109,7 +109,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 export const AccessDenied: React.FC = () => {
   const location = useLocation();
   const { logout } = useAuth();
-  const from = (location.state as any)?.from?.pathname;
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
 
   const handleSignOut = useCallback(async () => {
     console.log('[AccessDenied] Sign out button clicked');

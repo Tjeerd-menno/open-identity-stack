@@ -29,6 +29,7 @@ import {
 import { useAssignRole } from '../hooks/useAssignRole';
 import { useRoles } from '../../roles/hooks/useRoles';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import type { RoleListItem } from '@/types';
 
 const assignRoleSchema = z.object({
   roleId: z.string().min(1, 'Role is required'),
@@ -105,7 +106,7 @@ export function AssignRoleDialog({
                           <LoadingSpinner size="sm" />
                         </div>
                       ) : (
-                        rolesData?.items.map((role: any) => (
+                        rolesData?.items.map((role: RoleListItem) => (
                           <SelectItem key={role.id} value={role.id}>
                             {role.displayName}
                           </SelectItem>

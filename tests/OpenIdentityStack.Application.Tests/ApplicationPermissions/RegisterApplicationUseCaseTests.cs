@@ -49,8 +49,8 @@ public sealed class RegisterApplicationUseCaseTests
             new PermissionManifestApplication("patient-api", "Patient API", "1.0.0"),
             "actor-1",
             [
-                new PermissionManifestEntry("read:patients", "Allows reading patient data", "Patients"),
-                new PermissionManifestEntry("write:patients", "Allows modifying patient data", "Patients"),
+                new PermissionManifestEntry("patient:read", "Allows reading patient data", "Patients"),
+                new PermissionManifestEntry("patient:write", "Allows modifying patient data", "Patients"),
             ]);
         this.repository.ExistsByIdentifierAsync("patient-api", Arg.Any<CancellationToken>()).Returns(false);
 
@@ -65,8 +65,8 @@ public sealed class RegisterApplicationUseCaseTests
                 && application.DisplayName == "Patient API"
                 && application.Description == "1.0.0"
                 && application.OwnerId == "actor-1"
-                && application.Permissions[0].FullPermissionKey == "read:patients"
-                && application.Permissions[0].DisplayName == "read:patients"
+                && application.Permissions[0].FullPermissionKey == "patient-api:patient:read"
+                && application.Permissions[0].DisplayName == "patient:read"
                 && application.Permissions[0].Description == "Allows reading patient data"
                 && application.Permissions[0].Category == "Patients"),
             Arg.Any<CancellationToken>());
@@ -132,6 +132,6 @@ public sealed class RegisterApplicationUseCaseTests
             "owner-1",
             ownerType,
             "actor-1",
-            permissions ?? [new RegisterApplicationPermissionInput("read-orders", "Read orders")]);
+            permissions ?? [new RegisterApplicationPermissionInput("order:read", "Read orders")]);
     }
 }

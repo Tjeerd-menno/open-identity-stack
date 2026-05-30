@@ -36,7 +36,7 @@ type UpdateGroupFormData = z.infer<typeof updateGroupSchema>;
 
 interface GroupFormProps {
   group?: Group;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: CreateGroupFormData | UpdateGroupFormData) => Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
 }

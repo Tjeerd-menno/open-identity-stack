@@ -333,6 +333,7 @@ app.MapRolesApi();
 app.MapGroupsApi();
 app.MapSessionsApi();
 app.MapServiceAccountsApi();
+app.MapPermissionsApi();
 app.MapApplicationPermissionsApi();
 app.MapProvidersApi();
 app.MapAuthenticationSettingsApi();
