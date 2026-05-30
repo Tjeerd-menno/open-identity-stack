@@ -63,8 +63,11 @@ export async function applyRemotePermissionManifest(id: string, concurrencyToken
 
 export async function importPermissionManifestFromEndpoint(endpoint: string): Promise<{ id: string }> {
   const request: ImportPermissionManifestRequest = { endpoint };
-  const response = await apiClient.post<{ applicationId: string; applicationIdentifier: string; permissionsRegistered: number }>(`${BASE_PATH}/applications/import`, request);
-  return { id: response.applicationId };
+  const response = await apiClient.post<{ id?: string; applicationId?: string; applicationIdentifier?: string; permissionsRegistered?: number }>(
+    `${BASE_PATH}/applications/import`,
+    request
+  );
+  return { id: response.id ?? response.applicationId ?? '' };
 }
 
 export async function updateRegisteredApplication(id: string, data: UpdateRegisteredApplicationRequest): Promise<RegisteredApplication> {
