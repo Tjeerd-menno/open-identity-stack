@@ -15,6 +15,7 @@ using OpenIdentityStack.Api.Tests.Fixtures;
 using OpenIdentityStack.Testing;
 
 [assembly: AssemblyFixture(typeof(AppHostFixture))]
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace OpenIdentityStack.Api.Tests.Fixtures;
 

@@ -38,7 +38,12 @@ public sealed class ApplicationPermissionsApiTests(AppHostFixture fixture) : IAs
     public async Task ManifestPreviewAndApply_WithOmittedPermission_ReturnsDestructiveResult()
     {
         string applicationIdentifier = $"orders-{Guid.NewGuid():N}"[..20];
-        Guid applicationId = await this.CreateApplicationAsync(applicationIdentifier);
+        await using RemoteManifestFixtureServer server = await RemoteManifestFixtureServer.StartAsync(
+            CreateManifestJson(
+                applicationIdentifier,
+                "1.0.0",
+                [("order:read", "Read orders"), ("order:cancel", "Cancel orders")]));
+        Guid applicationId = await this.ImportApplicationAsync($"{server.BaseUrl}/.well-known/permissions");
 
         object updateRequest = CreateManifestRequest(
             applicationIdentifier,
@@ -217,9 +222,14 @@ public sealed class ApplicationPermissionsApiTests(AppHostFixture fixture) : IAs
         await using RemoteManifestFixtureServer server = await RemoteManifestFixtureServer.StartAsync(
             CreateManifestJson(
                 applicationIdentifier,
-                "2.0.0",
-                [("order:read", "Read orders")]));
-        Guid applicationId = await this.CreateApplicationAsync(applicationIdentifier, server.BaseUrl);
+                "1.0.0",
+                [("order:read", "Read orders"), ("order:cancel", "Cancel orders")]));
+        Guid applicationId = await this.ImportApplicationAsync($"{server.BaseUrl}/.well-known/permissions");
+
+        server.UpdateResponseJson(CreateManifestJson(
+            applicationIdentifier,
+            "2.0.0",
+            [("order:read", "Read orders")]));
 
         HttpResponseMessage previewResponse = await this.SendRequestAsync(
             HttpMethod.Post,
@@ -319,7 +329,7 @@ public sealed class ApplicationPermissionsApiTests(AppHostFixture fixture) : IAs
         json["error"]!.GetValue<string>().ShouldBe("PermissionManifest.EndpointInvalid");
     }
 
-    private async Task<Guid> CreateApplicationAsync(string applicationIdentifier, string? manifestBaseUrl = null)
+    private async Task<Guid> CreateApplicationAsync(string applicationIdentifier)
     {
         HttpResponseMessage response = await this.SendRequestAsync(
             HttpMethod.Post,
@@ -344,8 +354,20 @@ public sealed class ApplicationPermissionsApiTests(AppHostFixture fixture) : IAs
                 },
                 OwnerId = this.actorId.ToString(),
                 OwnerType = "User",
-                ManifestBaseUrl = manifestBaseUrl,
+                ManifestBaseUrl = (string?)null,
             });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        JsonNode json = await ReadJsonAsync(response);
+        return json["id"]!.GetValue<Guid>();
+    }
+
+    private async Task<Guid> ImportApplicationAsync(string endpoint)
+    {
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Post,
+            "/api/admin/application-permissions/applications/import",
+            new { Endpoint = endpoint });
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
         JsonNode json = await ReadJsonAsync(response);
@@ -468,7 +490,7 @@ public sealed class ApplicationPermissionsApiTests(AppHostFixture fixture) : IAs
         private readonly HttpListener listener;
         private readonly CancellationTokenSource cancellationTokenSource = new();
         private readonly Task listenTask;
-        private readonly string responseJson;
+        private string responseJson;
 
         private RemoteManifestFixtureServer(HttpListener listener, string baseUrl, string responseJson)
         {
@@ -479,6 +501,11 @@ public sealed class ApplicationPermissionsApiTests(AppHostFixture fixture) : IAs
         }
 
         public string BaseUrl { get; }
+
+        public void UpdateResponseJson(string updatedResponseJson)
+        {
+            this.responseJson = updatedResponseJson;
+        }
 
         public static Task<RemoteManifestFixtureServer> StartAsync(string responseJson)
         {
