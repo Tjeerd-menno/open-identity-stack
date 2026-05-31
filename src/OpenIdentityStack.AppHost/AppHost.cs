@@ -9,6 +9,10 @@ bool enableAdminWeb = !string.Equals(
     Environment.GetEnvironmentVariable("OPENIDENTITYSTACK_ENABLE_ADMINWEB"),
     "false",
     StringComparison.OrdinalIgnoreCase);
+bool enableManagementWeb = !string.Equals(
+    Environment.GetEnvironmentVariable("OPENIDENTITYSTACK_ENABLE_MANAGEMENTWEB"),
+    "false",
+    StringComparison.OrdinalIgnoreCase);
 
 IResourceBuilder<ParameterResource> defaultAdminPassword = builder.AddParameter("default-admin-password", secret: true);
 IResourceBuilder<ParameterResource> postgresPassword = disableDataVolume
@@ -67,6 +71,34 @@ if (enableAdminWeb)
     else
     {
         adminWeb.WithHttpEndpoint(port: 5175, env: "PORT");
+    }
+
+#pragma warning restore IDE0008
+}
+
+if (enableManagementWeb)
+{
+    // Add the Management Web App (React + Vite + Mantine) as a side-by-side UI.
+    // Use a fixed local port for stable OAuth callback registration, but dynamic
+    // endpoints during test runs to avoid port contention.
+#pragma warning disable IDE0008 // Var improves fluency with Aspire builder APIs.
+    var managementWeb = builder.AddJavaScriptApp("managementweb", "../OpenIdentityStack.ManagementWeb")
+        .WithReference(api)
+        .WithExternalHttpEndpoints()
+        .WithEnvironment("VITE_OIDC_AUTHORITY", api.GetEndpoint("http"))
+        .WithEnvironment("VITE_API_BASE_URL", api.GetEndpoint("http"))
+        .WithEnvironment("VITE_OIDC_CLIENT_ID", "management-web-client")
+        .PublishAsDockerFile();
+
+    if (disableDataVolume)
+    {
+        managementWeb
+            .WithHttpEndpoint(env: "PORT")
+            .WithEnvironment("VITE_E2E_TEST_MODE", "true");
+    }
+    else
+    {
+        managementWeb.WithHttpEndpoint(port: 5176, env: "PORT");
     }
 
 #pragma warning restore IDE0008

@@ -1,13 +1,15 @@
 /**
  * UpstreamIdentitiesList Component
  * 
- * Displays list of upstream identities (federated logins) linked to a user
+ * Displays list of upstream identities (federated logins) linked to a user.
+ * Unlinking requires 'users:write' permission.
  */
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useUpstreamIdentities } from '../hooks/useUpstreamIdentities';
 import { useUnlinkIdentity } from '../hooks/useUnlinkIdentity';
+import { usePermission } from '@/features/auth/hooks/useAuth';
 import { X, Plus, ExternalLink } from 'lucide-react';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
@@ -16,6 +18,7 @@ interface UpstreamIdentitiesListProps {
 }
 
 export function UpstreamIdentitiesList({ userId }: UpstreamIdentitiesListProps) {
+  const hasUsersWrite = usePermission('users:write');
   const { data: identities, isLoading } = useUpstreamIdentities(userId);
   const unlinkIdentity = useUnlinkIdentity();
   const [, setShowLinkDialog] = useState(false);
@@ -40,13 +43,15 @@ export function UpstreamIdentitiesList({ userId }: UpstreamIdentitiesListProps) 
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Linked Accounts</h3>
-        <Button 
-          onClick={() => setShowLinkDialog(true)}
-          size="sm"
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Link Account
-        </Button>
+        {hasUsersWrite && (
+          <Button 
+            onClick={() => setShowLinkDialog(true)}
+            size="sm"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Link Account
+          </Button>
+        )}
       </div>
 
       {!identities || identities.length === 0 ? (
@@ -74,14 +79,16 @@ export function UpstreamIdentitiesList({ userId }: UpstreamIdentitiesListProps) 
                   }
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleUnlink(identity.providerId)}
-                aria-label={`Unlink ${identity.providerName}`}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              {hasUsersWrite && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleUnlink(identity.providerId)}
+                  aria-label={`Unlink ${identity.providerName}`}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           ))}
         </div>

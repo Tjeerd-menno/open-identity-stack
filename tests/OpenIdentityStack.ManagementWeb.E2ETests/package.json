@@ -1,0 +1,12 @@
+{
+  "name": "openidentitystack.managementweb.e2etests",
+  "version": "1.0.0",
+  "description": "Playwright E2E tests for the Management Web UI",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
+}

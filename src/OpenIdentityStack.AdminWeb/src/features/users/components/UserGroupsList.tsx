@@ -1,10 +1,12 @@
 /**
  * UserGroupsList Component
  * 
- * Displays list of groups a user belongs to
+ * Displays list of groups a user belongs to.
+ * Requires 'groups:read' permission to view groups.
  */
 
 import { useUserGroups } from '../hooks/useUserGroups';
+import { usePermission } from '@/features/auth/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
@@ -13,7 +15,19 @@ interface UserGroupsListProps {
 }
 
 export function UserGroupsList({ userId }: UserGroupsListProps) {
+  const hasGroupsRead = usePermission('groups:read');
   const { data: groups, isLoading } = useUserGroups(userId);
+
+  if (!hasGroupsRead) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Groups</h3>
+        <p className="text-sm text-muted-foreground">
+          You do not have permission to view groups for this user.
+        </p>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return <LoadingSpinner />;

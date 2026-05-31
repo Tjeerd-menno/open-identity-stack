@@ -57,5 +57,5 @@ Before opening a PR, sanity-check the changes against the repo's recurring failu
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/006-unify-applications-model/plan.md`
+`specs/007-management-web/plan.md`
 <!-- SPECKIT END -->
