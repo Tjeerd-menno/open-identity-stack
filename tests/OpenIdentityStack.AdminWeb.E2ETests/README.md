@@ -9,6 +9,7 @@ This project contains browser-based E2E tests that verify the Admin Web App func
 ### 📋 Documentation
 - **[E2E Test Plan](E2E_TEST_PLAN.md)** - Comprehensive test plan with detailed test cases
 - **[Extension Summary](E2E_TEST_EXTENSION_SUMMARY.md)** - Executive summary and implementation roadmap
+- **[Playwright Patterns](PLAYWRIGHT_PATTERNS.md)** - Stable selector and wait patterns for AdminWeb
 - **[Test Helpers](Helpers/)** - Reusable utilities for test development
 
 ## Test Infrastructure
@@ -124,6 +125,8 @@ public class MyFeatureTests : IClassFixture<AdminWebAppHostFixture>, IAsyncLifet
 7. Use descriptive test names that explain the scenario
 8. Take screenshots on failure for debugging
 9. Clean up test data after tests complete
+10. Prefer condition-based waits over `WaitForTimeoutAsync`
+11. Treat Radix controls as role-based widgets, not native inputs
 
 ### Available Test Helpers
 - **TestHelpers.LoginAsTestAdminAsync()** - Login as the test admin user
