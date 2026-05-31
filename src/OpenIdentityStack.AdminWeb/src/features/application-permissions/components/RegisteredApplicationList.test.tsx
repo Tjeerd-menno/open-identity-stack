@@ -76,4 +76,33 @@ describe('RegisteredApplicationList', () => {
     expect(screen.getByText('admin@localhost.dev')).toBeInTheDocument();
     expect(screen.queryByText(ownerId)).not.toBeInTheDocument();
   });
+
+  it('does not query the owner as a group when the user lookup succeeds', () => {
+    renderList();
+
+    expect(principalHooks.useUser).toHaveBeenCalledWith(ownerId);
+    expect(principalHooks.useGroup).toHaveBeenCalledWith('');
+  });
+
+  it('falls back to the group lookup when the owner is not a user', () => {
+    principalHooks.useUser.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    });
+    principalHooks.useGroup.mockReturnValue({
+      data: {
+        id: ownerId,
+        name: 'Security Admins',
+        description: 'Application owners',
+      },
+      isLoading: false,
+    });
+
+    renderList();
+
+    expect(principalHooks.useGroup).toHaveBeenCalledWith(ownerId);
+    expect(screen.getByText('Security Admins')).toBeInTheDocument();
+    expect(screen.getByText('Application owners')).toBeInTheDocument();
+  });
 });

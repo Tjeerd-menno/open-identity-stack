@@ -274,6 +274,25 @@ public sealed class RolesEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
     }
 
     [Fact]
+    public async Task UpdateRole_WithDisplayName_PersistsDisplayName()
+    {
+        Guid roleId = await this.CreateRoleAsync();
+
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Put,
+            $"/api/admin/roles/{roleId}",
+            new
+            {
+                DisplayName = "Updated Role Name",
+                Description = "Updated"
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
+        json?["displayName"]?.GetValue<string>().ShouldBe("Updated Role Name");
+    }
+
+    [Fact]
     public async Task UpdateRole_WithApplicationPermission_PersistsAssignedPermission()
     {
         Guid roleId = await this.CreateRoleAsync();
