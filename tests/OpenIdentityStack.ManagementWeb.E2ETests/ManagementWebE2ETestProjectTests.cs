@@ -49,25 +49,7 @@ public class ManagementWebE2ETestProjectTests
             string testProjectDirectory = Path.Combine(directory.FullName, "tests", "OpenIdentityStack.ManagementWeb.E2ETests");
             Directory.Exists(testProjectDirectory).ShouldBeTrue();
 
-            // Install npm dependencies (required for Playwright)
-            ProcessStartInfo npmInstallInfo = new()
-            {
-                FileName = "npm",
-                Arguments = "install",
-                WorkingDirectory = testProjectDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using (var npmProcess = System.Diagnostics.Process.Start(npmInstallInfo))
-            {
-                npmProcess.ShouldNotBeNull();
-                await npmProcess.StandardOutput.ReadToEndAsync();
-                npmProcess.WaitForExit();
-                npmProcess.ExitCode.ShouldBe(0, "npm install failed");
-            }
+            await EnsurePlaywrightDependenciesAsync(testProjectDirectory);
 
             // Set environment variables for Playwright config to discover running Management Web instance
             string originalManagementWebUrl = Environment.GetEnvironmentVariable("MANAGEMENT_WEB_BASE_URL") ?? string.Empty;
@@ -96,14 +78,16 @@ public class ManagementWebE2ETestProjectTests
                 // Run npx playwright test from the test project directory
                 ProcessStartInfo processInfo = new()
                 {
-                    FileName = "npx",
-                    Arguments = "playwright test",
+                    FileName = GetPlaywrightCommand(testProjectDirectory),
+                    Arguments = "test",
                     WorkingDirectory = testProjectDirectory,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
+                processInfo.Environment["MANAGEMENT_WEB_BASE_URL"] = fixture.ManagementWebUrl.TrimEnd('/');
+                processInfo.Environment["ADMIN_WEB_BASE_URL"] = adminWebUrl;
 
                 using var process = System.Diagnostics.Process.Start(processInfo);
                 process.ShouldNotBeNull();
@@ -147,5 +131,51 @@ public class ManagementWebE2ETestProjectTests
         {
             await fixture.DisposeAsync();
         }
+    }
+
+    private static string ResolveNodeCommand(string command)
+    {
+        return OperatingSystem.IsWindows() ? $"{command}.cmd" : command;
+    }
+
+    private static async Task EnsurePlaywrightDependenciesAsync(string testProjectDirectory)
+    {
+        if (File.Exists(GetPlaywrightCommand(testProjectDirectory)))
+        {
+            return;
+        }
+
+        ProcessStartInfo npmInstallInfo = new()
+        {
+            FileName = ResolveNodeCommand("npm"),
+            Arguments = "ci",
+            WorkingDirectory = testProjectDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var npmProcess = System.Diagnostics.Process.Start(npmInstallInfo);
+        npmProcess.ShouldNotBeNull();
+        string standardOutput = await npmProcess.StandardOutput.ReadToEndAsync();
+        string standardError = await npmProcess.StandardError.ReadToEndAsync();
+        await npmProcess.WaitForExitAsync();
+
+        npmProcess.ExitCode.ShouldBe(0, $"""
+            npm ci failed.
+
+            STDOUT:
+            {standardOutput}
+
+            STDERR:
+            {standardError}
+            """);
+    }
+
+    private static string GetPlaywrightCommand(string testProjectDirectory)
+    {
+        string binDirectory = Path.Combine(testProjectDirectory, "node_modules", ".bin");
+        return Path.Combine(binDirectory, OperatingSystem.IsWindows() ? "playwright.cmd" : "playwright");
     }
 }

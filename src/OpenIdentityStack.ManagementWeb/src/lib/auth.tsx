@@ -16,7 +16,9 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const isE2ETestMode = __E2E_TEST_MODE__;
+function isE2ETestMode(): boolean {
+  return __E2E_TEST_MODE__ || (import.meta.env.DEV && globalThis.window?.__OIS_E2E_AUTH__ === true);
+}
 
 function getOidcAuthority(): string {
   return import.meta.env.VITE_OIDC_AUTHORITY ?? 'http://localhost:5000';
@@ -53,7 +55,7 @@ type AuthProviderProps = {
 };
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  return isE2ETestMode ? <MockAuthProvider>{children}</MockAuthProvider> : <OidcAuthProvider>{children}</OidcAuthProvider>;
+  return isE2ETestMode() ? <MockAuthProvider>{children}</MockAuthProvider> : <OidcAuthProvider>{children}</OidcAuthProvider>;
 }
 
 function MockAuthProvider({ children }: AuthProviderProps) {

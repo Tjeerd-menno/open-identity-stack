@@ -23,6 +23,12 @@ const mockRole = {
   isActive: true,
 };
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__OIS_E2E_AUTH__ = true;
+  });
+});
+
 async function setupApiMocks(page: Page) {
   await page.route(/\/api\/admin\//, async (route) => {
     const url = new URL(route.request().url());

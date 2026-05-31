@@ -20,6 +20,12 @@ const mockUser = {
   profile: {},
 };
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__OIS_E2E_AUTH__ = true;
+  });
+});
+
 async function setupApiMocks(page: Page) {
   await page.route(/\/api\/admin\//, async (route) => {
     const url = new URL(route.request().url());
@@ -58,7 +64,7 @@ test('AdminWeb and Management Web remain independently reachable during dual UI 
   await setupApiMocks(page);
 
   await page.goto(managementWebUrl);
-  await expect(page.getByText(/Management Web/i)).toBeVisible();
+  await expect(page.getByText('Management Web', { exact: true })).toBeVisible();
 
   // Navigate away to simulate the user switching between UIs
   await page.goto('about:blank');
