@@ -3,10 +3,31 @@ import { useNavigate } from 'react-router-dom';
 import { DataTable, type Column } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useGroup } from '@/features/groups/hooks/useGroup';
+import { useUser } from '@/features/users/hooks/useUser';
 import { ApplicationPermissionStatusBadge } from './ApplicationPermissionStatusBadge';
 import { useRegisteredApplications } from '../hooks';
 import type { RegisteredApplicationListItem } from '@/types';
 import { Eye, Plus } from 'lucide-react';
+
+function OwnerCell({ ownerId }: { ownerId: string }) {
+  const { data: user, isLoading: userLoading, isError: userError } = useUser(ownerId);
+  const groupEnabled = !userLoading && (userError || !user);
+  const { data: group, isLoading: groupLoading } = useGroup(groupEnabled ? ownerId : '');
+  const label = user?.displayName || user?.email || group?.name;
+  const detail = user?.email || group?.description;
+
+  if (!label && (userLoading || groupLoading)) {
+    return <span className="text-muted-foreground">Loading owner...</span>;
+  }
+
+  return (
+    <div className="min-w-0">
+      <div className="truncate font-medium">{label ?? 'Unknown owner'}</div>
+      {detail ? <div className="truncate text-xs text-muted-foreground">{detail}</div> : null}
+    </div>
+  );
+}
 
 export function RegisteredApplicationList() {
   const navigate = useNavigate();
@@ -16,9 +37,12 @@ export function RegisteredApplicationList() {
   const { data, isLoading } = useRegisteredApplications({ page, pageSize, search });
 
   const columns: Column<RegisteredApplicationListItem>[] = [
-    { header: 'Service', accessorKey: 'applicationIdentifier' },
+    { header: 'Application', accessorKey: 'applicationIdentifier' },
     { header: 'Display Name', accessorKey: 'displayName' },
-    { header: 'Owner', accessorKey: 'ownerId' },
+    {
+      header: 'Owner',
+      cell: ({ row }) => <OwnerCell ownerId={row.ownerId} />,
+    },
     { header: 'Permissions', accessorKey: 'permissionCount' },
     {
       header: 'Status',

@@ -34,7 +34,8 @@ public sealed record RemoteImportRequest(uint? ConcurrencyToken);
 public sealed record UpdateRegisteredApplicationRequest(
     string DisplayName,
     string? Description,
-    uint? ConcurrencyToken);
+    uint? ConcurrencyToken,
+    string? ManifestBaseUrl = null);
 
 public sealed record AddApplicationPermissionRequest(
     string PermissionKey,

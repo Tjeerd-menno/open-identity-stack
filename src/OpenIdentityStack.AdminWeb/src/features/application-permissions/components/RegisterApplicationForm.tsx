@@ -32,7 +32,6 @@ export function RegisterApplicationForm({
   const [applicationVersion, setApplicationVersion] = useState('');
   const [ownerId, setOwnerId] = useState('');
   const [ownerType, setOwnerType] = useState<'user' | 'group'>('user');
-  const [manifestBaseUrl, setManifestBaseUrl] = useState('');
   const [endpoint, setEndpoint] = useState('');
   const [permissions, setPermissions] = useState<PermissionManifestPermission[]>([{ ...emptyPermission }]);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -70,7 +69,7 @@ export function RegisterApplicationForm({
       },
       ownerId,
       ownerType,
-      manifestBaseUrl: manifestBaseUrl || null,
+      manifestBaseUrl: null,
     });
   };
 
@@ -137,10 +136,6 @@ export function RegisterApplicationForm({
                 <option value="user">User</option>
                 <option value="group">Group</option>
               </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="manifestBaseUrl">Manifest Base URL</Label>
-              <Input id="manifestBaseUrl" value={manifestBaseUrl} onChange={(event) => setManifestBaseUrl(event.target.value)} placeholder="https://patient.example/api" type="url" />
             </div>
           </div>
         </section>

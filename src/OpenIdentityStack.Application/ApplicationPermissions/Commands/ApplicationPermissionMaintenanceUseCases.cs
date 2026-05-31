@@ -1,5 +1,6 @@
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.ApplicationPermissions.Dtos;
+using OpenIdentityStack.Application.ApplicationPermissions.Validators;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Domain.ApplicationPermissions;
 
@@ -91,6 +92,14 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
     IListApplicationPermissionHistoryQueryHandler,
     IListApplicationPermissionDiagnosticsQueryHandler
 {
+    public static readonly DomainError ManifestBackedApplicationReadOnly = DomainError.Conflict(
+        "RegisteredApplication.ManifestBackedApplicationReadOnly",
+        "Imported applications are managed by their permission manifest and cannot be edited manually.");
+
+    public static readonly DomainError ManualApplicationCannotBeManifestBacked = DomainError.Validation(
+        "RegisteredApplication.ManualApplicationCannotBeManifestBacked",
+        "Manually registered applications cannot be backed by a permission manifest.");
+
     private readonly IApplicationPermissionRegistryRepository repository;
     private readonly IApplicationPermissionAuthorizationService authorizationService;
     private readonly IRolePermissionDependencyReader dependencyReader;
@@ -122,13 +131,78 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
 
     public async Task<Result<RegisteredApplicationDto>> ExecuteAsync(UpdateRegisteredApplicationCommand command, CancellationToken cancellationToken = default)
     {
-        return await this.UpdateApplicationAsync(
-            command.ApplicationId,
-            command.ActorId,
-            command.ExpectedConcurrencyToken,
-            "UpdateApplication",
-            application => application.UpdateMetadata(command.DisplayName, command.Description, command.ActorId, this.dateTimeProvider),
-            cancellationToken).ConfigureAwait(false);
+        RegisteredApplication? application = await this.repository.GetByIdAsync(new RegisteredApplicationId(command.ApplicationId), cancellationToken).ConfigureAwait(false);
+        if (application is null)
+        {
+            return DomainError.NotFound("RegisteredApplication.NotFound", $"Application '{command.ApplicationId}' not found.");
+        }
+
+        if (!await this.authorizationService.CanManageApplicationAsync(command.ActorId, application, cancellationToken).ConfigureAwait(false))
+        {
+            await this.auditWriter.WriteAsync("UpdateApplication", command.ActorId, application.Id.Value.ToString(), "Denied", cancellationToken).ConfigureAwait(false);
+            return DomainError.Forbidden("ApplicationPermission.Forbidden", "Actor cannot manage this registered application.");
+        }
+
+        if (command.ExpectedConcurrencyToken.HasValue && application.ConcurrencyToken != command.ExpectedConcurrencyToken.Value)
+        {
+            return DomainError.Conflict("ApplicationPermission.ConcurrencyConflict", "The registered application was modified by another request.");
+        }
+
+        bool isManifestBacked = !string.IsNullOrWhiteSpace(application.ManifestBaseUrl);
+        if (!isManifestBacked)
+        {
+            if (!string.IsNullOrWhiteSpace(command.ManifestBaseUrl))
+            {
+                await this.auditWriter.WriteAsync("UpdateApplication", command.ActorId, application.Id.Value.ToString(), ManualApplicationCannotBeManifestBacked.Code, cancellationToken).ConfigureAwait(false);
+                return ManualApplicationCannotBeManifestBacked;
+            }
+
+            Result updateResult = application.UpdateMetadata(command.DisplayName, command.Description, command.ActorId, this.dateTimeProvider);
+            if (updateResult.IsFailure)
+            {
+                await this.auditWriter.WriteAsync("UpdateApplication", command.ActorId, application.Id.Value.ToString(), updateResult.Error.Code, cancellationToken).ConfigureAwait(false);
+                return updateResult.Error;
+            }
+
+            await this.repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await this.auditWriter.WriteAsync("UpdateApplication", command.ActorId, application.Id.Value.ToString(), "Succeeded", cancellationToken).ConfigureAwait(false);
+            return MapToDto(application);
+        }
+
+        if (ApplicationMetadataChanged(application, command))
+        {
+            await this.auditWriter.WriteAsync("UpdateApplication", command.ActorId, application.Id.Value.ToString(), ManifestBackedApplicationReadOnly.Code, cancellationToken).ConfigureAwait(false);
+            return ManifestBackedApplicationReadOnly;
+        }
+
+        string? normalizedManifestBaseUrl = NormalizeManifestBaseUrl(command.ManifestBaseUrl);
+        if (string.IsNullOrWhiteSpace(normalizedManifestBaseUrl))
+        {
+            return DomainError.Validation("RegisteredApplication.ManifestBaseUrlRequired", "Manifest base URL is required.");
+        }
+
+        Result urlValidation = ValidateManifestBaseUrl(normalizedManifestBaseUrl);
+        if (urlValidation.IsFailure)
+        {
+            return urlValidation.Error;
+        }
+
+        if (!string.Equals(application.ManifestBaseUrl, normalizedManifestBaseUrl, StringComparison.OrdinalIgnoreCase)
+            && await this.repository.ExistsByManifestBaseUrlAsync(normalizedManifestBaseUrl, cancellationToken).ConfigureAwait(false))
+        {
+            return DomainError.Conflict("PermissionManifest.ManifestBaseUrlConflict", "Manifest base URL is already trusted by another registered application.");
+        }
+
+        Result manifestUrlUpdate = application.UpdateManifestBaseUrl(normalizedManifestBaseUrl, command.ActorId, this.dateTimeProvider);
+        if (manifestUrlUpdate.IsFailure)
+        {
+            await this.auditWriter.WriteAsync("UpdateApplication", command.ActorId, application.Id.Value.ToString(), manifestUrlUpdate.Error.Code, cancellationToken).ConfigureAwait(false);
+            return manifestUrlUpdate.Error;
+        }
+
+        await this.repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await this.auditWriter.WriteAsync("UpdateApplication", command.ActorId, application.Id.Value.ToString(), "Succeeded", cancellationToken).ConfigureAwait(false);
+        return MapToDto(application);
     }
 
     public async Task<Result<RegisteredApplicationDto>> ExecuteAsync(AddApplicationPermissionCommand command, CancellationToken cancellationToken = default)
@@ -242,6 +316,12 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
         if (command.ExpectedConcurrencyToken.HasValue && application.ConcurrencyToken != command.ExpectedConcurrencyToken.Value)
         {
             return DomainError.Conflict("ApplicationPermission.ConcurrencyConflict", "The registered application was modified by another request.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(application.ManifestBaseUrl))
+        {
+            await this.auditWriter.WriteAsync("DeletePermission", command.ActorId, application.Id.Value.ToString(), ManifestBackedApplicationReadOnly.Code, cancellationToken).ConfigureAwait(false);
+            return ManifestBackedApplicationReadOnly;
         }
 
         var remaining = application.Permissions.Where(candidate => !candidate.IsRemoved && candidate.Id != permission.Id).ToList();
@@ -463,6 +543,12 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
             return DomainError.Conflict("ApplicationPermission.ConcurrencyConflict", "The registered application was modified by another request.");
         }
 
+        if (!string.IsNullOrWhiteSpace(application.ManifestBaseUrl))
+        {
+            await this.auditWriter.WriteAsync("UpdatePermissionReplacement", command.ActorId, application.Id.Value.ToString(), ManifestBackedApplicationReadOnly.Code, cancellationToken).ConfigureAwait(false);
+            return ManifestBackedApplicationReadOnly;
+        }
+
         if (!await this.ReplacementExistsAsync(command.ReplacementFullPermissionKey, cancellationToken).ConfigureAwait(false))
         {
             return DomainError.Validation("ApplicationPermission.ReplacementNotFound", "Replacement guidance must point to a current platform or application permission.");
@@ -520,6 +606,12 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
             return DomainError.Conflict("ApplicationPermission.ConcurrencyConflict", "The registered application was modified by another request.");
         }
 
+        if (!string.IsNullOrWhiteSpace(application.ManifestBaseUrl))
+        {
+            await this.auditWriter.WriteAsync(action, actorId, application.Id.Value.ToString(), ManifestBackedApplicationReadOnly.Code, cancellationToken).ConfigureAwait(false);
+            return ManifestBackedApplicationReadOnly;
+        }
+
         Result mutationResult = mutate(application);
         if (mutationResult.IsFailure)
         {
@@ -550,6 +642,32 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
 
         ApplicationPermission? permission = await this.repository.GetPermissionByFullKeyAsync(normalized, cancellationToken).ConfigureAwait(false);
         return permission is { IsRemoved: false };
+    }
+
+    private static bool ApplicationMetadataChanged(RegisteredApplication application, UpdateRegisteredApplicationCommand command)
+    {
+        return !string.Equals(application.DisplayName, command.DisplayName.Trim(), StringComparison.Ordinal)
+            || !string.Equals(application.Description ?? string.Empty, command.Description?.Trim() ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    private static Result ValidateManifestBaseUrl(string manifestBaseUrl)
+    {
+        if (!Uri.TryCreate(manifestBaseUrl, UriKind.Absolute, out Uri? uri)
+            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
+            || !string.IsNullOrEmpty(uri.Query)
+            || !string.IsNullOrEmpty(uri.Fragment))
+        {
+            return ApplicationPermissionManifestValidator.ManifestBaseUrlInvalid;
+        }
+
+        return Result.Success();
+    }
+
+    private static string? NormalizeManifestBaseUrl(string? manifestBaseUrl)
+    {
+        return string.IsNullOrWhiteSpace(manifestBaseUrl)
+            ? null
+            : manifestBaseUrl.Trim().TrimEnd('/');
     }
 
     private async Task<Result> RequireRegistryAdminAsync(

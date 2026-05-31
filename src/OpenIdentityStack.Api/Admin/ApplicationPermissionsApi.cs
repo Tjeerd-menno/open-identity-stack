@@ -329,7 +329,21 @@ internal static class ApplicationPermissionsApi
         }
 
         var createRequest = new CreatePermissionManifestRequest(manifest, GetActorId(context), OwnerType.User.ToString(), endpoint!.GetLeftPart(UriPartial.Authority));
-        return await RegisterApplicationManifest(manifestUseCases, context, createRequest, cancellationToken).ConfigureAwait(false);
+        var command = new CreateApplicationPermissionManifestCommand(
+            ToManifestDocument(createRequest.Manifest),
+            createRequest.OwnerId,
+            OwnerType.User,
+            createRequest.ManifestBaseUrl,
+            GetActorId(context),
+            IsImported: true);
+
+        Result<RegisteredApplicationDto> result = await manifestUseCases.CreateAsync(command, cancellationToken);
+        if (result.IsFailure)
+        {
+            return ToErrorResult(result.Error);
+        }
+
+        return TypedResults.Created($"/api/admin/application-permissions/applications/{result.Value.Id}", result.Value);
     }
 
     private static PermissionManifestDocument ToManifestDocument(PermissionManifestRequest request)
@@ -394,7 +408,7 @@ internal static class ApplicationPermissionsApi
         CancellationToken cancellationToken)
     {
         Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new UpdateRegisteredApplicationCommand(id, request.DisplayName, request.Description, GetActorId(context), request.ConcurrencyToken),
+            new UpdateRegisteredApplicationCommand(id, request.DisplayName, request.Description, GetActorId(context), request.ConcurrencyToken, request.ManifestBaseUrl),
             cancellationToken);
         return ToResult(result);
     }

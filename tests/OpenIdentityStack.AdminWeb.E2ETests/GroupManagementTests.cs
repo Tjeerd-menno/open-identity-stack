@@ -132,8 +132,9 @@ public class GroupManagementTests : IAsyncLifetime
         ILocator saveButton = page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Save|Create", RegexOptions.IgnoreCase) });
         await saveButton.ClickAsync();
         
-        // Wait for navigation to detail page or list page
-        await page.WaitForLoadStateAsync(LoadState.NetworkIdle, new() { Timeout = 10000 });
+        // Wait for successful creation - should redirect to detail page /groups/{guid}
+        await page.WaitForURLAsync(new Regex(@"/groups/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"), new PageWaitForURLOptions { Timeout = 30000, WaitUntil = WaitUntilState.Commit });
+        await TestHelpers.WaitForDetailPageAsync(page!, expectedHeadingText: groupData["Group Name"]);
         
         // Assert - Verify group was created by navigating back to list and finding it
         await TestHelpers.NavigateToFeatureAsync(page!, "Groups");

@@ -43,10 +43,27 @@ public sealed record CreateRoleRequest
 public sealed record UpdateRoleRequest
 {
     /// <summary>
+    /// Gets or sets the display name of the role. If not provided, the display name is left unchanged.
+    /// </summary>
+    [StringLength(100)]
+    public string? DisplayName { get; init; }
+
+    /// <summary>
     /// Gets or sets the description of the role.
     /// </summary>
     [StringLength(500)]
     public string? Description { get; init; }
+
+    /// <summary>
+    /// Gets or sets the permissions to assign to the role.
+    /// When omitted, existing permissions are left unchanged.
+    /// </summary>
+    public IReadOnlyList<string>? Permissions { get; init; }
+
+    /// <summary>
+    /// Gets or sets whether the caller acknowledged broad wildcard grants.
+    /// </summary>
+    public bool AcknowledgeWildcardGrant { get; init; }
 }
 
 /// <summary>

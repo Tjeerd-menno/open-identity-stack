@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using OpenIdentityStack.Api.Tests.Fixtures;
+using OpenIdentityStack.Domain.ApplicationPermissions;
+using OpenIdentityStack.Domain.Common;
 
 using SharedKernel;
 namespace OpenIdentityStack.Api.Tests.Admin;
@@ -83,6 +85,31 @@ public sealed class RolesEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
         JsonNode? json = await response.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonNode>();
         return json?["id"]?.GetValue<Guid>() ?? throw new InvalidOperationException("Role ID not returned.");
+    }
+
+    private async Task<string> CreateApplicationPermissionAsync()
+    {
+        string applicationIdentifier = $"role-app-{Guid.NewGuid():N}";
+        const string permissionKey = "items:read";
+
+        await this._fixture.ExecuteDbContextAsync(async dbContext =>
+        {
+            Result<RegisteredApplication> applicationResult = RegisteredApplication.Register(
+                applicationIdentifier,
+                "Role Permission App",
+                "Application permissions for role tests",
+                "owner-1",
+                OwnerType.User,
+                [(permissionKey, "Read items", "Read inventory items", "Items")],
+                "test",
+                new TestDateTimeProvider());
+
+            applicationResult.IsSuccess.ShouldBeTrue();
+            dbContext.RegisteredApplications.Add(applicationResult.Value);
+            await dbContext.SaveChangesAsync();
+        });
+
+        return $"{applicationIdentifier}:{permissionKey}";
     }
 
     #region List Roles
@@ -244,6 +271,45 @@ public sealed class RolesEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateRole_WithDisplayName_PersistsDisplayName()
+    {
+        Guid roleId = await this.CreateRoleAsync();
+
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Put,
+            $"/api/admin/roles/{roleId}",
+            new
+            {
+                DisplayName = "Updated Role Name",
+                Description = "Updated"
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
+        json?["displayName"]?.GetValue<string>().ShouldBe("Updated Role Name");
+    }
+
+    [Fact]
+    public async Task UpdateRole_WithApplicationPermission_PersistsAssignedPermission()
+    {
+        Guid roleId = await this.CreateRoleAsync();
+        string applicationPermission = await this.CreateApplicationPermissionAsync();
+
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Put,
+            $"/api/admin/roles/{roleId}",
+            new
+            {
+                Description = "Updated with application permissions",
+                Permissions = new[] { applicationPermission }
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();
+        json?["permissions"]?.AsArray().Select(p => p?.GetValue<string>()).ShouldContain(applicationPermission);
     }
 
     #endregion
@@ -464,4 +530,11 @@ public sealed class RolesEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
     }
 
     #endregion
+
+    private sealed class TestDateTimeProvider : IDateTimeProvider
+    {
+        public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
+
+        public DateTimeOffset Now => DateTimeOffset.Now;
+    }
 }

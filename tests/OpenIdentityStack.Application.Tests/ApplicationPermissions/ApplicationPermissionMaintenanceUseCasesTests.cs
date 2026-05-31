@@ -123,9 +123,9 @@ public sealed class ApplicationPermissionMaintenanceUseCasesTests
         // Arrange
         var command = new UpdateRegisteredApplicationCommand(
             Guid.NewGuid(),
-            "actor-123",
             "Updated Application",
             "Updated description",
+            "actor-123",
             1);
 
         RegisteredApplication application = CreateTestApplication();
@@ -138,6 +138,91 @@ public sealed class ApplicationPermissionMaintenanceUseCasesTests
         // Assert
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldContain("Forbidden");
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AddApplicationPermission_WithManifestBackedApplication_ReturnsReadOnlyConflict()
+    {
+        RegisteredApplication application = CreateTestApplication(manifestBaseUrl: "https://orders.example.com/api");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.authorizationService.CanManageApplicationAsync("owner-123", application, Arg.Any<CancellationToken>()).Returns(true);
+
+        Result<RegisteredApplicationDto> result = await this.useCases.ExecuteAsync(new AddApplicationPermissionCommand(
+            application.Id.Value,
+            "resource:write",
+            "Write resource",
+            null,
+            null,
+            "owner-123",
+            application.ConcurrencyToken));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.RegisteredApplication.ManifestBackedApplicationReadOnly");
+        application.Permissions.Select(permission => permission.PermissionKey).ShouldBe(["resource:read"]);
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateRegisteredApplication_WithManifestBackedApplication_AllowsManifestBaseUrlOnly()
+    {
+        RegisteredApplication application = CreateTestApplication(manifestBaseUrl: "https://orders.example.com/api");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.authorizationService.CanManageApplicationAsync("owner-123", application, Arg.Any<CancellationToken>()).Returns(true);
+
+        Result<RegisteredApplicationDto> result = await this.useCases.ExecuteAsync(new UpdateRegisteredApplicationCommand(
+            application.Id.Value,
+            application.DisplayName,
+            application.Description,
+            "owner-123",
+            application.ConcurrencyToken,
+            "https://permissions.example.com/root/"));
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ManifestBaseUrl.ShouldBe("https://permissions.example.com/root");
+        application.ManifestBaseUrl.ShouldBe("https://permissions.example.com/root");
+        await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateRegisteredApplication_WithManifestBackedApplicationAndMetadataChange_ReturnsReadOnlyConflict()
+    {
+        RegisteredApplication application = CreateTestApplication(manifestBaseUrl: "https://orders.example.com/api");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.authorizationService.CanManageApplicationAsync("owner-123", application, Arg.Any<CancellationToken>()).Returns(true);
+
+        Result<RegisteredApplicationDto> result = await this.useCases.ExecuteAsync(new UpdateRegisteredApplicationCommand(
+            application.Id.Value,
+            "Renamed Application",
+            application.Description,
+            "owner-123",
+            application.ConcurrencyToken,
+            application.ManifestBaseUrl));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.RegisteredApplication.ManifestBackedApplicationReadOnly");
+        application.DisplayName.ShouldBe("Test Application");
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateRegisteredApplication_WithManualApplicationAndManifestBaseUrl_ReturnsValidationError()
+    {
+        RegisteredApplication application = CreateTestApplication();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.authorizationService.CanManageApplicationAsync("owner-123", application, Arg.Any<CancellationToken>()).Returns(true);
+
+        Result<RegisteredApplicationDto> result = await this.useCases.ExecuteAsync(new UpdateRegisteredApplicationCommand(
+            application.Id.Value,
+            application.DisplayName,
+            application.Description,
+            "owner-123",
+            application.ConcurrencyToken,
+            "https://orders.example.com/api"));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.RegisteredApplication.ManualApplicationCannotBeManifestBacked");
+        application.ManifestBaseUrl.ShouldBeNull();
         await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -232,7 +317,7 @@ public sealed class ApplicationPermissionMaintenanceUseCasesTests
         await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
-    private static RegisteredApplication CreateTestApplication()
+    private static RegisteredApplication CreateTestApplication(string? manifestBaseUrl = null)
     {
         var permissions = new List<(string Key, string DisplayName, string? Description, string? Category)>
         {
@@ -247,7 +332,8 @@ public sealed class ApplicationPermissionMaintenanceUseCasesTests
             OwnerType.User,
             permissions,
             "creator-123",
-            new TestDateTimeProvider());
+            new TestDateTimeProvider(),
+            manifestBaseUrl: manifestBaseUrl);
 
         return result.Value;
     }

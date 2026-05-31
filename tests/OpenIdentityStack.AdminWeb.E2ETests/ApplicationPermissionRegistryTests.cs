@@ -45,7 +45,7 @@ public sealed class ApplicationPermissionRegistryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task InlineManifestFlow_ShouldCreateViewUpdateAndRejectSameVersion()
+    public async Task ManualApplicationFlow_ShouldCreateViewAndAddPermission()
     {
         await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
 
@@ -64,7 +64,6 @@ public sealed class ApplicationPermissionRegistryTests : IAsyncLifetime
         await page.GetByLabel("Description", new() { Exact = true }).FillAsync("Patient records registry");
         await page.GetByLabel("Version", new() { Exact = true }).FillAsync("1.0.0");
         await page.GetByLabel("Owner ID", new() { Exact = true }).FillAsync("admin@test.com");
-        await page.GetByLabel("Manifest Base URL", new() { Exact = true }).FillAsync($"https://{applicationId}.example/api");
         await page.GetByLabel("Permission key 1", new() { Exact = true }).FillAsync("patient:read");
         await page.GetByLabel("Permission display name 1", new() { Exact = true }).FillAsync("Read patients");
         await page.GetByLabel("Permission description 1", new() { Exact = true }).FillAsync("Allows reading patient records");
@@ -75,45 +74,18 @@ public sealed class ApplicationPermissionRegistryTests : IAsyncLifetime
         await TestHelpers.WaitForDetailPageAsync(page, expectedHeadingText: displayName);
         await page.GetByText($"{applicationId}:patient:read").ShouldBeVisibleAsync("Created permission should be shown on the detail page.");
 
-        string updatedManifest = $$"""
-            {
-              "schemaVersion": "1.0.0",
-              "application": {
-                "id": "{{applicationId}}",
-                "displayName": "{{displayName}}",
-                "description": "Patient records registry",
-                "version": "1.1.0"
-              },
-              "permissions": [
-                {
-                  "key": "patient:read",
-                  "displayName": "Read patients",
-                  "description": "Allows reading patient records",
-                  "category": "Patients"
-                },
-                {
-                  "key": "patient:write",
-                  "displayName": "Write patients",
-                  "description": "Allows updating patient records",
-                  "category": "Patients"
-                }
-              ]
-            }
-            """;
+        await page.GetByLabel("Manifest JSON", new() { Exact = true }).ShouldNotBeVisibleAsync("Manual applications should not expose manifest update controls.");
+        await page.GetByRole(AriaRole.Button, new() { Name = "Preview Manifest", Exact = true }).ShouldNotBeVisibleAsync("Manual applications should not expose manifest preview.");
+        await page.GetByRole(AriaRole.Button, new() { Name = "Apply Manifest", Exact = true }).ShouldNotBeVisibleAsync("Manual applications should not expose manifest apply.");
 
-        await page.GetByLabel("Manifest JSON", new() { Exact = true }).FillAsync(updatedManifest);
-        await page.GetByRole(AriaRole.Button, new() { Name = "Preview Manifest", Exact = true }).ClickAsync();
-        await page.GetByText("Preview ready").ShouldBeVisibleAsync("Newer non-destructive manifest preview should succeed.");
+        await page.GetByLabel("Permission name", new() { Exact = true }).FillAsync("patient:write");
+        await page.GetByLabel("Permission category", new() { Exact = true }).FillAsync("Patients");
+        await page.GetByLabel("Permission description", new() { Exact = true }).FillAsync("Allows writing patient records");
+        await page.Locator("section").Filter(new() { HasText = "Permissions" })
+            .GetByRole(AriaRole.Button, new() { Name = "Add", Exact = true })
+            .ClickAsync();
 
-        await page.GetByRole(AriaRole.Button, new() { Name = "Apply Manifest", Exact = true }).ClickAsync();
-        await page.GetByText($"{applicationId}:patient:write").ShouldBeVisibleAsync("Applied manifest should add the new permission.");
-        await page.Locator("section").Filter(new() { HasText = "Manifest Version" })
-            .GetByText("1.1.0", new() { Exact = true })
-            .ShouldBeVisibleAsync("Applied manifest version should be shown.");
-
-        await page.GetByLabel("Manifest JSON", new() { Exact = true }).FillAsync(updatedManifest);
-        await page.GetByRole(AriaRole.Button, new() { Name = "Preview Manifest", Exact = true }).ClickAsync();
-        await page.GetByText("Manifest version must be strictly newer").ShouldBeVisibleAsync("Same-version manifest should be rejected.");
+        await page.GetByText($"{applicationId}:patient:write").ShouldBeVisibleAsync("Manual applications should allow manually added permissions.");
     }
 
     [Fact]
@@ -161,58 +133,7 @@ public sealed class ApplicationPermissionRegistryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task DestructiveManifestFlow_ShouldPreviewConfirmAndApplyRemoval()
-    {
-        await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
-
-        string uniqueId = Guid.NewGuid().ToString("N")[..8].ToLowerInvariant();
-        string applicationId = $"billing-api-{uniqueId}";
-        string displayName = $"Billing API {uniqueId}";
-
-        await RegisterApplicationAsync(applicationId, displayName);
-        await TestHelpers.WaitForDetailPageAsync(page!, expectedHeadingText: displayName);
-        await page!.GetByText($"{applicationId}:claim:write").ShouldBeVisibleAsync("Second permission should exist before destructive update.");
-
-        string destructiveManifest = $$"""
-            {
-              "schemaVersion": "1.0.0",
-              "application": {
-                "id": "{{applicationId}}",
-                "displayName": "{{displayName}}",
-                "description": "Billing registry",
-                "version": "2.0.0"
-              },
-              "permissions": [
-                {
-                  "key": "claim:read",
-                  "displayName": "Read claims",
-                  "description": "Allows reading claims",
-                  "category": "Claims"
-                }
-              ]
-            }
-            """;
-
-        await page.GetByLabel("Manifest JSON", new() { Exact = true }).FillAsync(destructiveManifest);
-        await page.GetByRole(AriaRole.Button, new() { Name = "Preview Manifest", Exact = true }).ClickAsync();
-        await page.GetByText("Destructive changes detected").ShouldBeVisibleAsync("Destructive preview should be called out.");
-        await page.GetByRole(AriaRole.Listitem)
-            .Filter(new() { HasText = $"{applicationId}:claim:write" })
-            .ShouldBeVisibleAsync("Removed permission should be listed in preview.");
-
-        await page.GetByRole(AriaRole.Checkbox, new() { Name = "Confirm destructive manifest changes", Exact = true }).ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { Name = "Apply Manifest", Exact = true }).ClickAsync();
-
-        await page.GetByText("Manifest applied with removals").ShouldBeVisibleAsync("Destructive apply should report removals.");
-        await page.GetByText("Removed permissions: 1").ShouldBeVisibleAsync("Result should show one removed permission.");
-        await page.Locator("section").Filter(new() { HasText = "Permissions" })
-            .Locator("div.font-medium")
-            .Filter(new() { HasText = $"{applicationId}:claim:write" })
-            .ShouldNotBeVisibleAsync("Removed permission should no longer be visible after apply.");
-    }
-
-    [Fact]
-    public async Task RemoteManifestFlow_ShouldPreviewConfirmAndApplyFromLocalFixture()
+    public async Task ImportedApplicationFlow_ShouldCreateReadOnlyApplicationFromEndpoint()
     {
         await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
 
@@ -226,7 +147,7 @@ public sealed class ApplicationPermissionRegistryTests : IAsyncLifetime
                 "id": "{{applicationId}}",
                 "displayName": "{{displayName}}",
                 "description": "Remote registry",
-                "version": "2.0.0"
+                "version": "1.0.0"
               },
               "permissions": [
                 {
@@ -234,32 +155,39 @@ public sealed class ApplicationPermissionRegistryTests : IAsyncLifetime
                   "displayName": "Read claims",
                   "description": "Allows reading claims",
                   "category": "Claims"
+                },
+                {
+                  "key": "claim:write",
+                  "displayName": "Write claims",
+                  "description": "Allows writing claims",
+                  "category": "Claims"
                 }
               ]
             }
             """);
 
-        await RegisterApplicationAsync(applicationId, displayName, server.BaseUrl);
+        await page!.GotoAsync(new Uri(new Uri(fixture.AdminWebUrl!), "/application-permissions/new").ToString());
+        await page.GetByLabel("Well-known permissions endpoint", new() { Exact = true }).FillAsync($"{server.BaseUrl}/.well-known/permissions");
+        await page.GetByRole(AriaRole.Button, new() { Name = "Import Endpoint", Exact = true }).ClickAsync();
+        await page.WaitForURLAsync(new Regex(@"/application-permissions/[0-9a-fA-F-]{36}$"), new() { Timeout = 15000 });
         await TestHelpers.WaitForDetailPageAsync(page!, expectedHeadingText: displayName);
-        await page!.GetByText($"{applicationId}:claim:write").ShouldBeVisibleAsync("Second permission should exist before remote import.");
+        await page.GetByText($"{applicationId}:claim:read").ShouldBeVisibleAsync("Imported permission should be shown.");
+        await page.GetByText($"{applicationId}:claim:write").ShouldBeVisibleAsync("Imported permission should be shown.");
+        await page.Locator("section[aria-label='Application details']")
+            .GetByText("1.0.0", new() { Exact = true })
+            .First
+            .ShouldBeVisibleAsync("Imported manifest version should be shown.");
 
-        await page.GetByRole(AriaRole.Button, new() { Name = "Preview Remote Manifest", Exact = true }).ClickAsync();
-        await page.GetByText("Remote preview found destructive changes").ShouldBeVisibleAsync("Remote preview should report destructive changes.");
-        await page.GetByRole(AriaRole.Listitem)
-            .Filter(new() { HasText = $"{applicationId}:claim:write" })
-            .ShouldBeVisibleAsync("Remote preview should list removed permission.");
+        await page.GetByLabel("Permission name", new() { Exact = true }).ShouldNotBeVisibleAsync("Imported applications should not expose manual permission editing.");
+        await page.GetByRole(AriaRole.Button, new() { Name = "Add", Exact = true }).ShouldNotBeVisibleAsync("Imported applications should not expose manual permission editing.");
 
-        await page.GetByRole(AriaRole.Checkbox, new() { Name = "Confirm destructive manifest changes", Exact = true }).ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { Name = "Apply Remote Manifest", Exact = true }).ClickAsync();
-
-        await page.GetByText("Remote manifest applied with removals").ShouldBeVisibleAsync("Remote apply should report removals.");
-        await page.GetByText("Removed permissions: 1").ShouldBeVisibleAsync("Remote apply result should show one removed permission.");
-        await page.Locator("section").Filter(new() { HasText = "Manifest Version" })
-            .GetByText("2.0.0", new() { Exact = true })
-            .ShouldBeVisibleAsync("Remote apply should advance the manifest version.");
+        await page.GetByRole(AriaRole.Button, new() { Name = "Edit", Exact = true }).ClickAsync();
+        await page.GetByLabel("Manifest Base URL", new() { Exact = true }).ShouldBeVisibleAsync("Imported applications should allow editing only the manifest URL.");
+        await page.GetByLabel("New owner", new() { Exact = true }).ShouldNotBeVisibleAsync("Imported applications should not expose ownership editing.");
+        await page.GetByLabel("New maintainer", new() { Exact = true }).ShouldNotBeVisibleAsync("Imported applications should not expose maintainer editing.");
     }
 
-    private async Task RegisterApplicationAsync(string applicationId, string displayName, string? manifestBaseUrl = null)
+    private async Task RegisterApplicationAsync(string applicationId, string displayName)
     {
         await page!.GotoAsync(new Uri(new Uri(fixture.AdminWebUrl!), "/application-permissions/new").ToString());
         await page.GetByLabel("Application ID", new() { Exact = true }).FillAsync(applicationId);
@@ -267,7 +195,6 @@ public sealed class ApplicationPermissionRegistryTests : IAsyncLifetime
         await page.GetByLabel("Description", new() { Exact = true }).FillAsync("Claims registry");
         await page.GetByLabel("Version", new() { Exact = true }).FillAsync("1.0.0");
         await page.GetByLabel("Owner ID", new() { Exact = true }).FillAsync("admin@test.com");
-        await page.GetByLabel("Manifest Base URL", new() { Exact = true }).FillAsync(manifestBaseUrl ?? $"https://{applicationId}.example/api");
         await page.GetByLabel("Permission key 1", new() { Exact = true }).FillAsync("claim:read");
         await page.GetByLabel("Permission display name 1", new() { Exact = true }).FillAsync("Read claims");
         await page.GetByLabel("Permission description 1", new() { Exact = true }).FillAsync("Allows reading claims");

@@ -67,7 +67,8 @@ public sealed class ApplicationPermissionManifestUseCaseTests
             "owner-1",
             OwnerType.User,
             "https://orders.example.com/api",
-            "actor-1"));
+            "actor-1",
+            IsImported: true));
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ApplicationIdentifier.ShouldBe("orders-api");
@@ -95,10 +96,26 @@ public sealed class ApplicationPermissionManifestUseCaseTests
             "owner-1",
             OwnerType.User,
             "https://orders.example.com/api",
-            "actor-1"));
+            "actor-1",
+            IsImported: true));
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Conflict.PermissionManifest.ManifestBaseUrlConflict");
+        await this.repository.DidNotReceive().AddAsync(Arg.Any<RegisteredApplication>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithManualRegistrationAndManifestBaseUrl_ReturnsValidationError()
+    {
+        Result<RegisteredApplicationDto> result = await this.useCases.CreateAsync(new CreateApplicationPermissionManifestCommand(
+            ValidManifest("1.0.0"),
+            "owner-1",
+            OwnerType.User,
+            "https://orders.example.com/api",
+            "actor-1"));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.PermissionManifest.ManualApplicationCannotBeManifestBacked");
         await this.repository.DidNotReceive().AddAsync(Arg.Any<RegisteredApplication>(), Arg.Any<CancellationToken>());
     }
 
@@ -326,6 +343,23 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Validation.PermissionManifest.ManifestBaseUrlRequired");
         await this.remoteManifestFetcher.DidNotReceive().FetchAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ApplyChangesAsync_WithManualApplication_ReturnsValidationError()
+    {
+        RegisteredApplication application = CreateApplication("0.0.0", manifestBaseUrl: null);
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+
+        Result<ManifestApplyDto> result = await this.useCases.ApplyChangesAsync(new ApplyApplicationPermissionManifestCommand(
+            application.Id.Value,
+            ValidManifest("1.0.0"),
+            "actor-1",
+            application.ConcurrencyToken));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.PermissionManifest.ManifestBaseUrlRequired");
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     private RegisteredApplication CreateApplication(string manifestVersion, string? manifestBaseUrl = "https://orders.example.com/api")

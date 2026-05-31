@@ -926,6 +926,7 @@ export interface UpdateRegisteredApplicationRequest {
   displayName: string;
   description?: string | null;
   concurrencyToken?: number;
+  manifestBaseUrl?: string | null;
 }
 
 export interface AddApplicationPermissionRequest extends ApplicationPermissionInput {

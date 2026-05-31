@@ -8,7 +8,8 @@ public sealed record CreateApplicationPermissionManifestCommand(
     string OwnerId,
     OwnerType OwnerType,
     string? ManifestBaseUrl,
-    string ActorId);
+    string ActorId,
+    bool IsImported = false);
 
 public sealed record ApplyApplicationPermissionManifestCommand(
     Guid ApplicationId,

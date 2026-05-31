@@ -1,4 +1,5 @@
 using OpenIdentityStack.Application.ApplicationPermissions.Dtos;
+using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Domain.ApplicationPermissions;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Roles;
@@ -32,6 +33,32 @@ public sealed class PermissionDiagnosticsReaderTests : IClassFixture<SqliteTestF
     public async ValueTask DisposeAsync()
     {
         await this.dbContext.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ListIssuesAsync_DoesNotReportPlatformWildcardPermissions()
+    {
+        Role role = Role.Create("platform-admin", "Platform Admin", null).Value;
+        role.SetPermissions([
+            Permissions.Users.All,
+            Permissions.Roles.All,
+            Permissions.Groups.All,
+            Permissions.ApplicationPermissions.All,
+            Permissions.Sessions.All,
+            Permissions.Providers.All,
+            Permissions.Applications.All,
+            Permissions.AuditLogs.All,
+            Permissions.System.All,
+            Permissions.All,
+        ]);
+
+        this.dbContext.Roles.Add(role);
+        await this.dbContext.SaveChangesAsync();
+        this.dbContext.ChangeTracker.Clear();
+
+        PermissionDiagnosticsDto result = await this.reader.ListIssuesAsync();
+
+        result.Issues.ShouldBeEmpty();
     }
 
     [Fact]
