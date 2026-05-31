@@ -4,6 +4,9 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __E2E_TEST_MODE__: 'false',
+  },
   test: {
     globals: true,
     environment: 'jsdom',

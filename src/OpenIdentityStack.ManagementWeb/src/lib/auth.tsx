@@ -16,7 +16,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const isE2ETestMode = import.meta.env.VITE_E2E_TEST_MODE === 'true';
+const isE2ETestMode = __E2E_TEST_MODE__;
 
 function getOidcAuthority(): string {
   return import.meta.env.VITE_OIDC_AUTHORITY ?? 'http://localhost:5000';

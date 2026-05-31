@@ -4,11 +4,11 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
-  // Explicitly bake process.env.VITE_* values set by the orchestrator (e.g. Aspire)
-  // into the client bundle. Vite's loadEnv() only reads from .env files, not from
-  // the shell environment, so runtime-injected VITE_* vars need this define bridge.
+  // Bake process.env.VITE_E2E_TEST_MODE into the bundle as a plain global constant.
+  // Using a non-import.meta.env identifier avoids Vite's own env-inlining pass
+  // (which only reads .env files and would silently shadow a define on import.meta.env.*).
   define: {
-    'import.meta.env.VITE_E2E_TEST_MODE': JSON.stringify(process.env.VITE_E2E_TEST_MODE ?? ''),
+    __E2E_TEST_MODE__: JSON.stringify(process.env.VITE_E2E_TEST_MODE === 'true'),
   },
   resolve: {
     alias: {
