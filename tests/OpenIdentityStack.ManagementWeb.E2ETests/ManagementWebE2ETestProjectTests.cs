@@ -49,6 +49,26 @@ public class ManagementWebE2ETestProjectTests
             string testProjectDirectory = Path.Combine(directory.FullName, "tests", "OpenIdentityStack.ManagementWeb.E2ETests");
             Directory.Exists(testProjectDirectory).ShouldBeTrue();
 
+            // Install npm dependencies (required for Playwright)
+            ProcessStartInfo npmInstallInfo = new()
+            {
+                FileName = "npm",
+                Arguments = "install",
+                WorkingDirectory = testProjectDirectory,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using (var npmProcess = System.Diagnostics.Process.Start(npmInstallInfo))
+            {
+                npmProcess.ShouldNotBeNull();
+                await npmProcess.StandardOutput.ReadToEndAsync();
+                npmProcess.WaitForExit();
+                npmProcess.ExitCode.ShouldBe(0, "npm install failed");
+            }
+
             // Set environment variables for Playwright config to discover running Management Web instance
             string originalManagementWebUrl = Environment.GetEnvironmentVariable("MANAGEMENT_WEB_BASE_URL") ?? string.Empty;
             string originalAdminWebUrl = Environment.GetEnvironmentVariable("ADMIN_WEB_BASE_URL") ?? string.Empty;
