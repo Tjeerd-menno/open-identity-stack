@@ -55,6 +55,7 @@ export function RoleDetailPage() {
       displayName: data.displayName,
       description: data.description,
       permissions: data.permissions,
+      acknowledgeWildcardGrant: data.acknowledgeWildcardGrant,
     };
     
     updateRole(

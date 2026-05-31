@@ -215,6 +215,21 @@ public sealed partial class RegisteredApplication : AggregateRoot<RegisteredAppl
         return Result.Success();
     }
 
+    public Result UpdateManifestBaseUrl(
+        string manifestBaseUrl,
+        string updatedBy,
+        IDateTimeProvider dateTimeProvider)
+    {
+        if (string.IsNullOrWhiteSpace(manifestBaseUrl))
+        {
+            return DomainError.Validation("RegisteredApplication.ManifestBaseUrlRequired", "Manifest base URL is required.");
+        }
+
+        this.ManifestBaseUrl = NormalizeManifestBaseUrl(manifestBaseUrl);
+        this.Touch(updatedBy, dateTimeProvider);
+        return Result.Success();
+    }
+
     public Result<ApplicationPermission> AddPermission(
         string permissionKey,
         string displayName,

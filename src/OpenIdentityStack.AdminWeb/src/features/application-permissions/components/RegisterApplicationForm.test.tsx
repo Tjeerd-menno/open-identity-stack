@@ -15,7 +15,6 @@ describe('RegisterApplicationForm', () => {
     await user.type(screen.getByLabelText(/^description$/i), 'Patient records');
     await user.type(screen.getByLabelText(/^version$/i), '1.0.0');
     await user.type(screen.getByLabelText(/^owner id$/i), 'owner-1');
-    await user.type(screen.getByLabelText(/^manifest base url$/i), 'https://patient.example/api');
     await user.type(screen.getByLabelText(/^permission key 1$/i), 'patient:read');
     await user.type(screen.getByLabelText(/^permission display name 1$/i), 'Read patients');
     await user.type(screen.getByLabelText(/^permission description 1$/i), 'Allows reading patient data');
@@ -42,8 +41,14 @@ describe('RegisterApplicationForm', () => {
       },
       ownerId: 'owner-1',
       ownerType: 'user',
-      manifestBaseUrl: 'https://patient.example/api',
+      manifestBaseUrl: null,
     });
+  });
+
+  it('does not expose manifest backing for manually added permissions', () => {
+    render(<RegisterApplicationForm onSubmit={vi.fn().mockResolvedValue(undefined)} />);
+
+    expect(screen.queryByLabelText(/^manifest base url$/i)).not.toBeInTheDocument();
   });
 
   it('shows validation error and blocks duplicate permission keys', async () => {

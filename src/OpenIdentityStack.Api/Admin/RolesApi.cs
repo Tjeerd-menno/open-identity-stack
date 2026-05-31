@@ -194,6 +194,7 @@ internal static class RolesApi
 
     private static async Task<IResult> UpdateRole(
         [FromServices] IRoleRepository roleRepository,
+        [FromServices] IPermissionAssignmentValidator permissionAssignmentValidator,
         Guid id,
         [FromBody] UpdateRoleRequest request,
         CancellationToken cancellationToken = default)
@@ -207,6 +208,22 @@ internal static class RolesApi
         }
 
         role.UpdateDescription(request.Description);
+
+        if (request.Permissions is not null)
+        {
+            IEnumerable<string> newPermissions = request.Permissions.Except(role.Permissions, StringComparer.OrdinalIgnoreCase);
+            Result validationResult = await permissionAssignmentValidator.ValidateAssignableAsync(
+                newPermissions,
+                request.AcknowledgeWildcardGrant,
+                cancellationToken);
+            if (validationResult.IsFailure)
+            {
+                return MapPermissionValidationFailure(validationResult.Error);
+            }
+
+            role.SetPermissions(request.Permissions);
+        }
+
         await roleRepository.SaveChangesAsync(cancellationToken);
 
         return TypedResults.Ok(MapToResponse(role));

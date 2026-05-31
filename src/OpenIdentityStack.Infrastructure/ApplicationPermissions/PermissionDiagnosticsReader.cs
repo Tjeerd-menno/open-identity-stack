@@ -11,6 +11,20 @@ namespace OpenIdentityStack.Infrastructure.ApplicationPermissions;
 
 public sealed partial class PermissionDiagnosticsReader : IPermissionDiagnosticsReader
 {
+    private static readonly HashSet<string> builtInPermissions = new(Permissions.GetAllPermissions(), StringComparer.OrdinalIgnoreCase)
+    {
+        Permissions.All,
+        Permissions.Users.All,
+        Permissions.Roles.All,
+        Permissions.Groups.All,
+        Permissions.Applications.All,
+        Permissions.ApplicationPermissions.All,
+        Permissions.Sessions.All,
+        Permissions.Providers.All,
+        Permissions.AuditLogs.All,
+        Permissions.System.All
+    };
+
     private readonly OpenIdentityStackDbContext dbContext;
 
     public PermissionDiagnosticsReader(OpenIdentityStackDbContext dbContext)
@@ -49,8 +63,7 @@ public sealed partial class PermissionDiagnosticsReader : IPermissionDiagnostics
 
     private static PermissionDiagnosticIssueDto? Classify(Role role, string permission, IReadOnlyList<RegisteredApplication> applications)
     {
-        if (Permissions.GetAllPermissions().Contains(permission, StringComparer.OrdinalIgnoreCase)
-            || permission == Permissions.All)
+        if (builtInPermissions.Contains(permission))
         {
             return null;
         }

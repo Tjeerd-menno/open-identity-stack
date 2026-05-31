@@ -47,6 +47,17 @@ public sealed record UpdateRoleRequest
     /// </summary>
     [StringLength(500)]
     public string? Description { get; init; }
+
+    /// <summary>
+    /// Gets or sets the permissions to assign to the role.
+    /// When omitted, existing permissions are left unchanged.
+    /// </summary>
+    public IReadOnlyList<string>? Permissions { get; init; }
+
+    /// <summary>
+    /// Gets or sets whether the caller acknowledged broad wildcard grants.
+    /// </summary>
+    public bool AcknowledgeWildcardGrant { get; init; }
 }
 
 /// <summary>

@@ -7,7 +7,8 @@ public sealed record UpdateRegisteredApplicationCommand(
     string DisplayName,
     string? Description,
     string ActorId,
-    uint? ExpectedConcurrencyToken);
+    uint? ExpectedConcurrencyToken,
+    string? ManifestBaseUrl = null);
 
 public sealed record AddApplicationPermissionCommand(
     Guid ApplicationId,

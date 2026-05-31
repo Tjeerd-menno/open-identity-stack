@@ -19,6 +19,10 @@ public sealed class ApplicationPermissionManifestUseCases
         "PermissionManifest.DestructiveManifestChangeNotSupportedYet",
         "This manifest omits existing permissions. Destructive manifest changes are not supported in this slice.");
 
+    public static readonly DomainError ManualApplicationCannotBeManifestBacked = DomainError.Validation(
+        "PermissionManifest.ManualApplicationCannotBeManifestBacked",
+        "Manually registered applications cannot be backed by a permission manifest.");
+
     private readonly IApplicationPermissionRegistryRepository repository;
     private readonly IApplicationPermissionAuthorizationService authorizationService;
     private readonly IApplicationPermissionAuditWriter auditWriter;
@@ -51,6 +55,11 @@ public sealed class ApplicationPermissionManifestUseCases
         if (validation.IsFailure)
         {
             return validation.Error;
+        }
+
+        if (!command.IsImported && !string.IsNullOrWhiteSpace(command.ManifestBaseUrl))
+        {
+            return ManualApplicationCannotBeManifestBacked;
         }
 
         if (!await this.authorizationService.CanRegisterApplicationAsync(command.ActorId, cancellationToken).ConfigureAwait(false))
@@ -388,6 +397,11 @@ public sealed class ApplicationPermissionManifestUseCases
             return DomainError.Conflict("PermissionManifest.ConcurrencyConflict", "The registered application was modified by another request.");
         }
 
+        if (string.IsNullOrWhiteSpace(application.ManifestBaseUrl))
+        {
+            return DomainError.Validation("PermissionManifest.ManifestBaseUrlRequired", "A trusted manifest base URL is required for manifest updates.");
+        }
+
         if (CompareSemVer(command.Manifest.Application.Version, application.ManifestVersion) <= 0)
         {
             return VersionNotNewer;
@@ -425,6 +439,11 @@ public sealed class ApplicationPermissionManifestUseCases
         if (command.ExpectedConcurrencyToken.HasValue && application.ConcurrencyToken != command.ExpectedConcurrencyToken.Value)
         {
             return DomainError.Conflict("PermissionManifest.ConcurrencyConflict", "The registered application was modified by another request.");
+        }
+
+        if (string.IsNullOrWhiteSpace(application.ManifestBaseUrl))
+        {
+            return DomainError.Validation("PermissionManifest.ManifestBaseUrlRequired", "A trusted manifest base URL is required for manifest updates.");
         }
 
         if (CompareSemVer(command.Manifest.Application.Version, application.ManifestVersion) <= 0)
