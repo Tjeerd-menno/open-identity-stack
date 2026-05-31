@@ -159,6 +159,156 @@ describe('UsersPage', () => {
     expect(within(screen.getByRole('region', { name: /user details/i })).getByText(/mfa enabled/i)).toBeInTheDocument();
   });
 
+  it('navigates between pages when pagination controls are used', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/users?page=1&pageSize=20` && method === 'GET') {
+        return jsonResponse({
+          items: [
+            {
+              id: 'user-1',
+              email: 'ada@example.com',
+              displayName: 'Ada Lovelace',
+              status: 'Active',
+              createdAt: '2026-01-01T00:00:00Z',
+            },
+          ],
+          totalCount: 50,
+          page: 1,
+          pageSize: 20,
+          totalPages: 3,
+        });
+      }
+
+      if (url === `${apiBase}/api/admin/users?page=2&pageSize=20` && method === 'GET') {
+        return jsonResponse({
+          items: [
+            {
+              id: 'user-2',
+              email: 'grace@example.com',
+              displayName: 'Grace Hopper',
+              status: 'Active',
+              createdAt: '2026-01-02T00:00:00Z',
+            },
+          ],
+          totalCount: 50,
+          page: 2,
+          pageSize: 20,
+          totalPages: 3,
+        });
+      }
+
+      if (url === `${apiBase}/api/admin/roles?page=1&pageSize=100` && method === 'GET') {
+        return jsonResponse({
+          items: [],
+          totalCount: 0,
+          page: 1,
+          pageSize: 100,
+          totalPages: 0,
+        });
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderManagementWeb(<UsersPage />);
+
+    await screen.findByRole('button', { name: /ada lovelace/i });
+    expect(screen.queryByRole('button', { name: /grace hopper/i })).not.toBeInTheDocument();
+
+    const nextPageButton = screen.getByRole('button', { name: '2' });
+    await user.click(nextPageButton);
+
+    await screen.findByRole('button', { name: /grace hopper/i });
+    expect(screen.queryByRole('button', { name: /ada lovelace/i })).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${apiBase}/api/admin/users?page=2&pageSize=20`,
+        expect.anything()
+      );
+    });
+  });
+
+  it('resets pagination to page 1 when search term changes', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/users?page=1&pageSize=20` && method === 'GET') {
+        return jsonResponse({
+          items: [
+            {
+              id: 'user-1',
+              email: 'ada@example.com',
+              displayName: 'Ada Lovelace',
+              status: 'Active',
+              createdAt: '2026-01-01T00:00:00Z',
+            },
+          ],
+          totalCount: 50,
+          page: 1,
+          pageSize: 20,
+          totalPages: 3,
+        });
+      }
+
+      if (url === `${apiBase}/api/admin/users?page=1&pageSize=20&search=grace` && method === 'GET') {
+        return jsonResponse({
+          items: [
+            {
+              id: 'user-2',
+              email: 'grace@example.com',
+              displayName: 'Grace Hopper',
+              status: 'Active',
+              createdAt: '2026-01-02T00:00:00Z',
+            },
+          ],
+          totalCount: 5,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        });
+      }
+
+      if (url === `${apiBase}/api/admin/roles?page=1&pageSize=100` && method === 'GET') {
+        return jsonResponse({
+          items: [],
+          totalCount: 0,
+          page: 1,
+          pageSize: 100,
+          totalPages: 0,
+        });
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderManagementWeb(<UsersPage />);
+
+    await screen.findByRole('button', { name: /ada lovelace/i });
+
+    const searchInput = screen.getByLabelText(/search users/i);
+    await user.type(searchInput, 'grace');
+    await user.click(screen.getByRole('button', { name: /search/i }));
+
+    await screen.findByRole('button', { name: /grace hopper/i });
+    expect(screen.queryByRole('button', { name: /ada lovelace/i })).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${apiBase}/api/admin/users?page=1&pageSize=20&search=grace`,
+        expect.anything()
+      );
+    });
+  });
+
   it('blocks privileged user actions when the operator lacks write permissions', async () => {
     vi.stubGlobal('fetch', vi.fn(() => jsonResponse({
       items: [

@@ -12,6 +12,8 @@
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="OpenIddict.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,11 +25,20 @@
     <ProjectReference Include="..\..\src\OpenIdentityStack.AppHost\OpenIdentityStack.AppHost.csproj">
       <Aliases>AppHostProject</Aliases>
     </ProjectReference>
+    <ProjectReference Include="..\..\src\OpenIdentityStack.Infrastructure\OpenIdentityStack.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\OpenIdentityStack.Application\OpenIdentityStack.Application.csproj" />
+    <ProjectReference Include="..\..\src\OpenIdentityStack.Domain\OpenIdentityStack.Domain.csproj" />
+    <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="fixtures\" />
     <Folder Include="TestResults\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\TestSeedHelpers\AspireTestApplication.cs" Link="Fixtures\AspireTestApplication.cs" />
+    <Compile Include="..\TestSeedHelpers\OpenIdentityStackTestSeeder.cs" Link="Fixtures\OpenIdentityStackTestSeeder.cs" />
   </ItemGroup>
 
 </Project>

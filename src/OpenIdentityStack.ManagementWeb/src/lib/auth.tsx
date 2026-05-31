@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { UserManager, WebStorageStateStore, type User, type UserManagerSettings } from 'oidc-client-ts';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useLocation } from 'react-router';
 import { setAccessTokenProvider } from './admin-api';
 
 type AuthContextValue = {
@@ -80,6 +81,7 @@ function OidcAuthProvider({ children }: AuthProviderProps) {
   const [userManager] = useState(() => createUserManager());
   const [oidcUser, setOidcUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
 
   const getAccessToken = useCallback(async () => {
     const user = await userManager.getUser();
@@ -89,17 +91,49 @@ function OidcAuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     let cancelled = false;
 
-    userManager.getUser().then((user) => {
-      if (!cancelled) {
-        setOidcUser(user?.expired ? null : user);
-        setIsLoading(false);
+    async function processAuthCallback() {
+      // Check if we're on the callback route
+      if (location.pathname === '/auth/callback') {
+        try {
+          const user = await userManager.signinCallback();
+          if (!cancelled) {
+            setOidcUser(user && !user.expired ? user : null);
+            setIsLoading(false);
+            // Redirect to home after successful login
+            window.location.href = '/';
+          }
+        } catch (error) {
+          console.error('OIDC callback error:', error);
+          if (!cancelled) {
+            setOidcUser(null);
+            setIsLoading(false);
+            window.location.href = '/';
+          }
+        }
+      } else {
+        // Normal initialization: try to get existing user
+        try {
+          const user = await userManager.getUser();
+          if (!cancelled) {
+            setOidcUser(user && !user.expired ? user : null);
+            setIsLoading(false);
+          }
+        } catch (error) {
+          console.error('Failed to get user:', error);
+          if (!cancelled) {
+            setOidcUser(null);
+            setIsLoading(false);
+          }
+        }
       }
-    });
+    }
+
+    processAuthCallback();
 
     return () => {
       cancelled = true;
     };
-  }, [userManager]);
+  }, [userManager, location.pathname]);
 
   useEffect(() => {
     setAccessTokenProvider(getAccessToken);

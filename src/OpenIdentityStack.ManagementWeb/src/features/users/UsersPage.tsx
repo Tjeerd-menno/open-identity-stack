@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Grid, Group, Loader, PasswordInput, Stack, Table, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Card, Grid, Group, Loader, Pagination, PasswordInput, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { getUser, listRoles, listUserRoles, listUsers, type UserListItem } from '@/lib/admin-api';
@@ -14,6 +14,7 @@ export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [search, setSearch] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newDisplayName, setNewDisplayName] = useState('');
@@ -24,8 +25,8 @@ export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
   const canDisableUsers = hasPermission(permissions, 'users:disable');
   const canAssignRoles = hasPermission(permissions, 'roles:assign');
   const users = useQuery({
-    queryKey: ['users', 'list', submittedSearch],
-    queryFn: () => listUsers(1, 20, submittedSearch),
+    queryKey: ['users', 'list', submittedSearch, currentPage],
+    queryFn: () => listUsers(currentPage, 20, submittedSearch),
   });
   const details = useQuery({
     queryKey: ['users', selectedUser?.id],
@@ -70,6 +71,7 @@ export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
       <Group component="form" onSubmit={(event) => {
         event.preventDefault();
         setSubmittedSearch(search);
+        setCurrentPage(1);
       }}>
         <TextInput label="Search users" value={search} onChange={(event) => setSearch(event.currentTarget.value)} />
         <Button type="submit">Search</Button>
@@ -104,29 +106,36 @@ export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
       <Grid>
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card withBorder shadow="sm" radius="md">
-            <Table striped highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>User</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {userItems.map((user) => (
-                  <Table.Tr key={user.id}>
-                    <Table.Td>
-                      <Button variant="subtle" onClick={() => setSelectedUser(user)}>
-                        {user.displayName}
-                      </Button>
-                      <Text size="sm" c="dimmed">
-                        {user.email}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>{user.status}</Table.Td>
+            <Stack gap="md">
+              <Table striped highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>User</Table.Th>
+                    <Table.Th>Status</Table.Th>
                   </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
+                </Table.Thead>
+                <Table.Tbody>
+                  {userItems.map((user) => (
+                    <Table.Tr key={user.id}>
+                      <Table.Td>
+                        <Button variant="subtle" onClick={() => setSelectedUser(user)}>
+                          {user.displayName}
+                        </Button>
+                        <Text size="sm" c="dimmed">
+                          {user.email}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>{user.status}</Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+              {users.data && users.data.totalPages > 1 && (
+                <Group justify="center">
+                  <Pagination value={currentPage} onChange={setCurrentPage} total={users.data.totalPages} />
+                </Group>
+              )}
+            </Stack>
           </Card>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6 }}>
