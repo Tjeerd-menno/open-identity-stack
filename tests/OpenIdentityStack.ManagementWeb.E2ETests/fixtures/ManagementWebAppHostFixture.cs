@@ -23,10 +23,17 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
     public HttpClient? ApiClient { get; private set; }
     public string? ManagementWebUrl { get; private set; }
     private OpenIdentityStackTestSeeder? TestSeeder { get; set; }
+    private string? _envLocalPath;
 
     public async ValueTask InitializeAsync()
     {
         EnsureRequiredAspireParameters();
+
+        // Write .env.local to the ManagementWeb source directory before Vite starts.
+        // Vite unconditionally reads .env.local and exposes VITE_* vars as import.meta.env.*,
+        // providing a reliable way to activate MockAuthProvider for E2E tests regardless
+        // of whether the orchestrator successfully injects VITE_E2E_TEST_MODE via process env.
+        _envLocalPath = FindAndWriteEnvLocal();
 
         // Reference the AppHost project type to ensure it's loaded
         _ = typeof(AppHostProject::Projects.OpenIdentityStack_AppHost);
@@ -101,6 +108,11 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
         {
             await App.DisposeAsync();
         }
+        // Clean up the .env.local file written for E2E test mode activation.
+        if (_envLocalPath is not null && File.Exists(_envLocalPath))
+        {
+            File.Delete(_envLocalPath);
+        }
         GC.SuppressFinalize(this);
     }
 
@@ -118,6 +130,25 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
         }
 
         return connectionString;
+    }
+
+    private static string? FindAndWriteEnvLocal()
+    {
+        // Walk from the test binary directory up to the repository root (contains OpenIdentityStack.slnx).
+        string? repoRoot = AppContext.BaseDirectory;
+        while (repoRoot is not null && !File.Exists(Path.Combine(repoRoot, "OpenIdentityStack.slnx")))
+        {
+            repoRoot = Directory.GetParent(repoRoot)?.FullName;
+        }
+
+        if (repoRoot is null)
+        {
+            return null;
+        }
+
+        string envLocalPath = Path.Combine(repoRoot, "src", "OpenIdentityStack.ManagementWeb", ".env.local");
+        File.WriteAllText(envLocalPath, "VITE_E2E_TEST_MODE=true\n");
+        return envLocalPath;
     }
 
     private static void EnsureRequiredAspireParameters()
