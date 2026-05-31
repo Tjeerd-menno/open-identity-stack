@@ -92,7 +92,9 @@ if (enableManagementWeb)
 
     if (disableDataVolume)
     {
-        managementWeb.WithHttpEndpoint(env: "PORT");
+        managementWeb
+            .WithHttpEndpoint(env: "PORT")
+            .WithEnvironment("VITE_E2E_TEST_MODE", "true");
     }
     else
     {
