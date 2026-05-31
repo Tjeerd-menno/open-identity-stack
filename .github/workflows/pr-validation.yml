@@ -108,6 +108,18 @@ jobs:
         working-directory: src/OpenIdentityStack.AdminWeb
         run: npm run test:coverage
 
+      - name: Install ManagementWeb dependencies
+        working-directory: src/OpenIdentityStack.ManagementWeb
+        run: npm ci --ignore-scripts
+
+      - name: Install ManagementWeb E2E test dependencies
+        working-directory: tests/OpenIdentityStack.ManagementWeb.E2ETests
+        run: npm ci
+
+      - name: Install Playwright browsers for ManagementWeb E2E tests
+        working-directory: tests/OpenIdentityStack.ManagementWeb.E2ETests
+        run: npx playwright install --with-deps chromium
+
       - name: Install Playwright browsers
         shell: pwsh
         run: |
