@@ -14,11 +14,13 @@ public static class AspireTestApplication
 
     public static Task<IDistributedApplicationTestingBuilder> CreateBuilderAsync<TEntryPoint>(
         bool includeAdminWeb = false,
+        bool includeManagementWeb = false,
         CancellationToken cancellationToken = default)
         where TEntryPoint : class
     {
         Environment.SetEnvironmentVariable("OPENIDENTITYSTACK_DISABLE_DATA_VOLUME", "true");
         Environment.SetEnvironmentVariable("OPENIDENTITYSTACK_ENABLE_ADMINWEB", includeAdminWeb ? "true" : "false");
+        Environment.SetEnvironmentVariable("OPENIDENTITYSTACK_ENABLE_MANAGEMENTWEB", includeManagementWeb ? "true" : "false");
         Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", "Testing");
         Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
         Environment.SetEnvironmentVariable("Parameters__default-admin-password", "Test1234@Test1234");
