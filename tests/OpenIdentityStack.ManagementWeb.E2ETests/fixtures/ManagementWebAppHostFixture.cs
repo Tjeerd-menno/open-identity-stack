@@ -126,5 +126,12 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
         {
             Environment.SetEnvironmentVariable(DefaultAdminPasswordParameter, DefaultAdminPassword);
         }
+
+        // Disable data volume for E2E tests to avoid startup delays and port conflicts
+        // This makes PostgreSQL ephemeral but faster and more reliable in test environments
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENIDENTITYSTACK_DISABLE_DATA_VOLUME")))
+        {
+            Environment.SetEnvironmentVariable("OPENIDENTITYSTACK_DISABLE_DATA_VOLUME", "true");
+        }
     }
 }
