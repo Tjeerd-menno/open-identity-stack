@@ -43,6 +43,12 @@ public sealed record CreateRoleRequest
 public sealed record UpdateRoleRequest
 {
     /// <summary>
+    /// Gets or sets the display name of the role. If not provided, the display name is left unchanged.
+    /// </summary>
+    [StringLength(100)]
+    public string? DisplayName { get; init; }
+
+    /// <summary>
     /// Gets or sets the description of the role.
     /// </summary>
     [StringLength(500)]

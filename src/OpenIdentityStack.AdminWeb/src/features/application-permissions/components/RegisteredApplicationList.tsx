@@ -11,8 +11,9 @@ import type { RegisteredApplicationListItem } from '@/types';
 import { Eye, Plus } from 'lucide-react';
 
 function OwnerCell({ ownerId }: { ownerId: string }) {
-  const { data: user, isLoading: userLoading } = useUser(ownerId);
-  const { data: group, isLoading: groupLoading } = useGroup(ownerId);
+  const { data: user, isLoading: userLoading, isError: userError } = useUser(ownerId);
+  const groupEnabled = !userLoading && (userError || !user);
+  const { data: group, isLoading: groupLoading } = useGroup(groupEnabled ? ownerId : '');
   const label = user?.displayName || user?.email || group?.name;
   const detail = user?.email || group?.description;
 

@@ -208,6 +208,10 @@ internal static class RolesApi
         }
 
         role.UpdateDescription(request.Description);
+        if (request.DisplayName is not null)
+        {
+            role.UpdateDisplayName(request.DisplayName);
+        }
 
         if (request.Permissions is not null)
         {

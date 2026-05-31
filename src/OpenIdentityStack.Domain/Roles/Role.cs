@@ -139,6 +139,15 @@ public sealed class Role
     }
 
     /// <summary>
+    /// Updates the display name of the role.
+    /// </summary>
+    /// <param name="displayName">The new display name. If null or whitespace, the current name is used.</param>
+    public void UpdateDisplayName(string? displayName)
+    {
+        this.DisplayName = string.IsNullOrWhiteSpace(displayName) ? this.Name : displayName.Trim();
+    }
+
+    /// <summary>
     /// Disables the role.
     /// </summary>
     /// <returns>A result indicating success or failure.</returns>

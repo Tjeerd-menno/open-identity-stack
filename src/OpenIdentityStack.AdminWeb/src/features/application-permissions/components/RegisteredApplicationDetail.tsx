@@ -210,10 +210,10 @@ export function RegisteredApplicationDetail({ id }: { id: string }) {
   const [maintainerSearch, setMaintainerSearch] = useState('');
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [manifestBaseUrlDraft, setManifestBaseUrlDraft] = useState('');
-  const { data: usersData, isLoading: usersLoading } = useUsers({ page: 1, pageSize: 20, search: ownerSearch });
-  const { data: groupsData, isLoading: groupsLoading } = useGroups({ page: 1, pageSize: 20, search: ownerSearch });
-  const { data: maintainerUsersData, isLoading: maintainerUsersLoading } = useUsers({ page: 1, pageSize: 20, search: maintainerSearch });
-  const { data: maintainerGroupsData, isLoading: maintainerGroupsLoading } = useGroups({ page: 1, pageSize: 20, search: maintainerSearch });
+  const { data: usersData, isLoading: usersLoading } = useUsers({ page: 1, pageSize: 20, search: ownerSearch, enabled: isEditingDetails });
+  const { data: groupsData, isLoading: groupsLoading } = useGroups({ page: 1, pageSize: 20, search: ownerSearch, enabled: isEditingDetails });
+  const { data: maintainerUsersData, isLoading: maintainerUsersLoading } = useUsers({ page: 1, pageSize: 20, search: maintainerSearch, enabled: isEditingDetails });
+  const { data: maintainerGroupsData, isLoading: maintainerGroupsLoading } = useGroups({ page: 1, pageSize: 20, search: maintainerSearch, enabled: isEditingDetails });
   const currentOwnerType = normalizePrincipalType(application?.ownerType);
   const currentOwnerUserId = application && currentOwnerType === 'User' ? application.ownerId : '';
   const currentOwnerGroupId = application && currentOwnerType === 'Group' ? application.ownerId : '';

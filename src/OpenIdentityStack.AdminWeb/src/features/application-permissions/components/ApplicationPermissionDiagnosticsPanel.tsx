@@ -18,7 +18,7 @@ export function ApplicationPermissionDiagnosticsPanel() {
         <div className="space-y-1">
           <CardTitle className="text-lg">Assignment Diagnostics</CardTitle>
           <p className="text-sm text-muted-foreground">
-            {issues.length} permission assignment issue{issues.length === 1 ? '' : 's'} need review.
+            {issues.length} permission assignment issue{issues.length === 1 ? '' : 's'} {issues.length === 1 ? 'needs' : 'need'} review.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>

@@ -47,7 +47,7 @@ describe('ApplicationPermissionDiagnosticsPanel', () => {
     render(<ApplicationPermissionDiagnosticsPanel />);
 
     expect(screen.getByText('Assignment Diagnostics')).toBeInTheDocument();
-    expect(screen.getByText('1 permission assignment issue need review.')).toBeInTheDocument();
+    expect(screen.getByText('1 permission assignment issue needs review.')).toBeInTheDocument();
     expect(screen.getByText('applications:*')).toBeInTheDocument();
   });
 });
