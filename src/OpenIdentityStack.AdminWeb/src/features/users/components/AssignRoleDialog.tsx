@@ -28,7 +28,9 @@ import {
 } from '@/components/ui/select';
 import { useAssignRole } from '../hooks/useAssignRole';
 import { useRoles } from '../../roles/hooks/useRoles';
+import { usePermission } from '@/features/auth/hooks/useAuth';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { RoleListItem } from '@/types';
 
 const assignRoleSchema = z.object({
@@ -50,9 +52,14 @@ export function AssignRoleDialog({
   onOpenChange,
   onSuccess,
 }: AssignRoleDialogProps) {
+  const hasRolesRead = usePermission('roles:read');
   const assignRole = useAssignRole();
-  // Fetch all roles to populate the select
-  const { data: rolesData, isLoading: isLoadingRoles } = useRoles({ page: 1, pageSize: 100 });
+  // Fetch all roles to populate the select - only if we have roles:read permission
+  const { data: rolesData, isLoading: isLoadingRoles } = useRoles({ 
+    page: 1, 
+    pageSize: 100,
+    enabled: open && hasRolesRead,
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<AssignRoleFormData>({
@@ -86,54 +93,62 @@ export function AssignRoleDialog({
           </DialogDescription>
         </DialogHeader>
         
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="roleId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {isLoadingRoles ? (
-                        <div className="flex justify-center p-2">
-                          <LoadingSpinner size="sm" />
-                        </div>
-                      ) : (
-                        rolesData?.items.map((role: RoleListItem) => (
-                          <SelectItem key={role.id} value={role.id}>
-                            {role.displayName}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Assigning...' : 'Assign Role'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+        {!hasRolesRead ? (
+          <Alert>
+            <AlertDescription>
+              You do not have permission to view available roles. Contact your administrator to assign roles.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="roleId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {isLoadingRoles ? (
+                          <div className="flex justify-center p-2">
+                            <LoadingSpinner size="sm" />
+                          </div>
+                        ) : (
+                          rolesData?.items.map((role: RoleListItem) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.displayName}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Assigning...' : 'Assign Role'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        )}
       </DialogContent>
     </Dialog>
   );

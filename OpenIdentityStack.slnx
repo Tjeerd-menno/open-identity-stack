@@ -24,5 +24,6 @@
     <Project Path="tests/OpenIdentityStack.Contract.Tests/OpenIdentityStack.Contract.Tests.csproj" />
     <Project Path="tests/OpenIdentityStack.Domain.Tests/OpenIdentityStack.Domain.Tests.csproj" />
     <Project Path="tests/OpenIdentityStack.Infrastructure.Tests/OpenIdentityStack.Infrastructure.Tests.csproj" />
+    <Project Path="tests/OpenIdentityStack.ManagementWeb.E2ETests/OpenIdentityStack.ManagementWeb.E2ETests.csproj" />
   </Folder>
 </Solution>

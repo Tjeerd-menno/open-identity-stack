@@ -68,6 +68,8 @@ nav:
       - Service accounts: administration/service-accounts.md
       - Federation providers: administration/federation.md
       - Sessions: administration/sessions.md
+  - Management Web:
+      - Overview: management-web.md
   - Integrations:
       - Overview: integrations/index.md
       - Web app OIDC integration: integrations/web-app-oidc.md
@@ -106,6 +108,10 @@ nav:
           - GHCR publishing: reference/GHCR-PUBLISHING.md
           - Production config guide: reference/OPENIDENTITYSTACK_PRODUCTION.md
           - Application permission transaction notes: engineering/application-permission-transaction-notes.md
+      - Architecture decisions:
+          - Dual admin UI strategy: adr/0001-dual-admin-ui-strategy.md
+          - Dual-host management UI: adr/0002-dual-host-management-ui.md
+          - Unified release train for breaking API changes: adr/0003-unified-release-train-for-breaking-api-changes.md
       - Certification workbench:
           - OIDC negative review automation plan: certification/oidf-negative-review-automation-plan.md
           - OpenID Connect certification scope: certification/openid-connect-certification-scope.md
