@@ -22,5 +22,8 @@ public class ManagementWebE2ETestProjectTests
         File.Exists(Path.Combine(testProjectDirectory, "RoleManagementTests.cs")).ShouldBeTrue();
         File.Exists(Path.Combine(testProjectDirectory, "GroupManagementTests.cs")).ShouldBeTrue();
         File.Exists(Path.Combine(testProjectDirectory, "SessionManagementTests.cs")).ShouldBeTrue();
+        File.Exists(Path.Combine(testProjectDirectory, "ProviderManagementTests.cs")).ShouldBeTrue();
+        File.Exists(Path.Combine(testProjectDirectory, "SettingsManagementTests.cs")).ShouldBeTrue();
+        File.Exists(Path.Combine(testProjectDirectory, "ApplicationPermissionsManagementTests.cs")).ShouldBeTrue();
     }
 }

@@ -25,6 +25,9 @@
 - Roles slice is complete through T038.
 - Groups slice is complete through T042.
 - Sessions slice is complete through T046.
+- Providers slice is complete through T050.
+- Settings slice is complete through T054.
+- Application Permissions slice is complete through T058.
 - ManagementWeb E2E tests are .NET/xUnit Playwright tests, not JavaScript/TypeScript Playwright specs.
 - ManagementWeb contains no Clients or Service Accounts navigation; Applications uses only `/api/admin/applications`.
 
@@ -40,12 +43,15 @@
 - `cd src/OpenIdentityStack.ManagementWeb; npm test -- src/features/roles/roles-api.test.ts src/features/roles/RolesPage.test.tsx src/routes/AppRoutes.test.tsx` passed with 20 tests.
 - `cd src/OpenIdentityStack.ManagementWeb; npm test -- src/features/groups/groups-api.test.ts src/features/groups/GroupsPage.test.tsx src/routes/AppRoutes.test.tsx src/lib/admin-api.test.ts` passed with 26 tests.
 - `cd src/OpenIdentityStack.ManagementWeb; npm test -- src/features/sessions/sessions-api.test.ts src/features/sessions/SessionsPage.test.tsx src/routes/AppRoutes.test.tsx` passed with 22 tests.
+- `cd src/OpenIdentityStack.ManagementWeb; npm test -- src/features/providers/providers-api.test.ts src/features/providers/ProvidersPage.test.tsx src/routes/AppRoutes.test.tsx` passed with 26 tests.
+- `cd src/OpenIdentityStack.ManagementWeb; npm test -- src/features/settings/settings-api.test.ts src/features/settings/SettingsPage.test.tsx src/routes/AppRoutes.test.tsx` passed with 26 tests.
+- `cd src/OpenIdentityStack.ManagementWeb; npm test -- src/features/application-permissions/application-permissions-api.test.ts src/features/application-permissions/ApplicationPermissionsPage.test.tsx src/routes/AppRoutes.test.tsx` passed with 30 tests.
 - `cd src/OpenIdentityStack.ManagementWeb; npm run type-check` passed.
-- `dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentityStack.ManagementWeb.E2ETests.csproj --no-restore -- --filter-namespace OpenIdentityStack.ManagementWeb.E2ETests` passed with 7 tests.
+- `dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentityStack.ManagementWeb.E2ETests.csproj --no-restore -- --filter-namespace OpenIdentityStack.ManagementWeb.E2ETests` passed with 10 tests.
 
 **Next implementation slice**:
 
-- Resume at Phase 8 Providers, starting with T047 and T048 test-first unless product priority changes to Audit.
+- Resume at Phase 11 Audit, starting with T059-T063 test-first.
 
 ## Phase 1: Existing Baseline
 
@@ -186,13 +192,15 @@
 
 ### Tests
 
-- [ ] T047 [P] [Providers] Add Providers API client and component tests for list, create, edit, delete, enable/disable, and OIDC settings in `src/OpenIdentityStack.ManagementWeb/src/features/providers/`
-- [ ] T048 [P] [Providers] Add ManagementWeb Providers E2E coverage in `tests/OpenIdentityStack.ManagementWeb.E2ETests/ProviderManagementTests.cs`
+- [X] T047 [P] [Providers] Add Providers API client and component tests for list, create, edit, delete, enable/disable, and OIDC settings in `src/OpenIdentityStack.ManagementWeb/src/features/providers/`
+- [X] T048 [P] [Providers] Add ManagementWeb Providers E2E coverage in `tests/OpenIdentityStack.ManagementWeb.E2ETests/ProviderManagementTests.cs`
 
 ### Implementation
 
-- [ ] T049 [Providers] Port Providers API client, hooks, list, forms, detail, status/type badges, and dialogs to Mantine in `src/OpenIdentityStack.ManagementWeb/src/features/providers/`
-- [ ] T050 [Providers] Wire `/providers`, `/providers/new`, `/providers/:id`, and `/providers/:id/edit` routes in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
+- [X] T049 [Providers] Port Providers API client, hooks, list, forms, detail, status/type badges, and dialogs to Mantine in `src/OpenIdentityStack.ManagementWeb/src/features/providers/`
+- [X] T050 [Providers] Wire `/providers`, `/providers/new`, `/providers/:id`, and `/providers/:id/edit` routes in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
+
+**Checkpoint**: Providers parity complete. The ManagementWeb Providers slice preserves `/providers`, `/providers/new`, `/providers/:id`, and `/providers/:id/edit`, uses `GET /api/admin/providers?includeDisabled=true`, `GET /api/admin/providers/{id}`, `POST /api/admin/providers`, `PATCH /api/admin/providers/{id}`, `POST /api/admin/providers/{id}/enable`, `POST /api/admin/providers/{id}/disable`, and `DELETE /api/admin/providers/{id}`. It gates create/edit/status changes with `providers:write`, deletion with `providers:delete`, route access with `providers:read`, keeps the OIDC-only type display, and covers list/search/create/detail/edit/enable/disable/delete workflows with Vitest plus .NET/xUnit Playwright E2E.
 
 ---
 
@@ -200,13 +208,15 @@
 
 ### Tests
 
-- [ ] T051 [P] [Settings] Add Settings API client and component tests for authentication settings, default provider, and local fallback in `src/OpenIdentityStack.ManagementWeb/src/features/settings/`
-- [ ] T052 [P] [Settings] Add ManagementWeb Settings E2E coverage in `tests/OpenIdentityStack.ManagementWeb.E2ETests/SettingsManagementTests.cs`
+- [X] T051 [P] [Settings] Add Settings API client and component tests for authentication settings, default provider, and local fallback in `src/OpenIdentityStack.ManagementWeb/src/features/settings/`
+- [X] T052 [P] [Settings] Add ManagementWeb Settings E2E coverage in `tests/OpenIdentityStack.ManagementWeb.E2ETests/SettingsManagementTests.cs`
 
 ### Implementation
 
-- [ ] T053 [Settings] Port authentication settings API client, hooks, and form to Mantine in `src/OpenIdentityStack.ManagementWeb/src/features/settings/`
-- [ ] T054 [Settings] Wire `/settings` route in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
+- [X] T053 [Settings] Port authentication settings API client, hooks, and form to Mantine in `src/OpenIdentityStack.ManagementWeb/src/features/settings/`
+- [X] T054 [Settings] Wire `/settings` route in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
+
+**Checkpoint**: Settings parity slice is complete.
 
 ---
 
@@ -214,13 +224,15 @@
 
 ### Tests
 
-- [ ] T055 [P] [ApplicationPermissions] Add API client and component tests for registered applications, register/import, detail, ownership, maintainers, manifest preview/apply, catalog, history, and diagnostics in `src/OpenIdentityStack.ManagementWeb/src/features/application-permissions/`
-- [ ] T056 [P] [ApplicationPermissions] Add ManagementWeb Application Permissions E2E coverage in `tests/OpenIdentityStack.ManagementWeb.E2ETests/ApplicationPermissionsManagementTests.cs`
+- [X] T055 [P] [ApplicationPermissions] Add API client and component tests for registered applications, register/import, detail, ownership, maintainers, manifest preview/apply, catalog, history, and diagnostics in `src/OpenIdentityStack.ManagementWeb/src/features/application-permissions/`
+- [X] T056 [P] [ApplicationPermissions] Add ManagementWeb Application Permissions E2E coverage in `tests/OpenIdentityStack.ManagementWeb.E2ETests/ApplicationPermissionsManagementTests.cs`
 
 ### Implementation
 
-- [ ] T057 [ApplicationPermissions] Port Application Permissions API client, hooks, list, register form, detail, ownership/maintainer controls, manifest workflows, diagnostics, and history to Mantine in `src/OpenIdentityStack.ManagementWeb/src/features/application-permissions/`
-- [ ] T058 [ApplicationPermissions] Wire `/application-permissions`, `/application-permissions/new`, and `/application-permissions/:id` routes in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
+- [X] T057 [ApplicationPermissions] Port Application Permissions API client, hooks, list, register form, detail, ownership/maintainer controls, manifest workflows, diagnostics, and history to Mantine in `src/OpenIdentityStack.ManagementWeb/src/features/application-permissions/`
+- [X] T058 [ApplicationPermissions] Wire `/application-permissions`, `/application-permissions/new`, and `/application-permissions/:id` routes in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
+
+**Checkpoint**: Application Permissions parity slice is complete. The ManagementWeb Application Permissions slice preserves `/application-permissions`, `/application-permissions/new`, and `/application-permissions/:id`, uses `/api/admin/application-permissions` registry, catalog, history, diagnostics, ownership, maintainer, lifecycle, import, and manifest endpoints, gates route access with `application-permissions:read`, write actions with `application-permissions:write`, ownership/maintainer controls with `application-permissions:admin` or write access, and covers list/register/import/detail/ownership/maintainer/permission/catalog/history/diagnostics workflows with Vitest plus .NET/xUnit Playwright E2E.
 
 ---
 

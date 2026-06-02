@@ -5,9 +5,12 @@ import { ApplicationsPage } from '@/features/applications/ApplicationsPage';
 import { ApplicationDetailPage } from '@/features/applications/ApplicationDetailPage';
 import { CreateApplicationPage } from '@/features/applications/CreateApplicationPage';
 import { EditApplicationPage } from '@/features/applications/EditApplicationPage';
+import { ApplicationPermissionsPage } from '@/features/application-permissions/ApplicationPermissionsPage';
 import { GroupsPage } from '@/features/groups/GroupsPage';
+import { ProvidersPage } from '@/features/providers/ProvidersPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { SessionsPage } from '@/features/sessions/SessionsPage';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 import { AuthCallbackRoute } from './auth-callback';
 import { PlaceholderPage } from './placeholder';
 import { AuthenticatedRoute, managementRoutePermissions, RequirePermission } from './route-guards';
@@ -34,16 +37,16 @@ export function AppRoutes() {
         <Route path="applications/new" element={withPermission(<CreateApplicationPage />, ['applications:write'])} />
         <Route path="applications/:id" element={withPermission(<ApplicationDetailPage />, managementRoutePermissions.applications)} />
         <Route path="applications/:id/edit" element={withPermission(<EditApplicationPage />, ['applications:write'])} />
-        <Route path="application-permissions" element={withPermission(<PlaceholderPage title="Permissions" />, managementRoutePermissions.applicationPermissions)} />
-        <Route path="application-permissions/new" element={withPermission(<PlaceholderPage title="Register application permissions" />, ['application-permissions:write'])} />
-        <Route path="application-permissions/:id" element={withPermission(<PlaceholderPage title="Application permission details" />, managementRoutePermissions.applicationPermissions)} />
+        <Route path="application-permissions" element={withPermission(<ApplicationPermissionsPage />, managementRoutePermissions.applicationPermissions)} />
+        <Route path="application-permissions/new" element={withPermission(<ApplicationPermissionsPage />, ['application-permissions:write'])} />
+        <Route path="application-permissions/:id" element={withPermission(<ApplicationPermissionsPage />, managementRoutePermissions.applicationPermissions)} />
         <Route path="sessions" element={withPermission(<SessionsPage />, managementRoutePermissions.sessions)} />
         <Route path="sessions/:id" element={withPermission(<SessionsPage />, managementRoutePermissions.sessions)} />
-        <Route path="providers" element={withPermission(<PlaceholderPage title="Identity providers" />, managementRoutePermissions.providers)} />
-        <Route path="providers/new" element={withPermission(<PlaceholderPage title="Create identity provider" />, ['providers:write'])} />
-        <Route path="providers/:id" element={withPermission(<PlaceholderPage title="Identity provider details" />, managementRoutePermissions.providers)} />
-        <Route path="providers/:id/edit" element={withPermission(<PlaceholderPage title="Edit identity provider" />, ['providers:write'])} />
-        <Route path="settings" element={withPermission(<PlaceholderPage title="Settings" />, managementRoutePermissions.settings)} />
+        <Route path="providers" element={withPermission(<ProvidersPage />, managementRoutePermissions.providers)} />
+        <Route path="providers/new" element={withPermission(<ProvidersPage />, ['providers:write'])} />
+        <Route path="providers/:id" element={withPermission(<ProvidersPage />, managementRoutePermissions.providers)} />
+        <Route path="providers/:id/edit" element={withPermission(<ProvidersPage />, ['providers:write'])} />
+        <Route path="settings" element={withPermission(<SettingsPage />, managementRoutePermissions.settings)} />
         <Route path="audit-entries" element={withPermission(<PlaceholderPage title="Audit" />, managementRoutePermissions.audit)} />
       </Route>
     </Routes>

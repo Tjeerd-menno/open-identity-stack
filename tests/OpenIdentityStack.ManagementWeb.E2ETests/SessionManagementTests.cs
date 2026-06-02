@@ -54,11 +54,13 @@ public class SessionManagementTests : IAsyncLifetime
         await page.GetByRole(AriaRole.Heading, new() { Name = "Sessions", Exact = true }).WaitForAsync();
         await page.GetByText("10.0.0.5").WaitForAsync();
 
+        Task<IRequest> searchRequest = page.WaitForRequestAsync(new Regex(@"/api/admin/sessions\?.*search=10\.0\.0\.5", RegexOptions.IgnoreCase));
         await page.GetByLabel(new Regex("Search sessions", RegexOptions.IgnoreCase)).FillAsync("10.0.0.5");
-        await page.WaitForRequestAsync(new Regex(@"/api/admin/sessions\?.*search=10\.0\.0\.5", RegexOptions.IgnoreCase));
+        await searchRequest;
 
+        Task<IRequest> revokedRequest = page.WaitForRequestAsync(new Regex(@"/api/admin/sessions\?.*status=Revoked", RegexOptions.IgnoreCase));
         await page.GetByLabel(new Regex("Filter by status", RegexOptions.IgnoreCase)).SelectOptionAsync(["Revoked"]);
-        await page.WaitForRequestAsync(new Regex(@"/api/admin/sessions\?.*status=Revoked", RegexOptions.IgnoreCase));
+        await revokedRequest;
 
         await page.GetByLabel(new Regex("Filter by status", RegexOptions.IgnoreCase)).SelectOptionAsync(["Active"]);
         await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("view session", RegexOptions.IgnoreCase) }).ClickAsync();
@@ -66,9 +68,11 @@ public class SessionManagementTests : IAsyncLifetime
         await page.GetByText("Firefox on Windows").WaitForAsync();
 
         await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("revoke all sessions for user", RegexOptions.IgnoreCase) }).ClickAsync();
+        Task<IRequest> revokeAllRequest = page.WaitForRequestAsync(new Regex(@"/api/admin/users/user-1/sessions$", RegexOptions.IgnoreCase));
         await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("revoke all user sessions", RegexOptions.IgnoreCase) })
             .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("revoke all user sessions", RegexOptions.IgnoreCase) })
             .ClickAsync();
+        await revokeAllRequest;
         allUserSessionsRevoked.ShouldBeTrue();
 
         await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^revoke session$", RegexOptions.IgnoreCase) }).ClickAsync();

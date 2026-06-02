@@ -8,7 +8,7 @@
 
 **Status**: In Progress
 
-**Current implementation checkpoint**: Shared foundation, Applications, Users, Roles, Groups, and Sessions parity slices are complete through 2026-06-02. Next planned parity slice is Identity providers unless Audit is reprioritized.
+**Current implementation checkpoint**: Shared foundation, Applications, Users, Roles, Groups, Sessions, Identity providers, Settings, and Application permissions parity slices are complete through 2026-06-02. Next planned slice is Audit.
 
 **Input**: ManagementWeb must reach functional parity with AdminWeb while using a Mantine-first frontend. The port preserves AdminWeb behavior one-for-one before any product redesign, uses the consolidated Applications API only, removes legacy Clients and Service accounts navigation, and adds a ManagementWeb Audit area backed by a read-only audit entries endpoint.
 
@@ -77,6 +77,9 @@ An operator can use ManagementWeb for Roles, Groups, Sessions, Identity provider
 3. **Given** the operator manages Roles, **When** they list, create, inspect, update, or delete custom roles, **Then** ManagementWeb uses `/api/admin/roles`, uses `/api/admin/permissions/platform` for platform permission selection, requires wildcard acknowledgement for broad grants, and prevents deleting system roles.
 4. **Given** the operator manages Groups, **When** they list, search, create, inspect, update, delete, add/remove members, or add/remove mappings, **Then** ManagementWeb preserves the AdminWeb group routes, uses `/api/admin/groups` plus member and mapping subresources, uses `/api/admin/users` for member selection, uses `/api/admin/roles` for role mapping selection, and gates actions with granular group permissions.
 5. **Given** the operator manages Sessions, **When** they list, search, filter by status, inspect details, revoke one session, or revoke all sessions for a user, **Then** ManagementWeb preserves `/sessions` routes, uses the current backend session endpoints, and gates destructive actions with `sessions:revoke`.
+6. **Given** the operator manages Identity providers, **When** they list, search, create, inspect, update, enable, disable, or delete an OIDC provider, **Then** ManagementWeb preserves `/providers` routes, uses only `/api/admin/providers` and provider subresources, keeps OIDC as the provider type, and gates actions with granular provider permissions.
+7. **Given** the operator manages Settings, **When** they view active authentication providers, change the default provider, or toggle admin local fallback, **Then** ManagementWeb preserves `/settings`, uses `/api/admin/authentication-settings`, and gates access with `system:settings`.
+8. **Given** the operator manages Application permissions, **When** they list, register, import, inspect, change lifecycle, transfer ownership, add maintainers, add permissions, view catalog, view history, or view diagnostics, **Then** ManagementWeb preserves `/application-permissions` routes, uses `/api/admin/application-permissions`, and gates access with granular application permission grants.
 
 ---
 

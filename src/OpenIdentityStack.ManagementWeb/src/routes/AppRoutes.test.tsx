@@ -312,4 +312,190 @@ describe('AppRoutes route guards', () => {
 
     expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
   });
+
+  it.each([
+    ['/providers', 'Identity Providers'],
+    ['/providers/new', 'Create provider'],
+    ['/providers/provider-1', 'Google Login'],
+    ['/providers/provider-1/edit', 'Edit provider'],
+  ])('routes %s to the Providers surface', async (path, heading) => {
+    const apiBase = 'http://localhost:5000';
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/providers?includeDisabled=true` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify([
+          {
+            id: 'provider-1',
+            name: 'google',
+            displayName: 'Google Login',
+            authority: 'https://accounts.google.com',
+            clientId: 'google-client',
+            scopes: ['openid', 'profile', 'email'],
+            jitProvisioningEnabled: true,
+            status: 'Active',
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+        ]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      if (url === `${apiBase}/api/admin/providers/provider-1` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify({
+          id: 'provider-1',
+          name: 'google',
+          displayName: 'Google Login',
+          authority: 'https://accounts.google.com',
+          clientId: 'google-client',
+          scopes: ['openid', 'profile', 'email'],
+          jitProvisioningEnabled: true,
+          status: 'Active',
+          createdAt: '2026-01-01T00:00:00Z',
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }));
+
+    renderGuard(<AppRoutes />, { permissions: ['*'] }, [path]);
+
+    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
+  });
+
+  it('routes /settings to the Settings surface', async () => {
+    const apiBase = 'http://localhost:5000';
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/authentication-settings` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify({
+          defaultProviderId: 'local',
+          isLocalDefault: true,
+          localFallbackEnabled: true,
+          updatedAt: '2026-01-01T00:00:00Z',
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      if (url === `${apiBase}/api/admin/authentication-settings/providers` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify([
+          { id: 'local', name: 'local', displayName: 'Local Accounts', type: 'local', isActive: true },
+        ]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }));
+
+    renderGuard(<AppRoutes />, { permissions: ['*'] }, ['/settings']);
+
+    expect(await screen.findByRole('heading', { name: 'Authentication Settings' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['/application-permissions', 'Permissions'],
+    ['/application-permissions/new', 'Add Application'],
+    ['/application-permissions/application-1', 'Patient API'],
+  ])('routes %s to the Application Permissions surface', async (path, heading) => {
+    const apiBase = 'http://localhost:5000';
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url.startsWith(`${apiBase}/api/admin/application-permissions/applications?page=`) && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify({
+          items: [
+            {
+              id: 'application-1',
+              applicationIdentifier: 'patient-api',
+              displayName: 'Patient API',
+              ownerId: 'owner-1',
+              ownerType: 'User',
+              permissionCount: 1,
+              status: 'Active',
+              manifestVersion: '1.0.0',
+              updatedAt: '2026-01-01T00:00:00Z',
+            },
+          ],
+          totalCount: 1,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      if (url === `${apiBase}/api/admin/application-permissions/applications/application-1` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify({
+          id: 'application-1',
+          applicationIdentifier: 'patient-api',
+          displayName: 'Patient API',
+          description: 'Patient records',
+          ownerId: 'owner-1',
+          ownerType: 'User',
+          permissionCount: 1,
+          status: 'Active',
+          manifestVersion: '1.0.0',
+          schemaVersion: '1.0.0',
+          manifestBaseUrl: null,
+          concurrencyToken: 7,
+          permissions: [
+            {
+              id: 'permission-1',
+              key: 'patient:read',
+              fullPermissionKey: 'patient:read',
+              displayName: 'Read patients',
+              description: 'Allows reading patient data',
+              category: 'Patients',
+              status: 'Active',
+            },
+          ],
+          maintainers: [],
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      if (url === `${apiBase}/api/admin/application-permissions/catalog?page=1&pageSize=50` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify({ items: [], totalCount: 0, page: 1, pageSize: 50, totalPages: 0 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      if (url === `${apiBase}/api/admin/application-permissions/history?applicationIdentifier=patient-api` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify({ deletedApplications: [], removedPermissions: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      if (url === `${apiBase}/api/admin/application-permissions/diagnostics` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify({ issues: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }));
+
+    renderGuard(<AppRoutes />, { permissions: ['*'] }, [path]);
+
+    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
+  });
 });
