@@ -534,25 +534,28 @@ function AddMappingDialog({
     }
 
     let cancelled = false;
-    setRolesLoading(true);
-    setRolesError(null);
 
-    getRoles({ page: 1, pageSize: 100 })
-      .then((response) => {
+    async function loadRoles() {
+      setRolesLoading(true);
+      setRolesError(null);
+
+      try {
+        const response = await getRoles({ page: 1, pageSize: 100 });
         if (!cancelled) {
           setRoles(response.items);
         }
-      })
-      .catch((unknownError) => {
+      } catch (unknownError) {
         if (!cancelled) {
           setRolesError(getApiErrorMessage(unknownError));
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setRolesLoading(false);
         }
-      });
+      }
+    }
+
+    void loadRoles();
 
     return () => {
       cancelled = true;

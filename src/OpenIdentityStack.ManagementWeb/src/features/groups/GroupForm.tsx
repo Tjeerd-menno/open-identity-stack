@@ -16,6 +16,7 @@ export function GroupForm({ group, mode, error, loading = false, onSubmit, onCan
   const [name, setName] = useState(group?.name ?? '');
   const [description, setDescription] = useState(group?.description ?? '');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const errorMessage = validationError ?? (error ? getApiErrorMessage(error) : null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,9 +46,7 @@ export function GroupForm({ group, mode, error, loading = false, onSubmit, onCan
   return (
     <form onSubmit={(event) => void handleSubmit(event)}>
       <Stack gap="md">
-        {(validationError || error) && (
-          <Alert color="red">{validationError ?? getApiErrorMessage(error)}</Alert>
-        )}
+        {errorMessage && <Alert color="red">{errorMessage}</Alert>}
 
         <TextInput
           label="Group name"

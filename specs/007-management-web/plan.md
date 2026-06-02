@@ -185,6 +185,14 @@ As of 2026-06-02, the Settings slice is implemented in ManagementWeb with Mantin
 
 As of 2026-06-02, the Application Permissions slice is implemented in ManagementWeb with Mantine components under `src/OpenIdentityStack.ManagementWeb/src/features/application-permissions/`. It preserves `/application-permissions`, `/application-permissions/new`, and `/application-permissions/:id`, ports the AdminWeb registry workflow for listing registered applications, registering manual manifests, importing well-known permission manifests, inspecting details, changing lifecycle, transferring ownership, adding maintainers, adding permissions, viewing the assignable catalog, viewing history, and viewing diagnostics. It gates route access with `application-permissions:read` and write/admin workflows with granular `application-permissions:write` / `application-permissions:admin` checks. It uses the existing backend contract under `/api/admin/application-permissions`, including `/applications`, `/applications/import`, `/applications/{id}`, `/applications/{id}/permissions`, `/applications/{id}/lifecycle`, `/applications/{id}/ownership`, `/applications/{id}/maintainers`, manifest preview/apply endpoints, `/catalog`, `/history`, and `/diagnostics`. Verification evidence: `npm test -- src/features/application-permissions/application-permissions-api.test.ts src/features/application-permissions/ApplicationPermissionsPage.test.tsx src/routes/AppRoutes.test.tsx` passed 30 tests; `npm run type-check` passed; `dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentityStack.ManagementWeb.E2ETests.csproj --no-restore -- --filter-namespace OpenIdentityStack.ManagementWeb.E2ETests` passed 10 tests.
 
+### Phase 11 Audit Completion Note
+
+As of 2026-06-02, the Audit slice is implemented in ManagementWeb with Mantine components under `src/OpenIdentityStack.ManagementWeb/src/features/audit/` and one backend read endpoint under `src/OpenIdentityStack.Api/Audit/`. It preserves `/audit-entries`, uses `GET /api/admin/audit-entries`, requires `audit-logs:read`, supports page/pageSize plus date, user, action, entity, and search filters, and includes `details`, `beforeState`, and `afterState` in the list response. It is covered by application, infrastructure, API, contract, Vitest, and .NET/xUnit Playwright E2E tests.
+
+### Phase 12 Overview Completion Note
+
+As of 2026-06-02, the Overview slice is implemented in ManagementWeb with Mantine components under `src/OpenIdentityStack.ManagementWeb/src/features/overview/`. It preserves `/` as the Overview route, summarizes retained ManagementWeb sections based on concrete permissions, provides quick links for accessible sections, and continues to exclude Clients and Service Accounts. It is covered by Vitest component/route tests plus .NET/xUnit Playwright E2E smoke coverage.
+
 ### Design Re-check Constitution Gate
 
 | Gate | Status | Evidence / Notes |

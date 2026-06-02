@@ -8,7 +8,7 @@
 
 **Status**: In Progress
 
-**Current implementation checkpoint**: Shared foundation, Applications, Users, Roles, Groups, Sessions, Identity providers, Settings, and Application permissions parity slices are complete through 2026-06-02. Next planned slice is Audit.
+**Current implementation checkpoint**: Shared foundation, Applications, Users, Roles, Groups, Sessions, Identity providers, Settings, Application permissions, Audit, and Overview parity slices are complete through 2026-06-02. Next planned work is documentation/final validation.
 
 **Input**: ManagementWeb must reach functional parity with AdminWeb while using a Mantine-first frontend. The port preserves AdminWeb behavior one-for-one before any product redesign, uses the consolidated Applications API only, removes legacy Clients and Service accounts navigation, and adds a ManagementWeb Audit area backed by a read-only audit entries endpoint.
 

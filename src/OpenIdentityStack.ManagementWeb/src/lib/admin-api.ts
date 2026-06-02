@@ -67,7 +67,7 @@ export async function request<T>(path: string, options: RequestInit = {}, params
   });
 
   if (!response.ok) {
-    let payload: unknown = null;
+    let payload: unknown;
     try {
       payload = await response.json();
     } catch {

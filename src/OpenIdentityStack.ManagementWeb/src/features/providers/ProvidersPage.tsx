@@ -14,7 +14,7 @@ import {
   useToggleProvider,
   useUpdateProvider,
 } from './providers-hooks';
-import type { Provider, ProviderStatus } from './providers-api';
+import type { CreateProviderRequest, Provider, ProviderStatus, UpdateProviderRequest } from './providers-api';
 
 type ProvidersPageProps = {
   permissions?: string[];
@@ -187,7 +187,7 @@ function CreateProviderView({ permissions }: Required<ProvidersPageProps>) {
         error={createProvider.error}
         onCancel={() => navigate('/providers')}
         onSubmit={async (data) => {
-          const provider = await createProvider.mutateAsync(data);
+          const provider = await createProvider.mutateAsync(data as CreateProviderRequest);
           navigate(`/providers/${provider.id}`);
         }}
       />
@@ -229,7 +229,7 @@ function EditProviderView({ providerId, permissions }: { providerId: string; per
         error={updateProvider.error}
         onCancel={() => navigate(`/providers/${providerId}`)}
         onSubmit={async (data) => {
-          await updateProvider.mutateAsync(data);
+          await updateProvider.mutateAsync(data as UpdateProviderRequest);
           navigate(`/providers/${providerId}`);
         }}
       />

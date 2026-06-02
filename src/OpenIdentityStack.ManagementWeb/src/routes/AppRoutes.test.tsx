@@ -30,6 +30,12 @@ function renderGuard(ui: ReactElement, auth: Partial<AuthContextValue> = {}, ini
 }
 
 describe('AppRoutes route guards', () => {
+  it('routes / to the Overview surface', async () => {
+    renderGuard(<AppRoutes />, { permissions: ['*'] }, ['/']);
+
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument();
+  });
+
   it('renders access denied when an authenticated operator lacks the route permission', async () => {
     renderGuard(
       <RequirePermission requiredPermissions={managementRoutePermissions.audit}>

@@ -60,16 +60,17 @@ dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentit
 
 Run focused E2E specs for each completed slice during development:
 
-- `applications.spec.ts`
-- `users.spec.ts`
-- `roles.spec.ts`
-- `groups.spec.ts`
-- `sessions.spec.ts`
-- `providers.spec.ts`
-- `settings.spec.ts`
-- `application-permissions.spec.ts`
-- `audit.spec.ts`
-- `auth-continuity.spec.ts`
+- `ApplicationManagementTests`
+- `UserManagementTests`
+- `RoleManagementTests`
+- `GroupManagementTests`
+- `SessionManagementTests`
+- `ProviderManagementTests`
+- `SettingsManagementTests`
+- `ApplicationPermissionsManagementTests`
+- `AuditEntryManagementTests`
+- `OverviewSmokeTests`
+- `AuthContinuityTests`
 
 ## Local runtime check
 

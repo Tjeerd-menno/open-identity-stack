@@ -33,6 +33,7 @@ export function ProviderForm({ provider, mode, loading = false, error, onSubmit,
     jitProvisioningEnabled: provider?.jitProvisioningEnabled ?? true,
   });
   const [validationError, setValidationError] = useState<string | null>(null);
+  const errorMessage = validationError ?? (error ? getApiErrorMessage(error) : null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,9 +69,7 @@ export function ProviderForm({ provider, mode, loading = false, error, onSubmit,
   return (
     <form onSubmit={(event) => void handleSubmit(event)}>
       <Stack gap="md">
-        {(validationError || error) && (
-          <Alert color="red">{validationError ?? getApiErrorMessage(error)}</Alert>
-        )}
+        {errorMessage && <Alert color="red">{errorMessage}</Alert>}
 
         <TextInput
           label="Provider name"

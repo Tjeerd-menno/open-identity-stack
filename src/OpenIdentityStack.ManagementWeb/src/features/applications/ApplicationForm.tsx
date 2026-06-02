@@ -19,7 +19,6 @@ import {
   ApplicationProfile,
   type Application,
   type ApplicationProfilePolicy,
-  type ConfigureApplicationOAuthRequest,
   type CreateApplicationRequest,
   type UpdateApplicationMetadataRequest,
 } from './applications-api';
@@ -100,15 +99,20 @@ function CreateApplicationForm({
       return;
     }
 
-    form.setValues((current) => ({
-      ...current,
-      clientType: selectedPolicy.defaultClientProfile,
-      allowedGrantTypes: selectedPolicy.defaultGrantTypes,
-      redirectUris: selectedPolicy.requiresRedirectUris && current.redirectUris.length === 0 ? [''] : current.redirectUris,
-      postLogoutRedirectUris: isOptionHidden(selectedPolicy, 'postLogoutRedirectUris') ? [] : current.postLogoutRedirectUris,
-      requirePkce: selectedPolicy.defaultRequirePkce,
-      requireConsent: isOptionHidden(selectedPolicy, 'consent') ? false : selectedPolicy.defaultRequireConsent,
-    }));
+    form.setValues((current) => {
+      const redirectUris = current.redirectUris ?? [];
+      const postLogoutRedirectUris = current.postLogoutRedirectUris ?? [];
+
+      return {
+        ...current,
+        clientType: selectedPolicy.defaultClientProfile,
+        allowedGrantTypes: selectedPolicy.defaultGrantTypes,
+        redirectUris: selectedPolicy.requiresRedirectUris && redirectUris.length === 0 ? [''] : redirectUris,
+        postLogoutRedirectUris: isOptionHidden(selectedPolicy, 'postLogoutRedirectUris') ? [] : postLogoutRedirectUris,
+        requirePkce: selectedPolicy.defaultRequirePkce,
+        requireConsent: isOptionHidden(selectedPolicy, 'consent') ? false : selectedPolicy.defaultRequireConsent,
+      };
+    });
   }, [form.values.profile, selectedPolicy]);
 
   if (policies.isLoading) {

@@ -1,18 +1,19 @@
 import { type ReactElement } from 'react';
-import { Navigate, Route, Routes } from 'react-router';
+import { Route, Routes } from 'react-router';
 import { AppShell } from '@/components/AppShell';
 import { ApplicationsPage } from '@/features/applications/ApplicationsPage';
 import { ApplicationDetailPage } from '@/features/applications/ApplicationDetailPage';
 import { CreateApplicationPage } from '@/features/applications/CreateApplicationPage';
 import { EditApplicationPage } from '@/features/applications/EditApplicationPage';
 import { ApplicationPermissionsPage } from '@/features/application-permissions/ApplicationPermissionsPage';
+import { AuditEntriesPage } from '@/features/audit/AuditEntriesPage';
 import { GroupsPage } from '@/features/groups/GroupsPage';
+import { OverviewPage } from '@/features/overview/OverviewPage';
 import { ProvidersPage } from '@/features/providers/ProvidersPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { SessionsPage } from '@/features/sessions/SessionsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { AuthCallbackRoute } from './auth-callback';
-import { PlaceholderPage } from './placeholder';
 import { AuthenticatedRoute, managementRoutePermissions, RequirePermission } from './route-guards';
 import { UsersRoute } from './users';
 
@@ -21,7 +22,7 @@ export function AppRoutes() {
     <Routes>
       <Route path="auth/callback" element={<AuthCallbackRoute />} />
       <Route element={<AuthenticatedRoute><AppShell /></AuthenticatedRoute>}>
-        <Route index element={<Navigate to="/users" replace />} />
+        <Route index element={<OverviewPage />} />
         <Route path="users" element={withPermission(<UsersRoute />, managementRoutePermissions.users)} />
         <Route path="users/create" element={withPermission(<UsersRoute />, ['users:write'])} />
         <Route path="users/:id" element={withPermission(<UsersRoute />, managementRoutePermissions.users)} />
@@ -47,7 +48,7 @@ export function AppRoutes() {
         <Route path="providers/:id" element={withPermission(<ProvidersPage />, managementRoutePermissions.providers)} />
         <Route path="providers/:id/edit" element={withPermission(<ProvidersPage />, ['providers:write'])} />
         <Route path="settings" element={withPermission(<SettingsPage />, managementRoutePermissions.settings)} />
-        <Route path="audit-entries" element={withPermission(<PlaceholderPage title="Audit" />, managementRoutePermissions.audit)} />
+        <Route path="audit-entries" element={withPermission(<AuditEntriesPage />, managementRoutePermissions.audit)} />
       </Route>
     </Routes>
   );

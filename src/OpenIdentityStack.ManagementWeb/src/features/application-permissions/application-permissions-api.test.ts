@@ -18,6 +18,7 @@ import {
   updateRegisteredApplication,
   updateRemovedPermissionReplacement,
 } from './application-permissions-api';
+import type { PermissionManifestRequest } from './application-permissions-api';
 
 const apiBase = 'http://localhost:5000';
 
@@ -28,7 +29,7 @@ function jsonResponse(body: unknown, status = 200) {
   }));
 }
 
-const manifestRequest = {
+const manifestRequest: PermissionManifestRequest = {
   manifest: {
     schemaVersion: '1.0.0',
     application: {

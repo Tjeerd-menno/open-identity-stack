@@ -31,6 +31,7 @@ export function RoleForm({ role, mode, error, loading = false, onSubmit, onCance
   });
   const [validationError, setValidationError] = useState<string | null>(null);
   const wildcardSelected = values.permissions.some(isWildcardPermission);
+  const errorMessage = validationError ?? (error ? getApiErrorMessage(error) : null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,11 +65,7 @@ export function RoleForm({ role, mode, error, loading = false, onSubmit, onCance
   return (
     <form onSubmit={(event) => void handleSubmit(event)}>
       <Stack gap="md">
-        {(validationError || error) && (
-          <Alert color="red">
-            {validationError ?? getApiErrorMessage(error)}
-          </Alert>
-        )}
+        {errorMessage && <Alert color="red">{errorMessage}</Alert>}
 
         <TextInput
           label="Name"

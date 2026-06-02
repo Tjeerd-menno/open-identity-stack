@@ -28,6 +28,7 @@
 - Providers slice is complete through T050.
 - Settings slice is complete through T054.
 - Application Permissions slice is complete through T058.
+- Audit slice is complete through T068.
 - ManagementWeb E2E tests are .NET/xUnit Playwright tests, not JavaScript/TypeScript Playwright specs.
 - ManagementWeb contains no Clients or Service Accounts navigation; Applications uses only `/api/admin/applications`.
 
@@ -46,12 +47,18 @@
 - `cd src/OpenIdentityStack.ManagementWeb; npm test -- src/features/providers/providers-api.test.ts src/features/providers/ProvidersPage.test.tsx src/routes/AppRoutes.test.tsx` passed with 26 tests.
 - `cd src/OpenIdentityStack.ManagementWeb; npm test -- src/features/settings/settings-api.test.ts src/features/settings/SettingsPage.test.tsx src/routes/AppRoutes.test.tsx` passed with 26 tests.
 - `cd src/OpenIdentityStack.ManagementWeb; npm test -- src/features/application-permissions/application-permissions-api.test.ts src/features/application-permissions/ApplicationPermissionsPage.test.tsx src/routes/AppRoutes.test.tsx` passed with 30 tests.
+- `dotnet test --project tests\OpenIdentityStack.Application.Tests\OpenIdentityStack.Application.Tests.csproj --no-restore -- --filter-class OpenIdentityStack.Application.Tests.Audit.ListAuditEntriesQueryHandlerTests` passed with 2 tests.
+- `dotnet test --project tests\OpenIdentityStack.Infrastructure.Tests\OpenIdentityStack.Infrastructure.Tests.csproj --no-restore -- --filter-class OpenIdentityStack.Infrastructure.Tests.Audit.AuditEntryReaderTests` passed with 2 tests.
+- `dotnet test --project tests\OpenIdentityStack.Contract.Tests\OpenIdentityStack.Contract.Tests.csproj --no-restore -- --filter-class OpenIdentityStack.Contract.Tests.Admin.Audit.AuditEntriesEndpointContractTests` passed with 2 tests.
+- `dotnet test --project tests\OpenIdentityStack.Api.Tests\OpenIdentityStack.Api.Tests.csproj --no-restore -- --filter-class OpenIdentityStack.Api.Tests.Admin.Audit.AuditEntriesEndpointWorkflowTests` passed with 4 tests.
+- `cd src/OpenIdentityStack.ManagementWeb; npm test -- src/features/audit/audit-entries-api.test.ts src/features/audit/AuditEntriesPage.test.tsx` passed with 3 tests.
 - `cd src/OpenIdentityStack.ManagementWeb; npm run type-check` passed.
+- `dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentityStack.ManagementWeb.E2ETests.csproj --no-restore -- --filter-class OpenIdentityStack.ManagementWeb.E2ETests.AuditEntryManagementTests` passed with 1 test.
 - `dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentityStack.ManagementWeb.E2ETests.csproj --no-restore -- --filter-namespace OpenIdentityStack.ManagementWeb.E2ETests` passed with 10 tests.
 
 **Next implementation slice**:
 
-- Resume at Phase 11 Audit, starting with T059-T063 test-first.
+- Resume at Phase 12 Overview, Documentation, and Final Verification, starting with T069 test-first.
 
 ## Phase 1: Existing Baseline
 
@@ -242,19 +249,21 @@
 
 ### Tests
 
-- [ ] T059 [P] [Audit] Add application/infrastructure tests for audit entry pagination and filters in `tests/OpenIdentityStack.Application.Tests/` and `tests/OpenIdentityStack.Infrastructure.Tests/`
-- [ ] T060 [P] [Audit] Add API tests for `GET /api/admin/audit-entries`, `audit-logs:read` authorization, pagination, filters, and search in `tests/OpenIdentityStack.Api.Tests/Admin/Audit/`
-- [ ] T061 [P] [Audit] Add contract tests for the audit entries response shape including `details`, `beforeState`, and `afterState` in `tests/OpenIdentityStack.Contract.Tests/Admin/Audit/`
-- [ ] T062 [P] [Audit] Add ManagementWeb Audit API client and component tests for filters, pagination, permission denial, and expandable row details in `src/OpenIdentityStack.ManagementWeb/src/features/audit/`
-- [ ] T063 [P] [Audit] Add ManagementWeb Audit E2E coverage in `tests/OpenIdentityStack.ManagementWeb.E2ETests/AuditEntryManagementTests.cs`
+- [X] T059 [P] [Audit] Add application/infrastructure tests for audit entry pagination and filters in `tests/OpenIdentityStack.Application.Tests/` and `tests/OpenIdentityStack.Infrastructure.Tests/`
+- [X] T060 [P] [Audit] Add API tests for `GET /api/admin/audit-entries`, `audit-logs:read` authorization, pagination, filters, and search in `tests/OpenIdentityStack.Api.Tests/Admin/Audit/`
+- [X] T061 [P] [Audit] Add contract tests for the audit entries response shape including `details`, `beforeState`, and `afterState` in `tests/OpenIdentityStack.Contract.Tests/Admin/Audit/`
+- [X] T062 [P] [Audit] Add ManagementWeb Audit API client and component tests for filters, pagination, permission denial, and expandable row details in `src/OpenIdentityStack.ManagementWeb/src/features/audit/`
+- [X] T063 [P] [Audit] Add ManagementWeb Audit E2E coverage in `tests/OpenIdentityStack.ManagementWeb.E2ETests/AuditEntryManagementTests.cs`
 
 ### Implementation
 
-- [ ] T064 [Audit] Add audit query contracts and handler in `src/OpenIdentityStack.Application/Audit/Queries/`
-- [ ] T065 [Audit] Add audit repository/query implementation over `AuditLogEntries` in `src/OpenIdentityStack.Infrastructure/Audit/`
-- [ ] T066 [Audit] Add `GET /api/admin/audit-entries` endpoint requiring `audit-logs:read` in `src/OpenIdentityStack.Api/Audit/AuditEntriesApi.cs` and map it from `src/OpenIdentityStack.Api/Program.cs`
-- [ ] T067 [Audit] Add ManagementWeb Audit API client, hooks, list, filters, pagination, and expandable row detail in `src/OpenIdentityStack.ManagementWeb/src/features/audit/`
-- [ ] T068 [Audit] Wire `/audit-entries` route in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
+- [X] T064 [Audit] Add audit query contracts and handler in `src/OpenIdentityStack.Application/Audit/Queries/`
+- [X] T065 [Audit] Add audit repository/query implementation over `AuditLogEntries` in `src/OpenIdentityStack.Infrastructure/Audit/`
+- [X] T066 [Audit] Add `GET /api/admin/audit-entries` endpoint requiring `audit-logs:read` in `src/OpenIdentityStack.Api/Audit/AuditEntriesApi.cs` and map it from `src/OpenIdentityStack.Api/Program.cs`
+- [X] T067 [Audit] Add ManagementWeb Audit API client, hooks, list, filters, pagination, and expandable row detail in `src/OpenIdentityStack.ManagementWeb/src/features/audit/`
+- [X] T068 [Audit] Wire `/audit-entries` route in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
+
+**Checkpoint**: Audit slice is complete. The backend exposes one read-only `GET /api/admin/audit-entries` endpoint backed by existing `AuditLogEntries`, requires `audit-logs:read`, supports page/pageSize plus date, user, action, entity, and search filters, and includes `details`, `beforeState`, and `afterState` in v1 list responses. ManagementWeb preserves `/audit-entries`, gates access with `audit-logs:read`, renders a Mantine audit list with filters, pagination, and expandable entry details, and covers the workflow with application/infrastructure/API/contract tests, Vitest, and .NET/xUnit Playwright E2E.
 
 ---
 
@@ -262,13 +271,26 @@
 
 ### Tests
 
-- [ ] T069 [P] [Overview] Add Overview/dashboard component tests and E2E smoke coverage in `src/OpenIdentityStack.ManagementWeb/src/features/overview/` and `tests/OpenIdentityStack.ManagementWeb.E2ETests/OverviewSmokeTests.cs`
+- [X] T069 [P] [Overview] Add Overview/dashboard component tests and E2E smoke coverage in `src/OpenIdentityStack.ManagementWeb/src/features/overview/` and `tests/OpenIdentityStack.ManagementWeb.E2ETests/OverviewSmokeTests.cs`
 
 ### Implementation
 
-- [ ] T070 [Overview] Add ManagementWeb Overview/dashboard quick links and aggregate status in `src/OpenIdentityStack.ManagementWeb/src/features/overview/`
-- [ ] T071 [Docs] Update ManagementWeb docs, screenshots/checklists, rollout guidance, and AdminWeb decommission criteria in `docs/management-web.md`, `deploy/management-web.md`, and `src/OpenIdentityStack.ManagementWeb/README.md`
-- [ ] T072 [Validation] Run the validation commands from `specs/007-management-web/quickstart.md` and fix issues discovered
+- [X] T070 [Overview] Add ManagementWeb Overview/dashboard quick links and aggregate status in `src/OpenIdentityStack.ManagementWeb/src/features/overview/`
+- [X] T071 [Docs] Update ManagementWeb docs, screenshots/checklists, rollout guidance, and AdminWeb decommission criteria in `docs/management-web.md`, `deploy/management-web.md`, and `src/OpenIdentityStack.ManagementWeb/README.md`
+- [X] T072 [Validation] Run the validation commands from `specs/007-management-web/quickstart.md` and fix issues discovered
+
+**Checkpoint**: Overview, documentation, and final validation are complete for the current ManagementWeb parity foundation. `/` now renders the ManagementWeb Overview with permission-aware quick links and aggregate available/unavailable section status, preserving all existing domain route paths. Documentation now records parity scope, audit behavior, rollout/rollback guidance, and AdminWeb decommission criteria. Validation evidence:
+
+- `npm run type-check` passed.
+- `npm run build` passed.
+- `npm run lint` passed with existing warnings only.
+- `npm test -- src/features/overview/OverviewPage.test.tsx src/routes/AppRoutes.test.tsx src/features/audit/audit-entries-api.test.ts src/features/audit/AuditEntriesPage.test.tsx` passed: 32 tests.
+- `dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentityStack.ManagementWeb.E2ETests.csproj --no-restore -- --filter-class OpenIdentityStack.ManagementWeb.E2ETests.OverviewSmokeTests` passed: 1 test.
+- `dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentityStack.ManagementWeb.E2ETests.csproj --no-restore -- --filter-class OpenIdentityStack.ManagementWeb.E2ETests.AuditEntryManagementTests` passed: 1 test.
+- `dotnet test --project tests\OpenIdentityStack.Application.Tests\OpenIdentityStack.Application.Tests.csproj --no-restore -- --filter-class OpenIdentityStack.Application.Tests.Audit.ListAuditEntriesQueryHandlerTests` passed: 2 tests.
+- `dotnet test --project tests\OpenIdentityStack.Infrastructure.Tests\OpenIdentityStack.Infrastructure.Tests.csproj --no-restore -- --filter-class OpenIdentityStack.Infrastructure.Tests.Audit.AuditEntryReaderTests` passed: 2 tests.
+- `dotnet test --project tests\OpenIdentityStack.Contract.Tests\OpenIdentityStack.Contract.Tests.csproj --no-restore -- --filter-class OpenIdentityStack.Contract.Tests.Admin.Audit.AuditEntriesEndpointContractTests` passed: 2 tests.
+- `dotnet test --project tests\OpenIdentityStack.Api.Tests\OpenIdentityStack.Api.Tests.csproj --no-restore -- --filter-class OpenIdentityStack.Api.Tests.Admin.Audit.AuditEntriesEndpointWorkflowTests` passed: 4 tests.
 
 ---
 

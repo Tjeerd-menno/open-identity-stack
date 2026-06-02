@@ -248,7 +248,7 @@ function RegisterApplicationForm({
 
   return (
     <Stack gap="lg">
-      {error && <Alert color="red">{getApiErrorMessage(error)}</Alert>}
+      {error ? <Alert color="red">{getApiErrorMessage(error)}</Alert> : null}
       <Paper withBorder p="md" radius="sm">
         <form
           onSubmit={(event) => {
@@ -374,12 +374,13 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
     return <Alert color="red">Application permission registry not found.</Alert>;
   }
 
-  const isManifestBacked = Boolean(application.data.manifestBaseUrl);
-  const concurrencyToken = application.data.concurrencyToken;
+  const registeredApplication = application.data;
+  const isManifestBacked = Boolean(registeredApplication.manifestBaseUrl);
+  const concurrencyToken = registeredApplication.concurrencyToken;
 
   async function toggleLifecycle() {
     await lifecycle.mutateAsync({
-      status: application.data.status === 'Active' ? 'Disabled' : 'Active',
+      status: registeredApplication.status === 'Active' ? 'Disabled' : 'Active',
       acknowledgeDependencies: true,
       concurrencyToken,
     });
@@ -415,27 +416,27 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
     <Stack gap="lg" role="region" aria-label="Application permission details">
       <Group justify="space-between" align="flex-start">
         <div>
-          <Title order={1}>{application.data.displayName}</Title>
-          <Text c="dimmed">{application.data.applicationIdentifier}</Text>
+          <Title order={1}>{registeredApplication.displayName}</Title>
+          <Text c="dimmed">{registeredApplication.applicationIdentifier}</Text>
         </div>
         <Group>
-          <ApplicationPermissionStatusBadge status={application.data.status} />
+          <ApplicationPermissionStatusBadge status={registeredApplication.status} />
           {canWrite && <Button variant="light" onClick={() => setEditing((value) => !value)}>{editing ? 'Done' : 'Edit'}</Button>}
         </Group>
       </Group>
 
       <Paper withBorder p="md" radius="sm">
         <Stack gap="xs">
-          <Text size="sm">Description: {application.data.description || 'Not set'}</Text>
-          <Text size="sm">Manifest Version: {application.data.manifestVersion || 'Not set'}</Text>
-          <Text size="sm">Schema Version: {application.data.schemaVersion || 'Not set'}</Text>
-          {application.data.manifestBaseUrl && <Text size="sm">Manifest Base URL: {application.data.manifestBaseUrl}</Text>}
+          <Text size="sm">Description: {registeredApplication.description || 'Not set'}</Text>
+          <Text size="sm">Manifest Version: {registeredApplication.manifestVersion || 'Not set'}</Text>
+          <Text size="sm">Schema Version: {registeredApplication.schemaVersion || 'Not set'}</Text>
+          {registeredApplication.manifestBaseUrl && <Text size="sm">Manifest Base URL: {registeredApplication.manifestBaseUrl}</Text>}
         </Stack>
       </Paper>
 
       <Paper withBorder p="md" radius="sm">
         <Title order={2} size="h3">Ownership</Title>
-        <Text mt="xs">Current owner: {application.data.ownerId} ({application.data.ownerType})</Text>
+        <Text mt="xs">Current owner: {registeredApplication.ownerId} ({registeredApplication.ownerType})</Text>
         {editing && !isManifestBacked && canAdmin && (
           <form onSubmit={submitOwnership}>
             <Group align="end" mt="md">
@@ -469,8 +470,8 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
           </form>
         )}
         <Stack gap="xs" mt="md">
-          {application.data.maintainers.length === 0 && <Text c="dimmed">No maintainers assigned</Text>}
-          {application.data.maintainers.map((maintainer) => (
+          {registeredApplication.maintainers.length === 0 && <Text c="dimmed">No maintainers assigned</Text>}
+          {registeredApplication.maintainers.map((maintainer) => (
             <Group key={maintainer.id} justify="space-between">
               <Text>{maintainer.principalId} ({maintainer.principalType})</Text>
               {editing && !isManifestBacked && canAdmin && (
@@ -493,7 +494,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
           <Title order={2} size="h3">Permissions</Title>
           {editing && !isManifestBacked && canWrite && (
             <Button variant="light" onClick={() => void toggleLifecycle()} loading={lifecycle.isPending}>
-              {application.data.status === 'Active' ? 'Disable' : 'Enable'}
+              {registeredApplication.status === 'Active' ? 'Disable' : 'Enable'}
             </Button>
           )}
         </Group>
@@ -508,7 +509,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
           </form>
         )}
         <Stack gap="xs" mt="md">
-          {application.data.permissions.map((permission) => (
+          {registeredApplication.permissions.map((permission) => (
             <Paper key={permission.id} withBorder p="sm" radius="sm">
               <Text fw={500}>{permission.fullPermissionKey}</Text>
               {permission.description && <Text size="sm" c="dimmed">{permission.description}</Text>}
