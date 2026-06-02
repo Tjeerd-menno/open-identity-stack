@@ -125,6 +125,7 @@ describe('GroupsPage', () => {
       );
     });
 
+    expect(await screen.findByRole('heading', { name: /platform engineering/i })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /^delete group$/i }));
     await user.click(await screen.findByRole('button', { name: /delete platform engineering/i }));
 

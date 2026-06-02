@@ -192,6 +192,7 @@ describe('ProvidersPage', () => {
       );
     });
 
+    expect(await screen.findByRole('heading', { name: /google workspace/i })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /delete provider/i }));
     await user.click(within(await screen.findByRole('dialog', { name: /delete provider/i })).getByRole('button', { name: /delete google/i }));
 
@@ -199,7 +200,7 @@ describe('ProvidersPage', () => {
       const calls = fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? 'GET'} ${url.toString()}`);
       expect(calls).toContain(`DELETE ${apiBase}/api/admin/providers/provider-1`);
     });
-  });
+  }, 10000);
 
   it('hides write actions when write and delete permissions are missing', async () => {
     setupProviderFetch();

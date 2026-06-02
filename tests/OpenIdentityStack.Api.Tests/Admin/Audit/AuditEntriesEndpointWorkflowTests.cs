@@ -26,17 +26,18 @@ public sealed class AuditEntriesEndpointWorkflowTests(AppHostFixture fixture) : 
     [Fact]
     public async Task ListAuditEntries_Returns200WithPaginatedResponseAndStateFields()
     {
+        string entityId = $"orders-web-{Guid.NewGuid():N}";
         Guid entryId = await this.SeedAuditEntryAsync(
             "admin-user",
             "Application.Created",
             "Application",
-            "orders-web",
+            entityId,
             new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero),
             "Created application",
             null,
             "{\"status\":\"Active\"}");
 
-        HttpResponseMessage response = await this.SendRequestAsync(HttpMethod.Get, "/api/admin/audit-entries?page=1&pageSize=10");
+        HttpResponseMessage response = await this.SendRequestAsync(HttpMethod.Get, $"/api/admin/audit-entries?page=1&pageSize=10&entityType=Application&entityId={entityId}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         JsonNode? json = await response.Content.ReadFromJsonAsync<JsonNode>();

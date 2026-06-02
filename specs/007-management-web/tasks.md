@@ -29,6 +29,7 @@
 - Settings slice is complete through T054.
 - Application Permissions slice is complete through T058.
 - Audit slice is complete through T068.
+- Overview, documentation, and final validation are complete through T072.
 - ManagementWeb E2E tests are .NET/xUnit Playwright tests, not JavaScript/TypeScript Playwright specs.
 - ManagementWeb contains no Clients or Service Accounts navigation; Applications uses only `/api/admin/applications`.
 
@@ -56,9 +57,9 @@
 - `dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentityStack.ManagementWeb.E2ETests.csproj --no-restore -- --filter-class OpenIdentityStack.ManagementWeb.E2ETests.AuditEntryManagementTests` passed with 1 test.
 - `dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentityStack.ManagementWeb.E2ETests.csproj --no-restore -- --filter-namespace OpenIdentityStack.ManagementWeb.E2ETests` passed with 10 tests.
 
-**Next implementation slice**:
+**Next continuation point**:
 
-- Resume at Phase 12 Overview, Documentation, and Final Verification, starting with T069 test-first.
+- The planned ManagementWeb parity foundation tasks are complete. Continue with branch-level hardening, PR review feedback, full CI validation, or any new parity gaps discovered during operator smoke testing.
 
 ## Phase 1: Existing Baseline
 

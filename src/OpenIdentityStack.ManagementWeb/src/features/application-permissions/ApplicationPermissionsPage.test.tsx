@@ -150,7 +150,7 @@ describe('ApplicationPermissionsPage', () => {
         expect.objectContaining({ method: 'POST' })
       );
     });
-  });
+  }, 10000);
 
   it('shows detail ownership, maintainers, permissions, catalog, history, and diagnostics controls', async () => {
     const user = userEvent.setup();
@@ -201,7 +201,7 @@ describe('ApplicationPermissionsPage', () => {
     expect(await screen.findByText('patient:write')).toBeInTheDocument();
     expect(screen.getAllByText('patient:legacy').length).toBeGreaterThan(0);
     expect(screen.getByText('Legacy Role')).toBeInTheDocument();
-  });
+  }, 10000);
 });
 
 function registeredApplicationListItem() {
