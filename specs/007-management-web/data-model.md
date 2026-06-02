@@ -1,8 +1,8 @@
-# Data Model: Management Web Foundation
+# Data Model: Management Web AdminWeb Parity
 
 ## ManagementWebApp
 
-- **Purpose**: Represents the new operator-facing frontend as a deployable surface.
+- **Purpose**: Represents the Mantine-based operator frontend as a deployable surface.
 - **Fields**:
   - `appName`
   - `baseUrl`
@@ -12,11 +12,109 @@
   - `deploymentStatus`
 - **Relationships**:
   - Uses the shared admin API.
-  - Relies on a backend identity session for cross-UI sign-in continuity.
+  - Relies on an identity-provider session for cross-UI sign-in continuity.
 - **Validation rules**:
   - Must have a unique hostname per environment.
   - Must not share deployment identity with AdminWeb.
   - Must remain operable when AdminWeb is unavailable.
+
+## SharedFoundation
+
+- **Purpose**: Common ManagementWeb infrastructure used by every parity slice.
+- **Fields**:
+  - `apiClient`
+  - `authProvider`
+  - `permissionMatrix`
+  - `routeGuards`
+  - `tablePrimitives`
+  - `dialogPrimitives`
+  - `formPrimitives`
+  - `errorDisplay`
+  - `secretDisplay`
+  - `themeProvider`
+- **Relationships**:
+  - Used by all ManagementWeb features.
+  - Mirrors AdminWeb behavior contracts while using Mantine UI components.
+- **Validation rules**:
+  - Backend authorization is authoritative.
+  - Frontend permission checks must support exact permissions, `*`, and resource wildcards.
+  - 401 responses must trigger session exit or logout handling.
+  - Validation and authorization errors must be visible near the initiating action where possible.
+
+## NavigationSurface
+
+- **Purpose**: Describes top-level ManagementWeb areas.
+- **Fields**:
+  - `label`
+  - `route`
+  - `enabled`
+  - `requiredPermission`
+  - `visibility`
+- **Relationships**:
+  - Points to vertical slices.
+- **Validation rules**:
+  - Must include Overview, Users, Roles, Groups, Applications, Permissions, Sessions, Identity providers, Settings, and Audit.
+  - Must not include Clients.
+  - Must not include Service Accounts.
+  - Routes should match AdminWeb where the domain still exists.
+
+## VerticalSlice
+
+- **Purpose**: A domain workflow ported from AdminWeb into ManagementWeb.
+- **Fields**:
+  - `domain`
+  - `routes`
+  - `apiEndpoints`
+  - `permissions`
+  - `paritySource`
+  - `e2eCoverage`
+  - `completionStatus`
+- **Relationships**:
+  - Uses SharedFoundation.
+  - Maps to one AdminWeb domain except Audit, which is ManagementWeb-only.
+- **Validation rules**:
+  - Must match AdminWeb behavior before redesign.
+  - Must have targeted tests and meaningful E2E coverage before completion.
+
+## ApplicationWorkspaceState
+
+- **Purpose**: Represents the consolidated Applications workflow.
+- **Fields**:
+  - `searchQuery`
+  - `profileFilter`
+  - `statusFilter`
+  - `clientTypeFilter`
+  - `selectedApplication`
+  - `selectedProfile`
+  - `pendingCredentialSecret`
+- **Relationships**:
+  - Uses `/api/admin/applications`.
+  - Uses application profile policy metadata.
+- **Validation rules**:
+  - Uses one Applications list with filters.
+  - Does not use legacy Clients or Service Accounts endpoints.
+  - One-time secrets are visible only immediately after API return.
+
+## AuditEntry
+
+- **Purpose**: Read-only audit trail record shown in ManagementWeb.
+- **Fields**:
+  - `id`
+  - `timestamp`
+  - `userId`
+  - `action`
+  - `entityType`
+  - `entityId`
+  - `details`
+  - `beforeState`
+  - `afterState`
+- **Relationships**:
+  - Backed by existing persisted audit log entries.
+  - Listed through `GET /api/admin/audit-entries`.
+- **Validation rules**:
+  - Read access requires `audit-logs:read`.
+  - List responses include `details`, `beforeState`, and `afterState` in v1.
+  - Filtering supports date range, user, action, entity, and search text.
 
 ## ThemePreference
 
@@ -30,31 +128,3 @@
 - **Validation rules**:
   - If no saved value exists, the UI uses system appearance.
   - Saved preference overrides the system choice on later visits.
-
-## NavigationSurface
-
-- **Purpose**: Describes the top-level areas shown in the Management Web shell.
-- **Fields**:
-  - `label`
-  - `route`
-  - `enabled`
-  - `visibility`
-- **Relationships**:
-  - Groups the Users slice and future placeholder domains.
-- **Validation rules**:
-  - Users must be visible and functional in phase 1.
-  - Later domains may be present as placeholders without full workflow support.
-
-## UsersWorkspaceState
-
-- **Purpose**: Represents the operator's active Users workflow context.
-- **Fields**:
-  - `searchQuery`
-  - `selectedUser`
-  - `activeTab`
-  - `pendingChanges`
-- **Relationships**:
-  - Uses data from the admin API.
-- **Validation rules**:
-  - Unsaved edits should not be discarded silently on recoverable failures.
-  - Role assignment must remain limited to existing roles in phase 1.

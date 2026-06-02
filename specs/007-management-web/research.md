@@ -1,37 +1,55 @@
-# Research: Management Web Foundation
+# Research: Management Web AdminWeb Parity
 
 ## 1. Separate frontend app
 
-- **Decision**: Create Management Web as a peer application beside AdminWeb rather than folding it into the existing app.
-- **Rationale**: The grilling decisions explicitly favor parallel rollout, independent deployability, and a stronger UI quality bar without blocking current AdminWeb work.
+- **Decision**: Keep ManagementWeb as a peer application beside AdminWeb.
+- **Rationale**: Parallel rollout, independent deployability, and a Mantine-based UI direction can proceed without destabilizing AdminWeb.
 - **Alternatives considered**: Extend AdminWeb in place; share one deployment artifact; gate the new UI behind a path split.
 
 ## 2. Mantine as the UI foundation
 
-- **Decision**: Use Mantine as the primary component and theming system for the new frontend.
-- **Rationale**: The feature request explicitly calls for a more professional, production-grade management UI with light/dark mode support.
-- **Alternatives considered**: Keep the existing UI stack; mix multiple component systems; custom-build the shell and controls.
+- **Decision**: Use Mantine as the visual and component foundation for ManagementWeb.
+- **Rationale**: The user wants AdminWeb behavior ported into the new frontend with Mantine design, not a workflow redesign.
+- **Alternatives considered**: Keep the existing AdminWeb shadcn-style UI; mix component systems; custom-build common controls.
 
-## 3. Theme preference handling
+## 3. Behavior parity before redesign
 
-- **Decision**: Support light, dark, and system appearance with system fallback on first load and persisted preference afterward.
-- **Rationale**: This gives operators predictable appearance behavior while honoring the explicit requirement for theme control.
-- **Alternatives considered**: Hardcoded dark mode; per-session-only preference; no system mode.
+- **Decision**: Port behavior one-for-one first and redesign only the visual/component layer.
+- **Rationale**: AdminWeb already encodes the expected operator workflows, validations, routes, and edge cases. Matching it first reduces product ambiguity and makes verification concrete.
+- **Alternatives considered**: Redesign workflows while porting; launch only a subset of improved flows; preserve only backend endpoint coverage.
 
-## 4. Parallel rollout topology
+## 4. Shared foundation first
 
-- **Decision**: Keep AdminWeb and Management Web on separate hostnames with cross-UI sign-in continuity.
-- **Rationale**: This matches the grilled rollout posture and keeps each UI independently operable and deployable.
-- **Alternatives considered**: Single-host path routing; immediate replacement; staged canary rollout.
+- **Decision**: Build ManagementWeb shared foundation to parity before new vertical slices.
+- **Rationale**: API errors, token injection, 401 logout handling, permission gates, tables, dialogs, forms, and secret display would otherwise drift across slices.
+- **Alternatives considered**: Implement Applications directly with local helpers; let each slice define its own patterns.
 
-## 5. Backend integration model
+## 5. Permission normalization
 
-- **Decision**: Reuse the existing admin API as the source of truth for permissions and user-management workflows.
-- **Rationale**: The context decisions prefer shared backend policy rather than UI-specific rule duplication.
-- **Alternatives considered**: Introduce a new frontend-specific backend; mirror data into a BFF; duplicate authorization rules in the UI.
+- **Decision**: Normalize permission checks in the ManagementWeb foundation while keeping backend authorization authoritative.
+- **Rationale**: The current partial Users slice uses permission names that do not line up cleanly with AdminWeb/backend constants. A shared matrix prevents inconsistent action visibility. ManagementWeb must read concrete grants from `permission`, `permissions`, `scope`, and `scp` claims in both OIDC profile data and access-token payloads because backend authorization-code issuance expands effective role permissions into concrete `permission` claims. Role names such as `admin` or `super-admin` are not frontend authorization grants.
+- **Alternatives considered**: Preserve current partial Users permission names; duplicate AdminWeb's ad hoc checks exactly; rely only on backend 403 responses; treat an admin role claim as a frontend wildcard. The role-name wildcard approach was rejected because permissions should remain granular and backend authorization is the final authority.
 
-## 6. Scope of phase 1
+## 6. Consolidated Applications only
 
-- **Decision**: Focus phase 1 on the Users vertical slice, navigation scaffolding for later domains, and the production-grade shell experience.
-- **Rationale**: This keeps the initial release small enough to ship while still proving the new UI direction.
-- **Alternatives considered**: Big-bang parity across all domains; shell-only launch; bulk operations in the first phase.
+- **Decision**: ManagementWeb uses only `/api/admin/applications` for application-like resources.
+- **Rationale**: The unified Applications model replaces Clients and Service Accounts. ManagementWeb is the forward-looking UI and should not expose legacy surfaces.
+- **Alternatives considered**: Keep Clients and Service Accounts pages for compatibility; add Applications plus legacy links; call legacy endpoints behind a unified UI.
+
+## 7. Vertical slice order
+
+- **Decision**: Deliver shared foundation first, then Applications, Users refactor, Roles, Groups, Sessions, Providers, Settings, Application Permissions, Audit, and Overview.
+- **Rationale**: Applications is the highest-value strategic surface after foundation. Users already exists but must be refactored rather than treated as complete. Roles should precede slices that reuse permission catalog behavior.
+- **Alternatives considered**: Finish Users first; port AdminWeb file order; implement Audit first.
+
+## 8. Audit endpoint scope
+
+- **Decision**: Add a ManagementWeb-only Audit section backed by one read-only `GET /api/admin/audit-entries` endpoint.
+- **Rationale**: Audit entries already exist in persistence, but there is no admin query endpoint or AdminWeb screen. A single paged list endpoint is sufficient for v1.
+- **Alternatives considered**: Frontend placeholder only; add a detail endpoint immediately; make Audit an AdminWeb parity requirement.
+
+## 9. Audit response shape
+
+- **Decision**: Include `details`, `beforeState`, and `afterState` in v1 list responses.
+- **Rationale**: ManagementWeb can render expandable row details without a second endpoint. Payload risk is acceptable for the first paged version.
+- **Alternatives considered**: List summary only with a detail endpoint; omit before/after state until later.
