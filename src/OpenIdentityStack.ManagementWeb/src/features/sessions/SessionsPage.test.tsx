@@ -76,6 +76,8 @@ describe('SessionsPage', () => {
 
     expect(await screen.findByRole('heading', { name: /^sessions$/i })).toBeInTheDocument();
     expect(await screen.findByText('10.0.0.5')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /applications/i })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /clients/i })).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/search sessions/i), '10.0.0.5');
     await waitFor(() => {
@@ -96,6 +98,8 @@ describe('SessionsPage', () => {
     await user.click(screen.getByRole('button', { name: /view session/i }));
     expect(await screen.findByRole('heading', { name: /session details/i })).toBeInTheDocument();
     expect(screen.getByText(/Firefox on Windows/)).toBeInTheDocument();
+    expect(screen.getByText(/application count: 2/i)).toBeInTheDocument();
+    expect(screen.queryByText(/client count/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /^revoke session$/i }));
     await user.click(within(await screen.findByRole('dialog', { name: /revoke session/i })).getByRole('button', { name: /revoke session/i }));

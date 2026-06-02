@@ -80,7 +80,7 @@ function SessionListView({ permissions }: Required<SessionsPageProps>) {
       header: 'Status',
       cell: (session) => <SessionStatusBadge status={session.status} />,
     },
-    { header: 'Clients', accessorKey: 'clientCount' },
+    { header: 'Applications', accessorKey: 'clientCount' },
     {
       header: 'Last Activity',
       cell: (session) => formatDate(session.lastActivityAt),
@@ -223,7 +223,7 @@ function SessionDetailView({ sessionId, permissions }: { sessionId: string; perm
             <SessionStatusBadge status={session.data.status} />
           </Group>
           <Text size="sm">User ID: {session.data.userId}</Text>
-          <Text size="sm">Client count: {session.data.clientCount}</Text>
+          <Text size="sm">Application count: {session.data.clientCount}</Text>
           <Text size="sm">IP address: {session.data.ipAddress}</Text>
           <Text size="sm">User agent: {session.data.userAgent}</Text>
           <Text size="sm">Created: {formatDate(session.data.createdAt)}</Text>
@@ -236,7 +236,7 @@ function SessionDetailView({ sessionId, permissions }: { sessionId: string; perm
         opened={confirmRevoke}
         onOpenChange={setConfirmRevoke}
         title="Revoke session"
-        message="Are you sure you want to revoke this session? The user will be immediately logged out from all clients associated with this session."
+        message="Are you sure you want to revoke this session? The user will be immediately logged out from all applications associated with this session."
         confirmLabel="Revoke session"
         loading={revokeSessionMutation.isPending}
         onConfirm={async () => {
