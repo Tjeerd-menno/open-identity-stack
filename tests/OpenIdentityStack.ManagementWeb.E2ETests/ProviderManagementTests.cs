@@ -72,7 +72,7 @@ public class ProviderManagementTests : IAsyncLifetime
         await page.GetByLabel(new Regex("Client secret", RegexOptions.IgnoreCase)).FillAsync("okta-secret");
         await page.GetByLabel(new Regex("Scopes", RegexOptions.IgnoreCase)).FillAsync("openid profile");
         await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("create provider", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.WaitForURLAsync(new Regex(@"/providers/provider-3/?$"));
+        await page.GetByRole(AriaRole.Heading, new() { Name = "Okta Login", Exact = true }).WaitForAsync();
 
         await page.GotoAsync(new Uri(new Uri(baseUrl), "/providers/provider-1").ToString());
         await page.GetByRole(AriaRole.Heading, new() { Name = providerDisplayName, Exact = true }).WaitForAsync();
@@ -93,7 +93,7 @@ public class ProviderManagementTests : IAsyncLifetime
         await page.GetByLabel(new Regex("Scopes", RegexOptions.IgnoreCase)).FillAsync("openid email");
         await page.GetByRole(AriaRole.Checkbox, new() { NameRegex = new Regex("JIT provisioning", RegexOptions.IgnoreCase) }).UncheckAsync();
         await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("save provider", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.WaitForURLAsync(new Regex(@"/providers/provider-1/?$"));
+        await page.GetByRole(AriaRole.Heading, new() { Name = "Google Workspace", Exact = true }).WaitForAsync();
         providerDisplayName.ShouldBe("Google Workspace");
         providerClientId.ShouldBe("workspace-client");
 
@@ -101,7 +101,7 @@ public class ProviderManagementTests : IAsyncLifetime
         await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("delete provider", RegexOptions.IgnoreCase) })
             .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("delete google", RegexOptions.IgnoreCase) })
             .ClickAsync();
-        await page.WaitForURLAsync(new Regex(@"/providers/?$"));
+        await page.GetByRole(AriaRole.Heading, new() { Name = "Identity Providers", Exact = true }).WaitForAsync();
         providerDeleted.ShouldBeTrue();
 
         adminRequestUrls.Any((url) => url.Contains("/api/admin/providers", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
@@ -126,6 +126,12 @@ public class ProviderManagementTests : IAsyncLifetime
             if (method == "GET" && path.Equals("/api/admin/providers/provider-1", StringComparison.OrdinalIgnoreCase))
             {
                 await FulfillJsonAsync(route, Provider());
+                return;
+            }
+
+            if (method == "GET" && path.Equals("/api/admin/providers/provider-3", StringComparison.OrdinalIgnoreCase))
+            {
+                await FulfillJsonAsync(route, OktaProvider());
                 return;
             }
 
@@ -208,6 +214,22 @@ public class ProviderManagementTests : IAsyncLifetime
             jitProvisioningEnabled = false,
             status = "Disabled",
             createdAt = "2026-01-02T00:00:00Z"
+        };
+    }
+
+    private static object OktaProvider()
+    {
+        return new
+        {
+            id = "provider-3",
+            name = "okta",
+            displayName = "Okta Login",
+            authority = "https://okta.example.com",
+            clientId = "okta-client",
+            scopes = OktaScopes,
+            jitProvisioningEnabled = true,
+            status = "Active",
+            createdAt = "2026-01-03T00:00:00Z"
         };
     }
 
