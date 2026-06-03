@@ -1,6 +1,8 @@
-import { Alert, Button, Code, Collapse, Group, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Code, Collapse, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useState } from 'react';
+import { EntityActionMenu } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { PageHeader, PageToolbar, type AppliedFilter } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
 import { useAuditEntries } from './audit-entries-hooks';
@@ -67,27 +69,55 @@ export function AuditEntriesPage({ permissions = ['*'] }: AuditEntriesPageProps)
     },
     {
       header: 'Actions',
+      align: 'right',
       cell: (entry) => (
-        <Button
-          variant="subtle"
-          size="xs"
-          aria-label="Expand audit entry"
-          onClick={() => setExpandedEntryId(expandedEntryId === entry.id ? null : entry.id)}
-        >
-          {expandedEntryId === entry.id ? 'Collapse' : 'Expand'}
-        </Button>
+        <EntityActionMenu
+          label={`Audit actions for ${entry.id}`}
+          actions={[{
+            label: expandedEntryId === entry.id ? 'Collapse' : 'Expand',
+            onClick: () => setExpandedEntryId(expandedEntryId === entry.id ? null : entry.id),
+          }]}
+        />
       ),
     },
   ];
 
   const expandedEntry = auditEntries.data?.items.find((entry) => entry.id === expandedEntryId) ?? null;
+  const appliedFilterChips = toAppliedFilters(appliedFilters, (key) => {
+    const next = { ...appliedFilters, [key]: '' };
+    setFilters(next);
+    setAppliedFilters(next);
+    setPage(1);
+    setExpandedEntryId(null);
+  });
 
   return (
     <Stack gap="lg">
-      <div>
-        <Title order={1}>Audit</Title>
-        <Text c="dimmed">View administrative audit trail entries.</Text>
-      </div>
+      <PageHeader
+        title="Audit"
+        description="Search and inspect administrative audit trail entries."
+        badges={[{ label: 'Read only', color: 'blue' }]}
+      />
+
+      <PageToolbar
+        searchLabel="Search audit entries"
+        searchPlaceholder="Search details, action, actor, or entity..."
+        searchValue={filters.search}
+        onSearchChange={(value) => setFilters({ ...filters, search: value })}
+        appliedFilters={appliedFilterChips}
+        resultCount={auditEntries.data?.totalCount}
+        onApply={() => {
+          setAppliedFilters(filters);
+          setPage(1);
+          setExpandedEntryId(null);
+        }}
+        onClear={() => {
+          setFilters(emptyFilters);
+          setAppliedFilters(emptyFilters);
+          setPage(1);
+          setExpandedEntryId(null);
+        }}
+      />
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
         <TextInput
@@ -122,35 +152,7 @@ export function AuditEntriesPage({ permissions = ['*'] }: AuditEntriesPageProps)
           value={filters.to}
           onChange={(event) => setFilters({ ...filters, to: event.currentTarget.value })}
         />
-        <TextInput
-          label="Search audit entries"
-          value={filters.search}
-          onChange={(event) => setFilters({ ...filters, search: event.currentTarget.value })}
-        />
       </SimpleGrid>
-
-      <Group>
-        <Button
-          onClick={() => {
-            setAppliedFilters(filters);
-            setPage(1);
-            setExpandedEntryId(null);
-          }}
-        >
-          Apply filters
-        </Button>
-        <Button
-          variant="default"
-          onClick={() => {
-            setFilters(emptyFilters);
-            setAppliedFilters(emptyFilters);
-            setPage(1);
-            setExpandedEntryId(null);
-          }}
-        >
-          Clear filters
-        </Button>
-      </Group>
 
       <FoundationTable
         columns={columns}
@@ -224,3 +226,24 @@ function toUtcIso(value: string) {
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleString();
 }
+
+function toAppliedFilters(filters: AuditFilterState, onRemove: (key: keyof AuditFilterState) => void): AppliedFilter[] {
+  return (Object.entries(filters) as Array<[keyof AuditFilterState, string]>)
+    .filter(([, value]) => value.trim().length > 0)
+    .map(([key, value]) => ({
+      key,
+      label: filterLabels[key],
+      value,
+      onRemove: () => onRemove(key),
+    }));
+}
+
+const filterLabels: Record<keyof AuditFilterState, string> = {
+  from: 'From',
+  to: 'To',
+  userId: 'User',
+  action: 'Action',
+  entityType: 'Entity type',
+  entityId: 'Entity',
+  search: 'Search',
+};

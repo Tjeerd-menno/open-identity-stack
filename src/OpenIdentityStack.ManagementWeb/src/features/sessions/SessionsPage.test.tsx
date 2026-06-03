@@ -95,7 +95,8 @@ describe('SessionsPage', () => {
       );
     });
 
-    await user.click(screen.getByRole('button', { name: /view session/i }));
+    await user.click(screen.getByRole('button', { name: /session actions for session-1/i }));
+    await user.click(await screen.findByRole('menuitem', { name: 'View' }));
     expect(await screen.findByRole('heading', { name: /session details/i })).toBeInTheDocument();
     expect(screen.getByText(/Firefox on Windows/)).toBeInTheDocument();
     expect(screen.getByText(/application count: 2/i)).toBeInTheDocument();

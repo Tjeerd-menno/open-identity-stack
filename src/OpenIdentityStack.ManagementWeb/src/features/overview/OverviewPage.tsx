@@ -1,5 +1,6 @@
-import { Badge, Button, Card, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { Badge, Button, Card, Group, Progress, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { Link } from 'react-router';
+import { PageHeader } from '@/components/PagePrimitives';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
 
@@ -91,17 +92,21 @@ function OverviewContent({ permissions }: { permissions: string[] }) {
 
   return (
     <Stack gap="lg">
-      <div>
-        <Title order={1}>Overview</Title>
-        <Text c="dimmed">ManagementWeb parity dashboard for retained operator domains.</Text>
-      </div>
+      <PageHeader
+        title="Overview"
+        description="Operational IAM console for identity, access, application, federation, and audit workflows."
+        badges={[
+          { label: `${availableSections.length} available`, color: 'green' },
+          { label: `${unavailableCount} unavailable`, color: unavailableCount === 0 ? 'gray' : 'yellow' },
+        ]}
+      />
 
-      <Group gap="sm">
-        <Badge color="green" variant="light" size="lg">{availableSections.length} available</Badge>
-        <Badge color={unavailableCount === 0 ? 'gray' : 'yellow'} variant="light" size="lg">
-          {unavailableCount} unavailable
-        </Badge>
-      </Group>
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+        <MetricCard label="Accessible surfaces" value={`${availableSections.length}/${overviewSections.length}`} tone="green" />
+        <MetricCard label="Access coverage" value={`${Math.round((availableSections.length / overviewSections.length) * 100)}%`} tone="blue" />
+        <MetricCard label="Security signals" value={hasPermission(effectivePermissions, 'audit-logs:read') ? 'Audit ready' : 'Limited'} tone="teal" />
+        <MetricCard label="Operator scope" value={hasPermission(effectivePermissions, '*') ? 'Full' : 'Scoped'} tone="gray" />
+      </SimpleGrid>
 
       <nav aria-label="Overview quick links">
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
@@ -114,7 +119,49 @@ function OverviewContent({ permissions }: { permissions: string[] }) {
           ))}
         </SimpleGrid>
       </nav>
+
+      <SimpleGrid cols={{ base: 1, lg: 3 }}>
+        <Card withBorder radius="sm" padding="md">
+          <Stack gap="xs">
+            <Title order={2} size="h4">Access Summary</Title>
+            <Progress value={(availableSections.length / overviewSections.length) * 100} color="blue" />
+            <Text size="sm" c="dimmed">
+              Route visibility is based on effective permissions in the current operator token.
+            </Text>
+          </Stack>
+        </Card>
+        <Card withBorder radius="sm" padding="md">
+          <Stack gap="xs">
+            <Title order={2} size="h4">Recent Signals</Title>
+            <Text size="sm">Audit trail: {hasPermission(effectivePermissions, 'audit-logs:read') ? 'Available' : 'No access'}</Text>
+            <Text size="sm">Session controls: {hasPermission(effectivePermissions, 'sessions:read') ? 'Available' : 'No access'}</Text>
+            <Text size="sm">Provider lifecycle: {hasPermission(effectivePermissions, 'providers:read') ? 'Available' : 'No access'}</Text>
+          </Stack>
+        </Card>
+        <Card withBorder radius="sm" padding="md">
+          <Stack gap="xs">
+            <Title order={2} size="h4">Quick Actions</Title>
+            {availableSections.slice(0, 3).map((section) => (
+              <Button key={section.path} component={Link} to={section.path} variant="subtle">
+                {section.label}
+              </Button>
+            ))}
+          </Stack>
+        </Card>
+      </SimpleGrid>
     </Stack>
+  );
+}
+
+function MetricCard({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return (
+    <Card withBorder radius="sm" padding="md">
+      <Stack gap={4}>
+        <Text size="xs" c="dimmed" fw={650} tt="uppercase">{label}</Text>
+        <Title order={2} size="h3">{value}</Title>
+        <Badge color={tone} variant="light">Current token</Badge>
+      </Stack>
+    </Card>
   );
 }
 

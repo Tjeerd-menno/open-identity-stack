@@ -83,7 +83,8 @@ describe('AuditEntriesPage', () => {
       expect(fetchMock.mock.calls.some(([url]) => url.toString().includes('search=redirect'))).toBe(true);
     });
 
-    await user.click(screen.getByRole('button', { name: /expand audit entry/i }));
+    await user.click(screen.getByRole('button', { name: /audit actions for audit-1/i }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Expand' }));
     const details = await screen.findByRole('region', { name: /audit entry details/i });
     expect(within(details).getByText(/Changed redirect URL/)).toBeInTheDocument();
     expect(within(details).getByText('{"redirect":"old"}')).toBeInTheDocument();

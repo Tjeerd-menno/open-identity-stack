@@ -108,7 +108,7 @@ describe('ApplicationPermissionsPage', () => {
     expect(await screen.findByText('Patient API')).toBeInTheDocument();
     expect(screen.getByText('patient-api')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add application/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /view patient api/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /application permission actions for patient api/i })).toBeInTheDocument();
   });
 
   it('registers manual manifests and imports well-known permission endpoints', async () => {
@@ -160,20 +160,22 @@ describe('ApplicationPermissionsPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Patient API' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Ownership' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Maintainers' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Permissions' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'History' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Diagnostics' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.click(screen.getByRole('button', { name: /disable/i }));
     await user.type(screen.getByLabelText(/new owner id/i), 'group-1');
     await user.selectOptions(screen.getByLabelText(/new owner type/i), 'Group');
     await user.click(screen.getByRole('button', { name: /transfer ownership/i }));
+
+    await user.click(screen.getByRole('tab', { name: 'Maintainers' }));
+    expect(screen.getByRole('heading', { name: 'Maintainers' })).toBeInTheDocument();
     await user.type(screen.getByLabelText(/new maintainer id/i), 'user-2');
     await user.selectOptions(screen.getByLabelText(/new maintainer type/i), 'User');
     await user.click(screen.getByRole('button', { name: /add maintainer/i }));
+
+    await user.click(screen.getByRole('tab', { name: 'Permissions' }));
+    expect(screen.getByRole('heading', { name: 'Permissions' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /disable/i }));
     await user.type(screen.getByLabelText(/permission name/i), 'patient:write');
     await user.type(screen.getByLabelText(/permission category/i), 'Patients');
     await user.type(screen.getByLabelText(/permission description/i), 'Allows writing patient data');
@@ -199,7 +201,11 @@ describe('ApplicationPermissionsPage', () => {
     });
 
     expect(await screen.findByText('patient:write')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'History' }));
+    expect(screen.getByRole('heading', { name: 'History' })).toBeInTheDocument();
     expect(screen.getAllByText('patient:legacy').length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('tab', { name: 'Diagnostics' }));
+    expect(screen.getByRole('heading', { name: 'Diagnostics' })).toBeInTheDocument();
     expect(screen.getByText('Legacy Role')).toBeInTheDocument();
   }, 10000);
 });

@@ -1,4 +1,4 @@
-import { Button, Group, Paper, Stack } from '@mantine/core';
+import { ActionIcon, Button, Group, Paper, Stack } from '@mantine/core';
 import { useState } from 'react';
 import { useThemePreference } from './ThemeProvider';
 import type { ThemePreference } from '@/lib/theme-preference';
@@ -15,9 +15,9 @@ export function ThemeToggle() {
 
   return (
     <Stack gap="xs" pos="relative">
-      <Button variant="light" aria-label="Appearance" aria-expanded={opened} onClick={() => setOpened((value) => !value)}>
-          Appearance: {options.find((option) => option.value === preference)?.label}
-      </Button>
+      <ActionIcon variant="light" aria-label="Appearance" aria-expanded={opened} onClick={() => setOpened((value) => !value)}>
+        {preference === 'dark' ? 'D' : preference === 'light' ? 'L' : 'S'}
+      </ActionIcon>
       {opened && (
         <Paper shadow="md" p="xs" radius="md" withBorder role="menu" pos="absolute" top="100%" right={0} style={{ zIndex: 1000 }}>
           <Group gap="xs">

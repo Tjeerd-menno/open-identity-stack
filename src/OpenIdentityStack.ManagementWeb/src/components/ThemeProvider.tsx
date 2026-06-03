@@ -1,5 +1,15 @@
 /* eslint-disable react-refresh/only-export-components */
-import { MantineProvider } from '@mantine/core';
+import {
+  Alert,
+  Badge,
+  Button,
+  MantineProvider,
+  NavLink,
+  Paper,
+  Table,
+  TextInput,
+  createTheme,
+} from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -18,6 +28,100 @@ type ThemePreferenceContextValue = {
 };
 
 const ThemePreferenceContext = createContext<ThemePreferenceContextValue | null>(null);
+
+const managementTheme = createTheme({
+  primaryColor: 'blue',
+  fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  headings: {
+    fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontWeight: '650',
+    sizes: {
+      h1: { fontSize: '1.55rem', lineHeight: '1.25' },
+      h2: { fontSize: '1.2rem', lineHeight: '1.3' },
+      h3: { fontSize: '1rem', lineHeight: '1.35' },
+    },
+  },
+  defaultRadius: 'sm',
+  radius: {
+    xs: '4px',
+    sm: '6px',
+    md: '8px',
+    lg: '10px',
+    xl: '12px',
+  },
+  spacing: {
+    xs: '0.45rem',
+    sm: '0.65rem',
+    md: '0.9rem',
+    lg: '1.2rem',
+    xl: '1.6rem',
+  },
+  colors: {
+    blue: [
+      '#eef6ff',
+      '#d9eaff',
+      '#b7d7ff',
+      '#8ebfff',
+      '#5d9df7',
+      '#367ee6',
+      '#2167cc',
+      '#1b52a4',
+      '#1a477f',
+      '#173965',
+    ],
+    teal: [
+      '#e8fbf8',
+      '#cff4ee',
+      '#9ee7dd',
+      '#69d6c8',
+      '#40bfb2',
+      '#28a79c',
+      '#1f867f',
+      '#1c6d69',
+      '#1a5755',
+      '#174947',
+    ],
+  },
+  components: {
+    Alert: Alert.extend({
+      defaultProps: {
+        radius: 'sm',
+        variant: 'light',
+      },
+    }),
+    Badge: Badge.extend({
+      defaultProps: {
+        radius: 'sm',
+      },
+    }),
+    Button: Button.extend({
+      defaultProps: {
+        radius: 'sm',
+      },
+    }),
+    NavLink: NavLink.extend({
+      defaultProps: {
+        variant: 'light',
+      },
+    }),
+    Paper: Paper.extend({
+      defaultProps: {
+        radius: 'sm',
+      },
+    }),
+    Table: Table.extend({
+      defaultProps: {
+        horizontalSpacing: 'sm',
+        verticalSpacing: 'xs',
+      },
+    }),
+    TextInput: TextInput.extend({
+      defaultProps: {
+        radius: 'sm',
+      },
+    }),
+  },
+});
 
 export function useThemePreference(): ThemePreferenceContextValue {
   const context = useContext(ThemePreferenceContext);
@@ -63,7 +167,7 @@ export function ManagementThemeProvider({ children }: ManagementThemeProviderPro
 
   return (
     <ThemePreferenceContext.Provider value={value}>
-      <MantineProvider defaultColorScheme="auto" forceColorScheme={resolvedTheme}>
+      <MantineProvider defaultColorScheme="auto" forceColorScheme={resolvedTheme} theme={managementTheme}>
         <Notifications position="top-right" />
         {children}
       </MantineProvider>

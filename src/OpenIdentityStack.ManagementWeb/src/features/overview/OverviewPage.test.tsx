@@ -38,7 +38,8 @@ describe('OverviewPage', () => {
     expect(screen.getByText('1 available')).toBeInTheDocument();
     expect(screen.getByText('8 unavailable')).toBeInTheDocument();
     expect(screen.getByText('Requires applications:read')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /users/i })).toHaveAttribute('href', '/users');
-    expect(screen.queryByRole('link', { name: /applications/i })).not.toBeInTheDocument();
+    const quickLinks = screen.getByRole('navigation', { name: /overview quick links/i });
+    expect(within(quickLinks).getByRole('link', { name: /users/i })).toHaveAttribute('href', '/users');
+    expect(within(quickLinks).queryByRole('link', { name: /applications/i })).not.toBeInTheDocument();
   });
 });

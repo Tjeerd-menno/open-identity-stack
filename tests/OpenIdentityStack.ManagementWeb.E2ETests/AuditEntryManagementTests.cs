@@ -61,7 +61,8 @@ public sealed class AuditEntryManagementTests : IAsyncLifetime
         await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("apply filters", RegexOptions.IgnoreCase) }).ClickAsync();
         await filteredRequest;
 
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("expand audit entry", RegexOptions.IgnoreCase) }).ClickAsync();
+        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("audit actions for audit-1", RegexOptions.IgnoreCase) }).ClickAsync();
+        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Expand", Exact = true }).ClickAsync();
         ILocator details = page.GetByRole(AriaRole.Region, new() { NameRegex = new Regex("audit entry details", RegexOptions.IgnoreCase) });
         await details.WaitForAsync();
         await details.GetByText("Changed redirect URL").WaitForAsync();

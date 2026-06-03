@@ -68,18 +68,30 @@ public class ApplicationPermissionsManagementTests : IAsyncLifetime
         await page.GotoAsync(new Uri(new Uri(baseUrl), "/application-permissions/application-1").ToString());
         await page.GetByRole(AriaRole.Heading, new() { Name = "Patient API", Exact = true }).WaitForAsync();
         await page.GetByRole(AriaRole.Heading, new() { Name = "Ownership", Exact = true }).WaitForAsync();
+
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Maintainers", Exact = true }).ClickAsync();
         await page.GetByRole(AriaRole.Heading, new() { Name = "Maintainers", Exact = true }).WaitForAsync();
+
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Permissions", Exact = true }).ClickAsync();
         await page.GetByRole(AriaRole.Heading, new() { Name = "Catalog", Exact = true }).WaitForAsync();
+
+        await page.GetByRole(AriaRole.Tab, new() { Name = "History", Exact = true }).ClickAsync();
         await page.GetByRole(AriaRole.Heading, new() { Name = "History", Exact = true }).WaitForAsync();
+
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Diagnostics", Exact = true }).ClickAsync();
         await page.GetByRole(AriaRole.Heading, new() { Name = "Diagnostics", Exact = true }).WaitForAsync();
+
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Overview", Exact = true }).ClickAsync();
 
         await page.GetByRole(AriaRole.Button, new() { Name = "Edit", Exact = true }).ClickAsync();
 
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Permissions", Exact = true }).ClickAsync();
         Task<IRequest> lifecycleRequest = page.WaitForRequestAsync(new Regex(@"/api/admin/application-permissions/applications/application-1/lifecycle$", RegexOptions.IgnoreCase));
         await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Disable", RegexOptions.IgnoreCase) }).ClickAsync();
         await lifecycleRequest;
         status.ShouldBe("Disabled");
 
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Overview", Exact = true }).ClickAsync();
         await page.GetByLabel(new Regex("New owner ID", RegexOptions.IgnoreCase)).FillAsync("group-1");
         await page.GetByLabel(new Regex("New owner type", RegexOptions.IgnoreCase)).SelectOptionAsync(["Group"]);
         Task<IRequest> ownershipRequest = page.WaitForRequestAsync(new Regex(@"/api/admin/application-permissions/applications/application-1/ownership$", RegexOptions.IgnoreCase));

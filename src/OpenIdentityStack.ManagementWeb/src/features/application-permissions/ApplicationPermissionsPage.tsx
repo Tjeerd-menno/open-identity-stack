@@ -6,6 +6,7 @@ import {
   NativeSelect,
   Paper,
   Stack,
+  Tabs,
   Text,
   Textarea,
   TextInput,
@@ -13,7 +14,9 @@ import {
 } from '@mantine/core';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
+import { EntityActionMenu } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
 import {
@@ -98,37 +101,32 @@ function RegisteredApplicationListView({ permissions }: Required<ApplicationPerm
     },
     {
       header: 'Actions',
+      align: 'right',
       cell: (application) => (
-        <Button
-          variant="subtle"
-          size="xs"
-          aria-label={`View ${application.displayName}`}
-          onClick={() => navigate(`/application-permissions/${application.id}`)}
-        >
-          View
-        </Button>
+        <EntityActionMenu
+          label={`Application permission actions for ${application.displayName}`}
+          actions={[{ label: 'View', onClick: () => navigate(`/application-permissions/${application.id}`) }]}
+        />
       ),
     },
   ];
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>Permissions</Title>
-          <Text c="dimmed">Manage application-owned permission registries and assignments.</Text>
-        </div>
-        {canWrite && <Button onClick={() => navigate('/application-permissions/new')}>Add Application</Button>}
-      </Group>
+      <PageHeader
+        title="Permissions"
+        description="Manage application-owned permission registries and assignments."
+        actions={canWrite && <Button onClick={() => navigate('/application-permissions/new')}>Add Application</Button>}
+      />
 
       {!canWrite && <Alert color="blue">Read-only access. Application permission changes require additional permissions.</Alert>}
 
-      <TextInput
-        label="Search applications"
-        maw={420}
-        placeholder="Search applications..."
-        value={search}
-        onChange={(event) => setSearch(event.currentTarget.value)}
+      <PageToolbar
+        searchLabel="Search applications"
+        searchPlaceholder="Search applications..."
+        searchValue={search}
+        resultCount={applications.data?.totalCount}
+        onSearchChange={setSearch}
       />
 
       <FoundationTable
@@ -414,147 +412,167 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
 
   return (
     <Stack gap="lg" role="region" aria-label="Application permission details">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>{registeredApplication.displayName}</Title>
-          <Text c="dimmed">{registeredApplication.applicationIdentifier}</Text>
-        </div>
-        <Group>
-          <ApplicationPermissionStatusBadge status={registeredApplication.status} />
-          {canWrite && <Button variant="light" onClick={() => setEditing((value) => !value)}>{editing ? 'Done' : 'Edit'}</Button>}
-        </Group>
-      </Group>
+      <PageHeader
+        title={registeredApplication.displayName}
+        description={registeredApplication.applicationIdentifier}
+        badges={[{ label: registeredApplication.status, color: registeredApplication.status === 'Active' ? 'green' : 'yellow' }]}
+        actions={canWrite && <Button variant="light" onClick={() => setEditing((value) => !value)}>{editing ? 'Done' : 'Edit'}</Button>}
+      />
 
-      <Paper withBorder p="md" radius="sm">
-        <Stack gap="xs">
-          <Text size="sm">Description: {registeredApplication.description || 'Not set'}</Text>
-          <Text size="sm">Manifest Version: {registeredApplication.manifestVersion || 'Not set'}</Text>
-          <Text size="sm">Schema Version: {registeredApplication.schemaVersion || 'Not set'}</Text>
-          {registeredApplication.manifestBaseUrl && <Text size="sm">Manifest Base URL: {registeredApplication.manifestBaseUrl}</Text>}
-        </Stack>
-      </Paper>
+      <Tabs defaultValue="overview" keepMounted={false}>
+        <Tabs.List>
+          <Tabs.Tab value="overview">Overview</Tabs.Tab>
+          <Tabs.Tab value="permissions">Permissions</Tabs.Tab>
+          <Tabs.Tab value="maintainers">Maintainers</Tabs.Tab>
+          <Tabs.Tab value="history">History</Tabs.Tab>
+          <Tabs.Tab value="diagnostics">Diagnostics</Tabs.Tab>
+        </Tabs.List>
 
-      <Paper withBorder p="md" radius="sm">
-        <Title order={2} size="h3">Ownership</Title>
-        <Text mt="xs">Current owner: {registeredApplication.ownerId} ({registeredApplication.ownerType})</Text>
-        {editing && !isManifestBacked && canAdmin && (
-          <form onSubmit={submitOwnership}>
-            <Group align="end" mt="md">
-              <TextInput label="New owner ID" value={ownerId} onChange={(event) => setOwnerId(event.currentTarget.value)} required />
-              <NativeSelect
-                label="New owner type"
-                value={ownerType}
-                onChange={(event) => setOwnerType(event.currentTarget.value as PrincipalType)}
-                data={['User', 'Group']}
-              />
-              <Button type="submit" loading={transferOwnership.isPending}>Transfer Ownership</Button>
-            </Group>
-          </form>
-        )}
-      </Paper>
-
-      <Paper withBorder p="md" radius="sm">
-        <Title order={2} size="h3">Maintainers</Title>
-        {editing && !isManifestBacked && canAdmin && (
-          <form onSubmit={submitMaintainer}>
-            <Group align="end" mt="md">
-              <TextInput label="New maintainer ID" value={maintainerId} onChange={(event) => setMaintainerId(event.currentTarget.value)} required />
-              <NativeSelect
-                label="New maintainer type"
-                value={maintainerType}
-                onChange={(event) => setMaintainerType(event.currentTarget.value as PrincipalType)}
-                data={['User', 'Group']}
-              />
-              <Button type="submit" loading={maintainers.add.isPending}>Add Maintainer</Button>
-            </Group>
-          </form>
-        )}
-        <Stack gap="xs" mt="md">
-          {registeredApplication.maintainers.length === 0 && <Text c="dimmed">No maintainers assigned</Text>}
-          {registeredApplication.maintainers.map((maintainer) => (
-            <Group key={maintainer.id} justify="space-between">
-              <Text>{maintainer.principalId} ({maintainer.principalType})</Text>
-              {editing && !isManifestBacked && canAdmin && (
-                <Button
-                  size="xs"
-                  variant="subtle"
-                  color="red"
-                  onClick={() => maintainers.remove.mutate({ principalId: maintainer.principalId, concurrencyToken })}
-                >
-                  Remove
-                </Button>
-              )}
-            </Group>
-          ))}
-        </Stack>
-      </Paper>
-
-      <Paper withBorder p="md" radius="sm">
-        <Group justify="space-between" align="center">
-          <Title order={2} size="h3">Permissions</Title>
-          {editing && !isManifestBacked && canWrite && (
-            <Button variant="light" onClick={() => void toggleLifecycle()} loading={lifecycle.isPending}>
-              {registeredApplication.status === 'Active' ? 'Disable' : 'Enable'}
-            </Button>
-          )}
-        </Group>
-        {editing && !isManifestBacked && canWrite && (
-          <form onSubmit={submitPermission}>
-            <Group align="end" mt="md">
-              <TextInput label="Permission name" value={permissionName} onChange={(event) => setPermissionName(event.currentTarget.value)} required />
-              <TextInput label="Permission category" value={permissionCategory} onChange={(event) => setPermissionCategory(event.currentTarget.value)} />
-              <Button type="submit" loading={addPermission.isPending}>Add Permission</Button>
-            </Group>
-            <Textarea label="Permission description" mt="sm" value={permissionDescription} onChange={(event) => setPermissionDescription(event.currentTarget.value)} />
-          </form>
-        )}
-        <Stack gap="xs" mt="md">
-          {registeredApplication.permissions.map((permission) => (
-            <Paper key={permission.id} withBorder p="sm" radius="sm">
-              <Text fw={500}>{permission.fullPermissionKey}</Text>
-              {permission.description && <Text size="sm" c="dimmed">{permission.description}</Text>}
-              {permission.category && <Badge mt="xs" variant="light">{permission.category}</Badge>}
+        <Tabs.Panel value="overview" pt="md">
+          <Stack gap="md">
+            <Paper withBorder p="md" radius="sm">
+              <Stack gap="xs">
+                <Text size="sm">Description: {registeredApplication.description || 'Not set'}</Text>
+                <Text size="sm">Manifest Version: {registeredApplication.manifestVersion || 'Not set'}</Text>
+                <Text size="sm">Schema Version: {registeredApplication.schemaVersion || 'Not set'}</Text>
+                {registeredApplication.manifestBaseUrl && <Text size="sm">Manifest Base URL: {registeredApplication.manifestBaseUrl}</Text>}
+              </Stack>
             </Paper>
-          ))}
-        </Stack>
-      </Paper>
 
-      <Paper withBorder p="md" radius="sm">
-        <Title order={2} size="h3">Catalog</Title>
-        {catalog.isError && <Alert color="red">{getApiErrorMessage(catalog.error)}</Alert>}
-        <Stack gap="xs" mt="md">
-          {(catalog.data?.items ?? []).map((item) => (
-            <Text key={item.fullPermissionKey}>{item.fullPermissionKey}</Text>
-          ))}
-          {!catalog.isLoading && (catalog.data?.items.length ?? 0) === 0 && <Text c="dimmed">No catalog permissions found</Text>}
-        </Stack>
-      </Paper>
+            <Paper withBorder p="md" radius="sm">
+              <Title order={2} size="h3">Ownership</Title>
+              <Text mt="xs">Current owner: {registeredApplication.ownerId} ({registeredApplication.ownerType})</Text>
+              {editing && !isManifestBacked && canAdmin && (
+                <form onSubmit={submitOwnership}>
+                  <Group align="end" mt="md">
+                    <TextInput label="New owner ID" value={ownerId} onChange={(event) => setOwnerId(event.currentTarget.value)} required />
+                    <NativeSelect
+                      label="New owner type"
+                      value={ownerType}
+                      onChange={(event) => setOwnerType(event.currentTarget.value as PrincipalType)}
+                      data={['User', 'Group']}
+                    />
+                    <Button type="submit" loading={transferOwnership.isPending}>Transfer Ownership</Button>
+                  </Group>
+                </form>
+              )}
+            </Paper>
+          </Stack>
+        </Tabs.Panel>
 
-      <Paper withBorder p="md" radius="sm">
-        <Title order={2} size="h3">History</Title>
-        {history.isError && <Alert color="red">{getApiErrorMessage(history.error)}</Alert>}
-        <Stack gap="xs" mt="md">
-          {(history.data?.removedPermissions ?? []).map((permission) => (
-            <Text key={permission.fullPermissionKey}>{permission.fullPermissionKey}</Text>
-          ))}
-          {!history.isLoading && (history.data?.removedPermissions.length ?? 0) === 0 && <Text c="dimmed">No removed permissions</Text>}
-        </Stack>
-      </Paper>
+        <Tabs.Panel value="permissions" pt="md">
+          <Stack gap="md">
+            <Paper withBorder p="md" radius="sm">
+              <Group justify="space-between" align="center">
+                <Title order={2} size="h3">Permissions</Title>
+                {editing && !isManifestBacked && canWrite && (
+                  <Button variant="light" onClick={() => void toggleLifecycle()} loading={lifecycle.isPending}>
+                    {registeredApplication.status === 'Active' ? 'Disable' : 'Enable'}
+                  </Button>
+                )}
+              </Group>
+              {editing && !isManifestBacked && canWrite && (
+                <form onSubmit={submitPermission}>
+                  <Group align="end" mt="md">
+                    <TextInput label="Permission name" value={permissionName} onChange={(event) => setPermissionName(event.currentTarget.value)} required />
+                    <TextInput label="Permission category" value={permissionCategory} onChange={(event) => setPermissionCategory(event.currentTarget.value)} />
+                    <Button type="submit" loading={addPermission.isPending}>Add Permission</Button>
+                  </Group>
+                  <Textarea label="Permission description" mt="sm" value={permissionDescription} onChange={(event) => setPermissionDescription(event.currentTarget.value)} />
+                </form>
+              )}
+              <Stack gap="xs" mt="md">
+                {registeredApplication.permissions.map((permission) => (
+                  <Paper key={permission.id} withBorder p="sm" radius="sm">
+                    <Text fw={500}>{permission.fullPermissionKey}</Text>
+                    {permission.description && <Text size="sm" c="dimmed">{permission.description}</Text>}
+                    {permission.category && <Badge mt="xs" variant="light">{permission.category}</Badge>}
+                  </Paper>
+                ))}
+              </Stack>
+            </Paper>
 
-      <Paper withBorder p="md" radius="sm">
-        <Title order={2} size="h3">Diagnostics</Title>
-        {diagnostics.isError && <Alert color="red">{getApiErrorMessage(diagnostics.error)}</Alert>}
-        <Stack gap="xs" mt="md">
-          {(diagnostics.data?.issues ?? []).map((issue) => (
-            <Group key={`${issue.fullPermissionKey}-${issue.roleName ?? ''}`}>
-              <Text>{issue.fullPermissionKey}</Text>
-              {issue.roleName && <Badge variant="light">{issue.roleName}</Badge>}
-              {issue.issueType && <Badge color="red" variant="light">{issue.issueType}</Badge>}
-            </Group>
-          ))}
-          {!diagnostics.isLoading && (diagnostics.data?.issues.length ?? 0) === 0 && <Text c="dimmed">No permission diagnostics found</Text>}
-        </Stack>
-      </Paper>
+            <Paper withBorder p="md" radius="sm">
+              <Title order={2} size="h3">Catalog</Title>
+              {catalog.isError && <Alert color="red">{getApiErrorMessage(catalog.error)}</Alert>}
+              <Stack gap="xs" mt="md">
+                {(catalog.data?.items ?? []).map((item) => (
+                  <Text key={item.fullPermissionKey}>{item.fullPermissionKey}</Text>
+                ))}
+                {!catalog.isLoading && (catalog.data?.items.length ?? 0) === 0 && <Text c="dimmed">No catalog permissions found</Text>}
+              </Stack>
+            </Paper>
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="maintainers" pt="md">
+          <Paper withBorder p="md" radius="sm">
+            <Title order={2} size="h3">Maintainers</Title>
+            {editing && !isManifestBacked && canAdmin && (
+              <form onSubmit={submitMaintainer}>
+                <Group align="end" mt="md">
+                  <TextInput label="New maintainer ID" value={maintainerId} onChange={(event) => setMaintainerId(event.currentTarget.value)} required />
+                  <NativeSelect
+                    label="New maintainer type"
+                    value={maintainerType}
+                    onChange={(event) => setMaintainerType(event.currentTarget.value as PrincipalType)}
+                    data={['User', 'Group']}
+                  />
+                  <Button type="submit" loading={maintainers.add.isPending}>Add Maintainer</Button>
+                </Group>
+              </form>
+            )}
+            <Stack gap="xs" mt="md">
+              {registeredApplication.maintainers.length === 0 && <Text c="dimmed">No maintainers assigned</Text>}
+              {registeredApplication.maintainers.map((maintainer) => (
+                <Group key={maintainer.id} justify="space-between">
+                  <Text>{maintainer.principalId} ({maintainer.principalType})</Text>
+                  {editing && !isManifestBacked && canAdmin && (
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      color="red"
+                      onClick={() => maintainers.remove.mutate({ principalId: maintainer.principalId, concurrencyToken })}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </Group>
+              ))}
+            </Stack>
+          </Paper>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="history" pt="md">
+          <Paper withBorder p="md" radius="sm">
+            <Title order={2} size="h3">History</Title>
+            {history.isError && <Alert color="red">{getApiErrorMessage(history.error)}</Alert>}
+            <Stack gap="xs" mt="md">
+              {(history.data?.removedPermissions ?? []).map((permission) => (
+                <Text key={permission.fullPermissionKey}>{permission.fullPermissionKey}</Text>
+              ))}
+              {!history.isLoading && (history.data?.removedPermissions.length ?? 0) === 0 && <Text c="dimmed">No removed permissions</Text>}
+            </Stack>
+          </Paper>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="diagnostics" pt="md">
+          <Paper withBorder p="md" radius="sm">
+            <Title order={2} size="h3">Diagnostics</Title>
+            {diagnostics.isError && <Alert color="red">{getApiErrorMessage(diagnostics.error)}</Alert>}
+            <Stack gap="xs" mt="md">
+              {(diagnostics.data?.issues ?? []).map((issue) => (
+                <Group key={`${issue.fullPermissionKey}-${issue.roleName ?? ''}`}>
+                  <Text>{issue.fullPermissionKey}</Text>
+                  {issue.roleName && <Badge variant="light">{issue.roleName}</Badge>}
+                  {issue.issueType && <Badge color="red" variant="light">{issue.issueType}</Badge>}
+                </Group>
+              ))}
+              {!diagnostics.isLoading && (diagnostics.data?.issues.length ?? 0) === 0 && <Text c="dimmed">No permission diagnostics found</Text>}
+            </Stack>
+          </Paper>
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   );
 }
