@@ -1,20 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
 import { UserManager, WebStorageStateStore, type User, type UserManagerSettings } from 'oidc-client-ts';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
-import { setAccessTokenProvider } from './admin-api';
-
-type AuthContextValue = {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  displayName: string;
-  permissions: string[];
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
-  getAccessToken: () => Promise<string | null>;
-};
-
-const AuthContext = createContext<AuthContextValue | null>(null);
+import { setAccessTokenProvider, setUnauthorizedHandler } from './admin-api';
+import { extractGrantedPermissions } from './auth-claims';
+import { AuthContextProvider, type AuthContextValue } from './auth-context';
+export { AuthContextProvider, useAuth, type AuthContextValue } from './auth-context';
 
 function isE2ETestMode(): boolean {
   return __E2E_TEST_MODE__ || (import.meta.env.DEV && globalThis.window?.__OIS_E2E_AUTH__ === true);
@@ -41,15 +32,6 @@ function createUserManager(): UserManager {
   return new UserManager(settings);
 }
 
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-
-  return context;
-}
-
 type AuthProviderProps = {
   children: ReactNode;
 };
@@ -74,9 +56,10 @@ function MockAuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     setAccessTokenProvider(value.getAccessToken);
+    setUnauthorizedHandler(value.logout);
   }, [value]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
 }
 
 function OidcAuthProvider({ children }: AuthProviderProps) {
@@ -154,7 +137,11 @@ function OidcAuthProvider({ children }: AuthProviderProps) {
     [getAccessToken, isLoading, oidcUser, userManager]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  useEffect(() => {
+    setUnauthorizedHandler(value.logout);
+  }, [value.logout]);
+
+  return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
 }
 
 function extractPermissions(user: User | null): string[] {
@@ -162,41 +149,8 @@ function extractPermissions(user: User | null): string[] {
     return [];
   }
 
-  const permissions = new Set<string>();
-  addClaimValues(permissions, user.profile.permission);
-  addClaimValues(permissions, user.profile.permissions);
-  addSpaceSeparatedClaimValues(permissions, user.profile.scope);
-  addSpaceSeparatedClaimValues(permissions, user.profile.scp);
-  addAdminRole(permissions, user.profile.role);
-
-  return [...permissions];
-}
-
-function addClaimValues(target: Set<string>, value: unknown): void {
-  if (typeof value === 'string' && value.trim()) {
-    target.add(value.trim());
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    value.forEach((entry) => addClaimValues(target, entry));
-  }
-}
-
-function addSpaceSeparatedClaimValues(target: Set<string>, value: unknown): void {
-  if (typeof value !== 'string') {
-    addClaimValues(target, value);
-    return;
-  }
-
-  value.split(' ').forEach((entry) => addClaimValues(target, entry));
-}
-
-function addAdminRole(target: Set<string>, value: unknown): void {
-  const roles = new Set<string>();
-  addClaimValues(roles, value);
-
-  if ([...roles].some((role) => role.toLowerCase() === 'admin')) {
-    target.add('*');
-  }
+  return extractGrantedPermissions({
+    profile: user.profile,
+    accessToken: user.access_token,
+  });
 }

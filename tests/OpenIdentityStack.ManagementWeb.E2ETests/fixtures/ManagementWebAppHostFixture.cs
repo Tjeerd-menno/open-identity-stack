@@ -1,8 +1,12 @@
 extern alias AppHostProject;
 using Aspire.Hosting;
 using Aspire.Hosting.Testing;
+using Microsoft.Playwright;
+using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 using OpenIdentityStack.Testing;
 using System.IO;
+
+[assembly: AssemblyFixture(typeof(ManagementWebAppHostFixture))]
 
 namespace OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
@@ -22,6 +26,8 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
     public DistributedApplication? App { get; private set; }
     public HttpClient? ApiClient { get; private set; }
     public string? ManagementWebUrl { get; private set; }
+    private IPlaywright? Playwright { get; set; }
+    private IBrowser? Browser { get; set; }
     private OpenIdentityStackTestSeeder? TestSeeder { get; set; }
     private string? _envLocalPath;
 
@@ -63,6 +69,38 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
 
         // Seed test data for authentication tests
         await SeedTestDataAsync();
+
+        Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+        EnsureChromiumRuntimeIsAvailable(Playwright);
+
+        Browser = await Playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+        {
+            Headless = true
+        });
+    }
+
+    public async Task<IBrowserContext> CreateBrowserContextAsync()
+    {
+        if (Browser is null)
+        {
+            throw new InvalidOperationException("Browser is not initialized.");
+        }
+
+        IBrowserContext context = await Browser.NewContextAsync(new BrowserNewContextOptions
+        {
+            IgnoreHTTPSErrors = true
+        });
+        await ConfigureViteReactRefreshFallbackAsync(context);
+        await context.AddInitScriptAsync("window.__OIS_E2E_AUTH__ = true;");
+
+        return context;
+    }
+
+    private static async Task ConfigureViteReactRefreshFallbackAsync(IBrowserContext context)
+    {
+        await context.AddInitScriptAsync(
+            "window.$RefreshReg$ = window.$RefreshReg$ || (() => {});" +
+            "window.$RefreshSig$ = window.$RefreshSig$ || (() => (type) => type);");
     }
 
     private async Task<string> GetManagementWebUrlAsync()
@@ -99,6 +137,11 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
+        if (Browser is not null)
+        {
+            await Browser.DisposeAsync();
+        }
+        Playwright?.Dispose();
         ApiClient?.Dispose();
         if (TestSeeder is not null)
         {
@@ -156,6 +199,20 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(DefaultAdminPasswordParameter)))
         {
             Environment.SetEnvironmentVariable(DefaultAdminPasswordParameter, DefaultAdminPassword);
+        }
+    }
+
+    private static void EnsureChromiumRuntimeIsAvailable(IPlaywright playwright)
+    {
+        string executablePath = playwright.Chromium.ExecutablePath;
+        if (!File.Exists(executablePath))
+        {
+            throw new InvalidOperationException(
+                "Playwright Chromium runtime was not found for ManagementWeb E2E tests. " +
+                "Install browsers using the generated Playwright script (for example: " +
+                "'pwsh tests/OpenIdentityStack.ManagementWeb.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium' " +
+                "or './tests/OpenIdentityStack.ManagementWeb.E2ETests/bin/Debug/net10.0/playwright.sh install chromium') " +
+                "and rerun the tests.");
         }
     }
 }

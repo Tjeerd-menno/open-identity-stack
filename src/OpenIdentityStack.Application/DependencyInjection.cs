@@ -6,6 +6,7 @@ using OpenIdentityStack.Application.ApplicationPermissions.Commands;
 using OpenIdentityStack.Application.ApplicationPermissions.Queries;
 using OpenIdentityStack.Application.Applications.Commands;
 using OpenIdentityStack.Application.Applications.Queries;
+using OpenIdentityStack.Application.Audit.Queries;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Federation.Commands;
 using OpenIdentityStack.Application.Federation.Queries;
@@ -39,6 +40,7 @@ public static class DependencyInjection
         AddApplicationUseCases(services);
         AddApplicationPermissionUseCases(services);
         AddSessionAndLogoutUseCases(services);
+        AddAuditUseCases(services);
         AddProviderUseCases(services);
         AddAuthorizationServices(services);
 
@@ -174,6 +176,11 @@ public static class DependencyInjection
 
         services.AddScoped<IProcessLogoutUseCase, ProcessLogoutUseCase>();
         services.AddScoped<INotifyClientsOfLogoutUseCase, NotifyClientsOfLogoutUseCase>();
+    }
+
+    private static void AddAuditUseCases(IServiceCollection services)
+    {
+        services.AddScoped<IListAuditEntriesQueryHandler, ListAuditEntriesQueryHandler>();
     }
 
     private static void AddProviderUseCases(IServiceCollection services)

@@ -25,3 +25,11 @@ export function hasPermission(grantedPermissions: string[], requiredPermission: 
     );
   });
 }
+
+export function hasAnyPermission(grantedPermissions: string[], requiredPermissions: string[]): boolean {
+  return requiredPermissions.some((requiredPermission) => hasPermission(grantedPermissions, requiredPermission));
+}
+
+export function hasEveryPermission(grantedPermissions: string[], requiredPermissions: string[]): boolean {
+  return requiredPermissions.every((requiredPermission) => hasPermission(grantedPermissions, requiredPermission));
+}

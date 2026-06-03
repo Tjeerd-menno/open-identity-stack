@@ -6,9 +6,12 @@ const navigationItems = [
   { label: 'Users', to: '/users' },
   { label: 'Roles', to: '/roles' },
   { label: 'Groups', to: '/groups' },
-  { label: 'Service accounts', to: '/service-accounts' },
-  { label: 'Identity providers', to: '/identity-providers' },
-  { label: 'Audit', to: '/audit' },
+  { label: 'Applications', to: '/applications' },
+  { label: 'Permissions', to: '/application-permissions' },
+  { label: 'Sessions', to: '/sessions' },
+  { label: 'Identity providers', to: '/providers' },
+  { label: 'Settings', to: '/settings' },
+  { label: 'Audit', to: '/audit-entries' },
 ];
 
 export function Navigation() {
