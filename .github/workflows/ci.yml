@@ -98,6 +98,19 @@ jobs:
         working-directory: src/OpenIdentityStack.AdminWeb
         run: npm run test:coverage
 
+      - name: Install ManagementWeb dependencies
+        working-directory: src/OpenIdentityStack.ManagementWeb
+        run: npm ci --ignore-scripts
+
+      - name: Install Playwright browsers for ManagementWeb E2E tests
+        shell: pwsh
+        run: |
+          $playwrightScript = "tests/OpenIdentityStack.ManagementWeb.E2ETests/bin/Debug/net10.0/playwright.ps1"
+          if (-not (Test-Path $playwrightScript)) {
+            throw "Playwright install script not found at '$playwrightScript'. Ensure the E2E test project was built successfully."
+          }
+          pwsh $playwrightScript install --with-deps chromium
+
       - name: Install Playwright browsers
         shell: pwsh
         run: |
