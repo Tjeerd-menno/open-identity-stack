@@ -203,6 +203,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<IClientRepository, ClientRepository>();
         services.AddScoped<IAuthenticationSettingsRepository, AuthenticationSettingsRepository>();
+        services.AddScoped<IAuditEntryReader, AuditEntryReader>();
     }
 
     private static void AddInfrastructureDomainServices(IServiceCollection services)

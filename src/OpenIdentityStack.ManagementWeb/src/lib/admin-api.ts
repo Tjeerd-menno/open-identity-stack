@@ -1,4 +1,9 @@
+import { createApiError, type ApiError } from './api-errors';
+
 type RequestParams = Record<string, string | number | boolean | undefined>;
+
+export type { ApiError } from './api-errors';
+export { formatApiError as getApiErrorMessage, isApiError } from './api-errors';
 
 export type PaginatedResponse<T> = {
   items: T[];
@@ -6,23 +11,6 @@ export type PaginatedResponse<T> = {
   page: number;
   pageSize: number;
   totalPages: number;
-};
-
-export type UserStatus = 'PendingVerification' | 'Active' | 'Disabled' | 'Locked';
-
-export type UserListItem = {
-  id: string;
-  email: string;
-  displayName: string;
-  status: UserStatus;
-  createdAt: string;
-};
-
-export type User = UserListItem & {
-  mfaEnabled: boolean;
-  lastLoginAt: string | null;
-  modifiedAt: string | null;
-  profile: Record<string, unknown>;
 };
 
 export type RoleListItem = {
@@ -33,16 +21,15 @@ export type RoleListItem = {
   isActive: boolean;
 };
 
-export type CreateUserRequest = {
-  email: string;
-  displayName: string;
-  password: string;
-};
-
 let accessTokenProvider: (() => Promise<string | null>) | null = null;
+let unauthorizedHandler: (() => void) | null = null;
 
 export function setAccessTokenProvider(provider: () => Promise<string | null>): void {
   accessTokenProvider = provider;
+}
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  unauthorizedHandler = handler;
 }
 
 function getApiBaseUrl(): string {
@@ -61,7 +48,11 @@ function buildUrl(path: string, params?: RequestParams): string {
   return url.toString();
 }
 
-async function request<T>(path: string, options: RequestInit = {}, params?: RequestParams): Promise<T> {
+function toApiError(response: Response, payload: unknown): ApiError {
+  return createApiError(response.status, payload);
+}
+
+export async function request<T>(path: string, options: RequestInit = {}, params?: RequestParams): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
 
@@ -76,63 +67,32 @@ async function request<T>(path: string, options: RequestInit = {}, params?: Requ
   });
 
   if (!response.ok) {
-    let message = `Admin API request failed with status ${response.status}`;
+    let payload: unknown;
     try {
-      const payload = (await response.json()) as { detail?: string; title?: string; message?: string };
-      message = payload.detail ?? payload.message ?? payload.title ?? message;
+      payload = await response.json();
     } catch {
-      // Keep the status-based message when the response body is empty or not JSON.
+      payload = null;
     }
 
-    throw new Error(message);
+    if (response.status === 401) {
+      unauthorizedHandler?.();
+    }
+
+    throw toApiError(response, payload);
   }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  return (await response.json()) as T;
-}
+  const body = await response.text();
+  if (!body) {
+    return undefined as T;
+  }
 
-export function listUsers(page = 1, pageSize = 20, search?: string): Promise<PaginatedResponse<UserListItem>> {
-  return request<PaginatedResponse<UserListItem>>('/api/admin/users', {}, { page, pageSize, search: search || undefined });
-}
-
-export function getUser(userId: string): Promise<User> {
-  return request<User>(`/api/admin/users/${userId}`);
-}
-
-export function createUser(data: CreateUserRequest): Promise<UserListItem> {
-  return request<UserListItem>('/api/admin/users', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export function updateUser(userId: string, displayName: string): Promise<unknown> {
-  return request(`/api/admin/users/${userId}`, {
-    method: 'PUT',
-    body: JSON.stringify({ displayName }),
-  });
-}
-
-export function disableUser(userId: string, reason: string): Promise<unknown> {
-  return request(`/api/admin/users/${userId}/disable`, {
-    method: 'POST',
-    body: JSON.stringify({ reason }),
-  });
-}
-
-export function listUserRoles(userId: string): Promise<{ userId: string; roles: RoleListItem[] }> {
-  return request<{ userId: string; roles: RoleListItem[] }>(`/api/admin/users/${userId}/roles`);
+  return JSON.parse(body) as T;
 }
 
 export function listRoles(): Promise<PaginatedResponse<RoleListItem>> {
   return request<PaginatedResponse<RoleListItem>>('/api/admin/roles', {}, { page: 1, pageSize: 100 });
-}
-
-export function assignRole(userId: string, roleId: string): Promise<unknown> {
-  return request(`/api/admin/users/${userId}/roles/${roleId}`, {
-    method: 'POST',
-  });
 }

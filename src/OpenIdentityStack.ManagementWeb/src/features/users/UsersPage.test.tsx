@@ -73,6 +73,14 @@ describe('UsersPage', () => {
         return jsonResponse({ userId: 'user-1', roles: [] });
       }
 
+      if (url === `${apiBase}/api/admin/users/user-1/groups` && method === 'GET') {
+        return jsonResponse([]);
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/upstream-identities` && method === 'GET') {
+        return jsonResponse({ items: [] });
+      }
+
       if (url === `${apiBase}/api/admin/roles?page=1&pageSize=100` && method === 'GET') {
         return jsonResponse({
           items: [
@@ -123,6 +131,7 @@ describe('UsersPage', () => {
     await user.click(screen.getByRole('button', { name: /search/i }));
 
     await user.click(screen.getByRole('button', { name: /create user/i }));
+    expect(screen.getByRole('region', { name: /create user/i })).toBeInTheDocument();
     await user.type(screen.getByLabelText(/^email$/i), 'grace@example.com');
     await user.type(screen.getByLabelText(/new display name/i), 'Grace Hopper');
     await user.type(screen.getByLabelText(/^password$/i), 'Pass1234!');
@@ -220,7 +229,8 @@ describe('UsersPage', () => {
     await screen.findByRole('button', { name: /ada lovelace/i });
     expect(screen.queryByRole('button', { name: /grace hopper/i })).not.toBeInTheDocument();
 
-    const nextPageButton = screen.getByRole('button', { name: '2' });
+    expect(screen.getByText(/page 1 of 3/i)).toBeInTheDocument();
+    const nextPageButton = screen.getByRole('button', { name: /next/i });
     await user.click(nextPageButton);
 
     await screen.findByRole('button', { name: /grace hopper/i });
@@ -309,6 +319,161 @@ describe('UsersPage', () => {
     });
   });
 
+  it('manages secondary user workflows from the details panel', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/users?page=1&pageSize=20` && method === 'GET') {
+        return jsonResponse({
+          items: [
+            {
+              id: 'user-1',
+              email: 'ada@example.com',
+              displayName: 'Ada Lovelace',
+              status: 'Disabled',
+              createdAt: '2026-01-01T00:00:00Z',
+            },
+          ],
+          totalCount: 1,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        });
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1` && method === 'GET') {
+        return jsonResponse({
+          id: 'user-1',
+          email: 'ada@example.com',
+          displayName: 'Ada Lovelace',
+          status: 'Disabled',
+          mfaEnabled: false,
+          lastLoginAt: null,
+          createdAt: '2026-01-01T00:00:00Z',
+          modifiedAt: null,
+          profile: {},
+        });
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/roles` && method === 'GET') {
+        return jsonResponse({
+          userId: 'user-1',
+          roles: [
+            {
+              id: 'role-1',
+              name: 'support',
+              displayName: 'Support operator',
+              isSystemRole: false,
+              isActive: true,
+            },
+          ],
+        });
+      }
+
+      if (url === `${apiBase}/api/admin/roles?page=1&pageSize=100` && method === 'GET') {
+        return jsonResponse({
+          items: [],
+          totalCount: 0,
+          page: 1,
+          pageSize: 100,
+          totalPages: 0,
+        });
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/groups` && method === 'GET') {
+        return jsonResponse([
+          {
+            id: 'group-1',
+            name: 'engineering',
+            displayName: 'Engineering',
+            memberCount: 12,
+          },
+        ]);
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/upstream-identities` && method === 'GET') {
+        return jsonResponse({
+          items: [
+            {
+              providerId: 'google',
+              providerName: 'Google',
+              subject: 'ada-google',
+              displayName: 'Ada Google',
+              linkedAt: '2026-01-02T00:00:00Z',
+            },
+          ],
+        });
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/enable` && method === 'POST') {
+        return jsonResponse({ userId: 'user-1', status: 'Active' });
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/reset-password` && method === 'POST') {
+        return jsonResponse({ userId: 'user-1' });
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/roles/role-1` && method === 'DELETE') {
+        return jsonResponse({});
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/upstream-identities` && method === 'POST') {
+        return jsonResponse({ providerId: 'oidc', subject: 'ada-oidc' });
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/upstream-identities/google` && method === 'DELETE') {
+        return jsonResponse({});
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1` && method === 'DELETE') {
+        return jsonResponse({});
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderManagementWeb(
+      <UsersPage permissions={[
+        'users:write',
+        'users:disable',
+        'users:delete',
+        'users:reset-password',
+        'roles:assign',
+        'groups:read',
+      ]} />
+    );
+
+    await user.click(await screen.findByRole('button', { name: /ada lovelace/i }));
+
+    expect(await screen.findByText(/engineering/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/google/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/ada-google/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /enable user/i }));
+    await user.type(screen.getByLabelText(/new password/i), 'Temp1234!');
+    await user.click(screen.getByRole('button', { name: /reset password/i }));
+    await user.click(screen.getByRole('button', { name: /unassign support operator/i }));
+    await user.type(screen.getByLabelText(/provider id/i), 'oidc');
+    await user.type(screen.getByLabelText(/subject/i), 'ada-oidc');
+    await user.click(screen.getByRole('button', { name: /link upstream identity/i }));
+    await user.click(screen.getByRole('button', { name: /unlink google/i }));
+    await user.click(screen.getByRole('button', { name: /^delete user$/i }));
+    await user.click(await screen.findByRole('button', { name: /delete ada lovelace/i }));
+
+    await waitFor(() => {
+      const calls = fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? 'GET'} ${url.toString()}`);
+      expect(calls).toContain(`POST ${apiBase}/api/admin/users/user-1/enable`);
+      expect(calls).toContain(`POST ${apiBase}/api/admin/users/user-1/reset-password`);
+      expect(calls).toContain(`DELETE ${apiBase}/api/admin/users/user-1/roles/role-1`);
+      expect(calls).toContain(`POST ${apiBase}/api/admin/users/user-1/upstream-identities`);
+      expect(calls).toContain(`DELETE ${apiBase}/api/admin/users/user-1/upstream-identities/google`);
+      expect(calls).toContain(`DELETE ${apiBase}/api/admin/users/user-1`);
+    });
+  });
+
   it('blocks privileged user actions when the operator lacks write permissions', async () => {
     vi.stubGlobal('fetch', vi.fn(() => jsonResponse({
       items: [
@@ -372,6 +537,14 @@ describe('UsersPage', () => {
 
       if (url === `${apiBase}/api/admin/users/user-1/roles` && method === 'GET') {
         return jsonResponse({ userId: 'user-1', roles: [] });
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/groups` && method === 'GET') {
+        return jsonResponse([]);
+      }
+
+      if (url === `${apiBase}/api/admin/users/user-1/upstream-identities` && method === 'GET') {
+        return jsonResponse({ items: [] });
       }
 
       if (url === `${apiBase}/api/admin/roles?page=1&pageSize=100` && method === 'GET') {

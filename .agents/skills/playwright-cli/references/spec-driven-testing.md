@@ -1,12 +1,12 @@
-# Spec-driven testing (plan → generate → heal)
+# Spec-driven testing for .NET (plan → generate → heal)
 
-End-to-end workflow for authoring and maintaining Playwright tests using `playwright-cli`. The three sections below can be used independently:
+End-to-end workflow for authoring and maintaining Playwright tests in .NET using xUnit v3 and Aspire integration testing. The three sections below can be used independently:
 
-- **Planning** — explore the app, produce a spec file describing what to test.
-- **Generate** — turn a spec into Playwright test files. Update the spec if it's vague or stale.
+- **Planning** — explore the app via live manual testing, produce a spec file describing what to test.
+- **Generate** — turn a spec into xUnit test files using C# Playwright. Update the spec if it's vague or stale.
 - **Heal** — diagnose failing tests, fix the code, reconcile the spec with reality.
 
-All three lean on the same mechanic: run `npx playwright test --debug=cli` in the background, then `playwright-cli attach tw-XXXX` to drive the paused page interactively. See [playwright-tests.md](playwright-tests.md) for the debug/attach mechanics and [test-generation.md](test-generation.md) for how every `playwright-cli` action emits Playwright TypeScript.
+All three lean on Aspire's test infrastructure: the fixture manages app startup, database seeding, and browser lifecycle. See [PLAYWRIGHT_PATTERNS.md](#references) for selector and waiting best practices from the AdminWeb E2E suite.
 
 ---
 
@@ -14,93 +14,108 @@ All three lean on the same mechanic: run `npx playwright test --debug=cli` in th
 
 Goal: produce a spec file (e.g. `specs/<feature>.plan.md`) that enumerates the scenarios to test. **Always** write the spec to a file.
 
-### 1.1 Prerequisite: workspace
+### 1.1 Prerequisite: Aspire test fixture
 
-Check the workspace has Playwright installed before anything else:
-
-```bash
-# Either of these confirms a workspace:
-test -f playwright.config.ts || test -f playwright.config.js
-npx --no-install playwright --version
-```
-
-If there is no Playwright install, bootstrap one and let the user pick the defaults:
+Check the project has an Aspire AppHost fixture before anything else:
 
 ```bash
-npm init playwright@latest
+# Confirm the fixture exists and has dependencies
+test -f tests/OpenIdentityStack.AdminWeb.E2ETests/Fixtures/AdminWebAppHostFixture.cs
+dotnet --version  # .NET 10 or later
 ```
 
-### 1.2 Prerequisite: seed test
+If no fixture exists, create one using [AdminWebAppHostFixture.cs](../../../tests/OpenIdentityStack.AdminWeb.E2ETests/Fixtures/AdminWebAppHostFixture.cs) as a template. Key patterns:
 
-A **seed test** is a minimal test that lands the page in the state every scenario starts from: navigation to the app, any required login, feature flags, etc. Scenarios assume a fresh start *after* the seed. `--debug=cli` pauses *inside* this test, so the seed is where every planning and generation session begins.
+- Decorate with `[AssemblyFixture(typeof(YourFixture))]` so it initializes once per test run.
+- Inherit `IAsyncLifetime` for async setup/teardown.
+- Start the Aspire app, seed test data, initialize Playwright Chromium, and expose URLs.
+- Call `EnsureChromiumRuntimeIsAvailable()` — fail fast if browsers aren't installed.
 
-Minimum viable seed:
+### 1.2 Prerequisite: seed scenario
 
-```ts
-// tests/seed.spec.ts
-import { test } from '@playwright/test';
+A **seed scenario** is a minimal test method that lands the page in the state every scenario starts from: navigation to the app, any required login, feature flags, etc. Scenarios assume a fresh start *after* the seed.
 
-test('seed', async ({ page }) => {
-  await page.goto('https://example.com/');
-});
+Minimum viable seed (in a new test class):
+
+```csharp
+// tests/OpenIdentityStack.AdminWeb.E2ETests/Features/SeedTests.cs
+using Microsoft.Playwright;
+using OpenIdentityStack.AdminWeb.E2ETests.Fixtures;
+
+namespace OpenIdentityStack.AdminWeb.E2ETests.Features;
+
+/// <summary>
+/// Seed test: navigates to the app and waits for the authenticated shell.
+/// Serves as the starting point for all scenario exploration.
+/// </summary>
+public class SeedTests : IAsyncLifetime
+{
+    private readonly AdminWebAppHostFixture fixture;
+    private IBrowserContext? context;
+    private IPage? page;
+
+    public SeedTests(AdminWebAppHostFixture fixture)
+    {
+        this.fixture = fixture;
+    }
+
+    public async ValueTask InitializeAsync()
+    {
+        context = await fixture.CreateBrowserContextAsync();
+        page = await context.NewPageAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (page != null) await page.CloseAsync();
+        if (context != null) await context.CloseAsync();
+    }
+
+    [Fact]
+    public async Task Seed_NavigateToApp()
+    {
+        // Seed test: just navigate and wait for app shell
+        // Exploration will happen manually from here
+        string url = fixture.AdminWebUrl ?? throw new InvalidOperationException("AdminWeb URL is null");
+        await page!.GotoAsync(url, new() { WaitUntil = WaitUntilState.DOMContentLoaded });
+        await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
+    }
+}
 ```
 
-Preferred — push navigation into a fixture so scenario tests reuse it:
+### 1.3 Explore the app manually
 
-```ts
-// tests/fixtures.ts
-import { test as baseTest } from '@playwright/test';
-export { expect } from '@playwright/test';
+1. **Start the Aspire stack:**
+   ```bash
+   dotnet run --project src/OpenIdentityStack.AppHost
+   ```
+   The dashboard opens automatically. Wait for the `api` and `postgres` resources to be healthy.
 
-export const test = baseTest.extend({
-  page: async ({ page }, use) => {
-    await page.goto('https://example.com/');
-    await use(page);
-  },
-});
-```
+2. **Run the seed test:**
+   ```bash
+   dotnet test --project tests/OpenIdentityStack.AdminWeb.E2ETests/OpenIdentityStack.AdminWeb.E2ETests.csproj -- --filter "SeedTests.Seed_NavigateToApp"
+   ```
+   This starts the browser and navigates to the app (it will pass immediately).
 
-```ts
-// tests/seed.spec.ts
-import { test } from './fixtures';
+3. **While the Aspire app is running, open a browser manually:**
+   - Navigate to the AdminWeb URL (visible in the Aspire dashboard).
+   - Interact with the UI to map out flows, forms, modals, and navigation.
+   - Test edge cases: empty states, validation errors, long input, boundary values.
+   - Check persistence: reload the page, verify session state, check URL fragments.
+   - Note which interactions trigger network requests and state changes.
 
-test('seed', async ({ page }) => {
-  // Fixture already navigates. This empty body tells agents where to start.
-});
-```
-
-If no seed exists, create one that at least navigates to the app.
-
-### 1.3 Explore the app
-
-Launch the app via the seed in the background and attach:
-
-```bash
-PLAYWRIGHT_HTML_OPEN=never npx playwright test tests/seed.spec.ts --debug=cli
-# wait for "Debugging Instructions" and the session name tw-XXXX
-playwright-cli attach tw-XXXX
-```
-
-Resume so the seed runs, then probe the app:
-
-```bash
-playwright-cli resume                   # resume so that seed test runs fully
-playwright-cli snapshot                 # inventory of interactive elements
-playwright-cli click e5                 # follow a flow
-playwright-cli eval "location.href"     # read URL / state
-playwright-cli show --annotate          # ask the user to point at something
-```
+4. **Stop the test when done:**
+   ```bash
+   # Ctrl+C to stop the Aspire stack
+   ```
 
 Map out:
 
-- Interactive surfaces (forms, buttons, lists, filters, modals).
-- Primary user journeys end-to-end.
-- Edge cases: empty states, validation errors, very long input, boundary values.
-- Persistence: reload, local/session storage, URL fragments.
-- Navigation: which controls change the URL, back/forward behaviour.
-
-**Important**: Do not just open the app url with playwright-cli, always go through the test to capture any custom setup done there.
-**Important**: Stop the background test when done exploring.
+- **Interactive surfaces:** forms, buttons, lists, filters, modals, dialogs.
+- **Primary user journeys:** happy path flows end-to-end.
+- **Edge cases:** empty states, validation errors, very long input, boundary values.
+- **Persistence:** reload, session/local storage, URL fragments, back/forward behaviour.
+- **Navigation:** which controls change the URL, breadcrumbs, sidebar links.
 
 ### 1.4 Write the spec file
 
@@ -111,17 +126,21 @@ Save under `specs/<feature>.plan.md`. Use this structure:
 
 ## Application Overview
 
-<One paragraph describing what the feature does and why it matters.>
+<One paragraph describing what the feature does and why it matters. Reference the AdminWeb URL and any prerequisite setup.>
 
 ## Test Scenarios
 
 ### 1. <Group Name>
 
-**Seed:** `tests/seed.spec.ts`
+**Fixture:** `AdminWebAppHostFixture`
+
+**Class:** `<GroupName>Tests`
 
 #### 1.1. <kebab-case-scenario-name>
 
-**File:** `tests/<group>/<kebab-case-scenario-name>.spec.ts`
+**File:** `tests/OpenIdentityStack.AdminWeb.E2ETests/Features/<kebab-case-scenario-name>.cs`
+
+**Test Method:** `<PascalCaseScenarioName>`
 
 **Steps:**
   1. <Concrete user step>
@@ -135,102 +154,169 @@ Save under `specs/<feature>.plan.md`. Use this structure:
 
 ### 2. <Next Group>
 
-**Seed:** `tests/seed.spec.ts`
+**Fixture:** `AdminWebAppHostFixture`
+
+**Class:** `<NextGroupName>Tests`
 ...
 ```
 
 Guidelines:
 
-- Each scenario is independent and starts from the seed's fresh state — never chain scenarios.
-- Scenario names are kebab-case and match the test file name (`should-add-single-todo` → `should-add-single-todo.spec.ts`).
-- Cover happy path, edge cases, validation, negative flows, persistence.
-- Write steps at the user level ("Type 'Buy milk' into the input"), not the API level ("call `fill`").
+- Each scenario is independent and starts from a fresh authenticated shell — never chain scenarios.
+- Scenario names are kebab-case; test method names are PascalCase (`should-add-user` → `ShouldAddUser()`).
+- Cover happy path, edge cases, validation, negative flows, and persistence.
+- Write steps at the user level ("Type 'admin@example.com' into the email field"), not the API level ("call `Fill()`").
 - Put observable outcomes in `- expect:` bullets; each becomes an assertion during generation.
+- Reference the fixture and class names so generation stays consistent.
 
 ---
 
 ## 2. Generate
 
-Goal: take a spec file and produce Playwright test files. Optionally update the spec if it has drifted.
+Goal: take a spec file and produce xUnit test files. Optionally update the spec if it has drifted.
 
 ### 2.1 Inputs
 
-- **Spec file**, e.g. `specs/basic-operations.plan.md`.
+- **Spec file**, e.g. `specs/user-management.plan.md`.
 - **Target**: either a single scenario (e.g. `1.2`), a whole group (`1`), or all.
-- **Seed file**, read from the `**Seed:**` line of the scenario's group.
+- **Fixture class**, read from the `**Fixture:**` line of the scenario's group.
+- **Aspire AppHost** running locally with database migrations applied.
 
 ### 2.2 Generate one scenario
 
-For each target scenario, in sequence (never in parallel — scenarios share the seed session):
+For each target scenario, in sequence (do not parallelize — all tests share the same fixture and database):
 
-```bash
-PLAYWRIGHT_HTML_OPEN=never npx playwright test <seed-file> --debug=cli   # background
-playwright-cli attach tw-XXXX
-# resume
-```
+1. **Start the Aspire stack:**
+   ```bash
+   dotnet run --project src/OpenIdentityStack.AppHost
+   ```
 
-**Do not** just open the app url with playwright-cli, always go through the test to capture any custom setup done there.
+2. **Manually walk through the scenario steps** with the browser open:
+   - Navigate to the URL stated in the spec.
+   - Perform each step and observe the outcome.
+   - If a step is vague ("click the button" — which button?), references an element that no longer exists, or contradicts the app's actual behaviour, use your judgement: update the spec to match what the app really does, then keep going. Editing the spec mid-generation is expected.
 
-Walk the scenario's `Steps:` one by one with `playwright-cli`, treating the spec as the plan and the live app as the source of truth. If a step is vague ("click the button" — which button?), references an element that no longer exists, or contradicts the app's actual behaviour, use your judgement: update the spec to match what the app really does, then keep going. Editing the spec mid-generation is expected.
+3. **For each user-visible action, identify the corresponding Playwright locator:**
+   - Use **role-based locators** for accessibility: `page.GetByRole(AriaRole.Button, new() { Name = "Submit" })`
+   - For text inputs: `page.GetByLabel("Email")` or `page.GetByRole(AriaRole.Textbox, ...)`
+   - For Radix/composite widgets: `page.GetByRole(AriaRole.Combobox, ...)` + inspect `data-state` attributes.
+   - Avoid brittle selectors (class names, data-testid). See [PLAYWRIGHT_PATTERNS.md](#references) for examples.
 
-Every action prints the equivalent Playwright TypeScript (see [test-generation.md](test-generation.md)):
+4. **For each `- expect:` bullet, write an assertion using Shouldly:**
+   ```csharp
+   await expect(page.GetByRole(AriaRole.Heading)).ToContainTextAsync("Welcome");
+   // or
+   var text = await page.GetByRole(AriaRole.Heading).TextContentAsync();
+   text.ShouldContain("Welcome");
+   ```
 
-```bash
-playwright-cli snapshot                         # find refs
-playwright-cli fill e3 "John Doe"               # -> page.getByRole('textbox', {...}).fill(...)
-playwright-cli press Enter
-playwright-cli click e7
-```
+5. **Collect the generated code** and write the test file at the path given in the spec:
 
-For each `- expect:` bullet, add an explicit assertion. See [test-generation.md](test-generation.md) for details.
+```csharp
+// spec: specs/user-management.plan.md
+// fixture: AdminWebAppHostFixture
+// class: UserManagementTests
 
-Collect the generated code and write the test file at the path given in the spec:
+using Microsoft.Playwright;
+using OpenIdentityStack.AdminWeb.E2ETests.Fixtures;
+using OpenIdentityStack.AdminWeb.E2ETests.Helpers;
+using Shouldly;
 
-```ts
-// spec: specs/basic-operations.plan.md
-// seed: tests/seed.spec.ts
-import { test, expect } from './fixtures';   // or '@playwright/test' if no fixtures file
+namespace OpenIdentityStack.AdminWeb.E2ETests.Features;
 
-test.describe('Signing in and out', () => {
-  test('should sign in', async ({ page }) => {
-    // 1. Navigate to the application
-    // (handled by the seed fixture)
+/// <summary>
+/// E2E tests for user creation and management.
+/// Task references: T001, T002
+/// </summary>
+public class UserManagementTests : IAsyncLifetime
+{
+    private readonly AdminWebAppHostFixture fixture;
+    private IBrowserContext? context;
+    private IPage? page;
 
-    // 2. Type 'John Doe' into the username field
-    await page.getByRole('textbox', { name: 'username' }).fill('John Doe');
+    public UserManagementTests(AdminWebAppHostFixture fixture)
+    {
+        this.fixture = fixture;
+    }
 
-    // 3. Type password
-    await page.getByRole('textbox', { name: 'password' }).fill('TestPassword');
+    public async ValueTask InitializeAsync()
+    {
+        context = await fixture.CreateBrowserContextAsync();
+        page = await context.NewPageAsync();
+    }
 
-    // 4. Press Enter to submit
-    await page.getByRole('textbox', { name: 'password' }).press('Enter');
+    public async ValueTask DisposeAsync()
+    {
+        if (page != null) await page.CloseAsync();
+        if (context != null) await context.CloseAsync();
+    }
 
-    await expect(page.getByRole('heading')).toContainText('Welcome, John Doe!');
-  });
-});
+    [Fact]
+    public async Task ShouldAddUser()
+    {
+        // 1. Log in as test admin
+        await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
+
+        // 2. Navigate to Users page
+        await page!.GetByRole(AriaRole.Link, new() { Name = "Users" }).ClickAsync();
+        await page.WaitForURLAsync("**/users", new() { Timeout = 10000 });
+
+        // 3. Click "Add User" button
+        await page.GetByRole(AriaRole.Button, new() { Name = "Add User" }).ClickAsync();
+
+        // 4. Fill in user details
+        await page.GetByLabel("Email").FillAsync("newuser@example.com");
+        await page.GetByLabel("Display Name").FillAsync("New User");
+
+        // 5. Submit the form
+        await page.GetByRole(AriaRole.Button, new() { Name = "Create" }).ClickAsync();
+
+        // Expect: confirmation toast appears
+        await page.WaitForSelectorAsync("text=User created successfully", new() { Timeout = 5000 });
+
+        // Expect: user appears in the list
+        await page.WaitForURLAsync("**/users", new() { Timeout = 10000 });
+        var userRow = page.GetByText("newuser@example.com");
+        await userRow.IsVisibleAsync().ShouldBeAsync(true);
+    }
+}
 ```
 
 Rules:
 
-- **One test per file.** File path, describe name, and test name come verbatim from the spec (minus the ordinal).
+- **One test class per spec group.** Use the group name from the spec (e.g. `UserManagementTests`).
+- **One test method per scenario.** Test names are PascalCase and match the spec's kebab-case scenario name.
 - Prefix each numbered step with a `// N. <step text>` comment before its actions.
-- Use the describe group name verbatim from the spec (no `1.` ordinal).
-- Import from `./fixtures` if the project has one; otherwise `@playwright/test`.
-- **Important**: close the CLI session and stop the background test before moving to the next scenario.
+- Use `IAsyncLifetime` for setup/teardown. Initialize context and page in `InitializeAsync()`, dispose in `DisposeAsync()`.
+- Import `Microsoft.Playwright`, `Shouldly`, and helpers from `OpenIdentityStack.AdminWeb.E2ETests.Helpers`.
+- Import the fixture class and decorate with `[Fact]` or `[Theory]` from xUnit.
+- **Waiting:** Use `WaitForURLAsync()`, `WaitForSelectorAsync()`, `WaitForLoadStateAsync()` — never `Task.Delay()` unless it's a small local fallback (e.g. React render settle).
+- **No sleeps as workarounds.** If the test flakes, the issue is likely in the locator, the wait condition, or the backend boundary. Debug with [section 3](#3-heal).
 
 ### 2.3 Generate multiple scenarios
 
-Loop 2.2 over the targeted scenarios one at a time, restarting the seed between each so every test starts from a clean page. Do not parallelise scenario generation: close the CLI session and stop the current `--debug=cli` run before starting the next scenario so each run stays isolated.
+Loop 2.2 over the targeted scenarios one at a time. Between scenarios:
+
+- Stop the current test by pressing Ctrl+C in the terminal.
+- Stop the Aspire app (Ctrl+C again).
+- Verify the database is in a clean state: restart the Aspire app so migrations re-run and seed data refreshes.
+- Start the next scenario.
+
+Do not parallelize scenario generation: all tests share the same fixture and database, so serial generation ensures isolation.
 
 ### 2.4 Run generated tests
 
 After generation, run the new tests once:
 
 ```bash
-PLAYWRIGHT_HTML_OPEN=never npx playwright test tests/<group>/<scenario>.spec.ts
+dotnet test --project tests/OpenIdentityStack.AdminWeb.E2ETests/OpenIdentityStack.AdminWeb.E2ETests.csproj -- --filter "UserManagementTests.ShouldAddUser"
 ```
 
-Any failure goes to Section 3.
+Any failure goes to Section 3. If all pass:
+
+```bash
+dotnet test --project tests/OpenIdentityStack.AdminWeb.E2ETests/OpenIdentityStack.AdminWeb.E2ETests.csproj -- --filter "UserManagementTests"
+```
 
 ---
 
@@ -241,65 +327,124 @@ Goal: fix failing tests, and update the spec if the app's intended behaviour cha
 ### 3.1 Find failing tests
 
 ```bash
-PLAYWRIGHT_HTML_OPEN=never npx playwright test
+dotnet test --project tests/OpenIdentityStack.AdminWeb.E2ETests/OpenIdentityStack.AdminWeb.E2ETests.csproj
 ```
 
-Record the list of failing `<file>:<line>` entries and process them one at a time. Do not attempt parallel fixes — shared state and the single CLI session make that fragile.
+Note the failing test class and method name (e.g. `UserManagementTests.ShouldAddUser`). Process failures one at a time.
 
 ### 3.2 Debug one failure
 
-Run the single failing test in debug mode in the background, then attach:
+1. **Start the Aspire app:**
+   ```bash
+   dotnet run --project src/OpenIdentityStack.AppHost
+   ```
+   Wait for it to be healthy.
 
-```bash
-PLAYWRIGHT_HTML_OPEN=never npx playwright test tests/<group>/<scenario>.spec.ts:<line> --debug=cli
-# wait for "Debugging Instructions" and the tw-XXXX session name
-playwright-cli attach tw-XXXX
-```
+2. **Run the failing test:**
+   ```bash
+   dotnet test --project tests/OpenIdentityStack.AdminWeb.E2ETests/OpenIdentityStack.AdminWeb.E2ETests.csproj -- --filter "UserManagementTests.ShouldAddUser"
+   ```
 
-The test is paused at the start. Step forward or run to until just before the failing action or assertion, then diagnose:
+3. **Open the test file and add tracing / debugging:**
+   - Add `System.Console.WriteLine()` statements before assertions to log the actual values.
+   - Use `page.Screenshot()` to capture the page state at key points:
+     ```csharp
+     await page.ScreenshotAsync(new() { Path = "debug_screenshot.png" });
+     ```
+   - Check the Aspire dashboard and API logs for errors or unexpected behaviour.
+   - Inspect network requests using browser DevTools (if running headful, set `Headless = false` in the fixture).
 
-```bash
-playwright-cli snapshot                # did the element change / move / rename?
-playwright-cli console                 # app-side errors?
-playwright-cli network                 # failed request? wrong payload?
-playwright-cli show --annotate         # ask the user to point somewhere
-```
-
-Common causes: selector drift, new wrapper element, label/ARIA rename, timing (transition, async load), assertion text updated in the app, test data leaking between runs.
-
-Rehearse the corrected interaction with `playwright-cli` — the generated code in the output is what you paste back into the test.
+4. **Common failure causes:**
+   - **Locator not found:** Element name, role, or ARIA label changed in the app. Inspect the live app to find the new selector.
+   - **Timeout on wait:** Expected network request didn't fire or took too long. Check the backend for errors or add a shorter `Timeout`.
+   - **Assertion text mismatch:** App's text changed (e.g. validation message, button label). Update the test to match the new text.
+   - **Test data leaking:** A previous test left data behind. Ensure the fixture's seed clears stale data or uses unique identifiers.
+   - **Timing (flakiness):** Transition or async load is slower than expected. Add a stronger wait condition (e.g. wait for the specific table row, not just the page).
 
 ### 3.3 Apply the fix
 
-Edit the test file: update the locator, assertion, step order, or inputs to match the corrected behaviour. Stop the background debug run. Rerun the single test to confirm green.
+Edit the test file:
 
-Never skip hooks or add sleeps as a fix. Never use `networkidle`.
+- Update the locator (role name, label, ARIA attributes).
+- Add a stronger wait condition (wait for the specific outcome, not just the page load).
+- Update the assertion text to match the app's current output.
+- If a step was completely wrong, update both the test and the spec (see 3.4).
+
+Do not:
+- Add `Task.Delay()` as a fix (it masks timing issues and makes tests slow).
+- Use `networkidle` (it's fragile and over-waits).
+- Skip the test or mark it as `Skip` without documenting the blocker.
+
+Rerun the single test to confirm it passes:
+
+```bash
+dotnet test --project tests/OpenIdentityStack.AdminWeb.E2ETests/OpenIdentityStack.AdminWeb.E2ETests.csproj -- --filter "UserManagementTests.ShouldAddUser"
+```
 
 ### 3.4 Reconcile with the spec
 
-Open the spec referenced by the `// spec:` header in the test file and locate the scenario that matches the test.
+Open the spec referenced by the comment at the top of the test file (e.g. `specs/user-management.plan.md`) and locate the scenario that matches the test.
 
-- **Fix was purely technical** (locator drift, better assertion shape) and the spec's user-level behaviour still matches the app → leave the spec alone.
+- **Fix was purely technical** (locator drift, better wait condition, assertion text update) and the spec's user-level behaviour still matches the app → leave the spec alone.
 - **Fix changed user-visible steps, inputs, order, or expected outcomes** that the spec describes → update the spec to match reality. Keep the scenario id and file path stable; only the step / expect lines change.
 - **Unclear whether the app change is intentional** (spec is stale) **or a regression** (test was right, app is wrong) → **stop and ask the user**. Provide:
-  - the scenario id (e.g. `2.3`),
+  - the scenario id (e.g. `1.2`),
   - the spec lines that no longer match,
-  - the observed app behaviour (quote a snapshot excerpt or a concrete outcome).
+  - the observed app behaviour (quote the actual vs. expected, or describe what's on screen).
 
 Only after the user answers, either update the spec (intentional change) or file/flag the test as covering a bug (regression).
 
 ### 3.5 Iteration and giving up
 
 - Fix failures one at a time; rerun after each.
-- If after thorough investigation you are confident the test is correct but the app is wrong *and* the user has confirmed it's a bug: mark the test `test.fixme(...)` with a comment pointing at the user's decision or issue link. Never silently skip.
+- If after thorough investigation you are confident the test is correct but the app is wrong *and* the user has confirmed it's a bug: mark the test with a comment referencing the issue:
+  ```csharp
+  [Fact(Skip = "Regression: https://github.com/...")]
+  public async Task ShouldAddUser()
+  {
+      // Test is correct. App bug tracked in issue.
+  }
+  ```
+  Never silently skip or delete a test.
 
 ---
 
-## Cross-references
+## Best Practices
 
-| For... | See |
+### Waiting
+
+- **Always wait on a concrete condition:** `WaitForURLAsync()`, `WaitForSelectorAsync()`, `WaitForLoadStateAsync()`, or `page.IsVisibleAsync()`.
+- **Match the exact request:** When waiting for a list reload after a search, wait for the request with the search term in the URL/payload, not just `NetworkIdle`.
+- **Keep local `Task.Delay()` small:** Only use short delays (e.g. 100–500ms) for React settle time *after* a stronger wait has already completed.
+
+### Selectors
+
+- **Prefer role-based locators:** `GetByRole(AriaRole.Button, new() { Name = "..." })` — accessible and stable.
+- **Use `GetByLabel()` for form inputs:** `page.GetByLabel("Email")` is more readable than counting tabindexes.
+- **Avoid data-testid, class names, IDs:** These are brittle and change frequently. Only use as a last resort.
+- **Scope duplicate names to containers:** If two dialogs have a "Delete" button, use `dialog.GetByRole(AriaRole.Button, new() { Name = "Delete" })` to scope it.
+
+### Test Structure
+
+- **One scenario per test method.** Use `[Fact]` for deterministic scenarios, `[Theory]` for parameterized variations.
+- **Always seed in `InitializeAsync()` and dispose in `DisposeAsync()`:** The fixture manages the app lifecycle; your test manages the browser context/page.
+- **No test chaining.** Each test starts from a clean state (fresh browser context, seeded database). Do not rely on test A setting up state for test B.
+- **Assertion style:** Use Shouldly for readability:
+  ```csharp
+  var text = await heading.TextContentAsync();
+  text.ShouldContain("Welcome");
+  ```
+
+---
+
+## References
+
+| Topic | File |
 |---|---|
-| `--debug=cli` / attach mechanics | [playwright-tests.md](playwright-tests.md) |
-| How `playwright-cli` actions become TS | [test-generation.md](test-generation.md) |
-| Mocking requests during exploration/generation | [request-mocking.md](request-mocking.md) |
-| Managing the CLI browser session | [session-management.md](session-management.md) |
+| Selector and waiting patterns | [PLAYWRIGHT_PATTERNS.md](#../../../tests/OpenIdentityStack.AdminWeb.E2ETests/PLAYWRIGHT_PATTERNS.md) |
+| AdminWeb E2E fixture | [AdminWebAppHostFixture.cs](#../../../tests/OpenIdentityStack.AdminWeb.E2ETests/Fixtures/AdminWebAppHostFixture.cs) |
+| Test helpers (login, navigation) | [TestHelpers.cs](#../../../tests/OpenIdentityStack.AdminWeb.E2ETests/Helpers/TestHelpers.cs) |
+| Example test file | [AuthenticationFlowTests.cs](#../../../tests/OpenIdentityStack.AdminWeb.E2ETests/AuthenticationFlowTests.cs) |
+| Aspire testing docs | https://learn.microsoft.com/en-us/dotnet/aspire/testing |
+| Microsoft.Playwright API | https://playwright.dev/dotnet/docs/intro |
+| xUnit v3 docs | https://xunit.net/ |

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Primitives;
 using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Api.Admin;
 using OpenIdentityStack.Api.Applications;
+using OpenIdentityStack.Api.Audit;
 using OpenIdentityStack.Api.Users;
 using OpenIdentityStack.Api.Groups;
 using OpenIdentityStack.Api.Sessions;
@@ -211,6 +212,7 @@ app.MapPermissionsApi();
 app.MapApplicationPermissionsApi();
 app.MapProvidersApi();
 app.MapAuthenticationSettingsApi();
+app.MapAuditEntriesApi();
 
 // Map Razor Pages for login UI
 app.MapRazorPages();

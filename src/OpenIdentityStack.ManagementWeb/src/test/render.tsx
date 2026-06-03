@@ -4,7 +4,11 @@ import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router';
 import { ManagementThemeProvider } from '@/components/ThemeProvider';
 
-export function renderManagementWeb(ui: ReactElement) {
+type RenderManagementWebOptions = {
+  initialEntries?: string[];
+};
+
+export function renderManagementWeb(ui: ReactElement, options: RenderManagementWebOptions = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -13,7 +17,7 @@ export function renderManagementWeb(ui: ReactElement) {
   });
 
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={options.initialEntries}>
       <QueryClientProvider client={queryClient}>
         <ManagementThemeProvider>{ui}</ManagementThemeProvider>
       </QueryClientProvider>
