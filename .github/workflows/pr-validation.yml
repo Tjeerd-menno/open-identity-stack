@@ -83,6 +83,8 @@ jobs:
 
       - name: Begin SonarQube analysis
         if: ${{ env.SONAR_TOKEN != '' }}
+        id: begin-sonarqube
+        continue-on-error: true
         shell: pwsh
         run: |
           & "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin `
@@ -150,7 +152,7 @@ jobs:
         run: bash scripts/ci/verify-coverage.sh --results-dir "$GITHUB_WORKSPACE/tests" --minimum-line-rate 0.10 --minimum-overall-line-rate 0.50
 
       - name: End SonarQube analysis
-        if: ${{ env.SONAR_TOKEN != '' }}
+        if: ${{ env.SONAR_TOKEN != '' && steps.begin-sonarqube.outcome == 'success' }}
         shell: pwsh
         run: |
           & "${{ runner.temp }}/scanner/dotnet-sonarscanner" end `
