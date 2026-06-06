@@ -1,8 +1,8 @@
-import { ActionIcon, AppShell as MantineAppShell, Badge, Burger, Group, Menu, Text, TextInput, Title } from '@mantine/core';
+import { ActionIcon, AppShell as MantineAppShell, Badge, Burger, Group, Menu, Text, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet } from 'react-router';
 import { useAuth } from '@/lib/auth-context';
-import { LogoutIcon, SearchIcon } from './IamIcons';
+import { LogoutIcon } from './IamIcons';
 import { ThemeToggle } from './ThemeToggle';
 import { Navigation } from './Navigation';
 
@@ -33,14 +33,6 @@ export function AppShell() {
             <Badge visibleFrom="sm" color="teal" variant="light">Local tenant</Badge>
           </Group>
           <Group gap="xs" justify="flex-end">
-            <TextInput
-              aria-label="Global search"
-              disabled
-              leftSection={<SearchIcon />}
-              placeholder="Search identities, apps, audit..."
-              visibleFrom="md"
-              w={320}
-            />
             <ThemeToggle />
             <Menu position="bottom-end" shadow="md">
               <Menu.Target>

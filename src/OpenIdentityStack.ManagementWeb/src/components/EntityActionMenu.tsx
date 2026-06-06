@@ -1,14 +1,14 @@
-import { Button, Paper, Stack, type MantineColor } from '@mantine/core';
-import { useState } from 'react';
+import { ActionIcon, Group, Menu, Tooltip, type MantineColor } from '@mantine/core';
 import type { ReactNode } from 'react';
-import { DotsIcon } from './IamIcons';
+import { DeleteIcon, DotsIcon, EditIcon, ExpandIcon, ViewIcon } from './IamIcons';
 
 export type EntityAction = {
-  label: string;
+  label: 'View' | 'Edit' | 'Delete' | 'Remove' | 'Expand' | 'Collapse' | string;
   onClick: () => void;
   color?: MantineColor;
   disabled?: boolean;
   leftSection?: ReactNode;
+  icon?: ReactNode;
 };
 
 type EntityActionMenuProps = {
@@ -17,62 +17,69 @@ type EntityActionMenuProps = {
 };
 
 export function EntityActionMenu({ label, actions }: EntityActionMenuProps) {
-  const [opened, setOpened] = useState(false);
-
   return (
-    <div style={{ display: 'inline-flex', position: 'relative' }}>
-      <button
-        type="button"
-        aria-expanded={opened}
-        aria-haspopup="menu"
-        aria-label={label}
-        onClick={() => setOpened((value) => !value)}
-        style={{
-          alignItems: 'center',
-          background: 'transparent',
-          border: 0,
-          borderRadius: 6,
-          color: 'var(--mantine-color-dimmed)',
-          cursor: 'pointer',
-          display: 'inline-flex',
-          height: 28,
-          justifyContent: 'center',
-          padding: 0,
-          width: 28,
-        }}
-      >
-        <DotsIcon />
-      </button>
-      {opened && (
-        <Paper
-          p={4}
-          role="menu"
-          shadow="md"
-          style={{ minWidth: 150, position: 'absolute', right: 0, top: '100%', zIndex: 20 }}
-          withBorder
-        >
-          <Stack gap={2}>
-            {actions.map((action) => (
-              <Button
-                key={action.label}
-                color={action.color}
-                disabled={action.disabled}
-                leftSection={action.leftSection}
-                role="menuitem"
-                size="xs"
-                style={{ justifyContent: 'flex-start' }}
-                variant="subtle"
-                onClick={() => {
-                  setOpened(false);
-                  action.onClick();
-                }}
-              >
-                {action.label}
-              </Button>
-            ))}
-          </Stack>
-        </Paper>
-      )}
-    </div>
+    <Menu position="bottom-end" shadow="md" withinPortal>
+      <Menu.Target>
+        <ActionIcon aria-label={label} size="sm" variant="subtle">
+          <DotsIcon />
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {actions.map((action) => (
+          <Menu.Item
+            key={action.label}
+            color={action.color}
+            disabled={action.disabled}
+            leftSection={action.leftSection ?? action.icon ?? getActionIcon(action.label)}
+            onClick={action.onClick}
+          >
+            {action.label}
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
   );
+}
+
+type EntityActionGroupProps = {
+  actions: EntityAction[];
+};
+
+export function EntityActionGroup({ actions }: EntityActionGroupProps) {
+  return (
+    <Group gap={4} justify="flex-end" wrap="nowrap">
+      {actions.map((action) => (
+        <Tooltip key={action.label} label={action.label} withArrow>
+          <ActionIcon
+            aria-label={action.label}
+            color={action.color}
+            disabled={action.disabled}
+            size="sm"
+            variant="subtle"
+            onClick={action.onClick}
+          >
+            {action.icon ?? getActionIcon(action.label)}
+          </ActionIcon>
+        </Tooltip>
+      ))}
+    </Group>
+  );
+}
+
+function getActionIcon(label: string) {
+  const normalized = label.toLowerCase();
+
+  if (normalized.includes('edit')) {
+    return <EditIcon />;
+  }
+
+  if (normalized.includes('delete') || normalized.includes('remove') || normalized.includes('revoke')) {
+    return <DeleteIcon />;
+  }
+
+  if (normalized.includes('expand') || normalized.includes('collapse')) {
+    return <ExpandIcon />;
+  }
+
+  return <ViewIcon />;
 }

@@ -1,7 +1,9 @@
 import {
   Badge,
   Button,
+  Center,
   Group,
+  Loader,
   MultiSelect,
   NativeSelect,
   Paper,
@@ -13,7 +15,7 @@ import {
   type MantineColor,
 } from '@mantine/core';
 import type { ReactNode } from 'react';
-import { SearchIcon } from './IamIcons';
+import { ChevronDownIcon, CloseIcon, SearchIcon } from './IamIcons';
 
 type PageHeaderProps = {
   title: string;
@@ -73,6 +75,7 @@ type PageToolbarProps = {
   onApply?: () => void;
   onClear?: () => void;
   actions?: ReactNode;
+  secondaryFields?: ReactNode;
 };
 
 export function PageToolbar({
@@ -89,6 +92,7 @@ export function PageToolbar({
   onApply,
   onClear,
   actions,
+  secondaryFields,
 }: PageToolbarProps) {
   const hasAppliedFilters = appliedFilters.length > 0;
 
@@ -100,7 +104,7 @@ export function PageToolbar({
             <TextInput
               aria-label={searchLabel}
               label={searchLabel}
-              leftSection={<SearchIcon />}
+              leftSection={<SearchIcon aria-hidden="true" />}
               maw={460}
               placeholder={searchPlaceholder}
               style={{ flex: '1 1 280px' }}
@@ -116,6 +120,8 @@ export function PageToolbar({
                 data={filter.data}
                 label={filter.label}
                 maw={280}
+                rightSection={<ChevronDownIcon />}
+                rightSectionProps={{ 'aria-hidden': true }}
                 searchable
                 value={Array.isArray(filter.value) ? filter.value : []}
                 onChange={(value) => filter.onChange(value)}
@@ -129,6 +135,8 @@ export function PageToolbar({
                 ]}
                 label={filter.label}
                 maw={240}
+                rightSection={<ChevronDownIcon />}
+                rightSectionProps={{ 'aria-hidden': true }}
                 value={typeof filter.value === 'string' ? filter.value : ''}
                 onChange={(event) => filter.onChange(event.currentTarget.value || null)}
               />
@@ -140,6 +148,8 @@ export function PageToolbar({
               data={pageSizeOptions.map((option) => ({ value: String(option), label: `${option} / page` }))}
               label="Rows"
               maw={150}
+              rightSection={<ChevronDownIcon />}
+              rightSectionProps={{ 'aria-hidden': true }}
               value={String(pageSize)}
               onChange={(value) => value && onPageSizeChange(Number(value))}
             />
@@ -161,6 +171,7 @@ export function PageToolbar({
           )}
           {!hasAppliedFilters && typeof resultCount !== 'number' && <span />}
         </Group>
+        {secondaryFields}
       </Stack>
     </Paper>
   );
@@ -191,7 +202,7 @@ export function AppliedFilters({ filters }: { filters: AppliedFilter[] }) {
               }}
               type="button"
             >
-              x
+              <CloseIcon />
             </button>
           ) : null}
           variant="light"
@@ -200,5 +211,29 @@ export function AppliedFilters({ filters }: { filters: AppliedFilter[] }) {
         </Badge>
       ))}
     </Group>
+  );
+}
+
+type LoadingStateProps = {
+  title: string;
+  description: string;
+  label?: string;
+};
+
+export function LoadingState({ title, description, label = title }: LoadingStateProps) {
+  return (
+    <Center
+      aria-label={label}
+      mih={320}
+      role="status"
+    >
+      <Paper withBorder radius="sm" p="xl" maw={520} w="100%">
+        <Stack align="center" gap="sm" ta="center">
+          <Loader aria-hidden="true" />
+          <Title order={1} size="h3">{title}</Title>
+          <Text c="dimmed" size="sm">{description}</Text>
+        </Stack>
+      </Paper>
+    </Center>
   );
 }

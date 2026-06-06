@@ -13,6 +13,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useEffect } from 'react';
 import { getApiErrorMessage } from '@/lib/admin-api';
+import { firstError, maxLength, required, validHttpUrl } from '@/lib/form-validation';
 import {
   ApplicationClientType,
   ApplicationOptionAvailability,
@@ -73,6 +74,8 @@ function CreateApplicationForm({
 }: Extract<ApplicationFormProps, { application?: undefined }>) {
   const policies = useApplicationProfilePolicies();
   const form = useForm<CreateApplicationFormData>({
+    mode: 'controlled',
+    validateInputOnBlur: true,
     initialValues: {
       clientId: '',
       displayName: '',
@@ -86,10 +89,36 @@ function CreateApplicationForm({
       requirePkce: true,
       requireConsent: true,
     },
-    validate: {
-      clientId: (value) => value.trim().length === 0 ? 'Client ID is required' : null,
-      displayName: (value) => value.trim().length === 0 ? 'Display name is required' : null,
-      allowedScopes: (value) => value.length === 0 ? 'At least one scope is required' : null,
+    validate: (values) => {
+      const errors: Record<string, string | null> = {
+        clientId: firstError(
+          required(values.clientId, 'Client ID is required.'),
+          /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/.test(values.clientId.trim())
+            ? null
+            : 'Client ID can contain letters, numbers, dots, underscores, colons, and hyphens.',
+          maxLength(values.clientId, 128, 'Client ID')
+        ),
+        displayName: firstError(
+          required(values.displayName, 'Display name is required.'),
+          maxLength(values.displayName, 200, 'Display name')
+        ),
+        description: maxLength(values.description ?? '', 1000, 'Description'),
+        allowedScopes: values.allowedScopes.length === 0 ? 'At least one scope is required' : null,
+      };
+
+      values.redirectUris.forEach((uri, index) => {
+        errors[`redirectUris.${index}`] = uri.trim()
+          ? validHttpUrl(uri, `Redirect URI ${index + 1} must be a valid HTTP or HTTPS URL.`)
+          : 'Redirect URI is required.';
+      });
+
+      values.postLogoutRedirectUris.forEach((uri, index) => {
+        errors[`postLogoutRedirectUris.${index}`] = uri.trim()
+          ? validHttpUrl(uri, `Post logout redirect URI ${index + 1} must be a valid HTTP or HTTPS URL.`)
+          : null;
+      });
+
+      return errors;
     },
   });
   const selectedPolicy = policies.data?.find((policy) => policy.applicationProfile === form.values.profile);
@@ -125,6 +154,7 @@ function CreateApplicationForm({
 
   return (
     <form
+      noValidate
       onSubmit={form.onSubmit(async (data) => {
         await onSubmit(normalizeCreateData(data, selectedPolicy));
       })}
@@ -177,8 +207,7 @@ function CreateApplicationForm({
               <TextInput
                 key={index}
                 aria-label={`Redirect URI ${index + 1}`}
-                value={uri}
-                onChange={(event) => updateArrayValue(form, 'redirectUris', index, event.currentTarget.value)}
+                {...form.getInputProps(`redirectUris.${index}`)}
               />
             ))}
             <Button type="button" variant="default" onClick={() => appendArrayValue(form, 'redirectUris')}>
@@ -194,8 +223,7 @@ function CreateApplicationForm({
               <TextInput
                 key={index}
                 aria-label={`Post logout redirect URI ${index + 1}`}
-                value={uri}
-                onChange={(event) => updateArrayValue(form, 'postLogoutRedirectUris', index, event.currentTarget.value)}
+                {...form.getInputProps(`postLogoutRedirectUris.${index}`)}
               />
             ))}
             <Button type="button" variant="default" onClick={() => appendArrayValue(form, 'postLogoutRedirectUris')}>
@@ -269,17 +297,27 @@ function UpdateApplicationForm({
   onSubmit,
 }: Extract<ApplicationFormProps, { application: Application }>) {
   const form = useForm<UpdateApplicationMetadataRequest>({
+    mode: 'controlled',
+    validateInputOnBlur: true,
     initialValues: {
       displayName: application.displayName,
       description: application.description ?? '',
     },
     validate: {
-      displayName: (value) => value.trim().length === 0 ? 'Display name is required' : null,
+      displayName: (value) => firstError(
+        required(value, 'Display name is required.'),
+        maxLength(value, 200, 'Display name')
+      ),
+      description: (value) => maxLength(value ?? '', 1000, 'Description'),
     },
   });
 
   return (
-    <form onSubmit={form.onSubmit(async (data) => onSubmit(data))}>
+    <form noValidate onSubmit={form.onSubmit(async (data) => onSubmit({
+      ...data,
+      displayName: data.displayName.trim(),
+      description: data.description?.trim() || null,
+    }))}>
       <Stack gap="lg">
         <Title order={2}>Basic information</Title>
         <TextInput label="Display name" {...form.getInputProps('displayName')} />
@@ -297,12 +335,6 @@ type MultiSelectField = 'allowedScopes' | 'allowedGrantTypes';
 
 type FormApi = ReturnType<typeof useForm<CreateApplicationFormData>>;
 
-function updateArrayValue(form: FormApi, field: ArrayField, index: number, value: string) {
-  const values = [...form.values[field]];
-  values[index] = value;
-  form.setFieldValue(field, values);
-}
-
 function appendArrayValue(form: FormApi, field: ArrayField) {
   form.setFieldValue(field, [...form.values[field], '']);
 }
@@ -319,12 +351,14 @@ function toggleValue(form: FormApi, field: MultiSelectField, value: string, chec
 function normalizeCreateData(data: CreateApplicationFormData, policy: ApplicationProfilePolicy): CreateApplicationFormData {
   return {
     ...data,
-    description: data.description || null,
+    clientId: data.clientId.trim(),
+    displayName: data.displayName.trim(),
+    description: data.description?.trim() || null,
     allowedGrantTypes: policy.defaultGrantTypes.concat(
       data.allowedGrantTypes.filter((grantType) => !policy.defaultGrantTypes.includes(grantType))
     ),
-    redirectUris: isOptionHidden(policy, 'redirectUris') ? [] : data.redirectUris.filter(Boolean),
-    postLogoutRedirectUris: isOptionHidden(policy, 'postLogoutRedirectUris') ? [] : data.postLogoutRedirectUris.filter(Boolean),
+    redirectUris: isOptionHidden(policy, 'redirectUris') ? [] : data.redirectUris.map((uri) => uri.trim()).filter(Boolean),
+    postLogoutRedirectUris: isOptionHidden(policy, 'postLogoutRedirectUris') ? [] : data.postLogoutRedirectUris.map((uri) => uri.trim()).filter(Boolean),
     requirePkce: isOptionHidden(policy, 'pkce') ? false : data.requirePkce,
     requireConsent: isOptionHidden(policy, 'consent') ? false : data.requireConsent,
   };

@@ -1,6 +1,7 @@
 import { Alert, Button, Group as MantineGroup, Stack, Textarea, TextInput } from '@mantine/core';
-import { FormEvent, useState } from 'react';
+import { useForm } from '@mantine/form';
 import { getApiErrorMessage } from '@/lib/admin-api';
+import { firstError, maxLength, required } from '@/lib/form-validation';
 import type { CreateGroupRequest, Group as GroupModel, UpdateGroupRequest } from './groups-api';
 
 type GroupFormProps = {
@@ -13,53 +14,45 @@ type GroupFormProps = {
 };
 
 export function GroupForm({ group, mode, error, loading = false, onSubmit, onCancel }: GroupFormProps) {
-  const [name, setName] = useState(group?.name ?? '');
-  const [description, setDescription] = useState(group?.description ?? '');
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const errorMessage = validationError ?? (error ? getApiErrorMessage(error) : null);
+  const form = useForm({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: {
+      name: group?.name ?? '',
+      description: group?.description ?? '',
+    },
+    validate: {
+      name: (value) => firstError(
+        required(value, 'Group name is required.'),
+        maxLength(value, 256, 'Group name')
+      ),
+      description: (value) => maxLength(value, 1024, 'Description'),
+    },
+  });
+  const errorMessage = error ? getApiErrorMessage(error) : null;
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (name.trim().length === 0) {
-      setValidationError('Group name is required.');
-      return;
-    }
-
-    if (name.trim().length > 256) {
-      setValidationError('Group name must be 256 characters or fewer.');
-      return;
-    }
-
-    if (description.length > 1024) {
-      setValidationError('Description must be 1024 characters or fewer.');
-      return;
-    }
-
-    setValidationError(null);
+  async function handleSubmit(values: typeof form.values) {
     await onSubmit({
-      name: name.trim(),
-      description: description.trim() || null,
+      name: values.name.trim(),
+      description: values.description.trim() || null,
     });
   }
 
   return (
-    <form onSubmit={(event) => void handleSubmit(event)}>
+    <form noValidate onSubmit={form.onSubmit((values) => void handleSubmit(values))}>
       <Stack gap="md">
         {errorMessage && <Alert color="red">{errorMessage}</Alert>}
 
         <TextInput
           label="Group name"
-          value={name}
-          onChange={(event) => setName(event.currentTarget.value)}
           required
+          {...form.getInputProps('name')}
         />
         <Textarea
           label="Description"
-          value={description}
-          onChange={(event) => setDescription(event.currentTarget.value)}
           minRows={4}
           autosize
+          {...form.getInputProps('description')}
         />
 
         <MantineGroup justify="flex-end">

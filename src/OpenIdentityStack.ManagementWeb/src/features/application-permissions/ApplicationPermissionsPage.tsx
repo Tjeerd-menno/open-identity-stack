@@ -2,6 +2,7 @@ import {
   Alert,
   Badge,
   Button,
+  Combobox,
   Group,
   NativeSelect,
   Paper,
@@ -11,12 +12,17 @@ import {
   Textarea,
   TextInput,
   Title,
+  useCombobox,
 } from '@mantine/core';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useForm } from '@mantine/form';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { EntityActionMenu } from '@/components/EntityActionMenu';
+import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
+import { getGroup, getGroups, type GroupListItem } from '@/features/groups/groups-api';
+import { getUser, getUsers, type UserListItem } from '@/features/users/users-api';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
 import {
@@ -31,6 +37,7 @@ import {
   useRegisteredApplications,
   useRegisterPermissionManifest,
   useTransferApplicationOwnership,
+  useUpdateRegisteredApplication,
 } from './application-permissions-hooks';
 import type {
   PermissionManifestPermission,
@@ -40,10 +47,71 @@ import type {
 } from './application-permissions-api';
 
 const pageSize = 20;
+const applicationIdentifierPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/;
+const permissionKeyPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/;
 
 type ApplicationPermissionsPageProps = {
   permissions?: string[];
 };
+
+type PrincipalOption = {
+  id: string;
+  type: PrincipalType;
+  label: string;
+  detail: string;
+};
+
+type PermissionManifestFormValues = {
+  endpoint: string;
+  applicationId: string;
+  displayName: string;
+  description: string;
+  version: string;
+  ownerId: string;
+  ownerType: 'user' | 'group';
+  permissions: PermissionManifestPermission[];
+};
+
+type PrincipalFormValues = {
+  principal: PrincipalOption | null;
+};
+
+type PermissionFormValues = {
+  permissionName: string;
+  permissionCategory: string;
+  permissionDescription: string;
+};
+
+function required(value: string, message: string): string | null {
+  return value.trim() ? null : message;
+}
+
+function maxLength(value: string, max: number, label: string): string | null {
+  return value.length <= max ? null : `${label} must be ${max} characters or fewer.`;
+}
+
+function validUrl(value: string, message: string): string | null {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'https:' || url.protocol === 'http:' ? null : message;
+  } catch {
+    return message;
+  }
+}
+
+function validIdentifier(value: string, message: string): string | null {
+  return applicationIdentifierPattern.test(value.trim()) ? null : message;
+}
+
+function validPermissionKey(value: string): string | null {
+  return permissionKeyPattern.test(value.trim())
+    ? null
+    : 'Permission keys can contain letters, numbers, dots, underscores, colons, and hyphens.';
+}
+
+function firstError(...errors: Array<string | null>): string | null {
+  return errors.find((error): error is string => error !== null) ?? null;
+}
 
 export function ApplicationPermissionsPage({ permissions = ['*'] }: ApplicationPermissionsPageProps) {
   const location = useLocation();
@@ -103,9 +171,8 @@ function RegisteredApplicationListView({ permissions }: Required<ApplicationPerm
       header: 'Actions',
       align: 'right',
       cell: (application) => (
-        <EntityActionMenu
-          label={`Application permission actions for ${application.displayName}`}
-          actions={[{ label: 'View', onClick: () => navigate(`/application-permissions/${application.id}`) }]}
+        <EntityActionGroup
+          actions={[{ label: `View ${application.displayName}`, onClick: () => navigate(`/application-permissions/${application.id}`) }]}
         />
       ),
     },
@@ -127,6 +194,11 @@ function RegisteredApplicationListView({ permissions }: Required<ApplicationPerm
         searchValue={search}
         resultCount={applications.data?.totalCount}
         onSearchChange={setSearch}
+        onClear={() => {
+          setSearch('');
+          setSubmittedSearch('');
+          setPage(1);
+        }}
       />
 
       <FoundationTable
@@ -195,51 +267,80 @@ function RegisterApplicationForm({
   onSubmit: (data: PermissionManifestRequest) => Promise<void>;
   onImportEndpoint: (endpoint: string) => Promise<void>;
 }) {
-  const [endpoint, setEndpoint] = useState('');
-  const [applicationId, setApplicationId] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [description, setDescription] = useState('');
-  const [version, setVersion] = useState('');
-  const [ownerId, setOwnerId] = useState('');
-  const [ownerType, setOwnerType] = useState<'user' | 'group'>('user');
-  const [permissions, setPermissions] = useState<PermissionManifestPermission[]>([
-    { key: '', displayName: '', description: '', category: '' },
-  ]);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const form = useForm<PermissionManifestFormValues>({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: {
+      endpoint: '',
+      applicationId: '',
+      displayName: '',
+      description: '',
+      version: '',
+      ownerId: '',
+      ownerType: 'user',
+      permissions: [{ key: '', displayName: '', description: '', category: '' }],
+    },
+    validate: (values) => {
+      const keys = values.permissions.map((permission) => permission.key.trim()).filter(Boolean);
+      const errors: Record<string, string | null> = {
+        applicationId: firstError(
+          required(values.applicationId, 'Application ID is required.'),
+          validIdentifier(values.applicationId, 'Application ID can contain letters, numbers, dots, underscores, colons, and hyphens.'),
+          maxLength(values.applicationId, 128, 'Application ID')
+        ),
+        displayName: firstError(
+          required(values.displayName, 'Display name is required.'),
+          maxLength(values.displayName, 200, 'Display name')
+        ),
+        description: maxLength(values.description, 1000, 'Description'),
+        version: firstError(
+          required(values.version, 'Version is required.'),
+          maxLength(values.version, 64, 'Version')
+        ),
+        ownerId: firstError(
+          required(values.ownerId, 'Owner ID is required.'),
+          maxLength(values.ownerId, 256, 'Owner ID')
+        ),
+        permissions: new Set(keys).size === keys.length ? null : 'Permission keys must be unique.',
+      };
 
-  function updatePermission(index: number, patch: Partial<PermissionManifestPermission>) {
-    setPermissions((current) => current.map((permission, currentIndex) =>
-      currentIndex === index ? { ...permission, ...patch } : permission
-    ));
-  }
+      values.permissions.forEach((permission, index) => {
+        errors[`permissions.${index}.key`] = firstError(
+          required(permission.key, `Permission key ${index + 1} is required.`),
+          validPermissionKey(permission.key),
+          maxLength(permission.key, 200, `Permission key ${index + 1}`)
+        );
+        errors[`permissions.${index}.displayName`] = firstError(
+          required(permission.displayName, `Permission display name ${index + 1} is required.`),
+          maxLength(permission.displayName, 200, `Permission display name ${index + 1}`)
+        );
+        errors[`permissions.${index}.category`] = maxLength(permission.category ?? '', 100, `Permission category ${index + 1}`);
+        errors[`permissions.${index}.description`] = maxLength(permission.description ?? '', 1000, `Permission description ${index + 1}`);
+      });
 
-  async function submitManifest(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const keys = permissions.map((permission) => permission.key.trim()).filter(Boolean);
-    if (new Set(keys).size !== keys.length) {
-      setValidationError('Permission keys must be unique.');
-      return;
-    }
+      return errors;
+    },
+  });
 
-    setValidationError(null);
+  async function submitManifest(values: PermissionManifestFormValues) {
     await onSubmit({
       manifest: {
         schemaVersion: '1.0.0',
         application: {
-          id: applicationId,
-          displayName,
-          description: description || null,
-          version,
+          id: values.applicationId.trim(),
+          displayName: values.displayName.trim(),
+          description: values.description.trim() || null,
+          version: values.version.trim(),
         },
-        permissions: permissions.map((permission) => ({
-          key: permission.key,
-          displayName: permission.displayName,
-          description: permission.description || null,
-          category: permission.category || null,
+        permissions: values.permissions.map((permission) => ({
+          key: permission.key.trim(),
+          displayName: permission.displayName.trim(),
+          description: permission.description?.trim() || null,
+          category: permission.category?.trim() || null,
         })),
       },
-      ownerId,
-      ownerType,
+      ownerId: values.ownerId.trim(),
+      ownerType: values.ownerType,
       manifestBaseUrl: null,
     });
   }
@@ -249,8 +350,21 @@ function RegisterApplicationForm({
       {error ? <Alert color="red">{getApiErrorMessage(error)}</Alert> : null}
       <Paper withBorder p="md" radius="sm">
         <form
+          noValidate
           onSubmit={(event) => {
             event.preventDefault();
+            const endpoint = form.values.endpoint.trim();
+            const endpointError = firstError(
+              required(endpoint, 'Well-known permissions endpoint is required.'),
+              validUrl(endpoint, 'Enter a valid HTTP or HTTPS endpoint.')
+            );
+
+            if (endpointError) {
+              form.setFieldError('endpoint', endpointError);
+              return;
+            }
+
+            form.clearFieldError('endpoint');
             void onImportEndpoint(endpoint);
           }}
         >
@@ -258,38 +372,36 @@ function RegisterApplicationForm({
             <TextInput
               label="Well-known permissions endpoint"
               placeholder="https://patient.example/.well-known/permissions"
-              value={endpoint}
-              onChange={(event) => setEndpoint(event.currentTarget.value)}
               type="url"
               style={{ flex: 1 }}
+              {...form.getInputProps('endpoint')}
             />
-            <Button type="submit" variant="light" loading={importing} disabled={!endpoint.trim()}>
+            <Button type="submit" variant="light" loading={importing}>
               Import Endpoint
             </Button>
           </Group>
         </form>
       </Paper>
 
-      <form onSubmit={submitManifest}>
+      <form noValidate onSubmit={form.onSubmit((values) => void submitManifest(values))}>
         <Stack gap="lg">
           <Paper withBorder p="md" radius="sm">
             <Title order={2} size="h3">Application</Title>
             <Group grow align="flex-start" mt="md">
-              <TextInput aria-label="Application ID" label="Application ID" value={applicationId} onChange={(event) => setApplicationId(event.currentTarget.value)} required />
-              <TextInput aria-label="Display Name" label="Display Name" value={displayName} onChange={(event) => setDisplayName(event.currentTarget.value)} required />
-              <TextInput aria-label="Version" label="Version" value={version} onChange={(event) => setVersion(event.currentTarget.value)} required />
+              <TextInput aria-label="Application ID" label="Application ID" required {...form.getInputProps('applicationId')} />
+              <TextInput aria-label="Display Name" label="Display Name" required {...form.getInputProps('displayName')} />
+              <TextInput aria-label="Version" label="Version" required {...form.getInputProps('version')} />
             </Group>
-            <Textarea aria-label="Description" label="Description" mt="md" value={description} onChange={(event) => setDescription(event.currentTarget.value)} />
+            <Textarea aria-label="Description" label="Description" mt="md" {...form.getInputProps('description')} />
             <Group grow align="flex-start" mt="md">
-              <TextInput aria-label="Owner ID" label="Owner ID" value={ownerId} onChange={(event) => setOwnerId(event.currentTarget.value)} required />
+              <TextInput aria-label="Owner ID" label="Owner ID" required {...form.getInputProps('ownerId')} />
               <NativeSelect
                 label="Owner Type"
-                value={ownerType}
-                onChange={(event) => setOwnerType(event.currentTarget.value as 'user' | 'group')}
                 data={[
                   { value: 'user', label: 'User' },
                   { value: 'group', label: 'Group' },
                 ]}
+                {...form.getInputProps('ownerType')}
               />
             </Group>
           </Paper>
@@ -300,34 +412,34 @@ function RegisterApplicationForm({
               <Button
                 type="button"
                 variant="light"
-                onClick={() => setPermissions((current) => [...current, { key: '', displayName: '', description: '', category: '' }])}
+                onClick={() => form.insertListItem('permissions', { key: '', displayName: '', description: '', category: '' })}
               >
                 Add Permission
               </Button>
             </Group>
             <Stack gap="md" mt="md">
-              {permissions.map((permission, index) => (
+              {form.values.permissions.map((permission, index) => (
                 <Paper key={index} withBorder p="sm" radius="sm">
                   <Group grow align="flex-start">
-                    <TextInput aria-label={`Permission key ${index + 1}`} label={`Permission key ${index + 1}`} value={permission.key} onChange={(event) => updatePermission(index, { key: event.currentTarget.value })} required />
-                    <TextInput aria-label={`Permission display name ${index + 1}`} label={`Permission display name ${index + 1}`} value={permission.displayName} onChange={(event) => updatePermission(index, { displayName: event.currentTarget.value })} required />
-                    <TextInput aria-label={`Permission category ${index + 1}`} label={`Permission category ${index + 1}`} value={permission.category ?? ''} onChange={(event) => updatePermission(index, { category: event.currentTarget.value })} />
+                    <TextInput aria-label={`Permission key ${index + 1}`} label={`Permission key ${index + 1}`} required {...form.getInputProps(`permissions.${index}.key`)} />
+                    <TextInput aria-label={`Permission display name ${index + 1}`} label={`Permission display name ${index + 1}`} required {...form.getInputProps(`permissions.${index}.displayName`)} />
+                    <TextInput aria-label={`Permission category ${index + 1}`} label={`Permission category ${index + 1}`} {...form.getInputProps(`permissions.${index}.category`)} />
                   </Group>
-                  <Textarea aria-label={`Permission description ${index + 1}`} label={`Permission description ${index + 1}`} mt="sm" value={permission.description ?? ''} onChange={(event) => updatePermission(index, { description: event.currentTarget.value })} />
+                  <Textarea aria-label={`Permission description ${index + 1}`} label={`Permission description ${index + 1}`} mt="sm" {...form.getInputProps(`permissions.${index}.description`)} />
                   <Button
                     type="button"
                     variant="subtle"
                     color="red"
                     mt="sm"
-                    disabled={permissions.length === 1}
-                    onClick={() => setPermissions((current) => current.filter((_, currentIndex) => currentIndex !== index))}
+                    disabled={form.values.permissions.length === 1}
+                    onClick={() => form.removeListItem('permissions', index)}
                   >
                     Remove
                   </Button>
                 </Paper>
               ))}
             </Stack>
-            {validationError && <Alert color="red" mt="md">{validationError}</Alert>}
+            {form.errors.permissions && <Alert color="red" mt="md">{form.errors.permissions}</Alert>}
           </Paper>
 
           <Group justify="flex-end">
@@ -347,18 +459,59 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
   const diagnostics = useApplicationPermissionDiagnostics();
   const lifecycle = useChangeApplicationLifecycle(applicationId);
   const transferOwnership = useTransferApplicationOwnership(applicationId);
+  const updateApplication = useUpdateRegisteredApplication(applicationId);
   const addPermission = useAddApplicationPermission(applicationId);
   const maintainers = useMaintainerMutations(applicationId);
   const [editing, setEditing] = useState(false);
-  const [ownerId, setOwnerId] = useState('');
-  const [ownerType, setOwnerType] = useState<PrincipalType>('User');
-  const [maintainerId, setMaintainerId] = useState('');
-  const [maintainerType, setMaintainerType] = useState<PrincipalType>('User');
-  const [permissionName, setPermissionName] = useState('');
-  const [permissionCategory, setPermissionCategory] = useState('');
-  const [permissionDescription, setPermissionDescription] = useState('');
+  const [ownerSearch, setOwnerSearch] = useState('');
+  const [maintainerSearch, setMaintainerSearch] = useState('');
+  const ownerForm = useForm<PrincipalFormValues>({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: { principal: null },
+    validate: { principal: (value) => (value ? null : 'Select an owner.') },
+  });
+  const maintainerForm = useForm<PrincipalFormValues>({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: { principal: null },
+    validate: { principal: (value) => (value ? null : 'Select a maintainer.') },
+  });
+  const manifestBaseUrlForm = useForm({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: { manifestBaseUrl: '' },
+    validate: {
+      manifestBaseUrl: (value) => firstError(
+        required(value, 'Manifest Base URL is required.'),
+        validUrl(value, 'Enter a valid HTTP or HTTPS manifest base URL.')
+      ),
+    },
+  });
+  const permissionForm = useForm<PermissionFormValues>({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: {
+      permissionName: '',
+      permissionCategory: '',
+      permissionDescription: '',
+    },
+    validate: {
+      permissionName: (value) => firstError(
+        required(value, 'Permission name is required.'),
+        validPermissionKey(value),
+        maxLength(value, 200, 'Permission name')
+      ),
+      permissionCategory: (value) => maxLength(value, 100, 'Permission category'),
+      permissionDescription: (value) => maxLength(value, 1000, 'Permission description'),
+    },
+  });
   const canWrite = hasPermission(permissions, 'application-permissions:write');
   const canAdmin = hasPermission(permissions, 'application-permissions:admin') || canWrite;
+  const registeredApplicationData = application.data;
+  const isManifestBacked = Boolean(registeredApplicationData?.manifestBaseUrl);
+  const ownerOptions = usePrincipalOptions(ownerSearch, editing && !isManifestBacked && canAdmin);
+  const maintainerOptions = usePrincipalOptions(maintainerSearch, editing && !isManifestBacked && canAdmin);
 
   if (application.isLoading) {
     return <Text c="dimmed">Loading application permission registry</Text>;
@@ -373,7 +526,6 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
   }
 
   const registeredApplication = application.data;
-  const isManifestBacked = Boolean(registeredApplication.manifestBaseUrl);
   const concurrencyToken = registeredApplication.concurrencyToken;
 
   async function toggleLifecycle() {
@@ -384,30 +536,45 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
     });
   }
 
-  async function submitOwnership(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await transferOwnership.mutateAsync({ ownerId, ownerType, concurrencyToken });
-    setOwnerId('');
+  async function submitOwnership(values: PrincipalFormValues) {
+    if (!values.principal) {
+      return;
+    }
+
+    await transferOwnership.mutateAsync({ ownerId: values.principal.id, ownerType: values.principal.type, concurrencyToken });
+    ownerForm.reset();
+    setOwnerSearch('');
   }
 
-  async function submitMaintainer(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await maintainers.add.mutateAsync({ principalId: maintainerId, principalType: maintainerType, concurrencyToken });
-    setMaintainerId('');
+  async function submitMaintainer(values: PrincipalFormValues) {
+    if (!values.principal) {
+      return;
+    }
+
+    await maintainers.add.mutateAsync({ principalId: values.principal.id, principalType: values.principal.type, concurrencyToken });
+    maintainerForm.reset();
+    setMaintainerSearch('');
   }
 
-  async function submitPermission(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await addPermission.mutateAsync({
-      permissionKey: permissionName,
-      displayName: permissionName,
-      description: permissionDescription || null,
-      category: permissionCategory || null,
+  async function submitManifestBaseUrl(values: { manifestBaseUrl: string }) {
+    await updateApplication.mutateAsync({
+      displayName: registeredApplication.displayName,
+      description: registeredApplication.description,
+      manifestBaseUrl: values.manifestBaseUrl.trim(),
       concurrencyToken,
     });
-    setPermissionName('');
-    setPermissionCategory('');
-    setPermissionDescription('');
+    setEditing(false);
+  }
+
+  async function submitPermission(values: PermissionFormValues) {
+    await addPermission.mutateAsync({
+      permissionKey: values.permissionName.trim(),
+      displayName: values.permissionName.trim(),
+      description: values.permissionDescription.trim() || null,
+      category: values.permissionCategory.trim() || null,
+      concurrencyToken,
+    });
+    permissionForm.reset();
   }
 
   return (
@@ -416,7 +583,20 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
         title={registeredApplication.displayName}
         description={registeredApplication.applicationIdentifier}
         badges={[{ label: registeredApplication.status, color: registeredApplication.status === 'Active' ? 'green' : 'yellow' }]}
-        actions={canWrite && <Button variant="light" onClick={() => setEditing((value) => !value)}>{editing ? 'Done' : 'Edit'}</Button>}
+        actions={canWrite && (
+          <Button
+            variant="light"
+            onClick={() => {
+              if (!editing) {
+                manifestBaseUrlForm.setValues({ manifestBaseUrl: registeredApplication.manifestBaseUrl ?? '' });
+              }
+
+              setEditing((value) => !value);
+            }}
+          >
+            {editing ? 'Done' : 'Edit'}
+          </Button>
+        )}
       />
 
       <Tabs defaultValue="overview" keepMounted={false}>
@@ -439,18 +619,45 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
               </Stack>
             </Paper>
 
+            {editing && isManifestBacked && canWrite && (
+              <Paper withBorder p="md" radius="sm">
+                <form noValidate onSubmit={manifestBaseUrlForm.onSubmit((values) => void submitManifestBaseUrl(values))}>
+                  <Group align="end">
+                    <TextInput
+                      label="Manifest Base URL"
+                      required
+                      style={{ flex: 1 }}
+                      type="url"
+                      {...manifestBaseUrlForm.getInputProps('manifestBaseUrl')}
+                    />
+                    <Button type="submit" loading={updateApplication.isPending}>Save URL</Button>
+                  </Group>
+                </form>
+              </Paper>
+            )}
+
             <Paper withBorder p="md" radius="sm">
               <Title order={2} size="h3">Ownership</Title>
-              <Text mt="xs">Current owner: {registeredApplication.ownerId} ({registeredApplication.ownerType})</Text>
+              <Group gap="xs" mt="xs">
+                <Text>Current owner:</Text>
+                <PrincipalDisplay principalId={registeredApplication.ownerId} principalType={registeredApplication.ownerType} />
+              </Group>
               {editing && !isManifestBacked && canAdmin && (
-                <form onSubmit={submitOwnership}>
+                <form noValidate onSubmit={ownerForm.onSubmit((values) => void submitOwnership(values))}>
                   <Group align="end" mt="md">
-                    <TextInput label="New owner ID" value={ownerId} onChange={(event) => setOwnerId(event.currentTarget.value)} required />
-                    <NativeSelect
-                      label="New owner type"
-                      value={ownerType}
-                      onChange={(event) => setOwnerType(event.currentTarget.value as PrincipalType)}
-                      data={['User', 'Group']}
+                    <PrincipalSearchInput
+                      label="New owner"
+                      options={ownerOptions}
+                      query={ownerSearch}
+                      {...ownerForm.getInputProps('principal')}
+                      onQueryChange={(query) => {
+                        setOwnerSearch(query);
+                        ownerForm.setFieldValue('principal', null);
+                      }}
+                      onSelect={(option) => {
+                        ownerForm.setFieldValue('principal', option);
+                        setOwnerSearch(option.label);
+                      }}
                     />
                     <Button type="submit" loading={transferOwnership.isPending}>Transfer Ownership</Button>
                   </Group>
@@ -472,13 +679,13 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
                 )}
               </Group>
               {editing && !isManifestBacked && canWrite && (
-                <form onSubmit={submitPermission}>
+                <form noValidate onSubmit={permissionForm.onSubmit((values) => void submitPermission(values))}>
                   <Group align="end" mt="md">
-                    <TextInput label="Permission name" value={permissionName} onChange={(event) => setPermissionName(event.currentTarget.value)} required />
-                    <TextInput label="Permission category" value={permissionCategory} onChange={(event) => setPermissionCategory(event.currentTarget.value)} />
+                    <TextInput label="Permission name" required {...permissionForm.getInputProps('permissionName')} />
+                    <TextInput label="Permission category" {...permissionForm.getInputProps('permissionCategory')} />
                     <Button type="submit" loading={addPermission.isPending}>Add Permission</Button>
                   </Group>
-                  <Textarea label="Permission description" mt="sm" value={permissionDescription} onChange={(event) => setPermissionDescription(event.currentTarget.value)} />
+                  <Textarea label="Permission description" mt="sm" {...permissionForm.getInputProps('permissionDescription')} />
                 </form>
               )}
               <Stack gap="xs" mt="md">
@@ -509,14 +716,21 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
           <Paper withBorder p="md" radius="sm">
             <Title order={2} size="h3">Maintainers</Title>
             {editing && !isManifestBacked && canAdmin && (
-              <form onSubmit={submitMaintainer}>
+              <form noValidate onSubmit={maintainerForm.onSubmit((values) => void submitMaintainer(values))}>
                 <Group align="end" mt="md">
-                  <TextInput label="New maintainer ID" value={maintainerId} onChange={(event) => setMaintainerId(event.currentTarget.value)} required />
-                  <NativeSelect
-                    label="New maintainer type"
-                    value={maintainerType}
-                    onChange={(event) => setMaintainerType(event.currentTarget.value as PrincipalType)}
-                    data={['User', 'Group']}
+                  <PrincipalSearchInput
+                    label="New maintainer"
+                    options={maintainerOptions}
+                    query={maintainerSearch}
+                    {...maintainerForm.getInputProps('principal')}
+                    onQueryChange={(query) => {
+                      setMaintainerSearch(query);
+                      maintainerForm.setFieldValue('principal', null);
+                    }}
+                    onSelect={(option) => {
+                      maintainerForm.setFieldValue('principal', option);
+                      setMaintainerSearch(option.label);
+                    }}
                   />
                   <Button type="submit" loading={maintainers.add.isPending}>Add Maintainer</Button>
                 </Group>
@@ -526,7 +740,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
               {registeredApplication.maintainers.length === 0 && <Text c="dimmed">No maintainers assigned</Text>}
               {registeredApplication.maintainers.map((maintainer) => (
                 <Group key={maintainer.id} justify="space-between">
-                  <Text>{maintainer.principalId} ({maintainer.principalType})</Text>
+                  <PrincipalDisplay principalId={maintainer.principalId} principalType={maintainer.principalType} />
                   {editing && !isManifestBacked && canAdmin && (
                     <Button
                       size="xs"
@@ -580,4 +794,178 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
 function ApplicationPermissionStatusBadge({ status }: { status: string }) {
   const color = status === 'Active' ? 'green' : status === 'Disabled' ? 'yellow' : 'gray';
   return <Badge color={color} variant="light">{status}</Badge>;
+}
+
+function usePrincipalOptions(query: string, enabled: boolean): PrincipalOption[] {
+  const users = useQuery({
+    queryKey: ['application-permissions', 'principal-users', query],
+    queryFn: () => getUsers({ page: 1, pageSize: 20, search: query || undefined }),
+    enabled,
+    staleTime: 30_000,
+  });
+  const groups = useQuery({
+    queryKey: ['application-permissions', 'principal-groups', query],
+    queryFn: () => getGroups({ page: 1, pageSize: 20, search: query || undefined }),
+    enabled,
+    staleTime: 30_000,
+  });
+
+  return [
+    ...(users.data?.items.map(mapUserOption) ?? []),
+    ...(groups.data?.items.map(mapGroupOption) ?? []),
+  ];
+}
+
+function PrincipalSearchInput({
+  label,
+  options,
+  query,
+  value,
+  error,
+  onBlur,
+  onChange,
+  onFocus,
+  onQueryChange,
+  onSelect,
+}: {
+  label: string;
+  options: PrincipalOption[];
+  query: string;
+  value?: PrincipalOption | null;
+  error?: ReactNode;
+  onBlur?: () => void;
+  onChange?: (value: PrincipalOption | null) => void;
+  onFocus?: () => void;
+  onQueryChange: (query: string) => void;
+  onSelect: (option: PrincipalOption) => void;
+}) {
+  const combobox = useCombobox({
+    onDropdownClose: () => combobox.resetSelectedOption(),
+    onDropdownOpen: () => combobox.selectFirstOption(),
+  });
+
+  const optionNodes = options.slice(0, 10).map((option) => (
+    <Combobox.Option
+      active={value?.id === option.id && value.type === option.type}
+      aria-label={option.label}
+      key={`${option.type}-${option.id}`}
+      value={`${option.type}:${option.id}`}
+    >
+      <Group justify="space-between" gap="md" wrap="nowrap">
+        <Stack gap={0}>
+          <Text fw={500} size="sm">{option.label}</Text>
+          <Text c="dimmed" size="xs">{option.detail}</Text>
+        </Stack>
+        <Badge variant="light">{option.type}</Badge>
+      </Group>
+    </Combobox.Option>
+  ));
+
+  useEffect(() => {
+    if (query.trim().length > 0 && options.length > 0) {
+      combobox.openDropdown();
+      combobox.updateSelectedOptionIndex();
+    }
+  }, [combobox, options.length, query]);
+
+  return (
+    <Combobox
+      hideDetached={false}
+      onOptionSubmit={(submittedValue) => {
+        const option = options.find((item) => `${item.type}:${item.id}` === submittedValue);
+        if (!option) {
+          return;
+        }
+
+        onChange?.(option);
+        onSelect(option);
+        combobox.closeDropdown();
+      }}
+      store={combobox}
+      withinPortal={false}
+    >
+      <Combobox.Target>
+        <TextInput
+          aria-expanded={combobox.dropdownOpened}
+          error={error}
+          label={label}
+          onBlur={() => {
+            combobox.closeDropdown();
+            onBlur?.();
+          }}
+          onChange={(event) => {
+            onQueryChange(event.currentTarget.value);
+            onChange?.(null);
+            combobox.openDropdown();
+            combobox.updateSelectedOptionIndex();
+          }}
+          onClick={() => combobox.openDropdown()}
+          onFocus={() => {
+            combobox.openDropdown();
+            onFocus?.();
+          }}
+          placeholder="Search users or groups..."
+          rightSection={<Combobox.Chevron />}
+          rightSectionPointerEvents="none"
+          role="combobox"
+          style={{ flex: 1, minWidth: 260 }}
+          value={query}
+        />
+      </Combobox.Target>
+
+      <Combobox.Dropdown>
+        <Combobox.Options>
+          {optionNodes.length > 0 ? optionNodes : <Combobox.Empty>No users or groups found</Combobox.Empty>}
+        </Combobox.Options>
+      </Combobox.Dropdown>
+    </Combobox>
+  );
+}
+
+function PrincipalDisplay({ principalId, principalType }: { principalId: string; principalType: PrincipalType }) {
+  const user = useQuery({
+    queryKey: ['application-permissions', 'principal-user', principalId],
+    queryFn: () => getUser(principalId),
+    enabled: principalType === 'User' && principalId.length > 0,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const group = useQuery({
+    queryKey: ['application-permissions', 'principal-group', principalId],
+    queryFn: () => getGroup(principalId),
+    enabled: principalType === 'Group' && principalId.length > 0,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const label = principalType === 'Group'
+    ? group.data?.name
+    : user.data?.displayName || user.data?.email;
+  const detail = principalType === 'Group'
+    ? group.data?.description
+    : user.data?.email;
+
+  return (
+    <Stack gap={0}>
+      <Text fw={500} size="sm">{label ?? principalId}</Text>
+      <Text c="dimmed" size="xs">{detail ? `${detail} ` : null}{principalType}</Text>
+    </Stack>
+  );
+}
+
+function mapUserOption(user: UserListItem): PrincipalOption {
+  return {
+    id: user.id,
+    type: 'User',
+    label: user.displayName || user.email,
+    detail: user.email,
+  };
+}
+
+function mapGroupOption(group: GroupListItem): PrincipalOption {
+  return {
+    id: group.id,
+    type: 'Group',
+    label: group.name,
+    detail: group.description || group.id,
+  };
 }

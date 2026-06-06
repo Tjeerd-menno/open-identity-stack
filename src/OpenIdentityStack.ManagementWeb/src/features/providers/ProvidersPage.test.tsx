@@ -202,6 +202,28 @@ describe('ProvidersPage', () => {
     });
   }, 10000);
 
+  it('validates provider create input before submitting', async () => {
+    const user = userEvent.setup();
+    const fetchMock = setupProviderFetch();
+
+    renderManagementWeb(
+      <ProvidersPage permissions={['providers:read', 'providers:write']} />,
+      { initialEntries: ['/providers/new'] }
+    );
+
+    expect(await screen.findByRole('heading', { name: /create provider/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /create provider/i }));
+
+    expect(await screen.findByText(/provider name is required/i)).toBeInTheDocument();
+    expect(screen.getByText(/display name is required/i)).toBeInTheDocument();
+    expect(screen.getByText(/authority is required/i)).toBeInTheDocument();
+    expect(screen.getByText(/client id is required/i)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      `${apiBase}/api/admin/providers`,
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
   it('hides write actions when write and delete permissions are missing', async () => {
     setupProviderFetch();
 

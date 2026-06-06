@@ -1,8 +1,10 @@
-import { Alert, Badge, Button, Group, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Button, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
 import { ProviderForm } from './ProviderForm';
@@ -108,39 +110,39 @@ function ProviderListView({ permissions }: Required<ProvidersPageProps>) {
     },
     {
       header: 'Actions',
+      align: 'right',
       cell: (provider) => (
-        <Group gap="xs" wrap="nowrap">
-          <Button variant="subtle" size="xs" aria-label={`View ${provider.displayName}`} onClick={() => navigate(`/providers/${provider.id}`)}>
-            View
-          </Button>
-          {canDelete && (
-            <Button variant="subtle" color="red" size="xs" aria-label={`Delete ${provider.name}`} onClick={() => setProviderToDelete(provider)}>
-              Delete
-            </Button>
-          )}
-        </Group>
+        <EntityActionGroup
+          actions={[
+            { label: `View ${provider.displayName}`, onClick: () => navigate(`/providers/${provider.id}`) },
+            ...(canWrite ? [{ label: `Edit ${provider.displayName}`, onClick: () => navigate(`/providers/${provider.id}/edit`) }] : []),
+            ...(canDelete ? [{ label: `Delete ${provider.name}`, color: 'red' as const, onClick: () => setProviderToDelete(provider) }] : []),
+          ]}
+        />
       ),
     },
   ];
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>Identity Providers</Title>
-          <Text c="dimmed">Manage OIDC identity providers and JIT provisioning.</Text>
-        </div>
-        {canWrite && <Button onClick={() => navigate('/providers/new')}>New provider</Button>}
-      </Group>
+      <PageHeader
+        title="Identity Providers"
+        description="Manage OIDC identity providers and JIT provisioning."
+        actions={canWrite && <Button onClick={() => navigate('/providers/new')}>New provider</Button>}
+      />
 
       {(!canWrite || !canDelete) && <Alert color="blue">Read-only access. Some provider actions require additional permissions.</Alert>}
 
-      <TextInput
-        label="Search providers"
-        maw={420}
-        placeholder="Search providers by name or authority..."
-        value={search}
-        onChange={(event) => setSearch(event.currentTarget.value)}
+      <PageToolbar
+        searchLabel="Search providers"
+        searchPlaceholder="Search providers by name or authority..."
+        searchValue={search}
+        resultCount={filteredProviders.length}
+        onSearchChange={setSearch}
+        onClear={() => {
+          setSearch('');
+          setSubmittedSearch('');
+        }}
       />
 
       <FoundationTable

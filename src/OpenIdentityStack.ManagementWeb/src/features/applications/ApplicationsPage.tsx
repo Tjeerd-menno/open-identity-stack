@@ -2,7 +2,7 @@ import { Button, Stack } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { EntityActionMenu } from '@/components/EntityActionMenu';
+import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { PageHeader, PageToolbar, type AppliedFilter } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
@@ -85,12 +85,11 @@ export function ApplicationsPage() {
       header: 'Actions',
       align: 'right',
       cell: (application) => (
-        <EntityActionMenu
-          label={`Application actions for ${application.displayName}`}
+        <EntityActionGroup
           actions={[
-            { label: 'View', onClick: () => navigate(`/applications/${application.id}`) },
-            { label: 'Edit', onClick: () => navigate(`/applications/${application.id}/edit`) },
-            { label: 'Delete', color: 'red', onClick: () => setApplicationToDelete(application) },
+            { label: `View ${application.displayName}`, onClick: () => navigate(`/applications/${application.id}`) },
+            { label: `Edit ${application.displayName}`, onClick: () => navigate(`/applications/${application.id}/edit`) },
+            { label: `Delete ${application.displayName}`, color: 'red', onClick: () => setApplicationToDelete(application) },
           ]}
         />
       ),

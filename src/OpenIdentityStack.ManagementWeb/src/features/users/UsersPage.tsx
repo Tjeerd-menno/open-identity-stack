@@ -1,9 +1,14 @@
-import { Alert, Button, Grid, Group, Loader, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Group, Loader, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
+import { useForm } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { ActionBar, FormSection } from '@/components/FormPrimitives';
-import { FoundationTable } from '@/components/FoundationTable';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router';
+import { EntityActionGroup } from '@/components/EntityActionMenu';
+import { FormSection } from '@/components/FormPrimitives';
+import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { LoadingState, PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { listRoles } from '@/lib/admin-api';
+import { firstError, maxLength, minLength, required, validEmail } from '@/lib/form-validation';
 import { hasPermission } from '@/lib/permissions';
 import { UserDetailsPanel } from './UserDetailsPanel';
 import { useCreateUserMutation } from './user-mutations';
@@ -14,16 +19,43 @@ type UsersPageProps = {
 };
 
 export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
-  const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const pathUserId = getUserIdFromPath(location.pathname);
+  const selectedUserId = pathUserId ?? (id === 'create' ? undefined : id) ?? '';
   const [search, setSearch] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
-  const [newDisplayName, setNewDisplayName] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
+  const searchMounted = useRef(false);
   const createUser = useCreateUserMutation();
+  const createForm = useForm({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: {
+      email: '',
+      displayName: '',
+      password: '',
+    },
+    validate: {
+      email: (value) => firstError(
+        required(value, 'Email is required.'),
+        validEmail(value),
+        maxLength(value, 256, 'Email')
+      ),
+      displayName: (value) => firstError(
+        required(value, 'Display name is required.'),
+        maxLength(value, 200, 'Display name')
+      ),
+      password: (value) => firstError(
+        required(value, 'Password is required.'),
+        minLength(value, 8, 'Password'),
+        maxLength(value, 256, 'Password')
+      ),
+    },
+  });
   const canWriteUsers = hasPermission(permissions, 'users:write');
   const canDisableUsers = hasPermission(permissions, 'users:disable');
   const canDeleteUsers = hasPermission(permissions, 'users:delete');
@@ -33,35 +65,96 @@ export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
   const users = useQuery({
     queryKey: ['users', 'list', submittedSearch, currentPage],
     queryFn: () => getUsers({ page: currentPage, pageSize: 20, search: submittedSearch || undefined }),
+    enabled: !selectedUserId,
   });
   const details = useQuery({
-    queryKey: ['users', selectedUser?.id],
-    queryFn: () => getUser(selectedUser?.id ?? ''),
-    enabled: !!selectedUser,
+    queryKey: ['users', selectedUserId],
+    queryFn: () => getUser(selectedUserId),
+    enabled: !!selectedUserId,
   });
   const roles = useQuery({
     queryKey: ['roles', 'list'],
     queryFn: () => listRoles(),
-    enabled: !!selectedUser,
+    enabled: !!selectedUserId,
   });
   const assignedRoles = useQuery({
-    queryKey: ['users', selectedUser?.id, 'roles'],
-    queryFn: () => getUserRoles(selectedUser?.id ?? ''),
-    enabled: !!selectedUser,
+    queryKey: ['users', selectedUserId, 'roles'],
+    queryFn: () => getUserRoles(selectedUserId),
+    enabled: !!selectedUserId,
   });
   const groups = useQuery({
-    queryKey: ['users', selectedUser?.id, 'groups'],
-    queryFn: () => getUserGroups(selectedUser?.id ?? ''),
-    enabled: !!selectedUser && canReadGroups,
+    queryKey: ['users', selectedUserId, 'groups'],
+    queryFn: () => getUserGroups(selectedUserId),
+    enabled: !!selectedUserId && canReadGroups,
   });
   const upstreamIdentities = useQuery({
-    queryKey: ['users', selectedUser?.id, 'upstream-identities'],
-    queryFn: () => getUserUpstreamIdentities(selectedUser?.id ?? ''),
-    enabled: !!selectedUser,
+    queryKey: ['users', selectedUserId, 'upstream-identities'],
+    queryFn: () => getUserUpstreamIdentities(selectedUserId),
+    enabled: !!selectedUserId,
   });
 
+  useEffect(() => {
+    if (selectedUserId) {
+      return;
+    }
+
+    if (!searchMounted.current) {
+      searchMounted.current = true;
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSubmittedSearch(search);
+      setCurrentPage(1);
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [search, selectedUserId]);
+
+  if (selectedUserId) {
+    return (
+      <Stack gap="lg" role="region" aria-label="User detail page">
+        <PageHeader
+          title="User details"
+          description={selectedUserId}
+          actions={<Button variant="default" onClick={() => navigate('/users')}>Back to Users</Button>}
+        />
+        {(details.isLoading
+          || roles.isLoading
+          || assignedRoles.isLoading
+          || (canReadGroups && groups.isLoading)
+          || upstreamIdentities.isLoading)
+          && <Loader aria-label="Loading user details" />}
+        {(details.isError || roles.isError || assignedRoles.isError || groups.isError || upstreamIdentities.isError) && (
+          <Alert color="red">Unable to load user details.</Alert>
+        )}
+        {details.data && roles.data && assignedRoles.data && upstreamIdentities.data && (!canReadGroups || groups.data) && (
+          <UserDetailsPanel
+            user={details.data}
+            availableRoles={roles.data.items}
+            assignedRoles={assignedRoles.data}
+            groups={groups.data ?? []}
+            upstreamIdentities={upstreamIdentities.data}
+            canUpdate={canWriteUsers}
+            canDisable={canDisableUsers}
+            canDelete={canDeleteUsers}
+            canResetPassword={canResetUserPasswords}
+            canAssignRoles={canAssignRoles}
+            canReadGroups={canReadGroups}
+          />
+        )}
+      </Stack>
+    );
+  }
+
   if (users.isLoading) {
-    return <Loader aria-label="Loading users" />;
+    return (
+      <LoadingState
+        label="Loading users"
+        title="Loading users"
+        description="Retrieving user accounts and assignment summaries."
+      />
+    );
   }
 
   if (users.isError) {
@@ -69,12 +162,12 @@ export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
   }
 
   const userItems = users.data?.items ?? [];
-  const userColumns = [
+  const userColumns: FoundationColumn<UserListItem>[] = [
     {
       header: 'User',
       cell: (user: UserListItem) => (
         <Stack gap={2}>
-          <Button variant="subtle" onClick={() => setSelectedUser(user)}>
+          <Button variant="subtle" onClick={() => navigate(`/users/${user.id}`)}>
             {user.displayName}
           </Button>
           <Text size="sm" c="dimmed">
@@ -87,16 +180,30 @@ export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
       header: 'Status',
       accessorKey: 'status' as const,
     },
+    {
+      header: 'Actions',
+      align: 'right',
+      cell: (user) => (
+        <EntityActionGroup
+          actions={[
+            { label: `View ${user.displayName}`, onClick: () => navigate(`/users/${user.id}`) },
+            ...(canWriteUsers ? [{ label: `Edit ${user.displayName}`, onClick: () => navigate(`/users/${user.id}/edit`) }] : []),
+          ]}
+        />
+      ),
+    },
   ];
 
-  const submitCreateUser = async () => {
+  const submitCreateUser = async (values: typeof createForm.values) => {
     setCreateError(null);
     try {
-      await createUser.mutateAsync({ email: newEmail, displayName: newDisplayName, password: newPassword });
+      await createUser.mutateAsync({
+        email: values.email.trim(),
+        displayName: values.displayName.trim(),
+        password: values.password,
+      });
       setShowCreateForm(false);
-      setNewEmail('');
-      setNewDisplayName('');
-      setNewPassword('');
+      createForm.reset();
     } catch (mutationError) {
       setCreateError(mutationError instanceof Error ? mutationError.message : 'Unable to create user.');
     }
@@ -104,87 +211,73 @@ export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between">
-        <div>
-          <Title order={1}>Users</Title>
-          <Text c="dimmed">Operate user accounts, status, and role assignment from Management Web.</Text>
-        </div>
-        {canWriteUsers && (
+      <PageHeader
+        title="Users"
+        description="Operate user accounts, status, and role assignment from Management Web."
+        actions={canWriteUsers && (
           <Button onClick={() => setShowCreateForm((value) => !value)}>
             Create user
           </Button>
         )}
-      </Group>
+      />
       {!canWriteUsers && <Alert color="yellow">Read-only access. You do not have permission to modify users.</Alert>}
-      <Group component="form" onSubmit={(event) => {
-        event.preventDefault();
-        setSubmittedSearch(search);
-        setCurrentPage(1);
-      }}>
-        <TextInput label="Search users" value={search} onChange={(event) => setSearch(event.currentTarget.value)} />
-        <Button type="submit">Search</Button>
-      </Group>
+      <PageToolbar
+        searchLabel="Search users"
+        searchPlaceholder="Search by email or display name..."
+        searchValue={search}
+        resultCount={users.data?.totalCount}
+        onSearchChange={setSearch}
+        onClear={() => {
+          setSearch('');
+          setSubmittedSearch('');
+          setCurrentPage(1);
+        }}
+      />
       {showCreateForm && (
         <FormSection title="Create user" description="Create a Management Web user account with an initial password.">
-          <TextInput label="Email" value={newEmail} onChange={(event) => setNewEmail(event.currentTarget.value)} />
-          <TextInput label="New display name" value={newDisplayName} onChange={(event) => setNewDisplayName(event.currentTarget.value)} />
-          <PasswordInput label="Password" value={newPassword} onChange={(event) => setNewPassword(event.currentTarget.value)} />
-          <ActionBar
-            submitLabel="Save new user"
-            cancelLabel="Close"
-            isSubmitting={createUser.isPending}
-            onSubmit={submitCreateUser}
-            onCancel={() => {
-              setShowCreateForm(false);
-              setCreateError(null);
-            }}
-          />
-          {createError && <Alert color="red">{createError}</Alert>}
+          <form noValidate onSubmit={createForm.onSubmit((values) => void submitCreateUser(values))}>
+            <Stack gap="sm">
+              <TextInput aria-label="Email" label="Email" required {...createForm.getInputProps('email')} />
+              <TextInput label="New display name" required {...createForm.getInputProps('displayName')} />
+              <PasswordInput aria-label="Password" label="Password" required {...createForm.getInputProps('password')} />
+              <Group justify="flex-end">
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setCreateError(null);
+                    createForm.reset();
+                  }}
+                >
+                  Close
+                </Button>
+                <Button type="submit" loading={createUser.isPending}>
+                  Save new user
+                </Button>
+              </Group>
+              {createError && <Alert color="red">{createError}</Alert>}
+            </Stack>
+          </form>
         </FormSection>
       )}
-      <Grid>
-        <Grid.Col span={{ base: 12, md: 6 }}>
-          <FoundationTable
-            columns={userColumns}
-            data={userItems}
-            emptyMessage="No users found"
-            pagination={users.data ? {
-              page: users.data.page,
-              pageSize: users.data.pageSize,
-              totalCount: users.data.totalCount,
-              totalPages: users.data.totalPages,
-              onPageChange: setCurrentPage,
-            } : undefined}
-          />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6 }}>
-          {!selectedUser && <Alert>Select a user to inspect details.</Alert>}
-          {selectedUser
-            && (details.isLoading
-              || roles.isLoading
-              || assignedRoles.isLoading
-              || (canReadGroups && groups.isLoading)
-              || upstreamIdentities.isLoading)
-            && (
-            <Loader aria-label="Loading user details" />
-          )}
-          {details.data && roles.data && assignedRoles.data && upstreamIdentities.data && (!canReadGroups || groups.data) && (
-            <UserDetailsPanel
-              user={details.data}
-              availableRoles={roles.data.items}
-              assignedRoles={assignedRoles.data}
-              groups={groups.data ?? []}
-              upstreamIdentities={upstreamIdentities.data}
-              canUpdate={canWriteUsers}
-              canDisable={canDisableUsers}
-              canDelete={canDeleteUsers}
-              canResetPassword={canResetUserPasswords}
-              canAssignRoles={canAssignRoles}
-              canReadGroups={canReadGroups}
-            />
-          )}
-        </Grid.Col>
-      </Grid>
+      <FoundationTable
+        columns={userColumns}
+        data={userItems}
+        emptyMessage="No users found"
+        pagination={users.data ? {
+          page: users.data.page,
+          pageSize: users.data.pageSize,
+          totalCount: users.data.totalCount,
+          totalPages: users.data.totalPages,
+          onPageChange: setCurrentPage,
+        } : undefined}
+      />
     </Stack>
   );
+}
+
+function getUserIdFromPath(pathname: string) {
+  const userId = /^\/users\/([^/]+)$/.exec(pathname)?.[1];
+  return userId && userId !== 'create' ? userId : undefined;
 }

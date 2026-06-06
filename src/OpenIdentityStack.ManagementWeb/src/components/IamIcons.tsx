@@ -147,12 +147,120 @@ export function SearchIcon(props: IconProps) {
   );
 }
 
+export function SunIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="12" cy="12" r="3.5" />
+      <path d="M12 2.5v2" />
+      <path d="M12 19.5v2" />
+      <path d="m4.6 4.6 1.4 1.4" />
+      <path d="m18 18 1.4 1.4" />
+      <path d="M2.5 12h2" />
+      <path d="M19.5 12h2" />
+      <path d="m4.6 19.4 1.4-1.4" />
+      <path d="m18 6 1.4-1.4" />
+    </IconBase>
+  );
+}
+
+export function MoonIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M20 15.5A8 8 0 0 1 8.5 4a6.5 6.5 0 1 0 11.5 11.5z" />
+    </IconBase>
+  );
+}
+
+export function SystemThemeIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 5h16v11H4z" />
+      <path d="M8 20h8" />
+      <path d="M12 16v4" />
+      <path d="M8 9h8" />
+      <path d="M8 12h5" />
+    </IconBase>
+  );
+}
+
+export function HorizontalScrollIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M8 7 3 12l5 5" />
+      <path d="M16 7l5 5-5 5" />
+      <path d="M4 12h16" />
+    </IconBase>
+  );
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
+    </IconBase>
+  );
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </IconBase>
+  );
+}
+
 export function DotsIcon(props: IconProps) {
   return (
     <IconBase {...props}>
       <circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
       <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
       <circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" />
+    </IconBase>
+  );
+}
+
+export function ViewIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </IconBase>
+  );
+}
+
+export function EditIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17z" />
+      <path d="m14 7 3 3" />
+    </IconBase>
+  );
+}
+
+export function DeleteIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 7h16" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M6 7l1 14h10l1-14" />
+      <path d="M9 7V4h6v3" />
+    </IconBase>
+  );
+}
+
+export function ExpandIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M8 3H3v5" />
+      <path d="M16 3h5v5" />
+      <path d="M8 21H3v-5" />
+      <path d="M16 21h5v-5" />
+      <path d="M3 3l7 7" />
+      <path d="m21 3-7 7" />
+      <path d="m3 21 7-7" />
+      <path d="m21 21-7-7" />
     </IconBase>
   );
 }
@@ -166,4 +274,3 @@ export function LogoutIcon(props: IconProps) {
     </IconBase>
   );
 }
-

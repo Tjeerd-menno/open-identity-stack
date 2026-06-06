@@ -1,5 +1,6 @@
-import { Alert, Button, Center, Checkbox, Group, Select, Skeleton, Stack, Table, Text } from '@mantine/core';
+import { Alert, Button, Center, Checkbox, Group, Paper, Select, Skeleton, Stack, Table, Text } from '@mantine/core';
 import type { ReactNode } from 'react';
+import { ChevronDownIcon, HorizontalScrollIcon } from './IamIcons';
 
 export type FoundationColumn<T> = {
   header: string;
@@ -103,99 +104,109 @@ export function FoundationTable<T extends { id: string }>({
           {bulkActions}
         </Group>
       )}
-      {isLoading && <span aria-label="Loading table data" role="status" />}
-      <Table.ScrollContainer minWidth={minWidth}>
-        <Table
-          highlightOnHover
-          striped
-          verticalSpacing={density === 'compact' ? 'xs' : 'sm'}
-          withColumnBorders={false}
-          withTableBorder
-        >
-          <Table.Thead>
-            <Table.Tr>
-              {isSelectable && (
-                <Table.Th w={42}>
-                  <Checkbox
-                    aria-label="Select visible rows"
-                    checked={allVisibleSelected}
-                    disabled={data.length === 0}
-                    onChange={(event) => toggleVisibleRows(event.currentTarget.checked)}
-                  />
-                </Table.Th>
-              )}
-              {columns.map((column) => (
-                <Table.Th key={column.header} style={{ textAlign: column.align, width: column.width }}>
-                  {column.sortable && sort ? (
-                    <Button
-                      aria-label={`Sort by ${column.header}`}
-                      size="xs"
-                      variant="subtle"
-                      onClick={() => sort.onSortChange(column.header)}
-                    >
-                      {column.header}{sort.column === column.header ? ` ${sort.direction === 'asc' ? 'ascending' : 'descending'}` : ''}
-                    </Button>
-                  ) : (
-                    column.header
-                  )}
-                </Table.Th>
-              ))}
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {isLoading ? (
-              Array.from({ length: 5 }, (_, index) => (
-                <Table.Tr key={index}>
-                  {isSelectable && (
-                    <Table.Td>
-                      <Skeleton height={18} width={18} />
-                    </Table.Td>
-                  )}
-                  {columns.map((column) => (
-                    <Table.Td key={column.header}>
-                      <Skeleton height={18} />
-                    </Table.Td>
-                  ))}
-                </Table.Tr>
-              ))
-            ) : data.length === 0 ? (
+      {isLoading && (
+        <Text aria-label="Loading table data" c="dimmed" role="status" size="sm">
+          Loading table data...
+        </Text>
+      )}
+      <Group c="dimmed" gap={6} hiddenFrom="sm">
+        <HorizontalScrollIcon />
+        <Text size="xs">Swipe horizontally to view all columns.</Text>
+      </Group>
+      <Paper withBorder radius="sm" style={{ overflow: 'hidden' }}>
+        <Table.ScrollContainer className="foundation-table-scroll" minWidth={minWidth}>
+          <Table
+            highlightOnHover
+            striped
+            verticalSpacing={density === 'compact' ? 'xs' : 'sm'}
+            withColumnBorders={false}
+            withRowBorders
+          >
+            <Table.Thead>
               <Table.Tr>
-                <Table.Td colSpan={columns.length + (isSelectable ? 1 : 0)}>
-                  <Center py="xl">
-                    <Stack gap={4} align="center">
-                      <Text fw={600}>{emptyMessage}</Text>
-                      <Text size="sm" c="dimmed">Adjust filters or create a new record if you have access.</Text>
-                    </Stack>
-                  </Center>
-                </Table.Td>
+                {isSelectable && (
+                  <Table.Th w={42}>
+                    <Checkbox
+                      aria-label="Select visible rows"
+                      checked={allVisibleSelected}
+                      disabled={data.length === 0}
+                      onChange={(event) => toggleVisibleRows(event.currentTarget.checked)}
+                    />
+                  </Table.Th>
+                )}
+                {columns.map((column) => (
+                  <Table.Th key={column.header} style={{ textAlign: column.align, width: column.width }}>
+                    {column.sortable && sort ? (
+                      <Button
+                        aria-label={`Sort by ${column.header}`}
+                        size="xs"
+                        variant="subtle"
+                        onClick={() => sort.onSortChange(column.header)}
+                      >
+                        {column.header}{sort.column === column.header ? ` ${sort.direction === 'asc' ? 'ascending' : 'descending'}` : ''}
+                      </Button>
+                    ) : (
+                      column.header
+                    )}
+                  </Table.Th>
+                ))}
               </Table.Tr>
-            ) : (
-              data.map((row) => (
-                <Table.Tr key={row.id}>
-                  {isSelectable && (
-                    <Table.Td>
-                      <Checkbox
-                        aria-label={`Select ${getRowLabel?.(row) ?? row.id}`}
-                        checked={selected.has(row.id)}
-                        onChange={(event) => toggleRow(row, event.currentTarget.checked)}
-                      />
-                    </Table.Td>
-                  )}
-                  {columns.map((column) => (
-                    <Table.Td key={column.header} style={{ textAlign: column.align }}>
-                      {column.cell
-                        ? column.cell(row)
-                        : column.accessorKey
-                          ? String(row[column.accessorKey] ?? '')
-                          : null}
-                    </Table.Td>
-                  ))}
+            </Table.Thead>
+            <Table.Tbody>
+              {isLoading ? (
+                Array.from({ length: 5 }, (_, index) => (
+                  <Table.Tr key={index}>
+                    {isSelectable && (
+                      <Table.Td>
+                        <Skeleton height={18} width={18} />
+                      </Table.Td>
+                    )}
+                    {columns.map((column) => (
+                      <Table.Td key={column.header}>
+                        <Skeleton height={18} />
+                      </Table.Td>
+                    ))}
+                  </Table.Tr>
+                ))
+              ) : data.length === 0 ? (
+                <Table.Tr>
+                  <Table.Td colSpan={columns.length + (isSelectable ? 1 : 0)}>
+                    <Center py="xl">
+                      <Stack gap={4} align="center">
+                        <Text fw={600}>{emptyMessage}</Text>
+                        <Text size="sm" c="dimmed">Adjust filters or create a new record if you have access.</Text>
+                      </Stack>
+                    </Center>
+                  </Table.Td>
                 </Table.Tr>
-              ))
-            )}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
+              ) : (
+                data.map((row) => (
+                  <Table.Tr key={row.id}>
+                    {isSelectable && (
+                      <Table.Td>
+                        <Checkbox
+                          aria-label={`Select ${getRowLabel?.(row) ?? row.id}`}
+                          checked={selected.has(row.id)}
+                          onChange={(event) => toggleRow(row, event.currentTarget.checked)}
+                        />
+                      </Table.Td>
+                    )}
+                    {columns.map((column) => (
+                      <Table.Td key={column.header} style={{ textAlign: column.align }}>
+                        {column.cell
+                          ? column.cell(row)
+                          : column.accessorKey
+                            ? String(row[column.accessorKey] ?? '')
+                            : null}
+                      </Table.Td>
+                    ))}
+                  </Table.Tr>
+                ))
+              )}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      </Paper>
 
       {pagination && pagination.totalPages > 1 && (
         <Group justify="space-between" mt="md">
@@ -213,6 +224,8 @@ export function FoundationTable<T extends { id: string }>({
                   value: String(option),
                   label: `${option} / page`,
                 }))}
+                rightSectionProps={{ 'aria-hidden': true }}
+                rightSection={<ChevronDownIcon />}
                 size="xs"
                 value={String(pagination.pageSize)}
                 w={125}

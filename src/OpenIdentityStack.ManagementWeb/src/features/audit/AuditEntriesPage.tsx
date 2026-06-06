@@ -1,6 +1,6 @@
 import { Alert, Code, Collapse, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useState } from 'react';
-import { EntityActionMenu } from '@/components/EntityActionMenu';
+import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { PageHeader, PageToolbar, type AppliedFilter } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
@@ -71,10 +71,9 @@ export function AuditEntriesPage({ permissions = ['*'] }: AuditEntriesPageProps)
       header: 'Actions',
       align: 'right',
       cell: (entry) => (
-        <EntityActionMenu
-          label={`Audit actions for ${entry.id}`}
+        <EntityActionGroup
           actions={[{
-            label: expandedEntryId === entry.id ? 'Collapse' : 'Expand',
+            label: expandedEntryId === entry.id ? `Collapse audit entry ${entry.id}` : `Expand audit entry ${entry.id}`,
             onClick: () => setExpandedEntryId(expandedEntryId === entry.id ? null : entry.id),
           }]}
         />
@@ -117,42 +116,43 @@ export function AuditEntriesPage({ permissions = ['*'] }: AuditEntriesPageProps)
           setPage(1);
           setExpandedEntryId(null);
         }}
+        secondaryFields={(
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+            <TextInput
+              label="User ID"
+              value={filters.userId}
+              onChange={(event) => setFilters({ ...filters, userId: event.currentTarget.value })}
+            />
+            <TextInput
+              label="Action"
+              value={filters.action}
+              onChange={(event) => setFilters({ ...filters, action: event.currentTarget.value })}
+            />
+            <TextInput
+              label="Entity type"
+              value={filters.entityType}
+              onChange={(event) => setFilters({ ...filters, entityType: event.currentTarget.value })}
+            />
+            <TextInput
+              label="Entity ID"
+              value={filters.entityId}
+              onChange={(event) => setFilters({ ...filters, entityId: event.currentTarget.value })}
+            />
+            <TextInput
+              label="From"
+              type="datetime-local"
+              value={filters.from}
+              onChange={(event) => setFilters({ ...filters, from: event.currentTarget.value })}
+            />
+            <TextInput
+              label="To"
+              type="datetime-local"
+              value={filters.to}
+              onChange={(event) => setFilters({ ...filters, to: event.currentTarget.value })}
+            />
+          </SimpleGrid>
+        )}
       />
-
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-        <TextInput
-          label="User ID"
-          value={filters.userId}
-          onChange={(event) => setFilters({ ...filters, userId: event.currentTarget.value })}
-        />
-        <TextInput
-          label="Action"
-          value={filters.action}
-          onChange={(event) => setFilters({ ...filters, action: event.currentTarget.value })}
-        />
-        <TextInput
-          label="Entity type"
-          value={filters.entityType}
-          onChange={(event) => setFilters({ ...filters, entityType: event.currentTarget.value })}
-        />
-        <TextInput
-          label="Entity ID"
-          value={filters.entityId}
-          onChange={(event) => setFilters({ ...filters, entityId: event.currentTarget.value })}
-        />
-        <TextInput
-          label="From"
-          type="datetime-local"
-          value={filters.from}
-          onChange={(event) => setFilters({ ...filters, from: event.currentTarget.value })}
-        />
-        <TextInput
-          label="To"
-          type="datetime-local"
-          value={filters.to}
-          onChange={(event) => setFilters({ ...filters, to: event.currentTarget.value })}
-        />
-      </SimpleGrid>
 
       <FoundationTable
         columns={columns}

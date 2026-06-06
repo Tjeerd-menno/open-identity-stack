@@ -197,6 +197,38 @@ describe('RolesPage', () => {
     });
   });
 
+  it('validates role create input before submitting', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/roles?page=1&pageSize=20` && method === 'GET') {
+        return jsonResponse(roleListResponse());
+      }
+
+      if (url === `${apiBase}/api/admin/permissions/platform` && method === 'GET') {
+        return jsonResponse(platformCatalog);
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderManagementWeb(<RolesPage permissions={['roles:read', 'roles:write']} />, { initialEntries: ['/roles/new'] });
+
+    expect(await screen.findByLabelText(/^name$/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /create role/i }));
+
+    expect(await screen.findByText(/role name must be 3-50 lowercase letters/i)).toBeInTheDocument();
+    expect(screen.getByText(/display name is required/i)).toBeInTheDocument();
+    expect(screen.getByText(/select at least one permission/i)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      `${apiBase}/api/admin/roles`,
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
   it('edits custom role metadata and permissions', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {

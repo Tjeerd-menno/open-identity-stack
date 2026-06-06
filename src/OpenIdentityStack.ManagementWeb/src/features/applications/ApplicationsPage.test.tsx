@@ -188,8 +188,7 @@ describe('ApplicationsPage', () => {
     renderManagementWeb(<ApplicationsPage />);
 
     await screen.findByRole('cell', { name: 'orders-web' });
-    await user.click(screen.getByRole('button', { name: /application actions for orders web/i }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: /delete orders web/i }));
     await user.click(await screen.findByRole('button', { name: /^delete$/i }));
 
     await waitFor(() => {

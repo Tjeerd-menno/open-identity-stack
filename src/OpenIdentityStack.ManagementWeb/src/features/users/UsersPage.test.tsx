@@ -13,6 +13,16 @@ function jsonResponse(body: unknown) {
 }
 
 describe('UsersPage', () => {
+  it('uses a framed loading state while users are loading', () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+
+    renderManagementWeb(<UsersPage />);
+
+    expect(screen.getByRole('status', { name: /loading users/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /loading users/i })).toBeInTheDocument();
+    expect(screen.getByText(/retrieving user accounts and assignment summaries/i)).toBeInTheDocument();
+  });
+
   it('lists, inspects, edits, disables, and assigns an existing role to a user', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -127,17 +137,26 @@ describe('UsersPage', () => {
 
     renderManagementWeb(<UsersPage />);
 
-    await user.type(await screen.findByLabelText(/search users/i), 'ada');
-    await user.click(screen.getByRole('button', { name: /search/i }));
-
-    await user.click(screen.getByRole('button', { name: /create user/i }));
+    await user.click(await screen.findByRole('button', { name: /create user/i }));
     expect(screen.getByRole('region', { name: /create user/i })).toBeInTheDocument();
     await user.type(screen.getByLabelText(/^email$/i), 'grace@example.com');
     await user.type(screen.getByLabelText(/new display name/i), 'Grace Hopper');
     await user.type(screen.getByLabelText(/^password$/i), 'Pass1234!');
     await user.click(screen.getByRole('button', { name: /save new user/i }));
 
-    await user.click(await screen.findByRole('button', { name: /ada lovelace/i }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${apiBase}/api/admin/users`,
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    await user.type(await screen.findByLabelText(/search users/i), 'ada');
+
+    expect(await screen.findByText('1 result')).toBeInTheDocument();
+    expect(screen.getByText(/no filters applied/i)).toBeInTheDocument();
+
+    await user.click(await screen.findByRole('button', { name: /view ada lovelace/i }));
     expect(await screen.findByRole('heading', { name: /ada lovelace/i })).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: /user details/i })).getByText('ada@example.com')).toBeInTheDocument();
 
@@ -166,6 +185,38 @@ describe('UsersPage', () => {
     expect(calls).toContain(`POST ${apiBase}/api/admin/users/user-1/roles/role-1`);
     expect(calls).toContain(`POST ${apiBase}/api/admin/users`);
     expect(within(screen.getByRole('region', { name: /user details/i })).getByText(/mfa enabled/i)).toBeInTheDocument();
+  });
+
+  it('validates create user input before submitting', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/users?page=1&pageSize=20` && method === 'GET') {
+        return jsonResponse({ items: [], totalCount: 0, page: 1, pageSize: 20, totalPages: 0 });
+      }
+
+      if (url === `${apiBase}/api/admin/roles?page=1&pageSize=100` && method === 'GET') {
+        return jsonResponse({ items: [], totalCount: 0, page: 1, pageSize: 100, totalPages: 0 });
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderManagementWeb(<UsersPage />);
+
+    await user.click(await screen.findByRole('button', { name: /create user/i }));
+    await user.click(screen.getByRole('button', { name: /save new user/i }));
+
+    expect(await screen.findByText('Email is required.')).toBeInTheDocument();
+    expect(screen.getByText('Display name is required.')).toBeInTheDocument();
+    expect(screen.getByText('Password is required.')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      `${apiBase}/api/admin/users`,
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
   it('navigates between pages when pagination controls are used', async () => {
@@ -226,15 +277,15 @@ describe('UsersPage', () => {
 
     renderManagementWeb(<UsersPage />);
 
-    await screen.findByRole('button', { name: /ada lovelace/i });
+    await screen.findByRole('button', { name: /view ada lovelace/i });
     expect(screen.queryByRole('button', { name: /grace hopper/i })).not.toBeInTheDocument();
 
     expect(screen.getByText(/page 1 of 3/i)).toBeInTheDocument();
     const nextPageButton = screen.getByRole('button', { name: /next/i });
     await user.click(nextPageButton);
 
-    await screen.findByRole('button', { name: /grace hopper/i });
-    expect(screen.queryByRole('button', { name: /ada lovelace/i })).not.toBeInTheDocument();
+    await screen.findByRole('button', { name: /view grace hopper/i });
+    expect(screen.queryByRole('button', { name: /view ada lovelace/i })).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -302,14 +353,13 @@ describe('UsersPage', () => {
 
     renderManagementWeb(<UsersPage />);
 
-    await screen.findByRole('button', { name: /ada lovelace/i });
+    await screen.findByRole('button', { name: /view ada lovelace/i });
 
     const searchInput = screen.getByLabelText(/search users/i);
     await user.type(searchInput, 'grace');
-    await user.click(screen.getByRole('button', { name: /search/i }));
 
-    await screen.findByRole('button', { name: /grace hopper/i });
-    expect(screen.queryByRole('button', { name: /ada lovelace/i })).not.toBeInTheDocument();
+    await screen.findByRole('button', { name: /view grace hopper/i });
+    expect(screen.queryByRole('button', { name: /view ada lovelace/i })).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -446,7 +496,7 @@ describe('UsersPage', () => {
       ]} />
     );
 
-    await user.click(await screen.findByRole('button', { name: /ada lovelace/i }));
+    await user.click(await screen.findByRole('button', { name: /view ada lovelace/i }));
 
     expect(await screen.findByText(/engineering/i)).toBeInTheDocument();
     expect(screen.getAllByText(/google/i).length).toBeGreaterThan(0);
@@ -560,7 +610,7 @@ describe('UsersPage', () => {
 
     renderManagementWeb(<UsersPage />);
 
-    await user.click(await screen.findByRole('button', { name: /ada lovelace/i }));
+    await user.click(await screen.findByRole('button', { name: /view ada lovelace/i }));
     await user.clear(await screen.findByLabelText(/display name/i));
     await user.click(screen.getByRole('button', { name: /save changes/i }));
 

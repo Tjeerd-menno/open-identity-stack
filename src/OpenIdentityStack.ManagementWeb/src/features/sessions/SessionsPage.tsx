@@ -2,7 +2,7 @@ import { Alert, Badge, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { EntityActionMenu } from '@/components/EntityActionMenu';
+import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
@@ -95,12 +95,11 @@ function SessionListView({ permissions }: Required<SessionsPageProps>) {
       header: 'Actions',
       align: 'right',
       cell: (session) => (
-        <EntityActionMenu
-          label={`Session actions for ${session.id}`}
+        <EntityActionGroup
           actions={[
-            { label: 'View', onClick: () => navigate(`/sessions/${session.id}`) },
+            { label: `View session ${session.id}`, onClick: () => navigate(`/sessions/${session.id}`) },
             ...(canRevoke && session.status === 'Active'
-              ? [{ label: 'Revoke', color: 'red' as const, onClick: () => setSessionToRevoke(session) }]
+              ? [{ label: `Revoke session ${session.id}`, color: 'red' as const, onClick: () => setSessionToRevoke(session) }]
               : []),
           ]}
         />

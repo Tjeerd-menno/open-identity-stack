@@ -87,6 +87,22 @@ afterEach(() => {
 });
 
 describe('ApplicationForm', () => {
+  it('validates create inputs before submitting', async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    stubPolicies();
+
+    renderManagementWeb(<ApplicationForm initialProfile={ApplicationProfile.MachineToMachine} onSubmit={onCreate} />);
+
+    await screen.findByText(/machine-to-machine applications use only the client credentials grant/i);
+    await user.click(screen.getByRole('button', { name: /create application/i }));
+
+    expect(await screen.findByText('Client ID is required.')).toBeInTheDocument();
+    expect(screen.getByText('Display name is required.')).toBeInTheDocument();
+    expect(screen.getByText('At least one scope is required')).toBeInTheDocument();
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
   it('applies policy defaults and submits machine-to-machine applications without redirect controls', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
@@ -157,5 +173,39 @@ describe('ApplicationForm', () => {
         description: 'New description',
       });
     });
+  });
+
+  it('validates update metadata before submitting', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const application: Application = {
+      id: 'app-1',
+      clientId: 'orders-web',
+      displayName: 'Orders Web',
+      description: 'Old description',
+      profile: ApplicationProfile.Web,
+      clientType: ApplicationClientType.Confidential,
+      status: 'Active',
+      redirectUris: [],
+      postLogoutRedirectUris: [],
+      allowedScopes: [],
+      allowedGrantTypes: [],
+      requirePkce: true,
+      requireConsent: true,
+      credentialCount: 0,
+      certificateCount: 0,
+      requiresMigrationReview: false,
+      migrationSource: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      modifiedAt: null,
+    };
+
+    renderManagementWeb(<ApplicationForm application={application} onSubmit={onSubmit} />);
+
+    await user.clear(screen.getByLabelText(/display name/i));
+    await user.click(screen.getByRole('button', { name: /update application/i }));
+
+    expect(await screen.findByText('Display name is required.')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

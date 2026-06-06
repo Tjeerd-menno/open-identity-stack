@@ -13,7 +13,9 @@ import {
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
 import { getRoles, type RoleListItem } from '@/features/roles/roles-api';
@@ -115,44 +117,40 @@ function GroupListView({ permissions }: Required<GroupsPageProps>) {
     },
     {
       header: 'Actions',
+      align: 'right',
       cell: (group) => (
-        <Group gap="xs" wrap="nowrap">
-          <Button variant="subtle" size="xs" aria-label={`View ${group.name}`} onClick={() => navigate(`/groups/${group.id}`)}>
-            View
-          </Button>
-          {canWrite && (
-            <Button variant="subtle" size="xs" aria-label={`Edit ${group.name}`} onClick={() => navigate(`/groups/${group.id}/edit`)}>
-              Edit
-            </Button>
-          )}
-          {canDelete && (
-            <Button variant="subtle" color="red" size="xs" aria-label={`Delete ${group.name}`} onClick={() => setGroupToDelete(group)}>
-              Delete
-            </Button>
-          )}
-        </Group>
+        <EntityActionGroup
+          actions={[
+            { label: `View ${group.name}`, onClick: () => navigate(`/groups/${group.id}`) },
+            ...(canWrite ? [{ label: `Edit ${group.name}`, onClick: () => navigate(`/groups/${group.id}/edit`) }] : []),
+            ...(canDelete ? [{ label: `Delete ${group.name}`, color: 'red' as const, onClick: () => setGroupToDelete(group) }] : []),
+          ]}
+        />
       ),
     },
   ];
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>Groups</Title>
-          <Text c="dimmed">Manage group memberships and role or claim mappings.</Text>
-        </div>
-        {canWrite && <Button onClick={() => navigate('/groups/new')}>New group</Button>}
-      </Group>
+      <PageHeader
+        title="Groups"
+        description="Manage group memberships and role or claim mappings."
+        actions={canWrite && <Button onClick={() => navigate('/groups/new')}>New group</Button>}
+      />
 
       {(!canWrite || !canDelete) && <Alert color="blue">Read-only access. Some group actions require additional permissions.</Alert>}
 
-      <TextInput
-        label="Search groups"
-        maw={420}
-        placeholder="Search groups by name or description..."
-        value={search}
-        onChange={(event) => setSearch(event.currentTarget.value)}
+      <PageToolbar
+        searchLabel="Search groups"
+        searchPlaceholder="Search groups by name or description..."
+        searchValue={search}
+        resultCount={groups.data?.totalCount}
+        onSearchChange={setSearch}
+        onClear={() => {
+          setSearch('');
+          setSubmittedSearch('');
+          setPage(1);
+        }}
       />
 
       <FoundationTable

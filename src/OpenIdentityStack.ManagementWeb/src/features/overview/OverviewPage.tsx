@@ -155,11 +155,10 @@ function OverviewContent({ permissions }: { permissions: string[] }) {
 
 function MetricCard({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <Card withBorder radius="sm" padding="md">
+    <Card withBorder radius="sm" padding="md" style={{ borderTop: `3px solid var(--mantine-color-${tone}-5)` }}>
       <Stack gap={4}>
         <Text size="xs" c="dimmed" fw={650} tt="uppercase">{label}</Text>
         <Title order={2} size="h3">{value}</Title>
-        <Badge color={tone} variant="light">Current token</Badge>
       </Stack>
     </Card>
   );
@@ -173,7 +172,7 @@ function OverviewSectionCard({
   isAvailable: boolean;
 }) {
   return (
-    <Card withBorder radius="sm" padding="md">
+    <Card aria-label={section.label} component="article" withBorder radius="sm" padding="md">
       <Stack gap="sm">
         <Group justify="space-between" align="flex-start">
           <Title order={2} size="h4">{section.label}</Title>
@@ -184,7 +183,7 @@ function OverviewSectionCard({
         <Text size="sm" c="dimmed">{section.description}</Text>
         {isAvailable ? (
           <Button component={Link} to={section.path} variant="light" size="sm">
-            {section.label}
+            Open {section.label}
           </Button>
         ) : (
           <Text size="sm">Requires {section.permission}</Text>

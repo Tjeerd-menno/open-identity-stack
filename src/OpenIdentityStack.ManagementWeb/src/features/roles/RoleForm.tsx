@@ -1,6 +1,7 @@
 import { Alert, Button, Checkbox, Group, Stack, Textarea, TextInput } from '@mantine/core';
-import { FormEvent, useState } from 'react';
+import { useForm } from '@mantine/form';
 import { getApiErrorMessage } from '@/lib/admin-api';
+import { firstError, maxLength, required } from '@/lib/form-validation';
 import { PermissionSelector } from './PermissionSelector';
 import type { CreateRoleRequest, Role, UpdateRoleRequest } from './roles-api';
 
@@ -22,28 +23,40 @@ type RoleFormProps = {
 };
 
 export function RoleForm({ role, mode, error, loading = false, onSubmit, onCancel }: RoleFormProps) {
-  const [values, setValues] = useState<RoleFormValues>({
-    name: role?.name ?? '',
-    displayName: role?.displayName ?? '',
-    description: role?.description ?? '',
-    permissions: role?.permissions ?? [],
-    acknowledgeWildcardGrant: false,
+  const form = useForm<RoleFormValues>({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: {
+      name: role?.name ?? '',
+      displayName: role?.displayName ?? '',
+      description: role?.description ?? '',
+      permissions: role?.permissions ?? [],
+      acknowledgeWildcardGrant: false,
+    },
+    validate: (values) => {
+      const wildcardSelected = values.permissions.some(isWildcardPermission);
+      return {
+        name: mode === 'create' && !/^[a-z0-9-]{3,50}$/.test(values.name.trim())
+          ? 'Role name must be 3-50 lowercase letters, numbers, or hyphens.'
+          : null,
+        displayName: firstError(
+          required(values.displayName, 'Display name is required.'),
+          values.displayName.trim().length < 3 ? 'Display name must be 3-100 characters.' : null,
+          maxLength(values.displayName, 100, 'Display name')
+        ),
+        description: maxLength(values.description, 500, 'Description'),
+        permissions: values.permissions.length === 0 ? 'Select at least one permission.' : null,
+        acknowledgeWildcardGrant: wildcardSelected && !values.acknowledgeWildcardGrant
+          ? 'Acknowledge wildcard grant before saving this role.'
+          : null,
+      };
+    },
   });
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const values = form.values;
   const wildcardSelected = values.permissions.some(isWildcardPermission);
-  const errorMessage = validationError ?? (error ? getApiErrorMessage(error) : null);
+  const errorMessage = error ? getApiErrorMessage(error) : null;
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const errorMessage = validate(values, mode, wildcardSelected);
-    if (errorMessage) {
-      setValidationError(errorMessage);
-      return;
-    }
-
-    setValidationError(null);
-
+  async function handleSubmit(values: RoleFormValues) {
     const common = {
       displayName: values.displayName.trim(),
       description: values.description.trim() || null,
@@ -63,45 +76,43 @@ export function RoleForm({ role, mode, error, loading = false, onSubmit, onCance
   }
 
   return (
-    <form onSubmit={(event) => void handleSubmit(event)}>
+    <form noValidate onSubmit={form.onSubmit((values) => void handleSubmit(values))}>
       <Stack gap="md">
         {errorMessage && <Alert color="red">{errorMessage}</Alert>}
 
         <TextInput
           label="Name"
           aria-label="Name"
-          value={values.name}
           disabled={mode === 'edit'}
-          onChange={(event) => setValues({ ...values, name: event.currentTarget.value })}
           required
+          {...form.getInputProps('name')}
         />
         <TextInput
           label="Display name"
           aria-label="Display name"
-          value={values.displayName}
-          onChange={(event) => setValues({ ...values, displayName: event.currentTarget.value })}
           required
+          {...form.getInputProps('displayName')}
         />
         <Textarea
           label="Description"
-          value={values.description}
-          onChange={(event) => setValues({ ...values, description: event.currentTarget.value })}
           autosize
           minRows={3}
+          {...form.getInputProps('description')}
         />
 
         <PermissionSelector
           selectedPermissions={values.permissions}
-          onChange={(permissions) => setValues({ ...values, permissions })}
+          onChange={(permissions) => form.setFieldValue('permissions', permissions)}
         />
+        {form.errors.permissions && <Alert color="red">{form.errors.permissions}</Alert>}
 
         {wildcardSelected && (
           <Checkbox
             label="Acknowledge wildcard grant"
-            checked={values.acknowledgeWildcardGrant}
-            onChange={(event) => setValues({ ...values, acknowledgeWildcardGrant: event.currentTarget.checked })}
+            {...form.getInputProps('acknowledgeWildcardGrant', { type: 'checkbox' })}
           />
         )}
+        {form.errors.acknowledgeWildcardGrant && <Alert color="red">{form.errors.acknowledgeWildcardGrant}</Alert>}
 
         <Group justify="flex-end">
           <Button type="button" variant="default" onClick={onCancel}>
@@ -114,30 +125,6 @@ export function RoleForm({ role, mode, error, loading = false, onSubmit, onCance
       </Stack>
     </form>
   );
-}
-
-function validate(values: RoleFormValues, mode: 'create' | 'edit', wildcardSelected: boolean) {
-  if (mode === 'create' && !/^[a-z0-9-]{3,50}$/.test(values.name.trim())) {
-    return 'Role name must be 3-50 lowercase letters, numbers, or hyphens.';
-  }
-
-  if (values.displayName.trim().length < 3 || values.displayName.trim().length > 100) {
-    return 'Display name must be 3-100 characters.';
-  }
-
-  if (values.description.length > 500) {
-    return 'Description must be 500 characters or fewer.';
-  }
-
-  if (values.permissions.length === 0) {
-    return 'Select at least one permission.';
-  }
-
-  if (wildcardSelected && !values.acknowledgeWildcardGrant) {
-    return 'Acknowledge wildcard grant before saving this role.';
-  }
-
-  return null;
 }
 
 function isWildcardPermission(permission: string) {
