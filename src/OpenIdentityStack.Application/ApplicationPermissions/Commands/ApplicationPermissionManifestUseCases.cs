@@ -1,7 +1,7 @@
-using System.Globalization;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.ApplicationPermissions;
 using OpenIdentityStack.Application.ApplicationPermissions.Dtos;
+using OpenIdentityStack.Application.ApplicationPermissions.Planning;
 using OpenIdentityStack.Application.ApplicationPermissions.Queries;
 using OpenIdentityStack.Application.ApplicationPermissions.Validators;
 using OpenIdentityStack.Domain.ApplicationPermissions;
@@ -176,28 +176,26 @@ public sealed class ApplicationPermissionManifestUseCases
 
     public async Task<Result<ManifestPreviewDto>> PreviewChangesAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken = default)
     {
-        Result<ManifestChangePlan> planResult = await this.CreateManifestChangePlanAsync(command, cancellationToken).ConfigureAwait(false);
+        Result<ApplicationPermissionChangePlan> planResult = await this.CreateManifestChangePlanAsync(command, cancellationToken).ConfigureAwait(false);
         if (planResult.IsFailure)
         {
             return planResult.Error;
         }
 
-        ManifestChangePlan plan = planResult.Value;
-        IReadOnlyList<PermissionAssignmentImpactDto> impacts = plan.Removals.Count == 0
-            ? []
-            : await this.permissionAssignmentStore.PreviewRemovalImpactAsync(plan.AssignmentRemovalPlan, cancellationToken).ConfigureAwait(false);
+        ApplicationPermissionChangePlan plan = planResult.Value;
+        Result<IReadOnlyList<PermissionAssignmentImpactDto>> impacts = await this.PreviewAssignmentImpactsAsync(
+            plan,
+            command.AcknowledgeWildcardImpact,
+            cancellationToken).ConfigureAwait(false);
+        if (impacts.IsFailure)
+        {
+            return impacts.Error;
+        }
 
-        return new ManifestPreviewDto(
-            plan.Application.Id.Value,
-            plan.Application.ManifestVersion,
+        return ApplicationPermissionChangePlanProjector.ToManifestPreview(
+            plan,
             command.Manifest.Application.Version,
-            plan.Additions.Count > 0 || plan.MetadataUpdates.Count > 0 || plan.Removals.Count > 0,
-            true,
-            plan.Removals.Count > 0,
-            plan.Additions.Select(permission => ToPermissionDto(plan.Application, permission)).ToList(),
-            plan.MetadataUpdates.Select(permission => ToPermissionDto(plan.Application, permission)).ToList(),
-            plan.Removals.Select(permission => ToPermissionDto(plan.Application, permission)).ToList(),
-            impacts);
+            impacts.Value);
     }
 
     public async Task<Result<ManifestApplyDto>> ApplyChangesAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken = default)
@@ -266,19 +264,32 @@ public sealed class ApplicationPermissionManifestUseCases
             application.Id.Value,
             manifestResult.Value,
             command.ActorId,
-            command.ExpectedConcurrencyToken);
+            command.ExpectedConcurrencyToken,
+            command.AcknowledgeRedeclare,
+            command.AcknowledgeWildcardImpact);
     }
 
     private async Task<Result<ManifestApplyDto>> ApplyChangesCoreAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken)
     {
-        Result<ManifestChangePlan> planResult = await this.CreateManifestChangePlanAsync(command, cancellationToken).ConfigureAwait(false);
+        Result<ApplicationPermissionChangePlan> planResult = await this.CreateManifestChangePlanAsync(command, cancellationToken).ConfigureAwait(false);
         if (planResult.IsFailure)
         {
             return planResult.Error;
         }
 
-        ManifestChangePlan plan = planResult.Value;
-        IReadOnlyList<PermissionAssignmentImpactDto> assignmentImpacts = [];
+        ApplicationPermissionChangePlan plan = planResult.Value;
+        Result<IReadOnlyList<PermissionAssignmentImpactDto>> previewImpacts = await this.PreviewAssignmentImpactsAsync(
+            plan,
+            command.AcknowledgeWildcardImpact,
+            cancellationToken).ConfigureAwait(false);
+        if (previewImpacts.IsFailure)
+        {
+            return previewImpacts.Error;
+        }
+
+        IReadOnlyList<PermissionAssignmentImpactDto> assignmentImpacts = previewImpacts.Value
+            .Where(static impact => impact.ImpactKind == AssignmentImpactKinds.WildcardImpacted)
+            .ToList();
         if (plan.Removals.Count > 0)
         {
             Result<IReadOnlyList<PermissionAssignmentImpactDto>> assignmentResult = await this.permissionAssignmentStore
@@ -289,7 +300,7 @@ public sealed class ApplicationPermissionManifestUseCases
                 return assignmentResult.Error;
             }
 
-            assignmentImpacts = assignmentResult.Value;
+            assignmentImpacts = assignmentResult.Value.Concat(assignmentImpacts).ToList();
         }
 
         foreach (ApplicationPermission removal in plan.Removals)
@@ -354,16 +365,51 @@ public sealed class ApplicationPermissionManifestUseCases
         await this.repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         await this.auditWriter.WriteAsync("ApplyApplicationPermissionManifest", command.ActorId, plan.Application.Id.Value.ToString(), "Succeeded", cancellationToken).ConfigureAwait(false);
 
-        var removedDtos = plan.Removals.Select(permission => ToPermissionDto(plan.Application, permission)).ToList();
-        var operationResult = new DestructiveOperationResultDto(
-            removedDtos,
-            assignmentImpacts.Where(static impact => impact.ImpactKind == "exactRemoved").ToList(),
-            assignmentImpacts.Where(static impact => impact.ImpactKind == "wildcardRemoved").ToList(),
-            assignmentImpacts.Where(static impact => impact.ImpactKind == "wildcardImpacted").ToList(),
+        DestructiveOperationResultDto operationResult = ApplicationPermissionChangePlanProjector.ToDestructiveResult(
+            plan.Application,
+            plan.Removals,
+            assignmentImpacts,
             plan.MetadataUpdates.Count > 0,
             true);
 
-        return new ManifestApplyDto(MapToDto(plan.Application), operationResult);
+        return new ManifestApplyDto(ApplicationPermissionChangePlanProjector.ToApplicationDto(plan.Application), operationResult);
+    }
+
+    private async Task<Result<IReadOnlyList<PermissionAssignmentImpactDto>>> PreviewAssignmentImpactsAsync(
+        ApplicationPermissionChangePlan plan,
+        bool acknowledgeWildcardImpact,
+        CancellationToken cancellationToken)
+    {
+        var impacts = new List<PermissionAssignmentImpactDto>();
+        if (plan.Removals.Count > 0)
+        {
+            IReadOnlyList<PermissionAssignmentImpactDto> removalImpacts = await this.permissionAssignmentStore
+                .PreviewRemovalImpactAsync(plan.AssignmentRemovalPlan, cancellationToken)
+                .ConfigureAwait(false);
+            impacts.AddRange(removalImpacts);
+        }
+
+        bool hasWildcardExpansionImpact = false;
+        if (plan.WildcardExpansionImpactPlan.ExactPermissions.Count > 0)
+        {
+            IReadOnlyList<PermissionAssignmentImpactDto> wildcardExpansionImpacts = await this.permissionAssignmentStore
+                .PreviewRemovalImpactAsync(plan.WildcardExpansionImpactPlan, cancellationToken)
+                .ConfigureAwait(false);
+            var relevantWildcardExpansionImpacts = wildcardExpansionImpacts
+                .Where(static impact => impact.ImpactKind == AssignmentImpactKinds.WildcardImpacted)
+                .ToList();
+            hasWildcardExpansionImpact = relevantWildcardExpansionImpacts.Count > 0;
+            impacts.AddRange(relevantWildcardExpansionImpacts);
+        }
+
+        if (hasWildcardExpansionImpact && !acknowledgeWildcardImpact)
+        {
+            return DomainError.Conflict(
+                "PermissionManifest.WildcardImpactAcknowledgementRequired",
+                "Adding permissions covered by existing wildcard assignments requires wildcard impact acknowledgement.");
+        }
+
+        return impacts;
     }
 
     public async Task<Result<RegisteredApplicationDto>> PreviewAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken = default)
@@ -402,7 +448,7 @@ public sealed class ApplicationPermissionManifestUseCases
             return DomainError.Validation("PermissionManifest.ManifestBaseUrlRequired", "A trusted manifest base URL is required for manifest updates.");
         }
 
-        if (CompareSemVer(command.Manifest.Application.Version, application.ManifestVersion) <= 0)
+        if (ManifestVersionComparer.Compare(command.Manifest.Application.Version, application.ManifestVersion) <= 0)
         {
             return VersionNotNewer;
         }
@@ -416,7 +462,7 @@ public sealed class ApplicationPermissionManifestUseCases
         return application;
     }
 
-    private async Task<Result<ManifestChangePlan>> CreateManifestChangePlanAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken)
+    private async Task<Result<ApplicationPermissionChangePlan>> CreateManifestChangePlanAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken)
     {
         Result validation = ApplicationPermissionManifestValidator.Validate(command.Manifest, null, allowEmptyPermissions: true);
         if (validation.IsFailure)
@@ -446,144 +492,12 @@ public sealed class ApplicationPermissionManifestUseCases
             return DomainError.Validation("PermissionManifest.ManifestBaseUrlRequired", "A trusted manifest base URL is required for manifest updates.");
         }
 
-        if (CompareSemVer(command.Manifest.Application.Version, application.ManifestVersion) <= 0)
+        if (ManifestVersionComparer.Compare(command.Manifest.Application.Version, application.ManifestVersion) <= 0)
         {
             return VersionNotNewer;
         }
 
-        var requestedKeys = command.Manifest.Permissions.Select(permission => permission.Key).ToHashSet(StringComparer.Ordinal);
-        var activePermissions = application.Permissions.Where(static permission => !permission.IsRemoved).ToList();
-        var removals = activePermissions.Where(permission => !requestedKeys.Contains(permission.PermissionKey)).ToList();
-        var permissionCreateResults = command.Manifest.Permissions
-            .Where(permission => activePermissions.All(existing => existing.PermissionKey != permission.Key))
-            .Select(permission => ApplicationPermission.Create(
-                application.Id,
-                application.ApplicationIdentifier,
-                permission.Key,
-                permission.DisplayName,
-                permission.Description,
-                permission.Category,
-                command.ActorId,
-                this.dateTimeProvider))
-            .ToList();
-
-        Result<ApplicationPermission>? firstFailure = permissionCreateResults.FirstOrDefault(result => result.IsFailure);
-        if (firstFailure is not null && firstFailure.IsFailure)
-        {
-            return firstFailure.Error;
-        }
-
-        var additions = permissionCreateResults
-            .Select(permissionResult => permissionResult.Value)
-            .ToList();
-        var metadataUpdates = command.Manifest.Permissions
-            .Select(permission => activePermissions.FirstOrDefault(existing => existing.PermissionKey == permission.Key))
-            .Where(static permission => permission is not null)
-            .Cast<ApplicationPermission>()
-            .ToList();
-
-        var remainingAfterRemoval = activePermissions.Except(removals).ToList();
-        var collapsedWildcards = removals
-            .Select(permission => permission.PermissionKey.Split(':', 2)[0])
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Where(resource => !remainingAfterRemoval.Any(permission => permission.PermissionKey.StartsWith($"{resource}:", StringComparison.OrdinalIgnoreCase)))
-            .Select(resource => $"{application.ApplicationIdentifier}:{resource}:*")
-            .ToList();
-
-        var removalPlan = new PermissionAssignmentRemovalPlan(
-            removals.Select(permission => permission.FullPermissionKey).ToList(),
-            collapsedWildcards);
-
-        return new ManifestChangePlan(application, additions, metadataUpdates, removals, removalPlan);
-    }
-
-    private static int CompareSemVer(string left, string right)
-    {
-        var parsedLeft = ParsedSemVer.Parse(left);
-        var parsedRight = ParsedSemVer.Parse(right);
-
-        int coreComparison = parsedLeft.Major != parsedRight.Major
-            ? parsedLeft.Major.CompareTo(parsedRight.Major)
-            : parsedLeft.Minor != parsedRight.Minor
-                ? parsedLeft.Minor.CompareTo(parsedRight.Minor)
-                : parsedLeft.Patch.CompareTo(parsedRight.Patch);
-        if (coreComparison != 0)
-        {
-            return coreComparison;
-        }
-
-        if (parsedLeft.Prerelease is null && parsedRight.Prerelease is null)
-        {
-            return 0;
-        }
-
-        if (parsedLeft.Prerelease is null)
-        {
-            return 1;
-        }
-
-        if (parsedRight.Prerelease is null)
-        {
-            return -1;
-        }
-
-        return CompareSemVerPreRelease(parsedLeft.Prerelease, parsedRight.Prerelease);
-    }
-
-    private static int CompareSemVerPreRelease(string? left, string? right)
-    {
-        if (left is null && right is null)
-        {
-            return 0;
-        }
-
-        if (left is null)
-        {
-            return 1;
-        }
-
-        if (right is null)
-        {
-            return -1;
-        }
-
-        string[] parsedLeft = left?.Split('.', StringSplitOptions.None) ?? Array.Empty<string>();
-        string[] parsedRight = right?.Split('.', StringSplitOptions.None) ?? Array.Empty<string>();
-
-        int maxLength = Math.Min(parsedLeft.Length, parsedRight.Length);
-        for (int i = 0; i < maxLength; i++)
-        {
-            int segmentComparison = CompareSemVerIdentifier(parsedLeft[i], parsedRight[i]);
-            if (segmentComparison != 0)
-            {
-                return segmentComparison;
-            }
-        }
-
-        return parsedLeft.Length.CompareTo(parsedRight.Length);
-    }
-
-    private static int CompareSemVerIdentifier(string left, string right)
-    {
-        bool leftIsNumeric = int.TryParse(left, out int leftValue);
-        bool rightIsNumeric = int.TryParse(right, out int rightValue);
-
-        if (leftIsNumeric && rightIsNumeric)
-        {
-            return leftValue.CompareTo(rightValue);
-        }
-
-        if (leftIsNumeric)
-        {
-            return -1;
-        }
-
-        if (rightIsNumeric)
-        {
-            return 1;
-        }
-
-        return string.Compare(left, right, StringComparison.Ordinal);
+        return ApplicationPermissionChangePlanner.CreateManifestPlan(application, command.Manifest, command.ActorId, this.dateTimeProvider);
     }
 
     private static string? NormalizeManifestBaseUrl(string? manifestBaseUrl)
@@ -649,24 +563,4 @@ public sealed class ApplicationPermissionManifestUseCases
             application.ManifestVersion);
     }
 
-    private sealed record ManifestChangePlan(
-        RegisteredApplication Application,
-        IReadOnlyList<ApplicationPermission> Additions,
-        IReadOnlyList<ApplicationPermission> MetadataUpdates,
-        IReadOnlyList<ApplicationPermission> Removals,
-        PermissionAssignmentRemovalPlan AssignmentRemovalPlan);
-
-    private readonly record struct ParsedSemVer(int Major, int Minor, int Patch, string? Prerelease)
-    {
-        public static ParsedSemVer Parse(string value)
-        {
-            string[] versionAndPrerelease = value.Split('-', 2);
-            string[] core = versionAndPrerelease[0].Split('.');
-            return new ParsedSemVer(
-                int.Parse(core[0], CultureInfo.InvariantCulture),
-                int.Parse(core[1], CultureInfo.InvariantCulture),
-                int.Parse(core[2], CultureInfo.InvariantCulture),
-                versionAndPrerelease.Length == 2 ? versionAndPrerelease[1] : null);
-        }
-    }
 }

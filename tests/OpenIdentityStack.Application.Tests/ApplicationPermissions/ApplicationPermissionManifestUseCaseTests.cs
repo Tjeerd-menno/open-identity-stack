@@ -288,6 +288,74 @@ public sealed class ApplicationPermissionManifestUseCaseTests
     }
 
     [Fact]
+    public async Task PreviewChangesAsync_WhenAdditionExpandsExistingWildcardWithoutAcknowledgement_ReturnsConflict()
+    {
+        RegisteredApplication application = CreateApplication("1.0.0");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.permissionAssignmentStore.PreviewRemovalImpactAsync(
+                Arg.Any<PermissionAssignmentRemovalPlan>(),
+                Arg.Any<CancellationToken>())
+            .Returns([
+                new PermissionAssignmentImpactDto("role", "role-1", "Order Aggregate", "orders-api:order:*", "wildcardImpacted"),
+            ]);
+
+        Result<ManifestPreviewDto> result = await this.useCases.PreviewChangesAsync(new ApplyApplicationPermissionManifestCommand(
+            application.Id.Value,
+            ValidManifest("1.1.0") with
+            {
+                Permissions =
+                [
+                    new PermissionManifestPermissionDeclaration("order:read", "Read order", null, "Orders"),
+                    new PermissionManifestPermissionDeclaration("order:cancel", "Cancel order", null, "Orders"),
+                ],
+            },
+            "actor-1",
+            application.ConcurrencyToken));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.PermissionManifest.WildcardImpactAcknowledgementRequired");
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PreviewChangesAsync_WhenAdditionExpandsExistingWildcardWithAcknowledgement_ReturnsImpact()
+    {
+        RegisteredApplication application = CreateApplication("1.0.0");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.permissionAssignmentStore.PreviewRemovalImpactAsync(
+                Arg.Any<PermissionAssignmentRemovalPlan>(),
+                Arg.Any<CancellationToken>())
+            .Returns([
+                new PermissionAssignmentImpactDto("role", "role-1", "Order Aggregate", "orders-api:order:*", "wildcardImpacted"),
+            ]);
+
+        Result<ManifestPreviewDto> result = await this.useCases.PreviewChangesAsync(new ApplyApplicationPermissionManifestCommand(
+            application.Id.Value,
+            ValidManifest("1.1.0") with
+            {
+                Permissions =
+                [
+                    new PermissionManifestPermissionDeclaration("order:read", "Read order", null, "Orders"),
+                    new PermissionManifestPermissionDeclaration("order:cancel", "Cancel order", null, "Orders"),
+                ],
+            },
+            "actor-1",
+            application.ConcurrencyToken,
+            AcknowledgeWildcardImpact: true));
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.IsDestructive.ShouldBeFalse();
+        result.Value.Additions.Select(permission => permission.FullPermissionKey).ShouldBe(["orders-api:order:cancel"]);
+        result.Value.AssignmentImpacts.Select(impact => impact.ImpactKind).ShouldBe(["wildcardImpacted"]);
+        await this.permissionAssignmentStore.Received(1).PreviewRemovalImpactAsync(
+            Arg.Is<PermissionAssignmentRemovalPlan>(plan =>
+                plan.ExactPermissions.SequenceEqual(cancelExactPermission)
+                && plan.WildcardPermissionsToRemove.Count == 0),
+            Arg.Any<CancellationToken>());
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ApplyAsync_WhenAssignmentRemovalFails_DoesNotTombstoneOrSave()
     {
         RegisteredApplication application = CreateApplication("1.0.0");
