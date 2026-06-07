@@ -19,7 +19,8 @@
     /* Path aliases */
     "paths": {
       "@/*": ["./src/*"],
-      "@openidentitystack/admin-api-client": ["../frontend-packages/admin-api-client/src/index.ts"]
+      "@openidentitystack/admin-api-client": ["../frontend-packages/admin-api-client/src/index.ts"],
+      "@openidentitystack/permission-semantics": ["../frontend-packages/permission-semantics/src/index.ts"]
     },
 
     /* Linting */

@@ -12,6 +12,10 @@ export default defineConfig({
         __dirname,
         "../frontend-packages/admin-api-client/src/index.ts"
       ),
+      "@openidentitystack/permission-semantics": path.resolve(
+        __dirname,
+        "../frontend-packages/permission-semantics/src/index.ts"
+      ),
     },
   },
   server: {
