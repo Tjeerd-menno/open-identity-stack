@@ -7,6 +7,7 @@
 
 import type { UserManagerSettings } from 'oidc-client-ts';
 import { WebStorageStateStore } from 'oidc-client-ts';
+import { extractGrantedPermissions } from '@openidentitystack/permission-semantics';
 import { getRuntimeConfig } from '@/config/runtime-config';
 
 // E2E Test Mode - bypasses real OIDC configuration
@@ -23,18 +24,6 @@ type OidcUserLike =
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
-
-const toStringArray = (value: unknown): string[] => {
-  if (typeof value === 'string') {
-    return [value];
-  }
-
-  if (Array.isArray(value)) {
-    return value.filter((item): item is string => typeof item === 'string');
-  }
-
-  return [];
-};
 
 const toClaims = (value: unknown): OidcClaims | null => {
   if (!isRecord(value)) {
@@ -134,63 +123,14 @@ export const oidcConfig: UserManagerSettings = {
  * @returns Array of permission strings
  */
 export const extractPermissions = (user: OidcUserLike): string[] => {
-  if (!user) return [];
-
-  const standardScopes = ['openid', 'profile', 'email', 'api', 'offline_access'];
-
-  const fromProfile = (profile: unknown): string[] => {
-    const claims = toClaims(profile);
-    if (!claims) return [];
-
-    const permissionClaims = toStringArray(claims.permission);
-    if (permissionClaims.length > 0) {
-      return permissionClaims;
-    }
-
-    const permissionsClaims = toStringArray(claims.permissions);
-    if (permissionsClaims.length > 0) {
-      return permissionsClaims;
-    }
-
-    if (claims.scope) {
-      const scopes = typeof claims.scope === 'string'
-        ? claims.scope.split(' ')
-        : toStringArray(claims.scope);
-      return scopes.filter((s: string) => !standardScopes.includes(s));
-    }
-
-    const roles = claims.role ?? claims.roles;
-    if (roles) {
-      const roleList = toStringArray(roles);
-      if (roleList.some((r: string) => r === 'admin' || r === 'super-admin')) {
-        return ['*'];
-      }
-    }
-
+  if (!user) {
     return [];
-  };
-
-  const profilePermissions = fromProfile(user.profile);
-  if (profilePermissions.length > 0) {
-    return profilePermissions;
   }
 
-  if (typeof user.access_token === 'string' && user.access_token.includes('.')) {
-    try {
-      const payload = user.access_token.split('.')[1];
-      const normalized = payload.replaceAll('-', '+').replaceAll('_', '/');
-      const padded = normalized.padEnd(normalized.length + (4 - (normalized.length % 4)) % 4, '=');
-      const decoded = JSON.parse(atob(padded));
-      const tokenPermissions = fromProfile(decoded);
-      if (tokenPermissions.length > 0) {
-        return tokenPermissions;
-      }
-    } catch {
-      return [];
-    }
-  }
-
-  return [];
+  return extractGrantedPermissions({
+    profile: user.profile,
+    accessToken: typeof user.access_token === 'string' ? user.access_token : null,
+  });
 };
 
 /**

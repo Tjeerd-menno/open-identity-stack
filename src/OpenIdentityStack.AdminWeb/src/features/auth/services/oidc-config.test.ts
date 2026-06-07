@@ -52,11 +52,29 @@ describe('oidc config helpers', () => {
     ).toEqual(['inventory:read', 'inventory:write']);
   });
 
-  it('treats admin roles as wildcard permission', async () => {
+  it('does not infer wildcard permission from admin role names', async () => {
     const { extractPermissions } = await importOidcConfig();
 
-    expect(extractPermissions({ profile: { roles: ['user', 'admin'] } })).toEqual(['*']);
-    expect(extractPermissions({ profile: { role: 'super-admin' } })).toEqual(['*']);
+    expect(extractPermissions({ profile: { roles: ['user', 'admin'] } })).toEqual([]);
+    expect(extractPermissions({ profile: { role: 'super-admin' } })).toEqual([]);
+  });
+
+  it('extracts and combines permissions from profile and access token claims', async () => {
+    const { extractPermissions } = await importOidcConfig();
+    const accessToken = jwtWithPayload({
+      permissions: ['sessions:read'],
+      scp: ['groups:read', 'openid'],
+    });
+
+    expect(
+      extractPermissions({
+        profile: {
+          permission: ['users:read'],
+          scope: 'openid profile applications:read',
+        },
+        access_token: accessToken,
+      })
+    ).toEqual(['users:read', 'applications:read', 'sessions:read', 'groups:read']);
   });
 
   it('falls back to access token claims when profile has no permissions', async () => {
