@@ -8,6 +8,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@openidentitystack/admin-api-client": path.resolve(
+        __dirname,
+        "../frontend-packages/admin-api-client/src/index.ts"
+      ),
     },
   },
   server: {
