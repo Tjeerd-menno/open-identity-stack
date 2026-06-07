@@ -18,11 +18,15 @@ export default defineConfig(({ command, mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'),
         '@openidentitystack/admin-api-client': path.resolve(
           __dirname,
           '../frontend-packages/admin-api-client/src/index.ts'
         ),
+        '@openidentitystack/permission-semantics': path.resolve(
+          __dirname,
+          '../frontend-packages/permission-semantics/src/index.ts'
+        ),
+        '@': path.resolve(__dirname, './src'),
       },
     },
     server: {
