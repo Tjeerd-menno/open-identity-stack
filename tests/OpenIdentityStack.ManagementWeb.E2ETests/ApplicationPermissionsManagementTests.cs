@@ -92,8 +92,8 @@ public class ApplicationPermissionsManagementTests : IAsyncLifetime
         status.ShouldBe("Disabled");
 
         await page.GetByRole(AriaRole.Tab, new() { Name = "Overview", Exact = true }).ClickAsync();
-        await page.GetByLabel(new Regex("New owner ID", RegexOptions.IgnoreCase)).FillAsync("group-1");
-        await page.GetByLabel(new Regex("New owner type", RegexOptions.IgnoreCase)).SelectOptionAsync(["Group"]);
+        await page.GetByLabel(new Regex("^New owner$", RegexOptions.IgnoreCase)).FillAsync("operations");
+        await page.GetByRole(AriaRole.Option, new() { Name = "Operations Group", Exact = true }).ClickAsync();
         Task<IRequest> ownershipRequest = page.WaitForRequestAsync(new Regex(@"/api/admin/application-permissions/applications/application-1/ownership$", RegexOptions.IgnoreCase));
         await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Transfer Ownership", RegexOptions.IgnoreCase) }).ClickAsync();
         await ownershipRequest;
@@ -177,6 +177,78 @@ public class ApplicationPermissionsManagementTests : IAsyncLifetime
             if (method == "GET" && path.Equals("/api/admin/application-permissions/diagnostics", StringComparison.OrdinalIgnoreCase))
             {
                 await FulfillJsonAsync(route, new { issues = new[] { new { fullPermissionKey = "patient:legacy", roleName = "Legacy Role", issueType = "MissingPermission" } } });
+                return;
+            }
+
+            if (method == "GET" && path.Equals("/api/admin/users", StringComparison.OrdinalIgnoreCase))
+            {
+                await FulfillJsonAsync(route, new
+                {
+                    items = Array.Empty<object>(),
+                    totalCount = 0,
+                    page = 1,
+                    pageSize = 20,
+                    totalPages = 0
+                });
+                return;
+            }
+
+            if (method == "GET" && path.Equals("/api/admin/users/owner-1", StringComparison.OrdinalIgnoreCase))
+            {
+                await FulfillJsonAsync(route, new
+                {
+                    id = "owner-1",
+                    email = "owner@example.com",
+                    displayName = "Owner User",
+                    status = "Active",
+                    createdAt = "2026-01-01T00:00:00Z",
+                    mfaEnabled = false,
+                    lastLoginAt = (string?)null,
+                    modifiedAt = (string?)null,
+                    profile = new { }
+                });
+                return;
+            }
+
+            if (method == "GET" && path.Equals("/api/admin/groups", StringComparison.OrdinalIgnoreCase))
+            {
+                await FulfillJsonAsync(route, new
+                {
+                    items = new[]
+                    {
+                        new
+                        {
+                            id = "group-1",
+                            name = "Operations Group",
+                            description = "Operations administrators",
+                            parentGroupId = (string?)null,
+                            memberCount = 2,
+                            mappingCount = 1,
+                            createdAt = "2026-01-01T00:00:00Z",
+                            modifiedAt = (string?)null
+                        }
+                    },
+                    totalCount = 1,
+                    page = 1,
+                    pageSize = 20,
+                    totalPages = 1
+                });
+                return;
+            }
+
+            if (method == "GET" && path.Equals("/api/admin/groups/group-1", StringComparison.OrdinalIgnoreCase))
+            {
+                await FulfillJsonAsync(route, new
+                {
+                    id = "group-1",
+                    name = "Operations Group",
+                    description = "Operations administrators",
+                    parentGroupId = (string?)null,
+                    memberCount = 2,
+                    mappingCount = 1,
+                    createdAt = "2026-01-01T00:00:00Z",
+                    modifiedAt = (string?)null
+                });
                 return;
             }
 

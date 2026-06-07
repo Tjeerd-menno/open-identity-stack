@@ -90,6 +90,7 @@ function CreateApplicationForm({
       requireConsent: true,
     },
     validate: (values) => {
+      const policy = policies.data?.find((item) => item.applicationProfile === values.profile);
       const errors: Record<string, string | null> = {
         clientId: firstError(
           required(values.clientId, 'Client ID is required.'),
@@ -106,17 +107,21 @@ function CreateApplicationForm({
         allowedScopes: values.allowedScopes.length === 0 ? 'At least one scope is required' : null,
       };
 
-      values.redirectUris.forEach((uri, index) => {
-        errors[`redirectUris.${index}`] = uri.trim()
-          ? validHttpUrl(uri, `Redirect URI ${index + 1} must be a valid HTTP or HTTPS URL.`)
-          : 'Redirect URI is required.';
-      });
+      if (!policy || !isOptionHidden(policy, 'redirectUris')) {
+        values.redirectUris.forEach((uri, index) => {
+          errors[`redirectUris.${index}`] = uri.trim()
+            ? validHttpUrl(uri, `Redirect URI ${index + 1} must be a valid HTTP or HTTPS URL.`)
+            : 'Redirect URI is required.';
+        });
+      }
 
-      values.postLogoutRedirectUris.forEach((uri, index) => {
-        errors[`postLogoutRedirectUris.${index}`] = uri.trim()
-          ? validHttpUrl(uri, `Post logout redirect URI ${index + 1} must be a valid HTTP or HTTPS URL.`)
-          : null;
-      });
+      if (!policy || !isOptionHidden(policy, 'postLogoutRedirectUris')) {
+        values.postLogoutRedirectUris.forEach((uri, index) => {
+          errors[`postLogoutRedirectUris.${index}`] = uri.trim()
+            ? validHttpUrl(uri, `Post logout redirect URI ${index + 1} must be a valid HTTP or HTTPS URL.`)
+            : null;
+        });
+      }
 
       return errors;
     },
@@ -136,7 +141,9 @@ function CreateApplicationForm({
         ...current,
         clientType: selectedPolicy.defaultClientProfile,
         allowedGrantTypes: selectedPolicy.defaultGrantTypes,
-        redirectUris: selectedPolicy.requiresRedirectUris && redirectUris.length === 0 ? [''] : redirectUris,
+        redirectUris: isOptionHidden(selectedPolicy, 'redirectUris')
+          ? []
+          : selectedPolicy.requiresRedirectUris && redirectUris.length === 0 ? [''] : redirectUris,
         postLogoutRedirectUris: isOptionHidden(selectedPolicy, 'postLogoutRedirectUris') ? [] : postLogoutRedirectUris,
         requirePkce: selectedPolicy.defaultRequirePkce,
         requireConsent: isOptionHidden(selectedPolicy, 'consent') ? false : selectedPolicy.defaultRequireConsent,

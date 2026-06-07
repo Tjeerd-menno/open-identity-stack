@@ -134,6 +134,35 @@ describe('ApplicationForm', () => {
     });
   });
 
+  it('ignores hidden redirect URI fields after switching to machine-to-machine profile', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    stubPolicies();
+
+    renderManagementWeb(<ApplicationForm onSubmit={onSubmit} />);
+
+    expect(await screen.findByLabelText(/redirect uri 1/i)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/application profile/i), ApplicationProfile.MachineToMachine);
+    expect(await screen.findByText(/machine-to-machine applications use only the client credentials grant/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/redirect uri 1/i)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/client id/i), 'orders-worker');
+    await user.type(screen.getByLabelText(/display name/i), 'Orders Worker');
+    await user.click(screen.getByRole('checkbox', { name: 'api' }));
+    await user.click(screen.getByRole('button', { name: /create application/i }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+        clientId: 'orders-worker',
+        displayName: 'Orders Worker',
+        profile: ApplicationProfile.MachineToMachine,
+        redirectUris: [],
+        postLogoutRedirectUris: [],
+      }));
+    });
+  });
+
   it('submits metadata updates for existing applications', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);

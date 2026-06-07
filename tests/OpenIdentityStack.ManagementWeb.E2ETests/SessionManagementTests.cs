@@ -63,8 +63,8 @@ public class SessionManagementTests : IAsyncLifetime
         await revokedRequest;
 
         await page.GetByLabel(new Regex("Filter by status", RegexOptions.IgnoreCase)).SelectOptionAsync(["Active"]);
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("session actions for session-1", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "View", Exact = true }).ClickAsync();
+        await page.GetByText("10.0.0.5").WaitForAsync();
+        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("view session session-1", RegexOptions.IgnoreCase) }).ClickAsync();
         await page.GetByRole(AriaRole.Heading, new() { Name = "Session Details", Exact = true }).WaitForAsync();
         await page.GetByText("Firefox on Windows").WaitForAsync();
 
