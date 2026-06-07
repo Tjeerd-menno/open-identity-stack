@@ -1,8 +1,10 @@
-import { Alert, Badge, Button, Group, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
 import { RoleForm } from './RoleForm';
@@ -83,37 +85,38 @@ function RoleListView({ permissions }: Required<RolesPageProps>) {
     },
     {
       header: 'Actions',
+      align: 'right',
       cell: (role) => (
-        <Button
-          variant="subtle"
-          size="xs"
-          aria-label={`View ${role.displayName}`}
-          onClick={() => navigate(`/roles/${role.id}`)}
-        >
-          View
-        </Button>
+        <EntityActionGroup
+          actions={[
+            { label: `View ${role.displayName}`, onClick: () => navigate(`/roles/${role.id}`) },
+          ]}
+        />
       ),
     },
   ];
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>Roles</Title>
-          <Text c="dimmed">Manage platform role grants and permission assignments.</Text>
-        </div>
-        {canWrite && <Button onClick={() => navigate('/roles/new')}>New role</Button>}
-      </Group>
+      <PageHeader
+        title="Roles"
+        description="Manage platform role grants and permission assignments."
+        actions={canWrite && <Button onClick={() => navigate('/roles/new')}>New role</Button>}
+      />
 
       {!canWrite && <Alert color="blue">Read-only access. Role changes require roles:write.</Alert>}
 
-      <TextInput
-        label="Search roles"
-        maw={420}
-        placeholder="Search by name or display name..."
-        value={search}
-        onChange={(event) => setSearch(event.currentTarget.value)}
+      <PageToolbar
+        searchLabel="Search roles"
+        searchPlaceholder="Search by name or display name..."
+        searchValue={search}
+        resultCount={roles.data?.totalCount}
+        onSearchChange={setSearch}
+        onClear={() => {
+          setSearch('');
+          setSubmittedSearch('');
+          setPage(1);
+        }}
       />
 
       <FoundationTable

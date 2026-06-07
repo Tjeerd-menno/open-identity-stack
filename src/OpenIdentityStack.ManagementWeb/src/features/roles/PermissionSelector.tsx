@@ -1,4 +1,5 @@
-import { Alert, Checkbox, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Checkbox, Group, Loader, Select, Stack, Switch, Text, TextInput, Title } from '@mantine/core';
+import { useMemo, useState } from 'react';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { usePlatformPermissionCatalog } from './roles-hooks';
 import type { PlatformPermissionCatalogItem } from './roles-api';
@@ -10,6 +11,15 @@ type PermissionSelectorProps = {
 
 export function PermissionSelector({ selectedPermissions, onChange }: PermissionSelectorProps) {
   const catalog = usePlatformPermissionCatalog();
+  const [search, setSearch] = useState('');
+  const [resource, setResource] = useState<string | null>(null);
+  const [kind, setKind] = useState<string | null>(null);
+  const [selectedOnly, setSelectedOnly] = useState(false);
+  const items = (catalog.data?.items ?? []).filter((item) => item.assignable);
+  const resourceOptions = useMemo(
+    () => Array.from(new Set(items.map((item) => item.resource))).sort().map((value) => ({ value, label: formatResource(value) })),
+    [items]
+  );
 
   if (catalog.isLoading) {
     return (
@@ -24,8 +34,16 @@ export function PermissionSelector({ selectedPermissions, onChange }: Permission
     return <Alert color="red">{getApiErrorMessage(catalog.error)}</Alert>;
   }
 
-  const items = (catalog.data?.items ?? []).filter((item) => item.assignable);
-  const groups = groupPermissions(items);
+  const filteredItems = items.filter((item) => {
+    const matchesSearch = search.trim().length === 0
+      || item.permission.toLowerCase().includes(search.toLowerCase())
+      || item.displayName.toLowerCase().includes(search.toLowerCase());
+    const matchesResource = !resource || item.resource === resource;
+    const matchesKind = !kind || item.kind === kind;
+    const matchesSelected = !selectedOnly || selectedPermissions.includes(item.permission);
+    return matchesSearch && matchesResource && matchesKind && matchesSelected;
+  });
+  const groups = groupPermissions(filteredItems);
 
   function togglePermission(permission: string, checked: boolean) {
     if (checked) {
@@ -38,9 +56,45 @@ export function PermissionSelector({ selectedPermissions, onChange }: Permission
 
   return (
     <Stack gap="md" role="group" aria-label="Permission selector">
+      <Group align="flex-end">
+        <TextInput
+          label="Search permissions"
+          placeholder="Search by permission or display name..."
+          value={search}
+          onChange={(event) => setSearch(event.currentTarget.value)}
+        />
+        <Select
+          clearable
+          data={resourceOptions}
+          label="Resource"
+          searchable
+          value={resource}
+          onChange={setResource}
+        />
+        <Select
+          clearable
+          data={[
+            { value: 'wildcard', label: 'Wildcard' },
+            { value: 'action', label: 'Action' },
+          ]}
+          label="Kind"
+          value={kind}
+          onChange={setKind}
+        />
+        <Switch
+          checked={selectedOnly}
+          label="Selected only"
+          onChange={(event) => setSelectedOnly(event.currentTarget.checked)}
+        />
+      </Group>
       {groups.map(([resource, permissions]) => (
         <Stack key={resource} gap="xs">
-          <Title order={3} size="h5">{formatResource(resource)}</Title>
+          <Group justify="space-between">
+            <Title order={3} size="h5">{formatResource(resource)}</Title>
+            <Button size="xs" variant="light" onClick={() => selectResource(permissions, selectedPermissions, onChange)}>
+              Select resource
+            </Button>
+          </Group>
           <Stack gap={6}>
             {permissions.map((item) => (
               <Checkbox
@@ -54,8 +108,17 @@ export function PermissionSelector({ selectedPermissions, onChange }: Permission
           </Stack>
         </Stack>
       ))}
+      {groups.length === 0 && <Text c="dimmed">No permissions match the current filters.</Text>}
     </Stack>
   );
+}
+
+function selectResource(
+  permissions: PlatformPermissionCatalogItem[],
+  selectedPermissions: string[],
+  onChange: (permissions: string[]) => void
+) {
+  onChange([...selectedPermissions, ...permissions.map((permission) => permission.permission)].filter(unique));
 }
 
 function groupPermissions(items: PlatformPermissionCatalogItem[]) {

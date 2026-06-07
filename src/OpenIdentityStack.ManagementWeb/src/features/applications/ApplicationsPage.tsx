@@ -1,8 +1,10 @@
-import { Button, Group, NativeSelect, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Button, Stack } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { PageHeader, PageToolbar, type AppliedFilter } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import {
   ApplicationClientType,
@@ -81,89 +83,93 @@ export function ApplicationsPage() {
     },
     {
       header: 'Actions',
+      align: 'right',
       cell: (application) => (
-        <Group gap="xs" wrap="nowrap">
-          <Button variant="subtle" size="xs" onClick={() => navigate(`/applications/${application.id}`)}>
-            View
-          </Button>
-          <Button variant="subtle" size="xs" onClick={() => navigate(`/applications/${application.id}/edit`)}>
-            Edit
-          </Button>
-          <Button
-            variant="subtle"
-            color="red"
-            size="xs"
-            aria-label={`Delete ${application.displayName}`}
-            onClick={() => setApplicationToDelete(application)}
-          >
-            Delete
-          </Button>
-        </Group>
+        <EntityActionGroup
+          actions={[
+            { label: `View ${application.displayName}`, onClick: () => navigate(`/applications/${application.id}`) },
+            { label: `Edit ${application.displayName}`, onClick: () => navigate(`/applications/${application.id}/edit`) },
+            { label: `Delete ${application.displayName}`, color: 'red', onClick: () => setApplicationToDelete(application) },
+          ]}
+        />
       ),
     },
+  ];
+  const appliedFilters: AppliedFilter[] = [
+    ...(profile ? [{ key: 'profile', label: 'Profile', value: applicationProfileLabels[profile], onRemove: () => setProfile('') }] : []),
+    ...(status ? [{ key: 'status', label: 'Status', value: status, onRemove: () => setStatus('') }] : []),
+    ...(clientType ? [{ key: 'clientType', label: 'Client type', value: clientTypeLabels[clientType], onRemove: () => setClientType('') }] : []),
   ];
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>Applications</Title>
-          <Text c="dimmed">Manage OAuth 2.0 and OpenID Connect applications.</Text>
-        </div>
-        <Button onClick={() => navigate('/applications/new')}>New application</Button>
-      </Group>
+      <PageHeader
+        title="Applications"
+        description="Manage OAuth 2.0 and OpenID Connect applications."
+        actions={<Button onClick={() => navigate('/applications/new')}>New application</Button>}
+      />
 
-      <Group align="flex-end">
-        <TextInput
-          maw={420}
-          placeholder="Search by client ID or display name..."
-          value={search}
-          onChange={(event) => setSearch(event.currentTarget.value)}
-        />
-        <NativeSelect
-          label="Profile"
-          value={profile}
-          onChange={(event) => {
-            setProfile(event.currentTarget.value as ApplicationProfile | '');
-            setPage(1);
-          }}
-          data={[
-            { value: '', label: 'All profiles' },
-            { value: ApplicationProfile.Web, label: 'Web' },
-            { value: ApplicationProfile.SinglePage, label: 'Single Page' },
-            { value: ApplicationProfile.Native, label: 'Native' },
-            { value: ApplicationProfile.MachineToMachine, label: 'Machine-to-machine' },
-            { value: ApplicationProfile.Device, label: 'Device' },
-            { value: ApplicationProfile.Custom, label: 'Custom' },
-          ]}
-        />
-        <NativeSelect
-          label="Status"
-          value={status}
-          onChange={(event) => {
-            setStatus(event.currentTarget.value as 'Active' | 'Disabled' | '');
-            setPage(1);
-          }}
-          data={[
-            { value: '', label: 'All statuses' },
-            { value: 'Active', label: 'Active' },
-            { value: 'Disabled', label: 'Disabled' },
-          ]}
-        />
-        <NativeSelect
-          label="Client type"
-          value={clientType}
-          onChange={(event) => {
-            setClientType(event.currentTarget.value as ApplicationClientType | '');
-            setPage(1);
-          }}
-          data={[
-            { value: '', label: 'All client types' },
-            { value: ApplicationClientType.Confidential, label: 'Confidential' },
-            { value: ApplicationClientType.Public, label: 'Public' },
-          ]}
-        />
-      </Group>
+      <PageToolbar
+        searchLabel="Search applications"
+        searchPlaceholder="Search by client ID or display name..."
+        searchValue={search}
+        resultCount={applications.data?.totalCount}
+        onSearchChange={setSearch}
+        filters={[
+          {
+            key: 'profile',
+            label: 'Profile',
+            value: profile,
+            onChange: (value) => {
+              setProfile((value ?? '') as ApplicationProfile | '');
+              setPage(1);
+            },
+            data: [
+              { value: ApplicationProfile.Web, label: 'Web' },
+              { value: ApplicationProfile.SinglePage, label: 'Single Page' },
+              { value: ApplicationProfile.Native, label: 'Native' },
+              { value: ApplicationProfile.MachineToMachine, label: 'Machine-to-machine' },
+              { value: ApplicationProfile.Device, label: 'Device' },
+              { value: ApplicationProfile.Custom, label: 'Custom' },
+            ],
+          },
+          {
+            key: 'status',
+            label: 'Status',
+            value: status,
+            onChange: (value) => {
+              setStatus((value ?? '') as 'Active' | 'Disabled' | '');
+              setPage(1);
+            },
+            data: [
+              { value: 'Active', label: 'Active' },
+              { value: 'Disabled', label: 'Disabled' },
+            ],
+          },
+          {
+            key: 'clientType',
+            label: 'Client type',
+            value: clientType,
+            onChange: (value) => {
+              setClientType((value ?? '') as ApplicationClientType | '');
+              setPage(1);
+            },
+            data: [
+              { value: ApplicationClientType.Confidential, label: 'Confidential' },
+              { value: ApplicationClientType.Public, label: 'Public' },
+            ],
+          },
+        ]}
+        appliedFilters={appliedFilters}
+        onClear={() => {
+          setSearch('');
+          setSubmittedSearch('');
+          setProfile('');
+          setStatus('');
+          setClientType('');
+          setPage(1);
+        }}
+      />
 
       <FoundationTable
         columns={columns}

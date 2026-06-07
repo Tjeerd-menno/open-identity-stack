@@ -1,8 +1,10 @@
-import { Alert, Badge, Button, Group, NativeSelect, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
 import {
@@ -91,54 +93,60 @@ function SessionListView({ permissions }: Required<SessionsPageProps>) {
     },
     {
       header: 'Actions',
+      align: 'right',
       cell: (session) => (
-        <Group gap="xs" wrap="nowrap">
-          <Button variant="subtle" size="xs" aria-label="View session" onClick={() => navigate(`/sessions/${session.id}`)}>
-            View
-          </Button>
-          {canRevoke && session.status === 'Active' && (
-            <Button variant="subtle" color="red" size="xs" aria-label="Revoke session" onClick={() => setSessionToRevoke(session)}>
-              Revoke
-            </Button>
-          )}
-        </Group>
+        <EntityActionGroup
+          actions={[
+            { label: `View session ${session.id}`, onClick: () => navigate(`/sessions/${session.id}`) },
+            ...(canRevoke && session.status === 'Active'
+              ? [{ label: `Revoke session ${session.id}`, color: 'red' as const, onClick: () => setSessionToRevoke(session) }]
+              : []),
+          ]}
+        />
       ),
     },
   ];
 
   return (
     <Stack gap="lg">
-      <div>
-        <Title order={1}>Sessions</Title>
-        <Text c="dimmed">View and manage active user sessions.</Text>
-      </div>
+      <PageHeader
+        title="Sessions"
+        description="View and manage active user sessions."
+        badges={[{ label: status === 'All' ? 'All statuses' : status, color: status === 'Active' ? 'green' : 'gray' }]}
+      />
 
       {!canRevoke && <Alert color="blue">Read-only access. Session revocation requires sessions:revoke.</Alert>}
 
-      <Group align="flex-end">
-        <TextInput
-          label="Search sessions"
-          maw={420}
-          placeholder="Search by user ID or IP address..."
-          value={search}
-          onChange={(event) => setSearch(event.currentTarget.value)}
-        />
-        <NativeSelect
-          label="Filter by status"
-          value={status}
-          onChange={(event) => {
-            setStatus(event.currentTarget.value as SessionStatus | 'All');
+      <PageToolbar
+        searchLabel="Search sessions"
+        searchPlaceholder="Search by user ID or IP address..."
+        searchValue={search}
+        resultCount={sessions.data?.totalCount}
+        onSearchChange={setSearch}
+        filters={[{
+          key: 'status',
+          label: 'Filter by status',
+          value: status,
+          onChange: (value) => {
+            setStatus((value ?? 'All') as SessionStatus | 'All');
             setPage(1);
-          }}
-          data={[
+          },
+          data: [
             { value: 'All', label: 'All Sessions' },
             { value: 'Active', label: 'Active' },
             { value: 'LoggedOut', label: 'Logged Out' },
             { value: 'Expired', label: 'Expired' },
             { value: 'Revoked', label: 'Revoked' },
-          ]}
-        />
-      </Group>
+          ],
+        }]}
+        appliedFilters={status === 'All' ? [] : [{ key: 'status', label: 'Status', value: status, onRemove: () => setStatus('All') }]}
+        onClear={() => {
+          setSearch('');
+          setSubmittedSearch('');
+          setStatus('All');
+          setPage(1);
+        }}
+      />
 
       <FoundationTable
         columns={columns}

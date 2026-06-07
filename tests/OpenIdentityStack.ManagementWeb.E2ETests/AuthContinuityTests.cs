@@ -36,7 +36,7 @@ public class AuthContinuityTests : IAsyncLifetime
         string baseUrl = fixture.ManagementWebUrl ?? throw new InvalidOperationException("ManagementWeb URL was not initialized.");
 
         await page!.GotoAsync(baseUrl);
-        await page.GetByText("Management Web", new() { Exact = true }).WaitForAsync();
+        await page.GetByText("IAM Console", new() { Exact = true }).WaitForAsync();
 
         await page.GotoAsync("about:blank");
 

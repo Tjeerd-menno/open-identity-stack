@@ -1,6 +1,8 @@
 import { Alert, Button, Group, NativeSelect, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
+import { useForm } from '@mantine/form';
 import { useState } from 'react';
-import { ActionBar, DestructiveActionDialog } from '@/components/FormPrimitives';
+import { DestructiveActionDialog } from '@/components/FormPrimitives';
+import { firstError, maxLength, minLength, required } from '@/lib/form-validation';
 import type { RoleListItem, UpstreamIdentity, User } from './users-api';
 import {
   useAssignRoleMutation,
@@ -35,11 +37,6 @@ export function UserEditForm({
   canResetPassword,
   canAssignRoles,
 }: UserEditFormProps) {
-  const [displayName, setDisplayName] = useState(user.displayName);
-  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
-  const [newPassword, setNewPassword] = useState('');
-  const [providerId, setProviderId] = useState('');
-  const [subject, setSubject] = useState('');
   const [deleteDialogOpened, setDeleteDialogOpened] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [disableError, setDisableError] = useState<string | null>(null);
@@ -59,28 +56,79 @@ export function UserEditForm({
   const unassignRole = useUnassignRoleMutation(user.id);
   const linkIdentity = useLinkUpstreamIdentityMutation(user.id);
   const unlinkIdentity = useUnlinkUpstreamIdentityMutation(user.id);
+  const profileForm = useForm({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: { displayName: user.displayName },
+    validate: {
+      displayName: (value) => firstError(
+        required(value, 'Display name is required.'),
+        maxLength(value, 200, 'Display name')
+      ),
+    },
+  });
+  const resetPasswordForm = useForm({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: { newPassword: '' },
+    validate: {
+      newPassword: (value) => firstError(
+        required(value, 'New password is required.'),
+        minLength(value, 8, 'New password'),
+        maxLength(value, 256, 'New password')
+      ),
+    },
+  });
+  const assignRoleForm = useForm({
+    mode: 'controlled',
+    initialValues: { selectedRoleId: '' },
+    validate: {
+      selectedRoleId: (value) => value ? null : 'Select a role to assign.',
+    },
+  });
+  const linkIdentityForm = useForm({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: { providerId: '', subject: '' },
+    validate: {
+      providerId: (value) => firstError(
+        required(value, 'Provider ID is required.'),
+        maxLength(value, 100, 'Provider ID')
+      ),
+      subject: (value) => firstError(
+        required(value, 'Subject is required.'),
+        maxLength(value, 256, 'Subject')
+      ),
+    },
+  });
 
   return (
     <Stack gap="md">
-      <TextInput
-        label="Display name"
-        value={displayName}
-        onChange={(event) => setDisplayName(event.currentTarget.value)}
-      />
+      <form
+        noValidate
+        onSubmit={profileForm.onSubmit(async (values) => {
+          setSaveError(null);
+          try {
+            await updateUser.mutateAsync(values.displayName.trim());
+          } catch (mutationError) {
+            setSaveError(mutationError instanceof Error ? mutationError.message : 'Unable to save user changes.');
+          }
+        })}
+      >
+        <Stack gap="sm">
+          <TextInput
+            label="Display name"
+            required
+            {...profileForm.getInputProps('displayName')}
+          />
+          <Group>
+            <Button type="submit" loading={updateUser.isPending}>
+              Save changes
+            </Button>
+          </Group>
+        </Stack>
+      </form>
       <Group>
-        <Button
-          onClick={async () => {
-            setSaveError(null);
-            try {
-              await updateUser.mutateAsync(displayName);
-            } catch (mutationError) {
-              setSaveError(mutationError instanceof Error ? mutationError.message : 'Unable to save user changes.');
-            }
-          }}
-          loading={updateUser.isPending}
-        >
-          Save changes
-        </Button>
         {canDisable && user.status === 'Active' && (
           <Button
             color="red"
@@ -127,24 +175,31 @@ export function UserEditForm({
       {canResetPassword && (
         <Stack gap="sm">
           <Text fw={600}>Reset password</Text>
-          <PasswordInput
-            label="New password"
-            value={newPassword}
-            onChange={(event) => setNewPassword(event.currentTarget.value)}
-          />
-          <ActionBar
-            submitLabel="Reset password"
-            isSubmitting={resetPassword.isPending}
-            onSubmit={async () => {
+          <form
+            noValidate
+            onSubmit={resetPasswordForm.onSubmit(async (values) => {
               setResetPasswordError(null);
               try {
-                await resetPassword.mutateAsync(newPassword);
-                setNewPassword('');
+                await resetPassword.mutateAsync(values.newPassword);
+                resetPasswordForm.reset();
               } catch (mutationError) {
                 setResetPasswordError(mutationError instanceof Error ? mutationError.message : 'Unable to reset password.');
               }
-            }}
-          />
+            })}
+          >
+            <Stack gap="sm">
+              <PasswordInput
+                label="New password"
+                required
+                {...resetPasswordForm.getInputProps('newPassword')}
+              />
+              <Group justify="flex-end">
+                <Button type="submit" loading={resetPassword.isPending}>
+                  Reset password
+                </Button>
+              </Group>
+            </Stack>
+          </form>
           {resetPasswordError && <Alert color="red">{resetPasswordError}</Alert>}
         </Stack>
       )}
@@ -174,70 +229,68 @@ export function UserEditForm({
             </Stack>
           )}
           {unassignError && <Alert color="red">{unassignError}</Alert>}
-          <Group align="end">
-            <NativeSelect
-              label="Assign role"
-              value={selectedRoleId ?? ''}
-              onChange={(event) => setSelectedRoleId(event.currentTarget.value || null)}
-              data={[
-                { value: '', label: 'Choose a role' },
-                ...availableRoles.map((role) => ({ value: role.id, label: role.displayName })),
-              ]}
-            />
-            <Button
-              variant="light"
-              disabled={!selectedRoleId}
-              onClick={async () => {
-                if (!selectedRoleId) {
-                  return;
-                }
-
-                setAssignError(null);
-                try {
-                  await assignRole.mutateAsync(selectedRoleId);
-                } catch (mutationError) {
-                  setAssignError(mutationError instanceof Error ? mutationError.message : 'Unable to assign role.');
-                }
-              }}
-              loading={assignRole.isPending}
-            >
-              Assign selected role
-            </Button>
-          </Group>
+          <form
+            noValidate
+            onSubmit={assignRoleForm.onSubmit(async (values) => {
+              setAssignError(null);
+              try {
+                await assignRole.mutateAsync(values.selectedRoleId);
+                assignRoleForm.reset();
+              } catch (mutationError) {
+                setAssignError(mutationError instanceof Error ? mutationError.message : 'Unable to assign role.');
+              }
+            })}
+          >
+            <Group align="end">
+              <NativeSelect
+                label="Assign role"
+                data={[
+                  { value: '', label: 'Choose a role' },
+                  ...availableRoles.map((role) => ({ value: role.id, label: role.displayName })),
+                ]}
+                {...assignRoleForm.getInputProps('selectedRoleId')}
+              />
+              <Button type="submit" variant="light" loading={assignRole.isPending}>
+                Assign selected role
+              </Button>
+            </Group>
+          </form>
           {assignError && <Alert color="red">{assignError}</Alert>}
         </>
       )}
       <Stack gap="sm">
         <Text fw={600}>Link upstream identity</Text>
-        <Group align="end">
-          <TextInput
-            label="Provider id"
-            value={providerId}
-            onChange={(event) => setProviderId(event.currentTarget.value)}
-          />
-          <TextInput
-            label="Subject"
-            value={subject}
-            onChange={(event) => setSubject(event.currentTarget.value)}
-          />
-          <Button
-            variant="light"
-            disabled={!providerId || !subject}
-            onClick={async () => {
-              setLinkIdentityError(null);
-              try {
-                await linkIdentity.mutateAsync({ providerId, subject });
-                setProviderId('');
-                setSubject('');
-              } catch (mutationError) {
-                setLinkIdentityError(mutationError instanceof Error ? mutationError.message : 'Unable to link identity.');
-              }
-            }}
-            loading={linkIdentity.isPending}
-          >
-            Link upstream identity
-          </Button>
-        </Group>
+        <form
+          noValidate
+          onSubmit={linkIdentityForm.onSubmit(async (values) => {
+            setLinkIdentityError(null);
+            try {
+              await linkIdentity.mutateAsync({
+                providerId: values.providerId.trim(),
+                subject: values.subject.trim(),
+              });
+              linkIdentityForm.reset();
+            } catch (mutationError) {
+              setLinkIdentityError(mutationError instanceof Error ? mutationError.message : 'Unable to link identity.');
+            }
+          })}
+        >
+          <Group align="end">
+            <TextInput
+              label="Provider id"
+              required
+              {...linkIdentityForm.getInputProps('providerId')}
+            />
+            <TextInput
+              label="Subject"
+              required
+              {...linkIdentityForm.getInputProps('subject')}
+            />
+            <Button type="submit" variant="light" loading={linkIdentity.isPending}>
+              Link upstream identity
+            </Button>
+          </Group>
+        </form>
         {linkIdentityError && <Alert color="red">{linkIdentityError}</Alert>}
         {upstreamIdentities.map((identity) => (
           <Button

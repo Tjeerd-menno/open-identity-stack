@@ -1,6 +1,7 @@
 import { Alert, Button, Checkbox, Group, PasswordInput, Stack, TextInput } from '@mantine/core';
-import { FormEvent, useState } from 'react';
+import { useForm } from '@mantine/form';
 import { getApiErrorMessage } from '@/lib/admin-api';
+import { firstError, maxLength, required, validHttpUrl, validSlug } from '@/lib/form-validation';
 import type { CreateProviderRequest, Provider, UpdateProviderRequest } from './providers-api';
 
 type ProviderFormValues = {
@@ -23,29 +24,50 @@ type ProviderFormProps = {
 };
 
 export function ProviderForm({ provider, mode, loading = false, error, onSubmit, onCancel }: ProviderFormProps) {
-  const [values, setValues] = useState<ProviderFormValues>({
-    name: provider?.name ?? '',
-    displayName: provider?.displayName ?? '',
-    authority: provider?.authority ?? '',
-    clientId: provider?.clientId ?? '',
-    clientSecret: '',
-    scopes: provider?.scopes.join(' ') ?? 'openid profile email',
-    jitProvisioningEnabled: provider?.jitProvisioningEnabled ?? true,
+  const form = useForm<ProviderFormValues>({
+    mode: 'controlled',
+    validateInputOnBlur: true,
+    initialValues: {
+      name: provider?.name ?? '',
+      displayName: provider?.displayName ?? '',
+      authority: provider?.authority ?? '',
+      clientId: provider?.clientId ?? '',
+      clientSecret: '',
+      scopes: provider?.scopes.join(' ') ?? 'openid profile email',
+      jitProvisioningEnabled: provider?.jitProvisioningEnabled ?? true,
+    },
+    validate: {
+      name: (value) => mode === 'create'
+        ? firstError(
+          required(value, 'Provider name is required.'),
+          validSlug(value, 'Provider name'),
+          maxLength(value, 100, 'Provider name')
+        )
+        : null,
+      displayName: (value) => firstError(
+        required(value, 'Display name is required.'),
+        maxLength(value, 200, 'Display name')
+      ),
+      authority: (value) => mode === 'create'
+        ? firstError(
+          required(value, 'Authority is required.'),
+          validHttpUrl(value, 'Authority must be a valid HTTP or HTTPS URL.')
+        )
+        : null,
+      clientId: (value) => firstError(
+        required(value, 'Client ID is required.'),
+        maxLength(value, 256, 'Client ID')
+      ),
+      clientSecret: (value) => maxLength(value, 4096, 'Client secret'),
+      scopes: (value) => firstError(
+        splitScopes(value).length === 0 ? 'At least one scope is required.' : null,
+        maxLength(value, 1000, 'Scopes')
+      ),
+    },
   });
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const errorMessage = validationError ?? (error ? getApiErrorMessage(error) : null);
+  const errorMessage = error ? getApiErrorMessage(error) : null;
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const message = validate(values, mode);
-
-    if (message) {
-      setValidationError(message);
-      return;
-    }
-
-    setValidationError(null);
-
+  async function handleSubmit(values: ProviderFormValues) {
     const common = {
       displayName: values.displayName.trim(),
       clientId: values.clientId.trim(),
@@ -67,51 +89,44 @@ export function ProviderForm({ provider, mode, loading = false, error, onSubmit,
   }
 
   return (
-    <form onSubmit={(event) => void handleSubmit(event)}>
+    <form noValidate onSubmit={form.onSubmit((values) => void handleSubmit(values))}>
       <Stack gap="md">
         {errorMessage && <Alert color="red">{errorMessage}</Alert>}
 
         <TextInput
           label="Provider name"
-          value={values.name}
           disabled={mode === 'edit'}
-          onChange={(event) => setValues({ ...values, name: event.currentTarget.value })}
           required
+          {...form.getInputProps('name')}
         />
         <TextInput
           label="Display name"
-          value={values.displayName}
-          onChange={(event) => setValues({ ...values, displayName: event.currentTarget.value })}
           required
+          {...form.getInputProps('displayName')}
         />
         <TextInput
           label="Authority"
-          value={values.authority}
           disabled={mode === 'edit'}
-          onChange={(event) => setValues({ ...values, authority: event.currentTarget.value })}
           required
+          {...form.getInputProps('authority')}
         />
         <TextInput
           label="Client ID"
-          value={values.clientId}
-          onChange={(event) => setValues({ ...values, clientId: event.currentTarget.value })}
           required
+          {...form.getInputProps('clientId')}
         />
         <PasswordInput
           label="Client secret"
-          value={values.clientSecret}
-          onChange={(event) => setValues({ ...values, clientSecret: event.currentTarget.value })}
+          {...form.getInputProps('clientSecret')}
         />
         <TextInput
           label="Scopes"
-          value={values.scopes}
-          onChange={(event) => setValues({ ...values, scopes: event.currentTarget.value })}
           required
+          {...form.getInputProps('scopes')}
         />
         <Checkbox
           label="JIT provisioning"
-          checked={values.jitProvisioningEnabled}
-          onChange={(event) => setValues({ ...values, jitProvisioningEnabled: event.currentTarget.checked })}
+          {...form.getInputProps('jitProvisioningEnabled', { type: 'checkbox' })}
         />
 
         <Group justify="flex-end">
@@ -125,32 +140,6 @@ export function ProviderForm({ provider, mode, loading = false, error, onSubmit,
       </Stack>
     </form>
   );
-}
-
-function validate(values: ProviderFormValues, mode: 'create' | 'edit') {
-  if (mode === 'create' && !/^[a-z0-9-]+$/.test(values.name.trim())) {
-    return 'Provider name must contain lowercase letters, numbers, or hyphens.';
-  }
-
-  if (values.displayName.trim().length === 0) {
-    return 'Display name is required.';
-  }
-
-  try {
-    new URL(values.authority.trim());
-  } catch {
-    return 'Authority must be a valid URL.';
-  }
-
-  if (values.clientId.trim().length === 0) {
-    return 'Client ID is required.';
-  }
-
-  if (splitScopes(values.scopes).length === 0) {
-    return 'At least one scope is required.';
-  }
-
-  return null;
 }
 
 function splitScopes(scopes: string) {

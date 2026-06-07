@@ -75,6 +75,18 @@ describe('AppRoutes route guards', () => {
     });
   });
 
+  it('keeps the application frame visible while the management session is loading', () => {
+    renderGuard(
+      <AuthenticatedRoute>
+        <h1>Applications</h1>
+      </AuthenticatedRoute>,
+      { isAuthenticated: false, isLoading: true, permissions: [] }
+    );
+
+    expect(screen.getByRole('status', { name: /loading management session/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /opening management console/i })).toBeInTheDocument();
+  });
+
   it('does not define legacy Clients or Service Accounts permission surfaces', () => {
     expect(Object.keys(managementRoutePermissions)).not.toContain('clients');
     expect(Object.keys(managementRoutePermissions)).not.toContain('serviceAccounts');
@@ -85,7 +97,7 @@ describe('AppRoutes route guards', () => {
     expect(managementRoutePermissions.audit).toEqual(['audit-logs:read']);
   });
 
-  it.each(['/users', '/users/create', '/users/user-1', '/users/user-1/edit'])(
+  it.each(['/users', '/users/create'])(
     'routes %s to the Users surface',
     async (path) => {
       vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({
@@ -102,6 +114,74 @@ describe('AppRoutes route guards', () => {
       renderGuard(<AppRoutes />, { permissions: ['*'] }, [path]);
 
       expect(await screen.findByRole('heading', { name: 'Users' })).toBeInTheDocument();
+    }
+  );
+
+  it.each(['/users/user-1', '/users/user-1/edit'])(
+    'routes %s to the User details surface',
+    async (path) => {
+      const apiBase = 'http://localhost:5000';
+      vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input.toString();
+        const method = init?.method ?? 'GET';
+
+        if (url === `${apiBase}/api/admin/users/user-1` && method === 'GET') {
+          return Promise.resolve(new Response(JSON.stringify({
+            id: 'user-1',
+            email: 'ada@example.com',
+            displayName: 'Ada Lovelace',
+            status: 'Active',
+            mfaEnabled: false,
+            lastLoginAt: null,
+            createdAt: '2026-01-01T00:00:00Z',
+            modifiedAt: null,
+            profile: {},
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }));
+        }
+
+        if (url === `${apiBase}/api/admin/roles?page=1&pageSize=100` && method === 'GET') {
+          return Promise.resolve(new Response(JSON.stringify({
+            items: [],
+            totalCount: 0,
+            page: 1,
+            pageSize: 100,
+            totalPages: 0,
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }));
+        }
+
+        if (url === `${apiBase}/api/admin/users/user-1/roles` && method === 'GET') {
+          return Promise.resolve(new Response(JSON.stringify({ userId: 'user-1', roles: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }));
+        }
+
+        if (url === `${apiBase}/api/admin/users/user-1/groups` && method === 'GET') {
+          return Promise.resolve(new Response(JSON.stringify([]), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }));
+        }
+
+        if (url === `${apiBase}/api/admin/users/user-1/upstream-identities` && method === 'GET') {
+          return Promise.resolve(new Response(JSON.stringify({ items: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }));
+        }
+
+        return Promise.resolve(new Response(null, { status: 404 }));
+      }));
+
+      renderGuard(<AppRoutes />, { permissions: ['*'] }, [path]);
+
+      expect(await screen.findByRole('heading', { name: 'User details' })).toBeInTheDocument();
     }
   );
 

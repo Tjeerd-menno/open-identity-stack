@@ -137,6 +137,31 @@ describe('GroupsPage', () => {
     });
   });
 
+  it('validates group create input before submitting', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/groups?page=1&pageSize=20` && method === 'GET') {
+        return jsonResponse(groupsResponse());
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderManagementWeb(<GroupsPage permissions={['groups:read', 'groups:write']} />, { initialEntries: ['/groups/new'] });
+
+    await user.click(await screen.findByRole('button', { name: /create group/i }));
+
+    expect(await screen.findByText('Group name is required.')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      `${apiBase}/api/admin/groups`,
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
   it('manages group members and mappings with granular permissions', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {

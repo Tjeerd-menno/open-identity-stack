@@ -1,11 +1,14 @@
-import { AppShell as MantineAppShell, Burger, Group, Text, Title } from '@mantine/core';
+import { ActionIcon, AppShell as MantineAppShell, Badge, Burger, Group, Menu, Text, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet } from 'react-router';
+import { useAuth } from '@/lib/auth-context';
+import { LogoutIcon } from './IamIcons';
 import { ThemeToggle } from './ThemeToggle';
 import { Navigation } from './Navigation';
 
 export function AppShell() {
   const [opened, { toggle }] = useDisclosure();
+  const auth = useAuth();
 
   return (
     <MantineAppShell
@@ -15,20 +18,36 @@ export function AppShell() {
         breakpoint: 'sm',
         collapsed: { mobile: !opened },
       }}
-      padding="md"
+      padding="lg"
     >
       <MantineAppShell.Header>
         <Group h="100%" px="md" justify="space-between">
-          <Group>
+          <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <div>
-              <Title order={3}>OpenIdentityStack</Title>
+              <Title order={3} size="h4">OpenIdentityStack</Title>
               <Text size="xs" c="dimmed">
-                Management Web
+                IAM Console
               </Text>
             </div>
+            <Badge visibleFrom="sm" color="teal" variant="light">Local tenant</Badge>
           </Group>
-          <ThemeToggle />
+          <Group gap="xs" justify="flex-end">
+            <ThemeToggle />
+            <Menu position="bottom-end" shadow="md">
+              <Menu.Target>
+                <ActionIcon aria-label="Operator menu" variant="light">
+                  {auth.displayName.slice(0, 1).toUpperCase()}
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>{auth.displayName}</Menu.Label>
+                <Menu.Item leftSection={<LogoutIcon />} onClick={() => void auth.logout()}>
+                  Sign out
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
         </Group>
       </MantineAppShell.Header>
       <MantineAppShell.Navbar p="md">

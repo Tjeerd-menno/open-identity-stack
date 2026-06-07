@@ -12,12 +12,14 @@ import {
   registerPermissionManifest,
   removeDelegatedMaintainer,
   transferApplicationOwnership,
+  updateRegisteredApplication,
   type AddApplicationPermissionRequest,
   type AddDelegatedMaintainerRequest,
   type ChangeLifecycleRequest,
   type PaginationParams,
   type PermissionManifestRequest,
   type TransferApplicationOwnershipRequest,
+  type UpdateRegisteredApplicationRequest,
 } from './application-permissions-api';
 
 const queryKey = 'application-permissions';
@@ -72,6 +74,16 @@ export function useTransferApplicationOwnership(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: TransferApplicationOwnershipRequest) => transferApplicationOwnership(id, data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
+    },
+  });
+}
+
+export function useUpdateRegisteredApplication(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: UpdateRegisteredApplicationRequest) => updateRegisteredApplication(id, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [queryKey] });
     },

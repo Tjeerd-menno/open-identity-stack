@@ -1,5 +1,6 @@
-import { Alert, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Stack, Text, Title } from '@mantine/core';
 import { useEffect, type ReactNode } from 'react';
+import { LoadingState } from '@/components/PagePrimitives';
 import { useAuth } from '@/lib/auth-context';
 import { hasAnyPermission } from '@/lib/permissions';
 
@@ -25,7 +26,13 @@ export function AuthenticatedRoute({ children }: { children: ReactNode }) {
   }, [isAuthenticated, isLoading, login]);
 
   if (isLoading) {
-    return <Loader aria-label="Loading management session" />;
+    return (
+      <LoadingState
+        label="Loading management session"
+        title="Opening management console"
+        description="Checking the current operator session before loading the IAM workspace."
+      />
+    );
   }
 
   if (!isAuthenticated) {
