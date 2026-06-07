@@ -79,7 +79,7 @@ describe('useAuth hooks', () => {
         sub: 'u1',
         email: 'alice@example.com',
         name: 'Alice',
-        permissions: ['users:read', 'roles:update'],
+        permissions: ['users:*', 'roles:update'],
       },
     });
 
@@ -87,16 +87,18 @@ describe('useAuth hooks', () => {
       const canReadUsers = usePermission('users:read');
       const canCreateUsers = usePermission('users:create');
       const canManageAny = usePermissions(['groups:read', 'roles:update']);
+      const canManageGroups = usePermissions(['groups:update']);
       const hasAll = useAllPermissions(['users:read', 'roles:update']);
-      const missingOne = useAllPermissions(['users:read', 'users:create']);
+      const missingGroupPermission = useAllPermissions(['users:read', 'groups:update']);
 
       return (
         <div>
           <span data-testid="can-read-users">{String(canReadUsers)}</span>
           <span data-testid="can-create-users">{String(canCreateUsers)}</span>
           <span data-testid="can-manage-any">{String(canManageAny)}</span>
+          <span data-testid="can-manage-groups">{String(canManageGroups)}</span>
           <span data-testid="has-all">{String(hasAll)}</span>
-          <span data-testid="missing-one">{String(missingOne)}</span>
+          <span data-testid="missing-group-permission">{String(missingGroupPermission)}</span>
         </div>
       );
     };
@@ -104,10 +106,11 @@ describe('useAuth hooks', () => {
     render(<PermissionConsumer />, { wrapper });
 
     expect(screen.getByTestId('can-read-users')).toHaveTextContent('true');
-    expect(screen.getByTestId('can-create-users')).toHaveTextContent('false');
+    expect(screen.getByTestId('can-create-users')).toHaveTextContent('true');
     expect(screen.getByTestId('can-manage-any')).toHaveTextContent('true');
+    expect(screen.getByTestId('can-manage-groups')).toHaveTextContent('false');
     expect(screen.getByTestId('has-all')).toHaveTextContent('true');
-    expect(screen.getByTestId('missing-one')).toHaveTextContent('false');
+    expect(screen.getByTestId('missing-group-permission')).toHaveTextContent('false');
   });
 
   it('returns false from permission hooks when the user is not authenticated', () => {

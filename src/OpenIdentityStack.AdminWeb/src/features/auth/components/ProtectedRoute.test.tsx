@@ -133,6 +133,24 @@ describe('ProtectedRoute', () => {
 
     expect(screen.getByText('Protected content')).toBeInTheDocument();
   });
+
+  it('renders children when a wildcard permission satisfies a required user permission', () => {
+    renderWithAuth(
+      <ProtectedRoute requiredPermissions={['users:update']}>
+        <div>Protected content</div>
+      </ProtectedRoute>,
+      {
+        user: {
+          sub: 'u1',
+          email: 'a@b.com',
+          name: 'Alice',
+          permissions: ['users:*'],
+        },
+      }
+    );
+
+    expect(screen.getByText('Protected content')).toBeInTheDocument();
+  });
 });
 
 describe('AccessDenied', () => {
