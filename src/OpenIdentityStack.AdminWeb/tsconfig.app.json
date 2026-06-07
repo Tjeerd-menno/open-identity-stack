@@ -18,7 +18,8 @@
 
     /* Path aliases */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@openidentitystack/admin-api-client": ["../frontend-packages/admin-api-client/src/index.ts"]
     },
 
     /* Linting */

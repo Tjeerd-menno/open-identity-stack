@@ -1,60 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-type RequestConfig = {
-  headers: Record<string, string>;
-};
-
-type InterceptorError = {
-  response?: {
-    status?: number;
-    data?: unknown;
-  };
-  message: string;
-};
-
-const mockedAxios = vi.hoisted(() => {
-  let requestFulfilled:
-    | ((config: RequestConfig) => RequestConfig | Promise<RequestConfig>)
-    | undefined;
-  let responseRejected: ((error: InterceptorError) => Promise<never>) | undefined;
-
-  const instance = {
-    interceptors: {
-      request: {
-        use: vi.fn((onFulfilled: (config: RequestConfig) => RequestConfig | Promise<RequestConfig>) => {
-          requestFulfilled = onFulfilled;
-          return 0;
-        }),
-      },
-      response: {
-        use: vi.fn((_onFulfilled: (value: unknown) => unknown, onRejected: (error: InterceptorError) => Promise<never>) => {
-          responseRejected = onRejected;
-          return 0;
-        }),
-      },
-    },
-    get: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-  };
-
-  return {
-    create: vi.fn(() => instance),
-    instance,
-    getRequestFulfilled: () => requestFulfilled,
-    getResponseRejected: () => responseRejected,
-  };
-});
-
-vi.mock('axios', () => ({
-  __esModule: true,
-  AxiosError: class AxiosError extends Error {},
-  default: {
-    create: mockedAxios.create,
-  },
-}));
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/config/runtime-config', () => ({
   getRuntimeConfig: (_key: string, fallback = '') => fallback,
@@ -62,44 +6,43 @@ vi.mock('@/config/runtime-config', () => ({
 
 import { apiClient } from './client';
 
-describe('ApiClient', () => {
-  beforeEach(() => {
-    mockedAxios.instance.get.mockReset();
-    mockedAxios.instance.post.mockReset();
-    mockedAxios.instance.put.mockReset();
-    mockedAxios.instance.patch.mockReset();
-    mockedAxios.instance.delete.mockReset();
-  });
+const originalFetch = globalThis.fetch;
 
-  it('injects a bearer token via the request interceptor after setting a token provider', async () => {
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  apiClient.setTokenProvider(async () => null);
+  apiClient.setLogoutHandler(null);
+});
+
+describe('ApiClient', () => {
+  it('injects a bearer token after setting a token provider', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    globalThis.fetch = fetchMock;
     const tokenProvider = vi.fn().mockResolvedValue('token-123');
     apiClient.setTokenProvider(tokenProvider);
 
-    const requestFulfilled = mockedAxios.getRequestFulfilled();
-    const config = await requestFulfilled?.({ headers: {} });
+    await apiClient.get('/api/admin/example');
 
     expect(tokenProvider).toHaveBeenCalledOnce();
-    expect(config?.headers.Authorization).toBe('Bearer token-123');
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer token-123');
   });
 
-  it('triggers the logout handler and normalizes 401 errors in the response interceptor', async () => {
+  it('triggers the logout handler and normalizes 401 errors', async () => {
     const logoutHandler = vi.fn();
     apiClient.setLogoutHandler(logoutHandler);
-
-    const responseRejected = mockedAxios.getResponseRejected();
-    const error = {
-      response: {
-        status: 401,
-        data: {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
           title: 'Unauthorized',
           detail: 'Token expired',
           type: 'https://example.com/errors/unauthorized',
-        },
-      },
-      message: 'Request failed with status code 401',
-    };
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
 
-    await expect(responseRejected?.(error)).rejects.toMatchObject({
+    await expect(apiClient.get('/api/admin/example')).rejects.toMatchObject({
       title: 'Unauthorized',
       detail: 'Token expired',
       status: 401,
@@ -108,12 +51,14 @@ describe('ApiClient', () => {
     expect(logoutHandler).toHaveBeenCalledOnce();
   });
 
-  it('proxies HTTP verbs to the underlying axios instance', async () => {
-    mockedAxios.instance.get.mockResolvedValue({ data: { items: [1] } });
-    mockedAxios.instance.post.mockResolvedValue({ data: { id: 'created' } });
-    mockedAxios.instance.put.mockResolvedValue({ data: { id: 'updated' } });
-    mockedAxios.instance.patch.mockResolvedValue({ data: { id: 'patched' } });
-    mockedAxios.instance.delete.mockResolvedValue({ data: { success: true } });
+  it('preserves HTTP verb helpers', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [1] })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'created' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'updated' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'patched' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true })));
+    globalThis.fetch = fetchMock;
 
     await expect(apiClient.get('/users', { page: 2 })).resolves.toEqual({ items: [1] });
     await expect(apiClient.post('/users', { name: 'Alice' })).resolves.toEqual({ id: 'created' });
@@ -121,10 +66,10 @@ describe('ApiClient', () => {
     await expect(apiClient.patch('/users/1', { active: true })).resolves.toEqual({ id: 'patched' });
     await expect(apiClient.delete('/users/1')).resolves.toEqual({ success: true });
 
-    expect(mockedAxios.instance.get).toHaveBeenCalledWith('/users', { params: { page: 2 } });
-    expect(mockedAxios.instance.post).toHaveBeenCalledWith('/users', { name: 'Alice' });
-    expect(mockedAxios.instance.put).toHaveBeenCalledWith('/users/1', { name: 'Bob' });
-    expect(mockedAxios.instance.patch).toHaveBeenCalledWith('/users/1', { active: true });
-    expect(mockedAxios.instance.delete).toHaveBeenCalledWith('/users/1');
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:5000/users?page=2');
+    expect((fetchMock.mock.calls[1][1] as RequestInit).method).toBe('POST');
+    expect((fetchMock.mock.calls[2][1] as RequestInit).method).toBe('PUT');
+    expect((fetchMock.mock.calls[3][1] as RequestInit).method).toBe('PATCH');
+    expect((fetchMock.mock.calls[4][1] as RequestInit).method).toBe('DELETE');
   });
 });
