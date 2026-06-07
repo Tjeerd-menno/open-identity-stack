@@ -15,9 +15,13 @@ public sealed record ApplyApplicationPermissionManifestCommand(
     Guid ApplicationId,
     PermissionManifestDocument Manifest,
     string ActorId,
-    uint? ExpectedConcurrencyToken);
+    uint? ExpectedConcurrencyToken,
+    bool AcknowledgeRedeclare = false,
+    bool AcknowledgeWildcardImpact = false);
 
 public sealed record RemoteApplicationPermissionManifestCommand(
     Guid ApplicationId,
     string ActorId,
-    uint? ExpectedConcurrencyToken);
+    uint? ExpectedConcurrencyToken,
+    bool AcknowledgeRedeclare = false,
+    bool AcknowledgeWildcardImpact = false);

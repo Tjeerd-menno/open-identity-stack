@@ -248,7 +248,9 @@ internal static class ApplicationPermissionsApi
             id,
             ToManifestDocument(request.Manifest),
             GetActorId(context),
-            request.ConcurrencyToken);
+            request.ConcurrencyToken,
+            request.AcknowledgeRedeclare,
+            request.AcknowledgeWildcardImpact);
 
         Result<ManifestPreviewDto> result = await manifestUseCases.PreviewChangesAsync(command, cancellationToken);
         return ToResult(result);
@@ -265,7 +267,9 @@ internal static class ApplicationPermissionsApi
             id,
             ToManifestDocument(request.Manifest),
             GetActorId(context),
-            request.ConcurrencyToken);
+            request.ConcurrencyToken,
+            request.AcknowledgeRedeclare,
+            request.AcknowledgeWildcardImpact);
 
         Result<ManifestApplyDto> result = await manifestUseCases.ApplyChangesAsync(command, cancellationToken);
         return ToResult(result);
@@ -281,7 +285,9 @@ internal static class ApplicationPermissionsApi
         var command = new RemoteApplicationPermissionManifestCommand(
             id,
             GetActorId(context),
-            request.ConcurrencyToken);
+            request.ConcurrencyToken,
+            request.AcknowledgeRedeclare,
+            request.AcknowledgeWildcardImpact);
 
         Result<ManifestPreviewDto> result = await manifestUseCases.PreviewRemoteChangesAsync(command, cancellationToken);
         return ToResult(result);
@@ -297,7 +303,9 @@ internal static class ApplicationPermissionsApi
         var command = new RemoteApplicationPermissionManifestCommand(
             id,
             GetActorId(context),
-            request.ConcurrencyToken);
+            request.ConcurrencyToken,
+            request.AcknowledgeRedeclare,
+            request.AcknowledgeWildcardImpact);
 
         Result<ManifestApplyDto> result = await manifestUseCases.ApplyRemoteChangesAsync(command, cancellationToken);
         return ToResult(result);

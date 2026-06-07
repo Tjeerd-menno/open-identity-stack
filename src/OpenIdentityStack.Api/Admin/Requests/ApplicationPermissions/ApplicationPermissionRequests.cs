@@ -21,15 +21,21 @@ public sealed record CreatePermissionManifestRequest(
     PermissionManifestRequest Manifest,
     string OwnerId,
     string OwnerType,
-    string? ManifestBaseUrl);
+    string? ManifestBaseUrl,
+    bool AcknowledgeRedeclare = false);
 
 public sealed record ManifestUpdateRequest(
     PermissionManifestRequest Manifest,
-    uint? ConcurrencyToken);
+    uint? ConcurrencyToken,
+    bool AcknowledgeRedeclare = false,
+    bool AcknowledgeWildcardImpact = false);
 
-public sealed record ImportPermissionManifestRequest(string Endpoint);
+public sealed record ImportPermissionManifestRequest(string Endpoint, bool AcknowledgeRedeclare = false);
 
-public sealed record RemoteImportRequest(uint? ConcurrencyToken);
+public sealed record RemoteImportRequest(
+    uint? ConcurrencyToken,
+    bool AcknowledgeRedeclare = false,
+    bool AcknowledgeWildcardImpact = false);
 
 public sealed record UpdateRegisteredApplicationRequest(
     string DisplayName,

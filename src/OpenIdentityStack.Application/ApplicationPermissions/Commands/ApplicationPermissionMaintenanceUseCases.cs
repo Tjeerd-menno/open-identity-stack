@@ -1,5 +1,6 @@
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.ApplicationPermissions.Dtos;
+using OpenIdentityStack.Application.ApplicationPermissions.Planning;
 using OpenIdentityStack.Application.ApplicationPermissions.Validators;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Domain.ApplicationPermissions;
@@ -280,12 +281,9 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
             return adminResult.Error;
         }
 
-        var remaining = application.Permissions.Where(candidate => !candidate.IsRemoved && candidate.Id != permission.Id).ToList();
-        var plan = new PermissionAssignmentRemovalPlan(
-            [permission.FullPermissionKey],
-            BuildCollapsedWildcardPermissions(application, [permission], remaining));
+        ApplicationPermissionChangePlan plan = ApplicationPermissionChangePlanner.CreatePermissionDeletionPlan(application, permission);
         IReadOnlyList<PermissionAssignmentImpactDto> impacts = await this.permissionAssignmentStore
-            .PreviewRemovalImpactAsync(plan, cancellationToken)
+            .PreviewRemovalImpactAsync(plan.AssignmentRemovalPlan, cancellationToken)
             .ConfigureAwait(false);
 
         return new DeletionImpactDto(command.PermissionId, "permission", impacts, []);
@@ -324,12 +322,9 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
             return ManifestBackedApplicationReadOnly;
         }
 
-        var remaining = application.Permissions.Where(candidate => !candidate.IsRemoved && candidate.Id != permission.Id).ToList();
-        var plan = new PermissionAssignmentRemovalPlan(
-            [permission.FullPermissionKey],
-            BuildCollapsedWildcardPermissions(application, [permission], remaining));
+        ApplicationPermissionChangePlan plan = ApplicationPermissionChangePlanner.CreatePermissionDeletionPlan(application, permission);
         Result<IReadOnlyList<PermissionAssignmentImpactDto>> assignmentResult = await this.permissionAssignmentStore
-            .RemoveAssignmentsAsync(plan, command.ActorId, cancellationToken)
+            .RemoveAssignmentsAsync(plan.AssignmentRemovalPlan, command.ActorId, cancellationToken)
             .ConfigureAwait(false);
         if (assignmentResult.IsFailure)
         {
@@ -344,7 +339,12 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
 
         await this.repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         await this.auditWriter.WriteAsync("DeletePermission", command.ActorId, application.Id.Value.ToString(), "Succeeded", cancellationToken).ConfigureAwait(false);
-        return BuildDestructiveResult(application, [permission], assignmentResult.Value, metadataUpdated: false, manifestVersionAdvanced: false);
+        return ApplicationPermissionChangePlanProjector.ToDestructiveResult(
+            application,
+            plan.Removals,
+            assignmentResult.Value,
+            metadataUpdated: false,
+            manifestVersionAdvanced: false);
     }
 
     public async Task<Result<DestructiveOperationResultDto>> ExecuteAsync(DeleteRegisteredApplicationCommand command, CancellationToken cancellationToken = default)
@@ -368,12 +368,9 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
             return adminResult.Error;
         }
 
-        var removals = application.Permissions.Where(static permission => !permission.IsRemoved).ToList();
-        var plan = new PermissionAssignmentRemovalPlan(
-            removals.Select(permission => permission.FullPermissionKey).ToList(),
-            BuildApplicationWildcardPermissions(application, removals));
+        ApplicationPermissionChangePlan plan = ApplicationPermissionChangePlanner.CreateApplicationDeletionPlan(application);
         IReadOnlyList<PermissionAssignmentImpactDto> impacts = await this.permissionAssignmentStore
-            .PreviewRemovalImpactAsync(plan, cancellationToken)
+            .PreviewRemovalImpactAsync(plan.AssignmentRemovalPlan, cancellationToken)
             .ConfigureAwait(false);
 
         return new DeletionImpactDto(command.ApplicationId, "application", impacts, []);
@@ -398,12 +395,9 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
             return DomainError.Conflict("ApplicationPermission.ConcurrencyConflict", "The registered application was modified by another request.");
         }
 
-        var removals = application.Permissions.Where(static permission => !permission.IsRemoved).ToList();
-        var plan = new PermissionAssignmentRemovalPlan(
-            removals.Select(permission => permission.FullPermissionKey).ToList(),
-            BuildApplicationWildcardPermissions(application, removals));
+        ApplicationPermissionChangePlan plan = ApplicationPermissionChangePlanner.CreateApplicationDeletionPlan(application);
         Result<IReadOnlyList<PermissionAssignmentImpactDto>> assignmentResult = await this.permissionAssignmentStore
-            .RemoveAssignmentsAsync(plan, command.ActorId, cancellationToken)
+            .RemoveAssignmentsAsync(plan.AssignmentRemovalPlan, command.ActorId, cancellationToken)
             .ConfigureAwait(false);
         if (assignmentResult.IsFailure)
         {
@@ -414,7 +408,12 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
 
         await this.repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         await this.auditWriter.WriteAsync("DeleteApplication", command.ActorId, application.Id.Value.ToString(), "Succeeded", cancellationToken).ConfigureAwait(false);
-        return BuildDestructiveResult(application, removals, assignmentResult.Value, metadataUpdated: false, manifestVersionAdvanced: false);
+        return ApplicationPermissionChangePlanProjector.ToDestructiveResult(
+            application,
+            plan.Removals,
+            assignmentResult.Value,
+            metadataUpdated: false,
+            manifestVersionAdvanced: false);
     }
 
     public async Task<Result<RegisteredApplicationDto>> ExecuteAsync(ChangeRegisteredApplicationLifecycleCommand command, CancellationToken cancellationToken = default)
@@ -683,46 +682,6 @@ public sealed class ApplicationPermissionMaintenanceUseCases :
 
         await this.auditWriter.WriteAsync(action, actorId, application.Id.Value.ToString(), "Denied", cancellationToken).ConfigureAwait(false);
         return DomainError.Forbidden("ApplicationPermission.Forbidden", "Actor cannot administer application permissions.");
-    }
-
-    private static List<string> BuildCollapsedWildcardPermissions(
-        RegisteredApplication application,
-        IReadOnlyList<ApplicationPermission> removals,
-        IReadOnlyList<ApplicationPermission> remaining)
-    {
-        return removals
-            .Select(permission => permission.PermissionKey.Split(':', 2)[0])
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Where(resource => !remaining.Any(permission => permission.PermissionKey.StartsWith($"{resource}:", StringComparison.OrdinalIgnoreCase)))
-            .Select(resource => $"{application.ApplicationIdentifier}:{resource}:*")
-            .ToList();
-    }
-
-    private static List<string> BuildApplicationWildcardPermissions(
-        RegisteredApplication application,
-        IReadOnlyList<ApplicationPermission> removals)
-    {
-        return removals
-            .Select(permission => permission.PermissionKey.Split(':', 2)[0])
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(resource => $"{application.ApplicationIdentifier}:{resource}:*")
-            .ToList();
-    }
-
-    private static DestructiveOperationResultDto BuildDestructiveResult(
-        RegisteredApplication application,
-        IReadOnlyList<ApplicationPermission> removedPermissions,
-        IReadOnlyList<PermissionAssignmentImpactDto> assignmentImpacts,
-        bool metadataUpdated,
-        bool manifestVersionAdvanced)
-    {
-        return new DestructiveOperationResultDto(
-            removedPermissions.Select(permission => ToPermissionDto(application, permission)).ToList(),
-            assignmentImpacts.Where(static impact => impact.ImpactKind == "exactRemoved").ToList(),
-            assignmentImpacts.Where(static impact => impact.ImpactKind == "wildcardRemoved").ToList(),
-            assignmentImpacts.Where(static impact => impact.ImpactKind == "wildcardImpacted").ToList(),
-            metadataUpdated,
-            manifestVersionAdvanced);
     }
 
     public static DeletedApplicationHistoryDto MapSummary(RegisteredApplication application)

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.ApplicationPermissions.Dtos;
+using OpenIdentityStack.Application.ApplicationPermissions.Planning;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Infrastructure.Persistence;
@@ -82,15 +83,15 @@ public sealed class RolePermissionAssignmentStore : IPermissionAssignmentStore
             {
                 if (exactPermissions.Contains(permission))
                 {
-                    impacts.Add(ToImpact(role, permission, "exactRemoved"));
+                    impacts.Add(ToImpact(role, permission, AssignmentImpactKinds.ExactRemoved));
                 }
                 else if (wildcardPermissionsToRemove.Contains(permission))
                 {
-                    impacts.Add(ToImpact(role, permission, "wildcardRemoved"));
+                    impacts.Add(ToImpact(role, permission, AssignmentImpactKinds.WildcardRemoved));
                 }
                 else if (impactedWildcardPermissions.Contains(permission))
                 {
-                    impacts.Add(ToImpact(role, permission, "wildcardImpacted"));
+                    impacts.Add(ToImpact(role, permission, AssignmentImpactKinds.WildcardImpacted));
                 }
             }
         }
