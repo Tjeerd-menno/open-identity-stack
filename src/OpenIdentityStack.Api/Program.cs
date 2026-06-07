@@ -58,6 +58,7 @@ builder.Services.AddDataProtection()
     .PersistKeysToDbContext<OpenIdentityStackDbContext>();
 
 builder.Services.AddScoped<IOpenIddictRequestService, OpenIddictRequestService>();
+builder.Services.AddScoped<ITokenClaimProjectionService, TokenClaimProjectionService>();
 
 // Add authentication and authorization
 builder.Services.AddAuthentication(options =>

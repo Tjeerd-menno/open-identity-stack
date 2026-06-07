@@ -6,7 +6,6 @@ using OpenIddict.Server;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Users.Queries;
-using OpenIdentityStack.Domain.ApplicationPermissions;
 
 using SharedKernel;
 
@@ -16,14 +15,16 @@ internal sealed class IntrospectionPermissionsHandler :
     IOpenIddictServerHandler<OpenIddictServerEvents.HandleIntrospectionRequestContext>
 {
     private readonly IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler;
-    private readonly IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository;
+    private readonly IPermissionClaimProjectionService permissionClaimProjectionService;
 
     public IntrospectionPermissionsHandler(
         IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler,
+        IPermissionClaimProjectionService? permissionClaimProjectionService = null,
         IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null)
     {
         this.getUserEffectiveRolesQueryHandler = getUserEffectiveRolesQueryHandler;
-        this.applicationPermissionRegistryRepository = applicationPermissionRegistryRepository;
+        this.permissionClaimProjectionService = permissionClaimProjectionService
+            ?? new OpenIdentityStack.Application.Authorization.PermissionClaimProjectionService(applicationPermissionRegistryRepository);
     }
 
     public async ValueTask HandleAsync(OpenIddictServerEvents.HandleIntrospectionRequestContext context)
@@ -67,98 +68,24 @@ internal sealed class IntrospectionPermissionsHandler :
 
         if (!resolvedFromFreshRoles && principal is not null)
         {
-            permissions.AddRange(GetPermissionClaims(principal));
+            permissions.AddRange(this.permissionClaimProjectionService.GetPermissionClaims(principal));
         }
 
-        IReadOnlyList<string> expandedPermissions = await this.ExpandDynamicWildcardsAsync(
-            permissions,
-            requestingClientId,
-            cancellationToken).ConfigureAwait(false);
-
-        return FilterPermissionsForCaller(expandedPermissions, requestingClientId);
-    }
-
-    private async Task<IReadOnlyList<string>> ExpandDynamicWildcardsAsync(
-        IEnumerable<string> permissions,
-        string? requestingClientId,
-        CancellationToken cancellationToken)
-    {
-        if (this.applicationPermissionRegistryRepository is null || string.IsNullOrWhiteSpace(requestingClientId))
-        {
-            return permissions.ToList();
-        }
-
-        var expanded = new List<string>();
+        var expandedPermissions = new List<string>();
         foreach (string permission in permissions)
         {
-            string[] parts = permission.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (parts.Length != 3
-                || parts[2] != "*"
-                || !string.Equals(parts[0], requestingClientId, StringComparison.OrdinalIgnoreCase))
+            try
             {
-                expanded.Add(permission);
-                continue;
+                expandedPermissions.AddRange(await this.permissionClaimProjectionService
+                    .ExpandAssignedPermissionsAsync([permission], cancellationToken)
+                    .ConfigureAwait(false));
             }
-
-            RegisteredApplication? application = await this.applicationPermissionRegistryRepository
-                .GetByIdentifierAsync(parts[0], cancellationToken)
-                .ConfigureAwait(false);
-            if (application is null || application.Status != ApplicationLifecycleStatus.Active)
+            catch (InvalidOperationException)
             {
-                continue;
+                // Introspection fails closed for an unexpandable wildcard without leaking the wildcard itself.
             }
-
-            string prefix = $"{parts[1]}:";
-            expanded.AddRange(application.Permissions
-                .Where(applicationPermission => applicationPermission.PermissionKey.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                .Select(applicationPermission => applicationPermission.FullPermissionKey));
         }
 
-        return expanded;
+        return this.permissionClaimProjectionService.FilterPermissionsForCaller(expandedPermissions, requestingClientId);
     }
-
-    private static List<string> FilterPermissionsForCaller(
-        IEnumerable<string> permissions,
-        string? requestingClientId)
-    {
-        if (string.IsNullOrWhiteSpace(requestingClientId))
-        {
-            return [];
-        }
-
-        var filtered = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (string permission in permissions)
-        {
-            if (!IsPermissionRelevantToCaller(permission, requestingClientId)
-                || !seen.Add(permission))
-            {
-                continue;
-            }
-
-            filtered.Add(permission);
-        }
-
-        return filtered;
-    }
-
-    private static bool IsPermissionRelevantToCaller(string permission, string requestingClientId) =>
-        IsConcreteDynamicPermission(permission, requestingClientId);
-
-    private static bool IsConcreteDynamicPermission(string permission, string requestingClientId)
-    {
-        string[] parts = permission.Split(':');
-        return parts.Length == 3
-            && parts.All(static part => !string.IsNullOrWhiteSpace(part))
-            && !parts.Any(static part => part == "*")
-            && string.Equals(parts[0], requestingClientId, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static IEnumerable<string> GetPermissionClaims(ClaimsPrincipal principal) =>
-        principal.FindAll("permission")
-            .Concat(principal.FindAll("permissions"))
-            .SelectMany(static claim => claim.Value.Split(
-                [' ', ','],
-                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 }
