@@ -195,6 +195,7 @@ public static class DependencyInjection
         services.AddScoped<IApplicationPermissionAuthorizationService, ApplicationPermissionAuthorizationService>();
         services.AddScoped<IApplicationPermissionAuditWriter, ApplicationPermissionAuditWriter>();
         services.AddScoped<IPermissionAssignmentValidator, PermissionAssignmentValidator>();
+        services.AddScoped<IPermissionClaimProjectionService, PermissionClaimProjectionService>();
         services.AddScoped<IPermissionChecker, PermissionChecker>();
     }
 }

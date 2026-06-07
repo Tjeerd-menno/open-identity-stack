@@ -45,6 +45,8 @@ public class AuthorizationController : ControllerBase
     private readonly IValidateSessionQueryHandler validateSessionQueryHandler;
     private readonly IOpenIddictRequestService requestService;
     private readonly IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository;
+    private readonly IPermissionClaimProjectionService permissionClaimProjectionService;
+    private readonly ITokenClaimProjectionService tokenClaimProjectionService;
     private readonly IHostEnvironment? environment;
 
     public AuthorizationController(
@@ -57,7 +59,9 @@ public class AuthorizationController : ControllerBase
         IValidateSessionQueryHandler validateSessionQueryHandler,
         IOpenIddictRequestService requestService,
         IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null,
-        IHostEnvironment? environment = null)
+        IHostEnvironment? environment = null,
+        IPermissionClaimProjectionService? permissionClaimProjectionService = null,
+        ITokenClaimProjectionService? tokenClaimProjectionService = null)
     {
         this.applicationManager = applicationManager;
         this.scopeManager = scopeManager;
@@ -68,6 +72,9 @@ public class AuthorizationController : ControllerBase
         this.validateSessionQueryHandler = validateSessionQueryHandler;
         this.requestService = requestService;
         this.applicationPermissionRegistryRepository = applicationPermissionRegistryRepository;
+        this.permissionClaimProjectionService = permissionClaimProjectionService
+            ?? new PermissionClaimProjectionService(applicationPermissionRegistryRepository);
+        this.tokenClaimProjectionService = tokenClaimProjectionService ?? new TokenClaimProjectionService();
         this.environment = environment;
     }
 
@@ -137,67 +144,15 @@ public class AuthorizationController : ControllerBase
             return this.Redirect($"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}");
         }
 
-        // Create the claims-based identity that will be used by OpenIddict
-        var identity = new ClaimsIdentity(
-            authenticationType: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
-            nameType: Claims.Name,
-            roleType: Claims.Role);
-
         ClaimsPrincipal user = authenticatedUser ?? throw new InvalidOperationException("The authenticated user cannot be resolved.");
-
-        // Add the claims that will be persisted in the tokens
         string userIdString = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("Subject claim not found.");
-        identity.AddClaim(new System.Security.Claims.Claim(Claims.Subject, userIdString));
 
         UserId? userId = TryParseUserId(userIdString);
         Domain.Users.User? persistedUser = userId is { } parsedUserId
             ? await this.userRepository.GetByIdAsync(parsedUserId)
             : null;
 
-        if (persistedUser?.DisplayName is { Length: > 0 } persistedDisplayName)
-        {
-            identity.AddClaim(new Claim(Claims.Name, persistedDisplayName));
-        }
-        else if (user.FindFirstValue(ClaimTypes.Name) is { } name)
-        {
-            identity.AddClaim(new Claim(Claims.Name, name));
-        }
-
-        if (!string.IsNullOrWhiteSpace(persistedUser?.Email))
-        {
-            identity.AddClaim(new Claim(Claims.Email, persistedUser.Email));
-            identity.AddClaim(new Claim(Claims.EmailVerified, "true", ClaimValueTypes.Boolean));
-        }
-        else if (user.FindFirstValue(ClaimTypes.Email) is { } email)
-        {
-            identity.AddClaim(new Claim(Claims.Email, email));
-            identity.AddClaim(new Claim(Claims.EmailVerified, "true", ClaimValueTypes.Boolean));
-        }
-
-        if (persistedUser is not null)
-        {
-            AddPersistedProfileClaims(identity, persistedUser);
-        }
-        else
-        {
-            AddPrincipalProfileClaims(identity, user);
-        }
-
-        if (authenticationTime is { } authTime)
-        {
-            SetAuthenticationTimeClaim(identity, authTime);
-        }
-
-        if (GetSupportedAcrValue(request) is { } acr)
-        {
-            identity.AddClaim(new Claim(authenticationContextClassReferenceClaim, acr));
-        }
-
-        foreach (string requestedClaim in GetRequestedUserInfoClaims(request))
-        {
-            identity.AddClaim(new Claim(requestedUserInfoClaim, requestedClaim));
-        }
-
+        string? sessionIdValue = null;
         if (user.FindFirstValue("sid") is { } sessionIdStr && Guid.TryParse(sessionIdStr, out Guid sessionIdGuid))
         {
             var sessionId = new SessionId(sessionIdGuid);
@@ -209,8 +164,7 @@ public class AuthorizationController : ControllerBase
                     request.ClientId));
             }
 
-            identity.AddClaim(new Claim("sid", sessionIdStr));
-            identity.AddClaim(new Claim(legacySessionIdClaim, sessionIdStr));
+            sessionIdValue = sessionIdStr;
         }
         else if (user.FindFirstValue(legacySessionIdClaim) is { } legacySessionIdStr && Guid.TryParse(legacySessionIdStr, out Guid legacySessionIdGuid))
         {
@@ -223,9 +177,12 @@ public class AuthorizationController : ControllerBase
                     request.ClientId));
             }
 
-            identity.AddClaim(new Claim("sid", legacySessionIdStr));
-            identity.AddClaim(new Claim(legacySessionIdClaim, legacySessionIdStr));
+            sessionIdValue = legacySessionIdStr;
         }
+
+        var roleNames = new List<string>();
+        var permissions = new List<string>();
+        IReadOnlyList<GroupClaimDto> groupClaims = [];
 
         // Add role claims (direct + group mapped)
         if (userId is { } resolvedUserId)
@@ -236,12 +193,10 @@ public class AuthorizationController : ControllerBase
              {
                  foreach (RoleDto role in rolesResult.Value)
                  {
-                     identity.AddClaim(new Claim(Claims.Role, role.Name));
-
-                     foreach (string permission in await this.ExpandPermissionClaimsAsync(role.Permissions))
-                     {
-                         identity.AddClaim(new Claim("permission", permission));
-                     }
+                     roleNames.Add(role.Name);
+                     permissions.AddRange(await this.permissionClaimProjectionService
+                         .ExpandAssignedPermissionsAsync(role.Permissions, this.HttpContext.RequestAborted)
+                         .ConfigureAwait(false));
                  }
              }
 
@@ -249,40 +204,26 @@ public class AuthorizationController : ControllerBase
             Result<IReadOnlyList<GroupClaimDto>> groupClaimsResult = await this.getGroupClaimsForUserQueryHandler.HandleAsync(resolvedUserId);
              if (groupClaimsResult.IsSuccess)
              {
-                 foreach (GroupClaimDto groupClaim in groupClaimsResult.Value)
-                 {
-                     var claim = new Claim(groupClaim.Type, groupClaim.Value);
-                     
-                     // Helper to map TokenTarget to destinations string
-                     var dests = new List<string>();
-                     if (groupClaim.TokenTarget == TokenTarget.AccessToken || groupClaim.TokenTarget == TokenTarget.Both)
-                    {
-                        dests.Add(Destinations.AccessToken);
-                    }
-
-                    if (groupClaim.TokenTarget == TokenTarget.IdToken || groupClaim.TokenTarget == TokenTarget.Both)
-                    {
-                        dests.Add(Destinations.IdentityToken);
-                    }
-
-                    if (dests.Count > 0)
-                     {
-                         claim.Properties["destinations"] = string.Join(" ", dests);
-                     }
-                     
-                     identity.AddClaim(claim);
-                 }
+                 groupClaims = groupClaimsResult.Value;
              }
         }
 
-        // Allow all claims to be added in the access tokens
-        identity.SetScopes(request.GetScopes());
-        identity.SetResources(await this.scopeManager.ListResourcesAsync(identity.GetScopes()).ToListAsync().ConfigureAwait(false));
-
-        identity.SetDestinations(GetDestinations);
+        ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectSubjectClaims(
+            new TokenClaimProjectionRequest(
+                user,
+                persistedUser,
+                roleNames,
+                permissions,
+                groupClaims,
+                request.GetScopes(),
+                GetRequestedUserInfoClaims(request),
+                authenticationTime,
+                GetSupportedAcrValue(request),
+                sessionIdValue));
+        projectedPrincipal.SetResources(await this.scopeManager.ListResourcesAsync(projectedPrincipal.GetScopes()).ToListAsync().ConfigureAwait(false));
 
         return this.SignIn(
-            new ClaimsPrincipal(identity),
+            projectedPrincipal,
             CreateOpenIddictAuthenticationProperties(authenticationTime),
             OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
@@ -354,7 +295,7 @@ public class AuthorizationController : ControllerBase
 
             identity.SetScopes(request.GetScopes());
             identity.SetResources(await this.scopeManager.ListResourcesAsync(identity.GetScopes()).ToListAsync().ConfigureAwait(false));
-            identity.SetDestinations(GetDestinations);
+            identity.SetDestinations(TokenClaimProjectionService.GetDestinations);
 
             return this.SignIn(new ClaimsPrincipal(identity), OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         }
@@ -398,26 +339,10 @@ public class AuthorizationController : ControllerBase
                 }
             }
 
-            var identity = new ClaimsIdentity(result.Principal!.Claims.Where(claim =>
-                    !string.Equals(claim.Type, legacySessionIdClaim, StringComparison.Ordinal)
-                    && !string.Equals(claim.Type, Claims.AuthenticationTime, StringComparison.Ordinal)),
-                authenticationType: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
-                nameType: Claims.Name,
-                roleType: Claims.Role);
-
-            identity.SetScopes(result.Principal.GetScopes());
-            identity.SetResources(result.Principal.GetResources());
-
             DateTimeOffset? authenticationTime = GetAuthenticationTime(result.Properties, result.Principal!);
-
-            if (authenticationTime is { } authTime)
-            {
-                SetAuthenticationTimeClaim(identity, authTime);
-            }
-
-            identity.SetDestinations(GetDestinations);
+            ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, authenticationTime);
             return this.SignIn(
-                new ClaimsPrincipal(identity),
+                projectedPrincipal,
                 CreateOpenIddictAuthenticationProperties(authenticationTime),
                 OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         }
@@ -447,40 +372,7 @@ public class AuthorizationController : ControllerBase
                 }));
         }
 
-        var claims = new Dictionary<string, object>(StringComparer.Ordinal)
-        {
-            [Claims.Subject] = result.Principal!.GetClaim(Claims.Subject)!
-        };
-
-        ImmutableHashSet<string> requestedUserInfoClaims = GetRequestedUserInfoClaims(result.Principal);
-
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Name, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.GivenName, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.FamilyName, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.MiddleName, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Nickname, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.PreferredUsername, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Profile, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Picture, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Website, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Gender, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Birthdate, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Zoneinfo, Scopes.Profile);
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Locale, Scopes.Profile);
-        AddUserInfoIntegerClaim(claims, result.Principal, requestedUserInfoClaims, Claims.UpdatedAt, Scopes.Profile);
-
-        AddUserInfoStringClaim(claims, result.Principal, requestedUserInfoClaims, Claims.Email, Scopes.Email);
-
-        if (result.Principal.HasScope(Scopes.Email)
-            || requestedUserInfoClaims.Contains(Claims.EmailVerified))
-        {
-            if (result.Principal.GetClaim(Claims.EmailVerified) is { } emailVerified)
-            {
-                claims[Claims.EmailVerified] = string.Equals(emailVerified, "true", StringComparison.OrdinalIgnoreCase);
-            }
-        }
-
-        return this.Ok(claims);
+        return this.Ok(this.tokenClaimProjectionService.CreateUserInfoResponse(result.Principal!));
     }
 
     // NOTE: Logout endpoint is handled by LogoutController which implements
