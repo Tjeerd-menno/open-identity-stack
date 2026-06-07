@@ -116,6 +116,7 @@ Desktop.ini
 *.temp
 *.swp
 *~
+.worktrees/
 
 # Node (if any frontend added later)
 node_modules/
