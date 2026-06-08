@@ -1,49 +1,31 @@
-import { request, type PaginatedResponse } from '@/lib/admin-api';
+import { adminApiClient } from '@/lib/admin-api';
+import {
+  createSessionsContract,
+  type RevokeAllUserSessionsResponse,
+  type Session,
+  type SessionListParams,
+  type SessionListResponse,
+  type SessionListResponse as SharedSessionListResponse,
+  type PaginatedResponse,
+} from '@openidentitystack/admin-api-client';
 
-export type SessionStatus = 'Active' | 'LoggedOut' | 'Expired' | 'Revoked';
+const contract = createSessionsContract(adminApiClient);
 
-export type Session = {
-  id: string;
-  userId: string;
-  ipAddress: string;
-  userAgent: string;
-  status: SessionStatus;
-  clientCount: number;
-  lastActivityAt: string;
-  expiresAt: string;
-  createdAt: string;
-};
-
-export type SessionListParams = {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-  status?: SessionStatus;
-};
-
-export type SessionListResponse = PaginatedResponse<Session>;
-
-export type RevokeAllUserSessionsResponse = {
-  revokedCount: number;
-  revokedAt: string;
-};
+export type { Session, SessionListParams, RevokeAllUserSessionsResponse, PaginatedResponse };
+export type SessionListResponse = SharedSessionListResponse;
 
 export function getSessions(params?: SessionListParams): Promise<SessionListResponse> {
-  return request<SessionListResponse>('/api/admin/sessions', {}, params);
+  return contract.getSessions(params);
 }
 
 export function getSession(sessionId: string): Promise<Session> {
-  return request<Session>(`/api/admin/sessions/${sessionId}`);
+  return contract.getSession(sessionId);
 }
 
 export function revokeSession(sessionId: string): Promise<void> {
-  return request<void>(`/api/admin/sessions/${sessionId}`, {
-    method: 'DELETE',
-  });
+  return contract.revokeSession(sessionId);
 }
 
 export function revokeAllUserSessions(userId: string): Promise<RevokeAllUserSessionsResponse> {
-  return request<RevokeAllUserSessionsResponse>(`/api/admin/users/${userId}/sessions`, {
-    method: 'DELETE',
-  });
+  return contract.revokeAllUserSessions(userId);
 }

@@ -89,6 +89,25 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
   };
 }
 
+export { createUsersContract } from './users';
+export * from './users';
+export { createGroupsContract } from './groups';
+export * from './groups';
+export { createApplicationsContract } from './applications';
+export * from './applications';
+export { createRolesContract } from './roles';
+export * from './roles';
+export { createSessionsContract } from './sessions';
+export * from './sessions';
+export { createProvidersContract } from './providers';
+export * from './providers';
+export { createSettingsContract } from './settings';
+export * from './settings';
+export { createAuditEntriesContract } from './audit-entries';
+export * from './audit-entries';
+export { createApplicationPermissionsContract } from './application-permissions';
+export * from './application-permissions';
+
 export function createApiError(status: number, payload: unknown): ApiError {
   const problem = isRecord(payload) ? payload : {};
   const errors = normalizeValidationErrors(problem.errors);

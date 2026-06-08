@@ -1,5 +1,4 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { apiClient } from '@/lib/api/client';
 import {
   getAssignablePermissionCatalog,
   getApplicationPermissionDiagnostics,
@@ -15,13 +14,67 @@ import {
   updateRemovedPermissionReplacement,
 } from './application-permissions-api';
 
-vi.mock('@/lib/api/client', () => ({
-  apiClient: {
+const { adminApiClient, apiClient } = vi.hoisted(() => {
+  const apiClient = {
     get: vi.fn(),
     post: vi.fn(),
+    put: vi.fn(),
     patch: vi.fn(),
     delete: vi.fn(),
-  },
+  };
+
+  const adminApiClient = {
+    request: vi.fn(),
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  };
+
+  adminApiClient.get.mockImplementation((url, params) =>
+    params === undefined ? apiClient.get(url) : apiClient.get(url, params)
+  );
+  adminApiClient.post.mockImplementation((url, body) =>
+    body === undefined ? apiClient.post(url) : apiClient.post(url, body)
+  );
+  adminApiClient.put.mockImplementation((url, body) =>
+    body === undefined ? apiClient.put(url) : apiClient.put(url, body)
+  );
+  adminApiClient.patch.mockImplementation((url, body) =>
+    body === undefined ? apiClient.patch(url) : apiClient.patch(url, body)
+  );
+  adminApiClient.delete.mockImplementation((url) => apiClient.delete(url));
+  adminApiClient.request.mockImplementation((url, requestOptions = {}, params) => {
+    const method = requestOptions.method ? requestOptions.method.toUpperCase() : 'GET';
+    if (method === 'GET') {
+      return apiClient.get(url, params);
+    }
+    if (method === 'POST') {
+      return requestOptions.body === undefined ? apiClient.post(url) : apiClient.post(url, requestOptions.body as unknown);
+    }
+    if (method === 'PUT') {
+      return requestOptions.body === undefined ? apiClient.put(url) : apiClient.put(url, requestOptions.body as unknown);
+    }
+    if (method === 'PATCH') {
+      return requestOptions.body === undefined
+        ? apiClient.patch(url)
+        : apiClient.patch(url, requestOptions.body as unknown);
+    }
+    if (method === 'DELETE') {
+      return apiClient.delete(url);
+    }
+
+    return apiClient.delete(url);
+  });
+
+  return { adminApiClient, apiClient };
+});
+
+vi.mock('@/lib/api/client', () => ({
+  apiClient,
+  adminApiClient,
+  default: apiClient,
 }));
 
 describe('application permissions api', () => {
