@@ -79,18 +79,66 @@ import {
 } from './users/api/users-api';
 import { ClientType, MappingType, ProviderStatus } from '@/types';
 
-const { apiClient } = vi.hoisted(() => ({
-  apiClient: {
+const { adminApiClient, apiClient } = vi.hoisted(() => {
+  const apiClient = {
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
     patch: vi.fn(),
     delete: vi.fn(),
-  },
-}));
+  };
+
+  const adminApiClient = {
+    request: vi.fn(),
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  };
+
+  adminApiClient.get.mockImplementation((url, params) =>
+    params === undefined ? apiClient.get(url) : apiClient.get(url, params)
+  );
+  adminApiClient.post.mockImplementation((url, body) =>
+    body === undefined ? apiClient.post(url) : apiClient.post(url, body)
+  );
+  adminApiClient.put.mockImplementation((url, body) =>
+    body === undefined ? apiClient.put(url) : apiClient.put(url, body)
+  );
+  adminApiClient.patch.mockImplementation((url, body) =>
+    body === undefined ? apiClient.patch(url) : apiClient.patch(url, body)
+  );
+  adminApiClient.delete.mockImplementation((url) => apiClient.delete(url));
+  adminApiClient.request.mockImplementation((url, requestOptions = {}, params) => {
+    const method = requestOptions.method ? requestOptions.method.toUpperCase() : 'GET';
+  if (method === 'GET') {
+      return apiClient.get(url, params);
+    }
+    if (method === 'POST') {
+      return requestOptions.body === undefined ? apiClient.post(url) : apiClient.post(url, requestOptions.body as unknown);
+    }
+    if (method === 'PUT') {
+      return requestOptions.body === undefined ? apiClient.put(url) : apiClient.put(url, requestOptions.body as unknown);
+    }
+    if (method === 'PATCH') {
+      return requestOptions.body === undefined
+        ? apiClient.patch(url)
+        : apiClient.patch(url, requestOptions.body as unknown);
+    }
+    if (method === 'DELETE') {
+      return apiClient.delete(url);
+    }
+
+    return apiClient.delete(url);
+  });
+
+  return { adminApiClient, apiClient };
+});
 
 vi.mock('@/lib/api/client', () => ({
   apiClient,
+  adminApiClient,
   default: apiClient,
 }));
 
@@ -244,7 +292,7 @@ describe('admin API clients', () => {
       expect(apiClient.post).toHaveBeenNthCalledWith(
         2,
         '/api/admin/users/user-1/upstream-identities',
-        { providerId: 'google', subjectId: 'sub-1', email: 'alice@example.com' }
+        { providerId: 'google', subject: 'sub-1', email: 'alice@example.com' }
       );
       expect(apiClient.delete).toHaveBeenNthCalledWith(
         2,
@@ -260,7 +308,11 @@ describe('admin API clients', () => {
 
       await getGroups(4, 10, 'platform');
 
-      expect(apiClient.get).toHaveBeenCalledWith('/api/admin/groups?page=4&pageSize=10&search=platform');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/admin/groups', {
+        page: 4,
+        pageSize: 10,
+        search: 'platform',
+      });
     });
 
     it('omits empty group search parameters', async () => {
@@ -268,7 +320,10 @@ describe('admin API clients', () => {
 
       await getGroups();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/api/admin/groups?page=1&pageSize=20');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/admin/groups', {
+        page: 1,
+        pageSize: 20,
+      });
     });
 
     it('covers group CRUD endpoints', async () => {
@@ -309,7 +364,11 @@ describe('admin API clients', () => {
 
       expect(apiClient.get).toHaveBeenNthCalledWith(
         1,
-        '/api/admin/groups/group-1/members?page=2&pageSize=5'
+        '/api/admin/groups/group-1/members',
+        {
+          page: 2,
+          pageSize: 5,
+        }
       );
       expect(apiClient.post).toHaveBeenNthCalledWith(1, '/api/admin/groups/group-1/members/user-1');
       expect(apiClient.delete).toHaveBeenNthCalledWith(1, '/api/admin/groups/group-1/members/user-1');
@@ -378,10 +437,7 @@ describe('admin API clients', () => {
       await expect(getAvailablePermissions()).resolves.toEqual(
         expect.arrayContaining(['users:read', 'roles:create', 'inventory:read'])
       );
-      expect(apiClient.get).toHaveBeenCalledWith('/api/admin/application-permissions/catalog', {
-        page: 1,
-        pageSize: 100,
-      });
+      expect(apiClient.get).toHaveBeenCalledWith('/api/admin/permissions/platform');
     });
 
     it('falls back to built-in permissions when the catalog fails', async () => {
@@ -415,7 +471,7 @@ describe('admin API clients', () => {
       await revokeAllUserSessions('user-1');
 
       expect(apiClient.delete).toHaveBeenCalledWith('/api/admin/sessions/session-1');
-      expect(apiClient.post).toHaveBeenCalledWith('/api/admin/users/user-1/sessions/revoke-all');
+      expect(apiClient.delete).toHaveBeenCalledWith('/api/admin/users/user-1/sessions');
     });
   });
 

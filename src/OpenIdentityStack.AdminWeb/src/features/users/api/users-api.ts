@@ -1,176 +1,100 @@
-/**
- * Users API Client
- * 
- * Provides functions for interacting with the user management endpoints
- */
-
-import { apiClient } from '@/lib/api/client';
 import type {
+  Group,
+  LinkUpstreamIdentityRequest,
+  UpstreamIdentity,
   User,
   UserListResponse,
   CreateUserRequest,
   UpdateUserRequest,
   DisableUserRequest,
   ResetPasswordRequest,
-  LinkUpstreamIdentityRequest,
   UserStatusChangeResponse,
   PasswordResetResponse,
-  UpstreamIdentity,
   LinkUpstreamIdentityResponse,
-  PaginationParams,
   Role,
-  Group,
+  PaginationParams,
 } from '@/types';
+import { adminApiClient } from '@/lib/api/client';
+import { createUsersContract } from '@openidentitystack/admin-api-client';
 
-/**
- * Get paginated list of users
- */
-export async function getUsers(
-  params?: PaginationParams
-): Promise<UserListResponse> {
-  return await apiClient.get<UserListResponse>('/api/admin/users', params);
+const contract = createUsersContract(adminApiClient);
+
+export type {
+  User,
+  UserListResponse,
+  CreateUserRequest,
+  UpdateUserRequest,
+  DisableUserRequest,
+  ResetPasswordRequest,
+  UserStatusChangeResponse,
+  PasswordResetResponse,
+  LinkUpstreamIdentityResponse,
+  UpstreamIdentity,
+  Group,
+  Role,
+  PaginationParams,
+};
+
+export async function getUsers(params?: PaginationParams): Promise<UserListResponse> {
+  const response = await contract.getUsers(params as Parameters<typeof contract.getUsers>[0]);
+  return response as UserListResponse;
 }
 
-/**
- * Get a single user by ID
- */
 export async function getUser(userId: string): Promise<User> {
-  return await apiClient.get<User>(`/api/admin/users/${userId}`);
+  return contract.getUser(userId) as Promise<User>;
 }
 
-/**
- * Create a new user
- */
 export async function createUser(data: CreateUserRequest): Promise<User> {
-  return await apiClient.post<User>('/api/admin/users', data);
+  return contract.createUser(data);
 }
 
-/**
- * Update an existing user
- */
-export async function updateUser(
-  userId: string,
-  data: UpdateUserRequest
-): Promise<User> {
-  return await apiClient.put<User>(`/api/admin/users/${userId}`, data);
+export async function updateUser(userId: string, data: UpdateUserRequest): Promise<User> {
+  return contract.updateUser(userId, data as never) as Promise<User>;
 }
 
-/**
- * Disable a user account
- */
-export async function disableUser(
-  userId: string,
-  data: DisableUserRequest
-): Promise<UserStatusChangeResponse> {
-  return await apiClient.post<UserStatusChangeResponse>(
-    `/api/admin/users/${userId}/disable`,
-    data
-  );
+export async function disableUser(userId: string, data: DisableUserRequest): Promise<UserStatusChangeResponse> {
+  return contract.disableUser(userId, data) as Promise<UserStatusChangeResponse>;
 }
 
-/**
- * Enable a user account
- */
-export async function enableUser(
-  userId: string
-): Promise<UserStatusChangeResponse> {
-  return await apiClient.post<UserStatusChangeResponse>(
-    `/api/admin/users/${userId}/enable`
-  );
+export async function enableUser(userId: string): Promise<UserStatusChangeResponse> {
+  return contract.enableUser(userId) as Promise<UserStatusChangeResponse>;
 }
 
-/**
- * Delete a user account
- */
 export async function deleteUser(userId: string): Promise<void> {
-  await apiClient.delete(`/api/admin/users/${userId}`);
+  await contract.deleteUser(userId);
 }
 
-/**
- * Reset a user's password
- */
-export async function resetPassword(
-  userId: string,
-  data: ResetPasswordRequest
-): Promise<PasswordResetResponse> {
-  return await apiClient.post<PasswordResetResponse>(
-    `/api/admin/users/${userId}/reset-password`,
-    data
-  );
+export async function resetPassword(userId: string, data: ResetPasswordRequest): Promise<PasswordResetResponse> {
+  return contract.resetUserPassword(userId, data) as Promise<PasswordResetResponse>;
 }
 
-/**
- * Get roles assigned to a user
- */
 export async function getUserRoles(userId: string): Promise<Role[]> {
-  const response = await apiClient.get<{ userId: string; roles: Role[] }>(
-    `/api/admin/users/${userId}/roles`
-  );
-  return response.roles;
+  return contract.getUserRoles(userId) as Promise<Role[]>;
 }
 
-/**
- * Assign a role to a user
- */
-export async function assignRole(
-  userId: string,
-  roleId: string
-): Promise<void> {
-  await apiClient.post(`/api/admin/users/${userId}/roles/${roleId}`);
+export async function assignRole(userId: string, roleId: string): Promise<void> {
+  await contract.assignUserRole(userId, roleId);
 }
 
-/**
- * Unassign a role from a user
- */
-export async function unassignRole(
-  userId: string,
-  roleId: string
-): Promise<void> {
-  await apiClient.delete(`/api/admin/users/${userId}/roles/${roleId}`);
+export async function unassignRole(userId: string, roleId: string): Promise<void> {
+  await contract.unassignUserRole(userId, roleId);
 }
 
-/**
- * Get groups a user belongs to
- */
 export async function getUserGroups(userId: string): Promise<Group[]> {
-  return await apiClient.get<Group[]>(
-    `/api/admin/users/${userId}/groups`
-  );
+  return contract.getUserGroups(userId) as Promise<Group[]>;
 }
 
-/**
- * Get upstream identities linked to a user
- */
-export async function getUpstreamIdentities(
-  userId: string
-): Promise<UpstreamIdentity[]> {
-  const response = await apiClient.get<{ items: UpstreamIdentity[] }>(
-    `/api/admin/users/${userId}/upstream-identities`
-  );
-  return response.items;
+export async function getUpstreamIdentities(userId: string): Promise<UpstreamIdentity[]> {
+  return contract.getUserUpstreamIdentities(userId) as Promise<UpstreamIdentity[]>;
 }
 
-/**
- * Link an upstream identity to a user
- */
 export async function linkUpstreamIdentity(
   userId: string,
   data: LinkUpstreamIdentityRequest
 ): Promise<LinkUpstreamIdentityResponse> {
-  return await apiClient.post<LinkUpstreamIdentityResponse>(
-    `/api/admin/users/${userId}/upstream-identities`,
-    data
-  );
+  return contract.linkUserUpstreamIdentity(userId, data) as Promise<LinkUpstreamIdentityResponse>;
 }
 
-/**
- * Unlink an upstream identity from a user
- */
-export async function unlinkUpstreamIdentity(
-  userId: string,
-  providerId: string
-): Promise<void> {
-  await apiClient.delete(
-    `/api/admin/users/${userId}/upstream-identities/${providerId}`
-  );
+export async function unlinkUpstreamIdentity(userId: string, providerId: string): Promise<void> {
+  await contract.unlinkUserUpstreamIdentity(userId, providerId);
 }

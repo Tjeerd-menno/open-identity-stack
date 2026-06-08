@@ -141,6 +141,21 @@ describe('useRequireAuth', () => {
       expect(login).not.toHaveBeenCalled();
     });
   });
+
+  it('does not redirect when wildcard permissions satisfy route requirements', async () => {
+    renderWithAuth(<RequireAuthProbe requiredPermissions={['application-permissions:read']} />, {
+      user: {
+        sub: 'u1',
+        email: 'alice@example.com',
+        name: 'Alice',
+        permissions: ['application-permissions:*'],
+      },
+    });
+
+    await waitFor(() => {
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('useAuthorization', () => {
@@ -197,5 +212,18 @@ describe('useAuthorization', () => {
     );
 
     expect(screen.getByTestId('is-authorized')).toHaveTextContent('false');
+  });
+
+  it('returns authorized when wildcard grants satisfy required permissions', () => {
+    renderWithAuth(<AuthorizationProbe requiredPermissions={['users:read', 'users:update']} />, {
+      user: {
+        sub: 'u1',
+        email: 'alice@example.com',
+        name: 'Alice',
+        permissions: ['users:*'],
+      },
+    });
+
+    expect(screen.getByTestId('is-authorized')).toHaveTextContent('true');
   });
 });
