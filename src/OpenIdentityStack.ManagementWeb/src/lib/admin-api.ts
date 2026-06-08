@@ -1,5 +1,6 @@
 import {
   createAdminApiClient,
+  type AdminApiClient,
   formatApiError,
   isApiError,
   type PaginatedResponse,
@@ -42,6 +43,21 @@ function getApiBaseUrl(): string {
 export async function request<T>(path: string, options: RequestInit = {}, params?: RequestParams): Promise<T> {
   return client.request<T>(path, options, params);
 }
+
+export const adminApiClient: AdminApiClient = {
+  request,
+  get: <T>(path: string, params?: RequestParams) => request<T>(path, {}, params),
+  post: <T, TBody = unknown>(path: string, body?: TBody) =>
+    request<T>(path, {
+      method: 'POST',
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }),
+  put: <T, TBody = unknown>(path: string, body?: TBody) =>
+    request<T>(path, { method: 'PUT', body: body === undefined ? undefined : JSON.stringify(body) }),
+  patch: <T, TBody = unknown>(path: string, body?: TBody) =>
+    request<T>(path, { method: 'PATCH', body: body === undefined ? undefined : JSON.stringify(body) }),
+  delete: <T>(path: string, params?: RequestParams) => request<T>(path, { method: 'DELETE' }, params),
+};
 
 export function listRoles(): Promise<PaginatedResponse<RoleListItem>> {
   return request<PaginatedResponse<RoleListItem>>('/api/admin/roles', {}, { page: 1, pageSize: 100 });

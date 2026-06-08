@@ -1,34 +1,15 @@
-import { request, type PaginatedResponse } from '@/lib/admin-api';
+import { adminApiClient } from '@/lib/admin-api';
+import {
+  createAuditEntriesContract,
+  type AuditEntry,
+  type AuditEntryListParams,
+  type AuditEntryListResponse,
+} from '@openidentitystack/admin-api-client';
 
-export type AuditEntry = {
-  id: string;
-  timestamp: string;
-  userId: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  details: string | null;
-  beforeState: string | null;
-  afterState: string | null;
-};
+const contract = createAuditEntriesContract(adminApiClient);
 
-export type AuditEntryListParams = {
-  page?: number;
-  pageSize?: number;
-  from?: string;
-  to?: string;
-  userId?: string;
-  action?: string;
-  entityType?: string;
-  entityId?: string;
-  search?: string;
-};
-
-export type AuditEntryListResponse = PaginatedResponse<AuditEntry> & {
-  hasPreviousPage?: boolean;
-  hasNextPage?: boolean;
-};
+export type { AuditEntry, AuditEntryListParams, AuditEntryListResponse };
 
 export function getAuditEntries(params?: AuditEntryListParams): Promise<AuditEntryListResponse> {
-  return request<AuditEntryListResponse>('/api/admin/audit-entries', {}, params);
+  return contract.getAuditEntries(params);
 }

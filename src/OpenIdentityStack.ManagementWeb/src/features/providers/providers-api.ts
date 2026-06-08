@@ -1,74 +1,41 @@
-import { request } from '@/lib/admin-api';
+import { adminApiClient } from '@/lib/admin-api';
+import {
+  createProvidersContract,
+  type CreateProviderRequest,
+  type Provider,
+  type Provider as SharedProvider,
+  type UpdateProviderRequest,
+} from '@openidentitystack/admin-api-client';
 
-export type ProviderStatus = 'Active' | 'Disabled';
+const contract = createProvidersContract(adminApiClient);
 
-export type Provider = {
-  id: string;
-  name: string;
-  displayName: string;
-  authority: string;
-  clientId: string;
-  scopes: string[];
-  jitProvisioningEnabled: boolean;
-  status: ProviderStatus;
-  createdAt: string;
-};
-
-export type CreateProviderRequest = {
-  name: string;
-  displayName?: string;
-  authority: string;
-  clientId: string;
-  clientSecret?: string;
-  scopes?: string[];
-  jitProvisioningEnabled?: boolean;
-};
-
-export type UpdateProviderRequest = {
-  displayName?: string;
-  clientId?: string;
-  clientSecret?: string;
-  scopes?: string[];
-  jitProvisioningEnabled?: boolean;
-  status?: ProviderStatus;
-};
+export type Provider = SharedProvider;
+export type { CreateProviderRequest, UpdateProviderRequest };
 
 export function getProviders(includeDisabled = false): Promise<Provider[]> {
-  return request<Provider[]>('/api/admin/providers', {}, { includeDisabled });
+  return contract.getProviders(includeDisabled);
 }
 
 export function getProvider(providerId: string): Promise<Provider> {
-  return request<Provider>(`/api/admin/providers/${providerId}`);
+  return contract.getProvider(providerId);
 }
 
 export function createProvider(data: CreateProviderRequest): Promise<Provider> {
-  return request<Provider>('/api/admin/providers', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  return contract.createProvider(data);
 }
 
 export function updateProvider(providerId: string, data: UpdateProviderRequest): Promise<Provider> {
-  return request<Provider>(`/api/admin/providers/${providerId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  });
+  return contract.updateProvider(providerId, data);
 }
 
 export function enableProvider(providerId: string): Promise<Provider> {
-  return request<Provider>(`/api/admin/providers/${providerId}/enable`, {
-    method: 'POST',
-  });
+  return contract.enableProvider(providerId);
 }
 
 export function disableProvider(providerId: string): Promise<Provider> {
-  return request<Provider>(`/api/admin/providers/${providerId}/disable`, {
-    method: 'POST',
-  });
+  return contract.disableProvider(providerId);
 }
 
 export function deleteProvider(providerId: string): Promise<void> {
-  return request<void>(`/api/admin/providers/${providerId}`, {
-    method: 'DELETE',
-  });
+  return contract.deleteProvider(providerId);
 }

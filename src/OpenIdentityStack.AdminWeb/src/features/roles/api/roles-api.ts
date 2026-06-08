@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api/client';
+import { adminApiClient } from '@/lib/api/client';
 import type {
   Role,
   RoleListItem,
@@ -8,6 +8,7 @@ import type {
   PaginatedResponse,
   PaginationParams,
 } from '@/types';
+import { createRolesContract } from '@openidentitystack/admin-api-client';
 
 /**
  * Roles API Client
@@ -16,7 +17,32 @@ import type {
  * All endpoints require authentication and appropriate permissions.
  */
 
-const BASE_PATH = '/api/admin/roles';
+const contract = createRolesContract(adminApiClient);
+
+const builtInPermissions: string[] = [
+  'users:read',
+  'users:create',
+  'users:update',
+  'users:delete',
+  'roles:read',
+  'roles:create',
+  'roles:update',
+  'roles:delete',
+  'groups:read',
+  'groups:create',
+  'groups:update',
+  'groups:delete',
+  'service-accounts:read',
+  'service-accounts:create',
+  'service-accounts:update',
+  'service-accounts:delete',
+  'sessions:read',
+  'sessions:revoke',
+  'providers:read',
+  'providers:create',
+  'providers:update',
+  'providers:delete',
+];
 
 /**
  * Fetch paginated list of roles
@@ -29,15 +55,14 @@ const BASE_PATH = '/api/admin/roles';
 export async function getRoles(
   params: PaginationParams = {}
 ): Promise<PaginatedResponse<RoleListItem>> {
-  const { page = 1, pageSize = 20, search } = params;
-  
-  const response = await apiClient.get<PaginatedResponse<RoleListItem>>(BASE_PATH, {
-    page,
-    pageSize,
-    ...(search && { search }),
-  });
-  
-  return response;
+  const requestParams = {
+    page: params.page ?? 1,
+    pageSize: params.pageSize ?? 20,
+    ...(params.search ? { search: params.search } : {}),
+  };
+  return contract.getRoles(requestParams as { page?: number; pageSize?: number; search?: string }) as Promise<
+    PaginatedResponse<RoleListItem>
+  >;
 }
 
 /**
@@ -49,8 +74,7 @@ export async function getRoles(
  * Required permission: roles:read
  */
 export async function getRole(id: string): Promise<Role> {
-  const response = await apiClient.get<Role>(`${BASE_PATH}/${id}`);
-  return response;
+  return contract.getRole(id) as Promise<Role>;
 }
 
 /**
@@ -62,8 +86,7 @@ export async function getRole(id: string): Promise<Role> {
  * Required permission: roles:create
  */
 export async function createRole(data: CreateRoleRequest): Promise<Role> {
-  const response = await apiClient.post<Role>(BASE_PATH, data);
-  return response;
+  return contract.createRole(data) as Promise<Role>;
 }
 
 /**
@@ -79,8 +102,7 @@ export async function updateRole(
   id: string,
   data: UpdateRoleRequest
 ): Promise<Role> {
-  const response = await apiClient.put<Role>(`${BASE_PATH}/${id}`, data);
-  return response;
+  return contract.updateRole(id, data) as Promise<Role>;
 }
 
 /**
@@ -93,7 +115,7 @@ export async function updateRole(
  * Required permission: roles:delete
  */
 export async function deleteRole(id: string): Promise<void> {
-  await apiClient.delete(`${BASE_PATH}/${id}`);
+  return contract.deleteRole(id);
 }
 
 /**
@@ -106,53 +128,21 @@ export async function deleteRole(id: string): Promise<void> {
  * @returns Array of permission strings
  */
 export async function getAvailablePermissions(): Promise<string[]> {
-  const builtInPermissions = [
-    // User permissions
-    'users:read',
-    'users:create',
-    'users:update',
-    'users:delete',
-    
-    // Role permissions
-    'roles:read',
-    'roles:create',
-    'roles:update',
-    'roles:delete',
-    
-    // Group permissions
-    'groups:read',
-    'groups:create',
-    'groups:update',
-    'groups:delete',
-    
-    // Service account permissions
-    'service-accounts:read',
-    'service-accounts:create',
-    'service-accounts:update',
-    'service-accounts:delete',
-    
-    // Session permissions
-    'sessions:read',
-    'sessions:revoke',
-    
-    // Provider permissions
-    'providers:read',
-    'providers:create',
-    'providers:update',
-    'providers:delete',
-  ];
-
   try {
-    const catalog = await apiClient.get<{ items: { fullPermissionKey: string }[] }>('/api/admin/application-permissions/catalog', {
-      page: 1,
-      pageSize: 100,
-    });
-    return Array.from(new Set([...builtInPermissions, ...catalog.items.map((item) => item.fullPermissionKey)]));
+    const catalog = await contract.getPlatformPermissionCatalog() as unknown as {
+      items: Array<{ fullPermissionKey?: string; permission?: string; resource?: string; action?: string }>;
+    };
+    const values = catalog.items.map((item) =>
+      item.fullPermissionKey ??
+      (item.permission ?? (item.resource && item.action ? `${item.resource}:${item.action}` : undefined)) ??
+      ''
+    );
+    return Array.from(new Set([...builtInPermissions, ...values.filter(Boolean)]));
   } catch {
     return builtInPermissions;
   }
 }
 
 export async function getPlatformPermissionCatalog(): Promise<PlatformPermissionCatalogResponse> {
-  return await apiClient.get<PlatformPermissionCatalogResponse>('/api/admin/permissions/platform');
+  return contract.getPlatformPermissionCatalog() as Promise<PlatformPermissionCatalogResponse>;
 }

@@ -6,6 +6,7 @@
  */
 
 import React, { useCallback } from 'react';
+import { hasEveryPermission } from '@openidentitystack/admin-api-client';
 import { Navigate, useLocation, type Location } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -100,9 +101,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Check required permissions if specified
   if (requiredPermissions.length > 0) {
-    const hasRequiredPermissions = requiredPermissions.every(permission =>
-      user?.permissions.includes(permission)
-    );
+    const hasRequiredPermissions = hasEveryPermission(user?.permissions ?? [], requiredPermissions);
 
     if (!hasRequiredPermissions) {
       // User is authenticated but doesn't have required permissions

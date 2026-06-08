@@ -1,4 +1,24 @@
-import { request, type PaginatedResponse } from '@/lib/admin-api';
+import { adminApiClient } from '@/lib/admin-api';
+import {
+  createApplicationsContract,
+  type Application as SharedApplication,
+  type ApplicationCreatedResponse,
+  type ApplicationCredential,
+  type ApplicationListItem as SharedApplicationListItem,
+  type ApplicationListParams,
+  type ApplicationListResponse,
+  type ApplicationProfile as SharedApplicationProfile,
+  type ApplicationProfilePolicy,
+  type AddApplicationCertificateRequest,
+  type AddApplicationCertificateResponse,
+  type AddApplicationSecretRequest,
+  type AddApplicationSecretResponse,
+  type ConfigureApplicationOAuthRequest,
+  type CreateApplicationRequest,
+  type UpdateApplicationMetadataRequest,
+} from '@openidentitystack/admin-api-client';
+
+const contract = createApplicationsContract(adminApiClient);
 
 export const ApplicationProfile = {
   Web: 'Web',
@@ -8,13 +28,13 @@ export const ApplicationProfile = {
   Device: 'Device',
   Custom: 'Custom',
 } as const;
-export type ApplicationProfile = typeof ApplicationProfile[keyof typeof ApplicationProfile];
+export type ApplicationProfile = (typeof ApplicationProfile)[keyof typeof ApplicationProfile];
 
 export const ApplicationClientType = {
   Confidential: 'Confidential',
   Public: 'Public',
 } as const;
-export type ApplicationClientType = typeof ApplicationClientType[keyof typeof ApplicationClientType];
+export type ApplicationClientType = (typeof ApplicationClientType)[keyof typeof ApplicationClientType];
 
 export const ApplicationOptionAvailability = {
   Hidden: 'Hidden',
@@ -23,232 +43,80 @@ export const ApplicationOptionAvailability = {
   Advanced: 'Advanced',
 } as const;
 export type ApplicationOptionAvailability =
-  typeof ApplicationOptionAvailability[keyof typeof ApplicationOptionAvailability];
+  (typeof ApplicationOptionAvailability)[keyof typeof ApplicationOptionAvailability];
 
-export type ApplicationStatus = 'Active' | 'Disabled';
-
-export type ApplicationProfilePolicy = {
-  applicationProfile: ApplicationProfile;
-  isSelectable: boolean;
-  unavailabilityReason: string | null;
-  defaultClientProfile: ApplicationClientType;
-  allowedClientProfiles: ApplicationClientType[];
-  allowedGrantTypes: string[];
-  defaultGrantTypes: string[];
-  options: Record<string, ApplicationOptionAvailability>;
-  requirePkce: boolean;
-  defaultRequirePkce: boolean;
-  defaultRequireConsent: boolean;
-  requiresRedirectUris: boolean;
-};
-
-export type Application = {
-  id: string;
-  clientId: string;
-  displayName: string;
-  description: string | null;
-  profile: ApplicationProfile;
+export type Application = SharedApplication & {
+  profile: SharedApplicationProfile;
   clientType: ApplicationClientType;
-  status: ApplicationStatus;
-  redirectUris: string[];
-  postLogoutRedirectUris: string[];
-  allowedScopes: string[];
-  allowedGrantTypes: string[];
-  requirePkce: boolean;
-  requireConsent: boolean;
-  credentialCount: number;
-  certificateCount: number;
-  requiresMigrationReview: boolean;
-  migrationSource: string | null;
-  createdAt: string;
-  modifiedAt: string | null;
 };
-
-export type ApplicationListItem = {
-  id: string;
-  clientId: string;
-  displayName: string;
-  profile: ApplicationProfile;
-  clientType: ApplicationClientType;
-  status: ApplicationStatus;
-  allowedGrantTypes: string[];
-  credentialCount: number;
-  createdAt: string;
-  modifiedAt: string | null;
-};
-
-export type ApplicationListResponse = PaginatedResponse<ApplicationListItem>;
-
-export type ApplicationListParams = {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-  profile?: ApplicationProfile;
-  status?: ApplicationStatus;
-  clientType?: ApplicationClientType;
-};
-
-export type CreateApplicationRequest = {
-  clientId: string;
-  displayName: string;
-  description?: string | null;
-  profile: ApplicationProfile;
-  clientType: ApplicationClientType;
-  allowedGrantTypes: string[];
-  allowedScopes: string[];
-  redirectUris: string[];
-  postLogoutRedirectUris: string[];
-  requirePkce: boolean;
-  requireConsent: boolean;
-};
-
-export type UpdateApplicationMetadataRequest = {
-  displayName: string;
-  description?: string | null;
-};
-
-export type ConfigureApplicationOAuthRequest = Omit<
-  CreateApplicationRequest,
-  'clientId' | 'displayName' | 'description'
->;
-
-export type ApplicationCreatedResponse = {
-  id: string;
-  clientId: string;
-  displayName: string;
-  profile: ApplicationProfile;
-  clientType: ApplicationClientType;
-  status: ApplicationStatus;
-  initialSecret: string | null;
-  createdAt: string;
-};
-
-export type ApplicationCredentialType = 'ClientSecret' | 'X509Certificate';
-
-export type ApplicationCredential = {
-  id: string;
-  applicationId: string;
-  type: ApplicationCredentialType;
-  thumbprint: string | null;
-  subject: string | null;
-  description: string | null;
-  expiresAt: string | null;
-  createdAt: string;
-  lastUsedAt: string | null;
-  revokedAt: string | null;
-};
-
-export type AddApplicationSecretRequest = {
-  description?: string | null;
-  expiresAt?: string | null;
-  revokeExisting: boolean;
-};
-
-export type AddApplicationSecretResponse = {
-  credentialId: string;
-  clientSecret: string;
-};
-
-export type AddApplicationCertificateRequest = {
-  thumbprint: string;
-  subject?: string | null;
-  description?: string | null;
-  expiresAt?: string | null;
-};
-
-export type AddApplicationCertificateResponse = {
-  credentialId: string;
-};
+export type ApplicationListItem = SharedApplicationListItem;
+export type ApplicationListResponse = SharedApplicationListResponse;
+export type { ApplicationListParams, ApplicationProfilePolicy, CreateApplicationRequest };
+export type { UpdateApplicationMetadataRequest, ConfigureApplicationOAuthRequest };
+export type { ApplicationCreatedResponse, AddApplicationSecretRequest, AddApplicationSecretResponse };
+export type { AddApplicationCertificateRequest, AddApplicationCertificateResponse };
+export type { ApplicationCredential };
 
 export function getApplications(params?: ApplicationListParams): Promise<ApplicationListResponse> {
-  return request<ApplicationListResponse>('/api/admin/applications', {}, params);
+  return contract.getApplications(params);
 }
 
 export function getApplication(applicationId: string): Promise<Application> {
-  return request<Application>(`/api/admin/applications/${applicationId}`);
+  return contract.getApplication(applicationId);
 }
 
 export function getApplicationProfilePolicies(): Promise<ApplicationProfilePolicy[]> {
-  return request<ApplicationProfilePolicy[]>('/api/admin/applications/policies/profiles');
+  return contract.getApplicationProfilePolicies();
 }
 
 export function createApplication(data: CreateApplicationRequest): Promise<ApplicationCreatedResponse> {
-  return request<ApplicationCreatedResponse>('/api/admin/applications', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  return contract.createApplication(data);
 }
 
 export function updateApplicationMetadata(
   applicationId: string,
   data: UpdateApplicationMetadataRequest
 ): Promise<Application> {
-  return request<Application>(`/api/admin/applications/${applicationId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  });
+  return contract.updateApplicationMetadata(applicationId, data);
 }
 
 export function configureApplicationOAuth(
   applicationId: string,
   data: ConfigureApplicationOAuthRequest
 ): Promise<Application> {
-  return request<Application>(`/api/admin/applications/${applicationId}/oauth`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
+  return contract.configureApplicationOAuth(applicationId, data);
 }
 
 export function disableApplication(applicationId: string): Promise<Application> {
-  return request<Application>(`/api/admin/applications/${applicationId}/disable`, {
-    method: 'POST',
-  });
+  return contract.disableApplication(applicationId);
 }
 
 export function enableApplication(applicationId: string): Promise<Application> {
-  return request<Application>(`/api/admin/applications/${applicationId}/enable`, {
-    method: 'POST',
-  });
+  return contract.enableApplication(applicationId);
 }
 
 export function deleteApplication(applicationId: string): Promise<void> {
-  return request<void>(`/api/admin/applications/${applicationId}`, {
-    method: 'DELETE',
-  });
+  return contract.deleteApplication(applicationId);
 }
 
 export function listApplicationCredentials(applicationId: string): Promise<ApplicationCredential[]> {
-  return request<ApplicationCredential[]>(`/api/admin/applications/${applicationId}/credentials`);
+  return contract.listApplicationCredentials(applicationId);
 }
 
 export function addApplicationSecret(
   applicationId: string,
   data: AddApplicationSecretRequest
 ): Promise<AddApplicationSecretResponse> {
-  return request<AddApplicationSecretResponse>(
-    `/api/admin/applications/${applicationId}/credentials/client-secrets`,
-    {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }
-  );
+  return contract.addApplicationSecret(applicationId, data);
 }
 
 export function addApplicationCertificate(
   applicationId: string,
   data: AddApplicationCertificateRequest
 ): Promise<AddApplicationCertificateResponse> {
-  return request<AddApplicationCertificateResponse>(
-    `/api/admin/applications/${applicationId}/credentials/certificates`,
-    {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }
-  );
+  return contract.addApplicationCertificate(applicationId, data);
 }
 
 export function revokeApplicationCredential(applicationId: string, credentialId: string): Promise<void> {
-  return request<void>(`/api/admin/applications/${applicationId}/credentials/${credentialId}`, {
-    method: 'DELETE',
-  });
+  return contract.revokeApplicationCredential(applicationId, credentialId);
 }

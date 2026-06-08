@@ -1,43 +1,40 @@
-import { apiClient } from '@/lib/api/client';
-import type {
-  AuthenticationSettings,
-  AuthenticationProvider,
-  SetDefaultProviderRequest,
-  SetLocalFallbackRequest
-} from '@/types';
+import { adminApiClient } from '@/lib/api/client';
+import {
+  createSettingsContract,
+  type AuthenticationSettings,
+  type AuthenticationProvider,
+  type SetDefaultProviderRequest,
+  type SetLocalFallbackRequest,
+} from '@openidentitystack/admin-api-client';
 
-const BASE_URL = '/api/admin/authentication-settings';
+const contract = createSettingsContract(adminApiClient);
 
 export const settingsApi = {
   /**
    * Get current authentication settings
    */
   async getAuthenticationSettings(): Promise<AuthenticationSettings> {
-    const response = await apiClient.get<AuthenticationSettings>(BASE_URL);
-    return response;
+    return contract.getAuthenticationSettings();
   },
 
   /**
    * List available authentication providers
    */
   async getAuthenticationProviders(): Promise<AuthenticationProvider[]> {
-    const response = await apiClient.get<AuthenticationProvider[]>(`${BASE_URL}/providers`);
-    return response;
+    return contract.getAuthenticationProviders();
   },
 
   /**
    * Set the default authentication provider
    */
   async setDefaultProvider(data: SetDefaultProviderRequest): Promise<AuthenticationSettings> {
-    const response = await apiClient.put<AuthenticationSettings>(`${BASE_URL}/default-provider`, data);
-    return response;
+    return contract.setDefaultProvider(data);
   },
 
   /**
    * Enable or disable local fallback authentication for IAM admins
    */
   async setLocalFallback(data: SetLocalFallbackRequest): Promise<AuthenticationSettings> {
-    const response = await apiClient.put<AuthenticationSettings>(`${BASE_URL}/local-fallback`, data);
-    return response;
-  }
+    return contract.setLocalFallback(data);
+  },
 };

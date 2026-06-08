@@ -5,6 +5,11 @@
  */
 
 import { useContext } from 'react';
+import {
+  hasAnyPermission,
+  hasEveryPermission,
+  hasPermission,
+} from '@openidentitystack/admin-api-client';
 import { AuthContext, type AuthContextValue } from '../auth-context';
 
 /**
@@ -65,7 +70,7 @@ export const usePermission = (permission: string): boolean => {
     return false;
   }
   
-  return user.permissions.includes(permission);
+  return hasPermission(user.permissions, permission);
 };
 
 /**
@@ -86,7 +91,7 @@ export const usePermissions = (permissions: string[]): boolean => {
     return false;
   }
   
-  return permissions.some(permission => user.permissions.includes(permission));
+  return hasAnyPermission(user.permissions, permissions);
 };
 
 /**
@@ -107,5 +112,5 @@ export const useAllPermissions = (permissions: string[]): boolean => {
     return false;
   }
   
-  return permissions.every(permission => user.permissions.includes(permission));
+  return hasEveryPermission(user.permissions, permissions);
 };

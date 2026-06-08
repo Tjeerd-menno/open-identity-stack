@@ -1,3 +1,5 @@
+import { hasPermission as hasGrantedPermission } from '@openidentitystack/admin-api-client';
+
 // ============================================================================
 // Common Types
 // ============================================================================
@@ -450,7 +452,7 @@ export function hasPermission(
   user: AuthenticatedUser | null,
   permission: string
 ): boolean {
-  return user?.permissions?.includes(permission) ?? false;
+  return user ? hasGrantedPermission(user.permissions, permission) : false;
 }
 
 export function isApiError(error: unknown): error is ApiError {

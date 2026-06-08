@@ -1,120 +1,170 @@
-import { apiClient } from '@/lib/api/client';
-import type {
-  AddDelegatedMaintainerRequest,
-  AddApplicationPermissionRequest,
-  AssignablePermissionCatalogResponse,
-  ApplicationPermissionHistory,
-  ChangeLifecycleRequest,
-  ImportPermissionManifestRequest,
-  ManifestApplyResult,
-  ManifestPreview,
-  PaginationParams,
-  PermissionDiagnostics,
-  PermissionManifestRequest,
-  RegisteredApplication,
-  RegisteredApplicationListResponse,
-  RemovedPermissionDetail,
-  ReplacementGuidanceRequest,
-  RoleAssignmentDependency,
-  TransferApplicationOwnershipRequest,
-  UpdateRegisteredApplicationRequest,
-} from '@/types';
+import { adminApiClient } from '@/lib/api/client';
+import type { PaginationParams } from '@openidentitystack/admin-api-client';
+import {
+  createApplicationPermissionsContract,
+  type AddDelegatedMaintainerRequest,
+  type AddApplicationPermissionRequest,
+  type AssignablePermissionCatalogItem,
+  type ApplicationPermissionHistory,
+  type ChangeLifecycleRequest,
+  type ManifestApplyResult,
+  type ManifestPreview,
+  type PermissionDiagnostics,
+  type PermissionManifestRequest,
+  type RegisteredApplication,
+  type RegisteredApplicationListItem,
+  type RemovedPermissionDetail,
+  type ReplacementGuidanceRequest,
+  type RoleAssignmentDependency,
+  type TransferApplicationOwnershipRequest,
+  type UpdateRegisteredApplicationRequest,
+} from '@openidentitystack/admin-api-client';
 
-const BASE_PATH = '/api/admin/application-permissions';
+const contract = createApplicationPermissionsContract(adminApiClient);
 
-export async function getRegisteredApplications(params: PaginationParams = {}): Promise<RegisteredApplicationListResponse> {
-  return await apiClient.get<RegisteredApplicationListResponse>(`${BASE_PATH}/applications`, params);
+export async function getRegisteredApplications(params: PaginationParams = {}): Promise<{
+  items: RegisteredApplicationListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  return contract.getRegisteredApplications(params);
 }
 
 export async function getRegisteredApplication(id: string): Promise<RegisteredApplication> {
-  return await apiClient.get<RegisteredApplication>(`${BASE_PATH}/applications/${id}`);
+  return contract.getRegisteredApplication(id);
 }
 
 export async function registerPermissionManifest(data: PermissionManifestRequest): Promise<{ id: string }> {
-  const response = await apiClient.post<{ id?: string; applicationId?: string }>(`${BASE_PATH}/applications`, data);
-  return { id: response.id ?? response.applicationId ?? '' };
+  return contract.registerPermissionManifest(data);
 }
 
-export async function previewPermissionManifest(id: string, data: PermissionManifestRequest, concurrencyToken?: number): Promise<ManifestPreview> {
-  return await apiClient.post<ManifestPreview>(`${BASE_PATH}/applications/${id}/manifest/preview`, {
-    manifest: data.manifest,
-    concurrencyToken,
-  });
+export async function previewPermissionManifest(
+  id: string,
+  data: PermissionManifestRequest,
+  concurrencyToken?: number
+): Promise<ManifestPreview> {
+  return contract.previewPermissionManifest(id, data, concurrencyToken);
 }
 
-export async function applyPermissionManifest(id: string, data: PermissionManifestRequest, concurrencyToken?: number): Promise<ManifestApplyResult> {
-  return await apiClient.post<ManifestApplyResult>(`${BASE_PATH}/applications/${id}/manifest`, {
-    manifest: data.manifest,
-    concurrencyToken,
-  });
+export async function applyPermissionManifest(
+  id: string,
+  data: PermissionManifestRequest,
+  concurrencyToken?: number
+): Promise<ManifestApplyResult> {
+  return contract.applyPermissionManifest(id, data, concurrencyToken);
 }
 
-export async function previewRemotePermissionManifest(id: string, concurrencyToken?: number): Promise<ManifestPreview> {
-  return await apiClient.post<ManifestPreview>(`${BASE_PATH}/applications/${id}/import/preview`, {
-    concurrencyToken,
-  });
+export async function previewRemotePermissionManifest(
+  id: string,
+  concurrencyToken?: number
+): Promise<ManifestPreview> {
+  return contract.previewRemotePermissionManifest(id, concurrencyToken);
 }
 
-export async function applyRemotePermissionManifest(id: string, concurrencyToken?: number): Promise<ManifestApplyResult> {
-  return await apiClient.post<ManifestApplyResult>(`${BASE_PATH}/applications/${id}/import`, {
-    concurrencyToken,
-  });
+export async function applyRemotePermissionManifest(
+  id: string,
+  concurrencyToken?: number
+): Promise<ManifestApplyResult> {
+  return contract.applyRemotePermissionManifest(id, concurrencyToken);
 }
 
 export async function importPermissionManifestFromEndpoint(endpoint: string): Promise<{ id: string }> {
-  const request: ImportPermissionManifestRequest = { endpoint };
-  const response = await apiClient.post<{ id?: string; applicationId?: string; applicationIdentifier?: string; permissionsRegistered?: number }>(
-    `${BASE_PATH}/applications/import`,
-    request
-  );
-  return { id: response.id ?? response.applicationId ?? '' };
+  return contract.importPermissionManifestFromEndpoint(endpoint);
 }
 
-export async function updateRegisteredApplication(id: string, data: UpdateRegisteredApplicationRequest): Promise<RegisteredApplication> {
-  return await apiClient.patch<RegisteredApplication>(`${BASE_PATH}/applications/${id}`, data);
+export async function updateRegisteredApplication(
+  id: string,
+  data: UpdateRegisteredApplicationRequest
+): Promise<RegisteredApplication> {
+  return contract.updateRegisteredApplication(id, data);
 }
 
-export async function addApplicationPermission(id: string, data: AddApplicationPermissionRequest): Promise<RegisteredApplication> {
-  return await apiClient.post<RegisteredApplication>(`${BASE_PATH}/applications/${id}/permissions`, data);
+export async function addApplicationPermission(
+  id: string,
+  data: AddApplicationPermissionRequest
+): Promise<RegisteredApplication> {
+  return contract.addApplicationPermission(id, data);
 }
 
-export async function changeApplicationLifecycle(id: string, data: ChangeLifecycleRequest): Promise<RegisteredApplication> {
-  return await apiClient.post<RegisteredApplication>(`${BASE_PATH}/applications/${id}/lifecycle`, data);
+export async function changeApplicationLifecycle(
+  id: string,
+  data: ChangeLifecycleRequest
+): Promise<RegisteredApplication> {
+  return contract.changeApplicationLifecycle(id, data);
 }
 
 export async function getPermissionDependencies(permissionId: string): Promise<RoleAssignmentDependency[]> {
-  return await apiClient.get<RoleAssignmentDependency[]>(`${BASE_PATH}/permissions/${permissionId}/dependencies`);
+  return contract.getPermissionDependencies(permissionId);
 }
 
-export async function transferApplicationOwnership(id: string, data: TransferApplicationOwnershipRequest): Promise<RegisteredApplication> {
-  return await apiClient.post<RegisteredApplication>(`${BASE_PATH}/applications/${id}/ownership`, data);
+export async function transferApplicationOwnership(
+  id: string,
+  data: TransferApplicationOwnershipRequest
+): Promise<RegisteredApplication> {
+  return contract.transferApplicationOwnership(id, data);
 }
 
-export async function addDelegatedMaintainer(id: string, data: AddDelegatedMaintainerRequest): Promise<RegisteredApplication> {
-  return await apiClient.post<RegisteredApplication>(`${BASE_PATH}/applications/${id}/maintainers`, data);
+export async function addDelegatedMaintainer(
+  id: string,
+  data: AddDelegatedMaintainerRequest
+): Promise<RegisteredApplication> {
+  return contract.addDelegatedMaintainer(id, data);
 }
 
-export async function removeDelegatedMaintainer(id: string, principalId: string, concurrencyToken?: number): Promise<RegisteredApplication> {
-  return await apiClient.delete<RegisteredApplication>(
-    `${BASE_PATH}/applications/${id}/maintainers/${encodeURIComponent(principalId)}${concurrencyToken === undefined ? '' : `?concurrencyToken=${concurrencyToken}`}`
-  );
+export async function removeDelegatedMaintainer(
+  id: string,
+  principalId: string,
+  concurrencyToken?: number
+): Promise<RegisteredApplication> {
+  return contract.removeDelegatedMaintainer(id, principalId, concurrencyToken);
 }
 
-export async function getAssignablePermissionCatalog(params: PaginationParams = {}): Promise<AssignablePermissionCatalogResponse> {
-  return await apiClient.get<AssignablePermissionCatalogResponse>(`${BASE_PATH}/catalog`, params);
+export async function getAssignablePermissionCatalog(
+  params: PaginationParams = {}
+): Promise<{
+  items: AssignablePermissionCatalogItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  return contract.getAssignablePermissionCatalog(params);
 }
 
-export async function getApplicationPermissionHistory(params: { applicationIdentifier?: string } = {}): Promise<ApplicationPermissionHistory> {
-  return await apiClient.get<ApplicationPermissionHistory>(`${BASE_PATH}/history`, params);
+export async function getApplicationPermissionHistory(
+  params: { applicationIdentifier?: string } = {}
+): Promise<ApplicationPermissionHistory> {
+  return contract.getApplicationPermissionHistory(params);
 }
 
 export async function getApplicationPermissionDiagnostics(): Promise<PermissionDiagnostics> {
-  return await apiClient.get<PermissionDiagnostics>(`${BASE_PATH}/diagnostics`);
+  return contract.getApplicationPermissionDiagnostics();
 }
 
 export async function updateRemovedPermissionReplacement(
   permissionId: string,
   data: ReplacementGuidanceRequest
 ): Promise<RemovedPermissionDetail> {
-  return await apiClient.patch<RemovedPermissionDetail>(`${BASE_PATH}/permissions/${permissionId}/replacement`, data);
+  return contract.updateRemovedPermissionReplacement(permissionId, data);
 }
+
+export type {
+  AddDelegatedMaintainerRequest,
+  AddApplicationPermissionRequest,
+  AssignablePermissionCatalogItem,
+  ApplicationPermissionHistory,
+  ChangeLifecycleRequest,
+  ManifestApplyResult,
+  ManifestPreview,
+  PermissionDiagnostics,
+  PermissionManifestRequest,
+  RegisteredApplication,
+  RegisteredApplicationListItem,
+  RemovedPermissionDetail,
+  ReplacementGuidanceRequest,
+  RoleAssignmentDependency,
+  TransferApplicationOwnershipRequest,
+  UpdateRegisteredApplicationRequest,
+};
