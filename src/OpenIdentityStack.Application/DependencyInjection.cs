@@ -148,6 +148,7 @@ public static class DependencyInjection
 
         services.AddScoped<ApplicationPermissionManifestUseCases>();
         services.AddScoped<ApplicationPermissionMaintenanceUseCases>();
+        services.AddScoped<IApplicationPermissionRegistryWorkflow, ApplicationPermissionRegistryWorkflow>();
         services.AddScoped<IUpdateRegisteredApplicationUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
         services.AddScoped<IAddApplicationPermissionUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
         services.AddScoped<IUpdateApplicationPermissionUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
