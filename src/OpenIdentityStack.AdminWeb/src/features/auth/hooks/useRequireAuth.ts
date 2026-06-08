@@ -6,6 +6,7 @@
  */
 
 import { useEffect } from 'react';
+import { hasEveryPermission } from '@openidentitystack/admin-api-client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './useAuth';
 
@@ -51,9 +52,7 @@ export const useRequireAuth = (requiredPermissions?: string[]) => {
 
     // Check required permissions if specified
     if (requiredPermissions && requiredPermissions.length > 0) {
-      const hasRequiredPermissions = requiredPermissions.every(permission =>
-        user?.permissions.includes(permission)
-      );
+      const hasRequiredPermissions = hasEveryPermission(user?.permissions ?? [], requiredPermissions);
 
       if (!hasRequiredPermissions) {
         // User is authenticated but doesn't have required permissions
@@ -103,9 +102,7 @@ export const useAuthorization = (requiredPermissions: string[]) => {
     return { isAuthorized: false, isLoading: false };
   }
 
-  const isAuthorized = requiredPermissions.every(permission =>
-    user.permissions.includes(permission)
-  );
+  const isAuthorized = hasEveryPermission(user.permissions, requiredPermissions);
 
   return { isAuthorized, isLoading: false };
 };

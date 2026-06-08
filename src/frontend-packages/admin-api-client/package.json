@@ -1,0 +1,13 @@
+{
+  "name": "@openidentitystack/admin-api-client",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "vitest --run"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.7"
+  }
+}

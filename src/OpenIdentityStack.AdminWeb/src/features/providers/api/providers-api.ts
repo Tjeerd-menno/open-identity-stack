@@ -1,12 +1,13 @@
-import { apiClient } from '@/lib/api/client';
-import type {
-  Provider,
-  ProviderListResponse,
-  CreateProviderRequest,
-  UpdateProviderRequest
-} from '@/types';
+import { adminApiClient } from '@/lib/api/client';
+import type { ProviderListResponse } from '@/types';
+import {
+  createProvidersContract,
+  type CreateProviderRequest,
+  type Provider,
+  type UpdateProviderRequest,
+} from '@openidentitystack/admin-api-client';
 
-const BASE_URL = '/api/admin/providers';
+const contract = createProvidersContract(adminApiClient);
 
 export const providersApi = {
   /**
@@ -14,56 +15,48 @@ export const providersApi = {
    * Note: API returns array directly, not paginated response
    */
   async getProviders(includeDisabled = false): Promise<ProviderListResponse> {
-    const response = await apiClient.get<ProviderListResponse>(BASE_URL, {
-      includeDisabled
-    });
-    return response;
+    return contract.getProviders(includeDisabled) as Promise<ProviderListResponse>;
   },
 
   /**
    * Get single provider by ID
    */
   async getProvider(id: string): Promise<Provider> {
-    const response = await apiClient.get<Provider>(`${BASE_URL}/${id}`);
-    return response;
+    return contract.getProvider(id) as Promise<Provider>;
   },
 
   /**
    * Create a new OIDC provider
    */
   async createProvider(data: CreateProviderRequest): Promise<Provider> {
-    const response = await apiClient.post<Provider>(BASE_URL, data);
-    return response;
+    return contract.createProvider(data) as Promise<Provider>;
   },
 
   /**
    * Update an existing provider
    */
   async updateProvider(id: string, data: UpdateProviderRequest): Promise<Provider> {
-    const response = await apiClient.patch<Provider>(`${BASE_URL}/${id}`, data);
-    return response;
+    return contract.updateProvider(id, data) as Promise<Provider>;
   },
 
   /**
    * Delete a provider
    */
   async deleteProvider(id: string): Promise<void> {
-    await apiClient.delete(`${BASE_URL}/${id}`);
+    await contract.deleteProvider(id);
   },
 
   /**
    * Enable a provider
    */
   async enableProvider(id: string): Promise<Provider> {
-    const response = await apiClient.post<Provider>(`${BASE_URL}/${id}/enable`);
-    return response;
+    return contract.enableProvider(id) as Promise<Provider>;
   },
 
   /**
    * Disable a provider
    */
   async disableProvider(id: string): Promise<Provider> {
-    const response = await apiClient.post<Provider>(`${BASE_URL}/${id}/disable`);
-    return response;
+    return contract.disableProvider(id) as Promise<Provider>;
   }
 };

@@ -1,46 +1,28 @@
-import { request } from '@/lib/admin-api';
+import { adminApiClient } from '@/lib/admin-api';
+import {
+  createSettingsContract,
+  type AuthenticationProvider,
+  type AuthenticationSettings,
+  type SetDefaultProviderRequest,
+  type SetLocalFallbackRequest,
+} from '@openidentitystack/admin-api-client';
 
-export type AuthenticationSettings = {
-  defaultProviderId: string;
-  isLocalDefault: boolean;
-  localFallbackEnabled: boolean;
-  updatedAt: string;
-};
+const contract = createSettingsContract(adminApiClient);
 
-export type AuthenticationProvider = {
-  id: string;
-  name: string;
-  displayName: string;
-  type: 'local' | 'external';
-  isActive: boolean;
-};
-
-export type SetDefaultProviderRequest = {
-  providerId: string;
-};
-
-export type SetLocalFallbackRequest = {
-  enabled: boolean;
-};
+export type { AuthenticationProvider, AuthenticationSettings, SetDefaultProviderRequest, SetLocalFallbackRequest };
 
 export function getAuthenticationSettings(): Promise<AuthenticationSettings> {
-  return request<AuthenticationSettings>('/api/admin/authentication-settings');
+  return contract.getAuthenticationSettings();
 }
 
 export function getAuthenticationProviders(): Promise<AuthenticationProvider[]> {
-  return request<AuthenticationProvider[]>('/api/admin/authentication-settings/providers');
+  return contract.getAuthenticationProviders();
 }
 
 export function setDefaultProvider(data: SetDefaultProviderRequest): Promise<AuthenticationSettings> {
-  return request<AuthenticationSettings>('/api/admin/authentication-settings/default-provider', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
+  return contract.setDefaultProvider(data);
 }
 
 export function setLocalFallback(data: SetLocalFallbackRequest): Promise<AuthenticationSettings> {
-  return request<AuthenticationSettings>('/api/admin/authentication-settings/local-fallback', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
+  return contract.setLocalFallback(data);
 }
