@@ -52,11 +52,17 @@ describe('oidc config helpers', () => {
     ).toEqual(['inventory:read', 'inventory:write']);
   });
 
-  it('treats admin roles as wildcard permission', async () => {
+  it('does not infer wildcard permissions from admin roles', async () => {
     const { extractPermissions } = await importOidcConfig();
 
-    expect(extractPermissions({ profile: { roles: ['user', 'admin'] } })).toEqual(['*']);
-    expect(extractPermissions({ profile: { role: 'super-admin' } })).toEqual(['*']);
+    expect(extractPermissions({ profile: { roles: ['user', 'admin'] } })).toEqual([]);
+    expect(extractPermissions({ profile: { role: 'super-admin' } })).toEqual([]);
+  });
+
+  it('extracts wildcard permissions from explicit permission claims', async () => {
+    const { extractPermissions } = await importOidcConfig();
+
+    expect(extractPermissions({ profile: { permissions: ['*'] } })).toEqual(['*']);
   });
 
   it('falls back to access token claims when profile has no permissions', async () => {
