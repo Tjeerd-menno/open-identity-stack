@@ -140,8 +140,6 @@ public static class DependencyInjection
     private static void AddApplicationPermissionUseCases(IServiceCollection services)
     {
         services.AddScoped<RegisterApplicationUseCase>();
-        services.AddScoped<IRegisterApplicationUseCase>(provider => provider.GetRequiredService<RegisterApplicationUseCase>());
-        services.AddScoped<IRegisterPermissionManifestUseCase>(provider => provider.GetRequiredService<RegisterApplicationUseCase>());
         services.AddScoped<IListRegisteredApplicationsQueryHandler, ListRegisteredApplicationsQueryHandler>();
         services.AddScoped<IGetRegisteredApplicationQueryHandler, GetRegisteredApplicationQueryHandler>();
         services.AddScoped<IListAssignablePermissionCatalogQueryHandler, ListAssignablePermissionCatalogQueryHandler>();
@@ -149,20 +147,6 @@ public static class DependencyInjection
         services.AddScoped<ApplicationPermissionManifestUseCases>();
         services.AddScoped<ApplicationPermissionMaintenanceUseCases>();
         services.AddScoped<IApplicationPermissionRegistryWorkflow, ApplicationPermissionRegistryWorkflow>();
-        services.AddScoped<IUpdateRegisteredApplicationUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IAddApplicationPermissionUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IUpdateApplicationPermissionUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IDeleteApplicationPermissionUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IPreviewApplicationPermissionDeletionImpactUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IDeleteRegisteredApplicationUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IPreviewRegisteredApplicationDeletionImpactUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IChangeRegisteredApplicationLifecycleUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<ITransferRegisteredApplicationOwnershipUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IAddDelegatedMaintainerUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IRemoveDelegatedMaintainerUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IUpdateRemovedPermissionReplacementUseCase>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IListApplicationPermissionHistoryQueryHandler>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
-        services.AddScoped<IListApplicationPermissionDiagnosticsQueryHandler>(provider => provider.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
         services.AddScoped<IGetPermissionDependenciesQueryHandler, GetPermissionDependenciesQueryHandler>();
     }
 

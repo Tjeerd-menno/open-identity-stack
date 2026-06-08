@@ -5,17 +5,7 @@ using OpenIdentityStack.Domain.ApplicationPermissions;
 
 namespace OpenIdentityStack.Application.ApplicationPermissions.Commands;
 
-public interface IRegisterApplicationUseCase
-{
-    Task<Result<RegisterApplicationResult>> ExecuteAsync(RegisterApplicationCommand command, CancellationToken cancellationToken = default);
-}
-
-public interface IRegisterPermissionManifestUseCase
-{
-    Task<Result<RegisterApplicationResult>> ExecuteAsync(RegisterPermissionManifestCommand command, CancellationToken cancellationToken = default);
-}
-
-public sealed class RegisterApplicationUseCase : IRegisterApplicationUseCase, IRegisterPermissionManifestUseCase
+public sealed class RegisterApplicationUseCase
 {
     private readonly IApplicationPermissionRegistryRepository repository;
     private readonly IApplicationPermissionAuthorizationService authorizationService;
