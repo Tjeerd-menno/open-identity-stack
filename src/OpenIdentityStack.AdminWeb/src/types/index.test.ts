@@ -9,7 +9,7 @@ describe('type helpers', () => {
           sub: 'user-1',
           email: 'alice@example.com',
           name: 'Alice',
-          permissions: ['users:read'],
+          permissions: ['users:*'],
         },
         'users:read'
       )

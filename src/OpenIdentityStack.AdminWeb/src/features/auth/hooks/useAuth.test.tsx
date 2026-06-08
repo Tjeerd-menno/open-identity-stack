@@ -79,7 +79,7 @@ describe('useAuth hooks', () => {
         sub: 'u1',
         email: 'alice@example.com',
         name: 'Alice',
-        permissions: ['users:read', 'roles:update'],
+        permissions: ['users:*', 'roles:update'],
       },
     });
 
@@ -88,7 +88,7 @@ describe('useAuth hooks', () => {
       const canCreateUsers = usePermission('users:create');
       const canManageAny = usePermissions(['groups:read', 'roles:update']);
       const hasAll = useAllPermissions(['users:read', 'roles:update']);
-      const missingOne = useAllPermissions(['users:read', 'users:create']);
+      const missingOne = useAllPermissions(['users:read', 'groups:create']);
 
       return (
         <div>
@@ -104,7 +104,7 @@ describe('useAuth hooks', () => {
     render(<PermissionConsumer />, { wrapper });
 
     expect(screen.getByTestId('can-read-users')).toHaveTextContent('true');
-    expect(screen.getByTestId('can-create-users')).toHaveTextContent('false');
+    expect(screen.getByTestId('can-create-users')).toHaveTextContent('true');
     expect(screen.getByTestId('can-manage-any')).toHaveTextContent('true');
     expect(screen.getByTestId('has-all')).toHaveTextContent('true');
     expect(screen.getByTestId('missing-one')).toHaveTextContent('false');
