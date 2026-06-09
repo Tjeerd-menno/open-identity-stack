@@ -34,6 +34,7 @@ public sealed class ApplicationProfilePolicyUseCaseTests
         this.lifecycleUseCases = new ApplicationLifecycleUseCases(
             this.repository,
             this.projection,
+            this.passwordHasher,
             this.dateTimeProvider,
             this.auditLog);
         this.credentialUseCases = new ApplicationCredentialUseCases(

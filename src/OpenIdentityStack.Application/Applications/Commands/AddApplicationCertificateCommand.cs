@@ -1,4 +1,3 @@
-using SharedKernel;
 using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 
 namespace OpenIdentityStack.Application.Applications.Commands;
@@ -9,11 +8,3 @@ public sealed record AddApplicationCertificateCommand(
     string? Subject,
     string? Description,
     DateTimeOffset? ExpiresAt);
-
-public interface IAddApplicationCertificateUseCase
-{
-    Task<Result<ApplicationCredentialCommandResult>> ExecuteAsync(
-        AddApplicationCertificateCommand command,
-        CancellationToken cancellationToken = default);
-}
-

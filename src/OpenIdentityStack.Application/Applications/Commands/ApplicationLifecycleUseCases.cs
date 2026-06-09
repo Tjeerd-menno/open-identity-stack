@@ -1,37 +1,50 @@
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Applications.Queries;
 using OpenIdentityStack.Domain.Applications;
 using SharedKernel;
 using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
+using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 
 namespace OpenIdentityStack.Application.Applications.Commands;
 
-public sealed class ApplicationLifecycleUseCases :
-    ICreateApplicationUseCase,
-    IUpdateApplicationMetadataUseCase,
-    IConfigureApplicationOAuthUseCase,
-    IEnableApplicationUseCase,
-    IDisableApplicationUseCase,
-    IDeleteApplicationUseCase
+public sealed class ApplicationLifecycleUseCases
 {
     private readonly IApplicationRepository repository;
     private readonly IApplicationProtocolProjection projection;
+    private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
 
     public ApplicationLifecycleUseCases(
         IApplicationRepository repository,
         IApplicationProtocolProjection projection,
+        IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog)
     {
         this.repository = repository;
         this.projection = projection;
+        this.passwordHasher = passwordHasher;
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
     }
 
     public async Task<Result<ApplicationCommandResult>> ExecuteAsync(
         CreateApplicationCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        Result<ApplicationCreateCommandResult> result = await this.ExecuteCreateAsync(
+            command,
+            initialSecretCommand: null,
+            cancellationToken);
+        return result.IsSuccess
+            ? result.Value.Application
+            : result.Error;
+    }
+
+    public async Task<Result<ApplicationCreateCommandResult>> ExecuteCreateAsync(
+        CreateApplicationCommand command,
+        CreateApplicationInitialSecretCommand? initialSecretCommand,
         CancellationToken cancellationToken = default)
     {
         if (!ApplicationProfilePolicyCatalog.GetPolicy(command.Profile).IsSelectable)
@@ -63,15 +76,44 @@ public sealed class ApplicationLifecycleUseCases :
         }
 
         DomainApplication application = createResult.Value;
-        await this.repository.AddAsync(application, cancellationToken);
+        string? initialSecret = null;
+        if (initialSecretCommand is not null)
+        {
+            initialSecret = GenerateSecret();
+            string secretHash = this.passwordHasher.HashPassword(initialSecret);
+            Result<ApplicationCredential> addSecretResult = application.AddSecret(
+                secretHash,
+                initialSecretCommand.Description,
+                initialSecretCommand.ExpiresAt,
+                this.dateTimeProvider);
+            if (addSecretResult.IsFailure)
+            {
+                return addSecretResult.Error;
+            }
+        }
 
-        Result projectionResult = await this.projection.UpsertAsync(application, cancellationToken);
+        Result projectionResult = initialSecret is null
+            ? await this.projection.UpsertAsync(application, cancellationToken)
+            : await this.projection.UpsertAsync(application, initialSecret, cancellationToken);
         if (projectionResult.IsFailure)
         {
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await this.repository.AddAsync(application, cancellationToken);
+            await this.repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return await this.CompensateCreateProjectionAsync(application.Id, exception, cancellationToken);
+        }
+
         await this.auditLog.LogAsync(
             "system",
             "Application.Created",
@@ -80,7 +122,7 @@ public sealed class ApplicationLifecycleUseCases :
             $"ClientId: {application.ClientId}, DisplayName: {application.DisplayName}",
             cancellationToken);
 
-        return ToCommandResult(application);
+        return new ApplicationCreateCommandResult(ToCommandResult(application), initialSecret);
     }
 
     public async Task<Result<ApplicationCommandResult>> ExecuteAsync(
@@ -155,6 +197,16 @@ public sealed class ApplicationLifecycleUseCases :
 
     public async Task<Result> ExecuteAsync(DisableApplicationCommand command, CancellationToken cancellationToken = default)
     {
+        Result<ApplicationCommandResult> result = await this.ExecuteWithDetailsAsync(command, cancellationToken);
+        return result.IsSuccess
+            ? Result.Success()
+            : result.Error;
+    }
+
+    public async Task<Result<ApplicationCommandResult>> ExecuteWithDetailsAsync(
+        DisableApplicationCommand command,
+        CancellationToken cancellationToken = default)
+    {
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {
@@ -176,10 +228,20 @@ public sealed class ApplicationLifecycleUseCases :
         await this.repository.SaveChangesAsync(cancellationToken);
         await this.AuditAsync("Application.Disabled", application, cancellationToken);
 
-        return Result.Success();
+        return ToCommandResult(application);
     }
 
     public async Task<Result> ExecuteAsync(EnableApplicationCommand command, CancellationToken cancellationToken = default)
+    {
+        Result<ApplicationCommandResult> result = await this.ExecuteWithDetailsAsync(command, cancellationToken);
+        return result.IsSuccess
+            ? Result.Success()
+            : result.Error;
+    }
+
+    public async Task<Result<ApplicationCommandResult>> ExecuteWithDetailsAsync(
+        EnableApplicationCommand command,
+        CancellationToken cancellationToken = default)
     {
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
@@ -202,7 +264,7 @@ public sealed class ApplicationLifecycleUseCases :
         await this.repository.SaveChangesAsync(cancellationToken);
         await this.AuditAsync("Application.Enabled", application, cancellationToken);
 
-        return Result.Success();
+        return ToCommandResult(application);
     }
 
     public async Task<Result> ExecuteAsync(DeleteApplicationCommand command, CancellationToken cancellationToken = default)
@@ -239,7 +301,28 @@ public sealed class ApplicationLifecycleUseCases :
             application.DisplayName,
             application.Profile,
             application.ClientType,
-            application.Status);
+            application.Status,
+            ToDetails(application));
+
+    private static ApplicationDetails ToDetails(DomainApplication application) =>
+        new(
+            application.Id,
+            application.ClientId,
+            application.DisplayName,
+            application.Description,
+            application.Profile,
+            application.ClientType,
+            application.Status,
+            application.AllowedGrantTypes,
+            application.AllowedScopes,
+            application.RedirectUris,
+            application.PostLogoutRedirectUris,
+            application.RequirePkce,
+            application.RequireConsent,
+            application.RequiresMigrationReview,
+            application.MigrationSource,
+            application.CreatedAt,
+            application.ModifiedAt);
 
     private Task AuditAsync(string action, DomainApplication application, CancellationToken cancellationToken) =>
         this.auditLog.LogAsync(
@@ -249,12 +332,48 @@ public sealed class ApplicationLifecycleUseCases :
             application.Id.Value.ToString(),
             $"ClientId: {application.ClientId}",
             cancellationToken);
+
+    private static string GenerateSecret()
+    {
+        byte[] bytes = new byte[32];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
+        return Convert.ToBase64String(bytes);
+    }
+
+    private async Task<DomainError> CompensateCreateProjectionAsync(
+        DomainApplicationId applicationId,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            Result compensationResult = await this.projection.DeleteAsync(applicationId, cancellationToken);
+            if (compensationResult.IsFailure)
+            {
+                return CreatePersistenceFailed();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception compensationException)
+        {
+            _ = compensationException;
+            return CreatePersistenceFailed();
+        }
+
+        _ = exception;
+        return CreatePersistenceFailed();
+    }
+
+    private static DomainError CreatePersistenceFailed() =>
+        DomainError.Failure(
+            "Application.CreatePersistenceFailed",
+            "Application creation could not be completed.");
 }
 
-public sealed class ApplicationCredentialUseCases :
-    IAddApplicationSecretUseCase,
-    IAddApplicationCertificateUseCase,
-    IRevokeApplicationCredentialUseCase
+public sealed class ApplicationCredentialUseCases
 {
     private readonly IApplicationRepository repository;
     private readonly IApplicationProtocolProjection projection;

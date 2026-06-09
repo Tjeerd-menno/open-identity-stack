@@ -1,6 +1,4 @@
 using OpenIdentityStack.Domain.Applications;
-using SharedKernel;
-
 namespace OpenIdentityStack.Application.Applications.Commands;
 
 public sealed record CreateApplicationCommand(
@@ -16,9 +14,6 @@ public sealed record CreateApplicationCommand(
     bool RequirePkce,
     bool RequireConsent);
 
-public interface ICreateApplicationUseCase
-{
-    Task<Result<ApplicationCommandResult>> ExecuteAsync(
-        CreateApplicationCommand command,
-        CancellationToken cancellationToken = default);
-}
+public sealed record CreateApplicationInitialSecretCommand(
+    string? Description,
+    DateTimeOffset? ExpiresAt);
