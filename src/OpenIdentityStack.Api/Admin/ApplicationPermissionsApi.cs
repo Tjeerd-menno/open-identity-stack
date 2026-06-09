@@ -1,11 +1,11 @@
 using System.Net.Http.Json;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using OpenIdentityStack.Application.ApplicationPermissions;
 using OpenIdentityStack.Api.Admin.Requests.ApplicationPermissions;
 using OpenIdentityStack.Api.Admin.Responses.ApplicationPermissions;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Common;
-using OpenIdentityStack.Application.ApplicationPermissions.Commands;
 using OpenIdentityStack.Application.ApplicationPermissions.Dtos;
 using OpenIdentityStack.Application.ApplicationPermissions.Queries;
 using OpenIdentityStack.Application.ApplicationPermissions.Validators;
@@ -200,7 +200,7 @@ internal static class ApplicationPermissionsApi
     }
 
     private static async Task<IResult> RegisterApplicationManifest(
-        [FromServices] ApplicationPermissionManifestUseCases manifestUseCases,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         [FromBody] CreatePermissionManifestRequest request,
         CancellationToken cancellationToken)
@@ -221,14 +221,14 @@ internal static class ApplicationPermissionsApi
         }
 
         string actorId = GetActorId(context);
-        var command = new CreateApplicationPermissionManifestCommand(
+        var workflowRequest = new ImportManifestRequest(
             ToManifestDocument(request.Manifest),
             request.OwnerId,
             ownerType,
             request.ManifestBaseUrl,
             actorId);
 
-        Result<RegisteredApplicationDto> result = await manifestUseCases.CreateAsync(command, cancellationToken);
+        Result<RegisteredApplicationDto> result = await workflow.ImportManifestAsync(workflowRequest, cancellationToken);
         if (result.IsFailure)
         {
             return ToErrorResult(result.Error);
@@ -238,73 +238,77 @@ internal static class ApplicationPermissionsApi
     }
 
     private static async Task<IResult> PreviewApplicationManifest(
-        [FromServices] ApplicationPermissionManifestUseCases manifestUseCases,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] ManifestUpdateRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new ApplyApplicationPermissionManifestCommand(
+        var workflowRequest = new PreviewManifestRequest(
             id,
             ToManifestDocument(request.Manifest),
             GetActorId(context),
             request.ConcurrencyToken);
 
-        Result<ManifestPreviewDto> result = await manifestUseCases.PreviewChangesAsync(command, cancellationToken);
+        Result<ManifestPreviewDto> result = await workflow.PreviewManifestAsync(workflowRequest, cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> ApplyApplicationManifest(
-        [FromServices] ApplicationPermissionManifestUseCases manifestUseCases,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] ManifestUpdateRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new ApplyApplicationPermissionManifestCommand(
+        var workflowRequest = new ApplyManifestRequest(
             id,
             ToManifestDocument(request.Manifest),
             GetActorId(context),
             request.ConcurrencyToken);
 
-        Result<ManifestApplyDto> result = await manifestUseCases.ApplyChangesAsync(command, cancellationToken);
+        Result<ManifestApplyDto> result = await workflow.ApplyManifestAsync(workflowRequest, cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> PreviewRemoteApplicationManifest(
-        [FromServices] ApplicationPermissionManifestUseCases manifestUseCases,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] RemoteImportRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new RemoteApplicationPermissionManifestCommand(
+        var workflowRequest = new PreviewManifestRequest(
             id,
+            Manifest: null,
             GetActorId(context),
-            request.ConcurrencyToken);
+            request.ConcurrencyToken,
+            FetchRemote: true);
 
-        Result<ManifestPreviewDto> result = await manifestUseCases.PreviewRemoteChangesAsync(command, cancellationToken);
+        Result<ManifestPreviewDto> result = await workflow.PreviewManifestAsync(workflowRequest, cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> ApplyRemoteApplicationManifest(
-        [FromServices] ApplicationPermissionManifestUseCases manifestUseCases,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] RemoteImportRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new RemoteApplicationPermissionManifestCommand(
+        var workflowRequest = new ApplyManifestRequest(
             id,
+            Manifest: null,
             GetActorId(context),
-            request.ConcurrencyToken);
+            request.ConcurrencyToken,
+            FetchRemote: true);
 
-        Result<ManifestApplyDto> result = await manifestUseCases.ApplyRemoteChangesAsync(command, cancellationToken);
+        Result<ManifestApplyDto> result = await workflow.ApplyManifestAsync(workflowRequest, cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> ImportApplicationManifest(
-        [FromServices] ApplicationPermissionManifestUseCases manifestUseCases,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         [FromServices] IHttpClientFactory httpClientFactory,
         HttpContext context,
         [FromBody] ImportPermissionManifestRequest request,
@@ -328,16 +332,16 @@ internal static class ApplicationPermissionsApi
             return TypedResults.BadRequest(new { error = "PermissionManifest.InvalidJson", message = "The permissions manifest endpoint did not return a valid manifest." });
         }
 
-        var createRequest = new CreatePermissionManifestRequest(manifest, GetActorId(context), OwnerType.User.ToString(), endpoint!.GetLeftPart(UriPartial.Authority));
-        var command = new CreateApplicationPermissionManifestCommand(
-            ToManifestDocument(createRequest.Manifest),
-            createRequest.OwnerId,
+        string actorId = GetActorId(context);
+        var workflowRequest = new ImportManifestRequest(
+            ToManifestDocument(manifest),
+            actorId,
             OwnerType.User,
-            createRequest.ManifestBaseUrl,
-            GetActorId(context),
+            endpoint!.GetLeftPart(UriPartial.Authority),
+            actorId,
             IsImported: true);
 
-        Result<RegisteredApplicationDto> result = await manifestUseCases.CreateAsync(command, cancellationToken);
+        Result<RegisteredApplicationDto> result = await workflow.ImportManifestAsync(workflowRequest, cancellationToken);
         if (result.IsFailure)
         {
             return ToErrorResult(result.Error);
@@ -401,46 +405,46 @@ internal static class ApplicationPermissionsApi
     }
 
     private static async Task<IResult> UpdateApplication(
-        [FromServices] IUpdateRegisteredApplicationUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] UpdateRegisteredApplicationRequest request,
         CancellationToken cancellationToken)
     {
-        Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new UpdateRegisteredApplicationCommand(id, request.DisplayName, request.Description, GetActorId(context), request.ConcurrencyToken, request.ManifestBaseUrl),
+        Result<RegisteredApplicationDto> result = await workflow.UpdateApplicationAsync(
+            new UpdateApplicationRequest(id, request.DisplayName, request.Description, GetActorId(context), request.ConcurrencyToken, request.ManifestBaseUrl),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> AddPermission(
-        [FromServices] IAddApplicationPermissionUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] AddApplicationPermissionRequest request,
         CancellationToken cancellationToken)
     {
-        Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new AddApplicationPermissionCommand(id, request.PermissionKey, request.DisplayName, request.Description, request.Category, GetActorId(context), request.ConcurrencyToken),
+        Result<RegisteredApplicationDto> result = await workflow.AddPermissionAsync(
+            new AddPermissionRequest(id, request.PermissionKey, request.DisplayName, request.Description, request.Category, GetActorId(context), request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> UpdatePermission(
-        [FromServices] IUpdateApplicationPermissionUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid permissionId,
         [FromBody] UpdateApplicationPermissionRequest request,
         CancellationToken cancellationToken)
     {
-        Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new UpdateApplicationPermissionCommand(permissionId, request.DisplayName, request.Description, request.Category, GetActorId(context), request.ConcurrencyToken),
+        Result<RegisteredApplicationDto> result = await workflow.UpdatePermissionAsync(
+            new UpdatePermissionRequest(permissionId, request.DisplayName, request.Description, request.Category, GetActorId(context), request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> ChangeApplicationLifecycle(
-        [FromServices] IChangeRegisteredApplicationLifecycleUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] ChangeApplicationLifecycleRequest request,
@@ -451,84 +455,84 @@ internal static class ApplicationPermissionsApi
             return TypedResults.BadRequest(new { error = "Invalid application lifecycle status." });
         }
 
-        Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new ChangeRegisteredApplicationLifecycleCommand(id, status, GetActorId(context), request.AcknowledgeDependencies, request.ConcurrencyToken),
+        Result<RegisteredApplicationDto> result = await workflow.ChangeLifecycleAsync(
+            new ChangeLifecycleRequest(id, status, GetActorId(context), request.AcknowledgeDependencies, request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> GetPermissionDeletionImpact(
-        [FromServices] IPreviewApplicationPermissionDeletionImpactUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid permissionId,
         CancellationToken cancellationToken)
     {
-        Result<DeletionImpactDto> result = await useCase.ExecuteAsync(
-            new PreviewDeleteApplicationPermissionCommand(permissionId, GetActorId(context)),
+        Result<DeletionImpactDto> result = await workflow.PreviewDeletePermissionAsync(
+            new PreviewDeletePermissionRequest(permissionId, GetActorId(context)),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> DeletePermission(
-        [FromServices] IDeleteApplicationPermissionUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid permissionId,
         [FromBody] DeleteApplicationPermissionRequest request,
         CancellationToken cancellationToken)
     {
-        Result<DestructiveOperationResultDto> result = await useCase.ExecuteAsync(
-            new DeleteApplicationPermissionCommand(permissionId, request.Reason, GetActorId(context), request.ConcurrencyToken),
+        Result<DestructiveOperationResultDto> result = await workflow.DeletePermissionAsync(
+            new DeletePermissionRequest(permissionId, request.Reason, GetActorId(context), request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> GetApplicationDeletionImpact(
-        [FromServices] IPreviewRegisteredApplicationDeletionImpactUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         CancellationToken cancellationToken)
     {
-        Result<DeletionImpactDto> result = await useCase.ExecuteAsync(
-            new PreviewDeleteRegisteredApplicationCommand(id, GetActorId(context)),
+        Result<DeletionImpactDto> result = await workflow.PreviewDeleteApplicationAsync(
+            new PreviewDeleteApplicationRequest(id, GetActorId(context)),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> DeleteApplication(
-        [FromServices] IDeleteRegisteredApplicationUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] DeleteRegisteredApplicationRequest request,
         CancellationToken cancellationToken)
     {
-        Result<DestructiveOperationResultDto> result = await useCase.ExecuteAsync(
-            new DeleteRegisteredApplicationCommand(id, request.Reason, GetActorId(context), request.ConcurrencyToken),
+        Result<DestructiveOperationResultDto> result = await workflow.DeleteApplicationAsync(
+            new DeleteApplicationRequest(id, request.Reason, GetActorId(context), request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> DisableApplication(
-        [FromServices] IChangeRegisteredApplicationLifecycleUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] ApplicationLifecycleActionRequest request,
         CancellationToken cancellationToken)
     {
-        Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new ChangeRegisteredApplicationLifecycleCommand(id, ApplicationLifecycleStatus.Disabled, GetActorId(context), request.AcknowledgeDependencies, request.ConcurrencyToken),
+        Result<RegisteredApplicationDto> result = await workflow.ChangeLifecycleAsync(
+            new ChangeLifecycleRequest(id, ApplicationLifecycleStatus.Disabled, GetActorId(context), request.AcknowledgeDependencies, request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> EnableApplication(
-        [FromServices] IChangeRegisteredApplicationLifecycleUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] ApplicationLifecycleActionRequest request,
         CancellationToken cancellationToken)
     {
-        Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new ChangeRegisteredApplicationLifecycleCommand(id, ApplicationLifecycleStatus.Active, GetActorId(context), request.AcknowledgeDependencies, request.ConcurrencyToken),
+        Result<RegisteredApplicationDto> result = await workflow.ChangeLifecycleAsync(
+            new ChangeLifecycleRequest(id, ApplicationLifecycleStatus.Active, GetActorId(context), request.AcknowledgeDependencies, request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
@@ -543,14 +547,14 @@ internal static class ApplicationPermissionsApi
     }
 
     private static async Task<IResult> UpdateRemovedPermissionReplacement(
-        [FromServices] IUpdateRemovedPermissionReplacementUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid permissionId,
         [FromBody] ReplacementGuidanceRequest request,
         CancellationToken cancellationToken)
     {
-        Result<RemovedPermissionDetailDto> result = await useCase.ExecuteAsync(
-            new UpdateRemovedPermissionReplacementCommand(
+        Result<RemovedPermissionDetailDto> result = await workflow.UpdateRemovedPermissionReplacementAsync(
+            new UpdateRemovedPermissionReplacementRequest(
                 permissionId,
                 request.ReplacementFullPermissionKey,
                 request.ReplacementNote,
@@ -561,32 +565,32 @@ internal static class ApplicationPermissionsApi
     }
 
     private static async Task<IResult> ListApplicationPermissionHistory(
-        [FromServices] IListApplicationPermissionHistoryQueryHandler handler,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         [FromQuery] string? applicationIdentifier = null,
         [FromQuery] bool includeApplications = true,
         [FromQuery] bool includePermissions = true,
         CancellationToken cancellationToken = default)
     {
-        Result<ApplicationPermissionHistoryDto> result = await handler.HandleAsync(
-            new ListApplicationPermissionHistoryQuery(applicationIdentifier, includeApplications, includePermissions, GetActorId(context)),
+        Result<ApplicationPermissionHistoryDto> result = await workflow.ListHistoryAsync(
+            new ListHistoryRequest(applicationIdentifier, includeApplications, includePermissions, GetActorId(context)),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> ListApplicationPermissionDiagnostics(
-        [FromServices] IListApplicationPermissionDiagnosticsQueryHandler handler,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         CancellationToken cancellationToken)
     {
-        Result<PermissionDiagnosticsDto> result = await handler.HandleAsync(
-            new ListApplicationPermissionDiagnosticsQuery(GetActorId(context)),
+        Result<PermissionDiagnosticsDto> result = await workflow.ListDiagnosticsAsync(
+            new ListDiagnosticsRequest(GetActorId(context)),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> TransferOwnership(
-        [FromServices] ITransferRegisteredApplicationOwnershipUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] TransferApplicationOwnershipRequest request,
@@ -597,14 +601,14 @@ internal static class ApplicationPermissionsApi
             return TypedResults.BadRequest(new { error = "Invalid owner type." });
         }
 
-        Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new TransferRegisteredApplicationOwnershipCommand(id, request.OwnerId, ownerType, GetActorId(context), request.ConcurrencyToken),
+        Result<RegisteredApplicationDto> result = await workflow.TransferOwnershipAsync(
+            new TransferOwnershipRequest(id, request.OwnerId, ownerType, GetActorId(context), request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> AddMaintainer(
-        [FromServices] IAddDelegatedMaintainerUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         [FromBody] AddDelegatedMaintainerRequest request,
@@ -615,22 +619,22 @@ internal static class ApplicationPermissionsApi
             return TypedResults.BadRequest(new { error = "Invalid principal type." });
         }
 
-        Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new AddDelegatedMaintainerCommand(id, request.PrincipalId, principalType, GetActorId(context), request.ConcurrencyToken),
+        Result<RegisteredApplicationDto> result = await workflow.AddMaintainerAsync(
+            new AddMaintainerRequest(id, request.PrincipalId, principalType, GetActorId(context), request.ConcurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> RemoveMaintainer(
-        [FromServices] IRemoveDelegatedMaintainerUseCase useCase,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         Guid id,
         string principalId,
         [FromQuery] uint? concurrencyToken,
         CancellationToken cancellationToken)
     {
-        Result<RegisteredApplicationDto> result = await useCase.ExecuteAsync(
-            new RemoveDelegatedMaintainerCommand(id, principalId, GetActorId(context), concurrencyToken),
+        Result<RegisteredApplicationDto> result = await workflow.RemoveMaintainerAsync(
+            new RemoveMaintainerRequest(id, principalId, GetActorId(context), concurrencyToken),
             cancellationToken);
         return ToResult(result);
     }
