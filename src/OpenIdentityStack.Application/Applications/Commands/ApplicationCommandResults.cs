@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Applications.Queries;
 using OpenIdentityStack.Domain.Applications;
 using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 
@@ -9,7 +10,12 @@ public sealed record ApplicationCommandResult(
     string DisplayName,
     ApplicationProfile Profile,
     OAuthClientType ClientType,
-    ApplicationStatus Status);
+    ApplicationStatus Status,
+    ApplicationDetails Details);
+
+public sealed record ApplicationCreateCommandResult(
+    ApplicationCommandResult Application,
+    string? InitialSecret);
 
 public sealed record ApplicationCredentialCommandResult(
     Guid CredentialId,
