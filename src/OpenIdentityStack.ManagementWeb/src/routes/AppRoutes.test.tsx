@@ -511,6 +511,43 @@ describe('AppRoutes route guards', () => {
     expect(await screen.findByRole('heading', { name: 'Authentication Settings' })).toBeInTheDocument();
   });
 
+  it('keeps authentication settings reachable for settings-only operators', async () => {
+    const apiBase = 'http://localhost:5000';
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/authentication-settings` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify({
+          defaultProviderId: 'local',
+          isLocalDefault: true,
+          localFallbackEnabled: true,
+          updatedAt: '2026-01-01T00:00:00Z',
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      if (url === `${apiBase}/api/admin/authentication-settings/providers` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify([
+          { id: 'local', name: 'local', displayName: 'Local Accounts', type: 'local', isActive: true },
+        ]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }));
+
+    renderGuard(<AppRoutes />, { permissions: ['system:settings'] }, ['/providers/settings']);
+
+    expect(await screen.findByRole('heading', { name: 'Authentication Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /authentication settings/i })).toHaveAttribute('href', '/providers/settings');
+    expect(screen.queryByRole('link', { name: 'Identity providers' })).not.toBeInTheDocument();
+  });
+
   it.each([
     ['/application-permissions', 'Permissions'],
     ['/application-permissions/new', 'Add Application'],

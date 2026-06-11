@@ -2,6 +2,7 @@ import { ActionIcon, Anchor, AppShell as MantineAppShell, Badge, Breadcrumbs, Bu
 import { useDisclosure } from '@mantine/hooks';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '@/lib/auth-context';
+import { hasAnyPermission } from '@/lib/permissions';
 import { LogoutIcon } from './IamIcons';
 import { ThemeToggle } from './ThemeToggle';
 import { Navigation } from './Navigation';
@@ -15,7 +16,11 @@ export function AppShell() {
   const [opened, { close, toggle }] = useDisclosure();
   const auth = useAuth();
   const location = useLocation();
-  const breadcrumbs = getBreadcrumbs(location.pathname);
+  const breadcrumbs = getBreadcrumbs(location.pathname).map((item) => (
+    item.href === '/providers' && !hasAnyPermission(auth.permissions, ['providers:read'])
+      ? { label: item.label }
+      : item
+  ));
 
   return (
     <MantineAppShell
@@ -65,7 +70,7 @@ export function AppShell() {
         </Group>
       </MantineAppShell.Header>
       <MantineAppShell.Navbar p="md">
-        <Navigation onNavigate={close} />
+        <Navigation onNavigate={close} permissions={auth.permissions} />
       </MantineAppShell.Navbar>
       <MantineAppShell.Main>
         <Stack gap="lg">

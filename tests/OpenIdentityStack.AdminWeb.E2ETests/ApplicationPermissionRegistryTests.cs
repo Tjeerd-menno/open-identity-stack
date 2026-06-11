@@ -89,7 +89,7 @@ public sealed class ApplicationPermissionRegistryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task RolePermissionPicker_ShouldAssignDynamicWildcardAndRequirePlatformWildcardAcknowledgement()
+    public async Task RolePermissionPicker_ShouldAssignDynamicWildcardAndConfirmWildcardSave()
     {
         await TestHelpers.LoginAsTestAdminAsync(page!, fixture.AdminWebUrl!);
 
@@ -106,8 +106,9 @@ public sealed class ApplicationPermissionRegistryTests : IAsyncLifetime
 
         await page.GetByRole(AriaRole.Tab, new() { Name = displayName }).ClickAsync();
         await page.GetByRole(AriaRole.Checkbox, new() { NameRegex = new Regex("Claims API .*Claim All", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Checkbox, new() { Name = "Acknowledge wildcard grant" }).ClickAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Create Role", Exact = true }).ClickAsync();
+        await page.GetByText("The permissions include wildcard permissions. Are you sure you want to save this role?").ShouldBeVisibleAsync("Wildcard role creation should ask for confirmation.");
+        await page.GetByRole(AriaRole.Button, new() { Name = "Save role", Exact = true }).ClickAsync();
 
         await page.WaitForURLAsync(new Regex(@"/roles/[0-9a-fA-F-]{36}$"), new() { Timeout = 15000 });
         await page.GetByText($"{applicationId}:claim:*").ShouldBeVisibleAsync("Dynamic wildcard permission should be visible on the created role.");
@@ -118,18 +119,14 @@ public sealed class ApplicationPermissionRegistryTests : IAsyncLifetime
         await FillRoleFieldsAsync($"platform-wildcard-{uniqueId}", $"Platform Wildcard {uniqueId}");
         await page.GetByRole(AriaRole.Checkbox, new() { Name = "Users All", Exact = true }).ClickAsync();
 
-        Task<IResponse> conflictResponse = page.WaitForResponseAsync(response =>
-            response.Url.Contains("/api/admin/roles", StringComparison.OrdinalIgnoreCase)
-            && response.Status == 409);
         await page.GetByRole(AriaRole.Button, new() { Name = "Create Role", Exact = true }).ClickAsync();
-        await conflictResponse;
+        await page.GetByText("The permissions include wildcard permissions. Are you sure you want to save this role?").ShouldBeVisibleAsync("Platform wildcard role creation should ask for confirmation.");
         page.Url.ShouldEndWith("/roles/new");
 
-        await page.GetByRole(AriaRole.Checkbox, new() { Name = "Acknowledge wildcard grant" }).ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { Name = "Create Role", Exact = true }).ClickAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Save role", Exact = true }).ClickAsync();
 
         await page.WaitForURLAsync(new Regex(@"/roles/[0-9a-fA-F-]{36}$"), new() { Timeout = 15000 });
-        await page.GetByText("users:*").ShouldBeVisibleAsync("Platform wildcard permission should be visible after acknowledgement.");
+        await page.GetByText("users:*").ShouldBeVisibleAsync("Platform wildcard permission should be visible after confirmation.");
     }
 
     [Fact]
