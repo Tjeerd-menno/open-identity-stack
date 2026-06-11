@@ -10,7 +10,6 @@ import {
   ProvidersIcon,
   RolesIcon,
   SessionsIcon,
-  SettingsIcon,
   UsersIcon,
 } from './IamIcons';
 
@@ -19,6 +18,10 @@ type NavigationItem = {
   to: string;
   icon: ComponentType;
   match?: string[];
+};
+
+type NavigationProps = {
+  onNavigate?: () => void;
 };
 
 const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
@@ -56,15 +59,9 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
       { label: 'Audit', to: '/audit-entries', icon: AuditIcon, match: ['/audit-entries'] },
     ],
   },
-  {
-    label: 'System',
-    items: [
-      { label: 'Settings', to: '/settings', icon: SettingsIcon, match: ['/settings'] },
-    ],
-  },
 ];
 
-export function Navigation() {
+export function Navigation({ onNavigate }: NavigationProps) {
   const location = useLocation();
 
   return (
@@ -84,6 +81,7 @@ export function Navigation() {
                   component={Link}
                   label={item.label}
                   leftSection={<Icon />}
+                  onClick={onNavigate}
                   to={item.to}
                 />
               );

@@ -454,7 +454,29 @@ describe('AppRoutes route guards', () => {
     expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
   });
 
-  it('routes /settings to the Settings surface', async () => {
+  it('does not show provider authentication settings action when the operator lacks settings permission', async () => {
+    const apiBase = 'http://localhost:5000';
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/providers?includeDisabled=true` && method === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }));
+
+    renderGuard(<AppRoutes />, { permissions: ['providers:read'] }, ['/providers']);
+
+    expect(await screen.findByRole('heading', { name: 'Identity Providers' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /authentication settings/i })).not.toBeInTheDocument();
+  });
+
+  it('routes /providers/settings to authentication settings in the Providers surface', async () => {
     const apiBase = 'http://localhost:5000';
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
@@ -484,7 +506,7 @@ describe('AppRoutes route guards', () => {
       return Promise.resolve(new Response(null, { status: 404 }));
     }));
 
-    renderGuard(<AppRoutes />, { permissions: ['*'] }, ['/settings']);
+    renderGuard(<AppRoutes />, { permissions: ['*'] }, ['/providers/settings']);
 
     expect(await screen.findByRole('heading', { name: 'Authentication Settings' })).toBeInTheDocument();
   });

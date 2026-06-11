@@ -12,10 +12,12 @@ import { RoleStatusBadge, RoleTypeBadge } from './RoleBadges';
 import {
   useCreateRole,
   useDeleteRole,
+  usePlatformPermissionCatalog,
   useRole,
   useRoles,
   useUpdateRole,
 } from './roles-hooks';
+import { getEffectivePermissionCount } from './permission-count';
 import type { CreateRoleRequest, RoleListItem, UpdateRoleRequest } from './roles-api';
 
 const pageSize = 20;
@@ -52,6 +54,7 @@ function RoleListView({ permissions }: Required<RolesPageProps>) {
   const [submittedSearch, setSubmittedSearch] = useState('');
   const searchMounted = useRef(false);
   const roles = useRoles({ page, pageSize, search: submittedSearch || undefined });
+  const platformCatalog = usePlatformPermissionCatalog();
   const canWrite = hasPermission(permissions, 'roles:write');
 
   useEffect(() => {
@@ -81,7 +84,11 @@ function RoleListView({ permissions }: Required<RolesPageProps>) {
     },
     {
       header: 'Permissions',
-      cell: (role) => <Badge variant="light">{role.permissions?.length ?? 0}</Badge>,
+      cell: (role) => (
+        <Badge variant="light">
+          {getEffectivePermissionCount(role.permissions ?? [], platformCatalog.data?.items)}
+        </Badge>
+      ),
     },
     {
       header: 'Actions',
@@ -171,6 +178,7 @@ function RoleDetailView({ roleId, permissions }: { roleId: string; permissions: 
   const role = useRole(roleId);
   const updateRole = useUpdateRole(roleId);
   const deleteRole = useDeleteRole(roleId);
+  const platformCatalog = usePlatformPermissionCatalog();
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const canWrite = hasPermission(permissions, 'roles:write');
@@ -197,6 +205,7 @@ function RoleDetailView({ roleId, permissions }: { roleId: string; permissions: 
         <RoleForm
           mode="edit"
           role={role.data}
+          catalogItems={platformCatalog.data?.items}
           loading={updateRole.isPending}
           error={updateRole.error}
           onCancel={() => setIsEditing(false)}
@@ -250,7 +259,9 @@ function RoleDetailView({ roleId, permissions }: { roleId: string; permissions: 
         <Title order={2} size="h3">Metadata</Title>
         <Stack gap={4} mt="sm">
           <Text size="sm">Role ID: {role.data.id}</Text>
-          <Text size="sm">Permission count: {role.data.permissions.length}</Text>
+          <Text size="sm">
+            Permission count: {getEffectivePermissionCount(role.data.permissions, platformCatalog.data?.items)}
+          </Text>
         </Stack>
       </section>
 

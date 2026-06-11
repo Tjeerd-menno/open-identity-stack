@@ -185,11 +185,13 @@ export function PermissionSelector({
             <div className="grid gap-3 md:grid-cols-2">
               {permissions.map((permission) => {
                 const descriptionId = permission.description ? `${permission.value}-description` : undefined;
+                const checked = selected.has(permission.value)
+                  || isCoveredByWildcard(permission.value, selectedPermissions);
                 return (
                   <div key={permission.value} className="flex items-start gap-2 rounded-md border p-3">
                     <Checkbox
                       id={permission.value}
-                      checked={selected.has(permission.value)}
+                      checked={checked}
                       onCheckedChange={(checked) =>
                         handleToggle(permission.value, checked as boolean)
                       }
@@ -231,4 +233,22 @@ function toTitle(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function isCoveredByWildcard(permission: string, selectedPermissions: string[]) {
+  if (permission === '*') {
+    return false;
+  }
+
+  return selectedPermissions.some((selectedPermission) => {
+    if (selectedPermission === '*') {
+      return true;
+    }
+
+    if (!selectedPermission.endsWith(':*') || selectedPermission === permission) {
+      return false;
+    }
+
+    return permission.startsWith(selectedPermission.slice(0, -1));
+  });
 }

@@ -1,4 +1,4 @@
-import { Alert, Button, Checkbox, Group, Loader, Select, Stack, Switch, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Checkbox, Group, Loader, Select, Stack, Switch, Text, TextInput, Title } from '@mantine/core';
 import { useMemo, useState } from 'react';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { usePlatformPermissionCatalog } from './roles-hooks';
@@ -40,7 +40,7 @@ export function PermissionSelector({ selectedPermissions, onChange }: Permission
       || item.displayName.toLowerCase().includes(search.toLowerCase());
     const matchesResource = !resource || item.resource === resource;
     const matchesKind = !kind || item.kind === kind;
-    const matchesSelected = !selectedOnly || selectedPermissions.includes(item.permission);
+    const matchesSelected = !selectedOnly || isPermissionChecked(item.permission, selectedPermissions);
     return matchesSearch && matchesResource && matchesKind && matchesSelected;
   });
   const groups = groupPermissions(filteredItems);
@@ -89,19 +89,14 @@ export function PermissionSelector({ selectedPermissions, onChange }: Permission
       </Group>
       {groups.map(([resource, permissions]) => (
         <Stack key={resource} gap="xs">
-          <Group justify="space-between">
-            <Title order={3} size="h5">{formatResource(resource)}</Title>
-            <Button size="xs" variant="light" onClick={() => selectResource(permissions, selectedPermissions, onChange)}>
-              Select resource
-            </Button>
-          </Group>
+          <Title order={3} size="h5">{formatResource(resource)}</Title>
           <Stack gap={6}>
             {permissions.map((item) => (
               <Checkbox
                 key={item.permission}
                 label={item.displayName}
                 description={item.kind === 'wildcard' ? `Broad grant: ${item.permission}` : item.permission}
-                checked={selectedPermissions.includes(item.permission)}
+                checked={isPermissionChecked(item.permission, selectedPermissions)}
                 onChange={(event) => togglePermission(item.permission, event.currentTarget.checked)}
               />
             ))}
@@ -111,14 +106,6 @@ export function PermissionSelector({ selectedPermissions, onChange }: Permission
       {groups.length === 0 && <Text c="dimmed">No permissions match the current filters.</Text>}
     </Stack>
   );
-}
-
-function selectResource(
-  permissions: PlatformPermissionCatalogItem[],
-  selectedPermissions: string[],
-  onChange: (permissions: string[]) => void
-) {
-  onChange([...selectedPermissions, ...permissions.map((permission) => permission.permission)].filter(unique));
 }
 
 function groupPermissions(items: PlatformPermissionCatalogItem[]) {
@@ -157,4 +144,26 @@ function formatResource(resource: string) {
 
 function unique(value: string, index: number, array: string[]) {
   return array.indexOf(value) === index;
+}
+
+function isPermissionChecked(permission: string, selectedPermissions: string[]) {
+  if (selectedPermissions.includes(permission)) {
+    return true;
+  }
+
+  if (permission === '*') {
+    return false;
+  }
+
+  return selectedPermissions.some((selectedPermission) => {
+    if (selectedPermission === '*') {
+      return true;
+    }
+
+    if (!selectedPermission.endsWith(':*') || selectedPermission === permission) {
+      return false;
+    }
+
+    return permission.startsWith(selectedPermission.slice(0, -1));
+  });
 }

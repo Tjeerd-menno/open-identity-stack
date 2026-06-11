@@ -56,13 +56,7 @@ const overviewSections: OverviewSection[] = [
     label: 'Identity providers',
     path: '/providers',
     permission: 'providers:read',
-    description: 'OIDC provider configuration and lifecycle.',
-  },
-  {
-    label: 'Settings',
-    path: '/settings',
-    permission: 'system:settings',
-    description: 'Authentication defaults and local fallback controls.',
+    description: 'OIDC provider configuration, lifecycle, and authentication defaults.',
   },
   {
     label: 'Audit',

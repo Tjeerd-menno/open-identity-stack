@@ -65,6 +65,24 @@ describe('PermissionSelector', () => {
     expect(onChange).toHaveBeenCalledWith(['roles:read']);
   });
 
+  it('visualizes concrete permissions covered by a selected wildcard as checked', async () => {
+    getPlatformPermissionCatalog.mockResolvedValue({
+      items: [
+        { permission: 'users:*', resource: 'users', action: '*', kind: 'wildcard', displayName: 'All Users', assignable: true },
+        { permission: 'users:read', resource: 'users', action: 'read', kind: 'concrete', displayName: 'Read Users', assignable: true },
+        { permission: 'users:create', resource: 'users', action: 'create', kind: 'concrete', displayName: 'Create Users', assignable: true },
+        { permission: 'roles:read', resource: 'roles', action: 'read', kind: 'concrete', displayName: 'Read Roles', assignable: true },
+      ],
+    });
+
+    renderSelector(<PermissionSelector selectedPermissions={['users:*']} onChange={vi.fn()} />);
+
+    expect(await screen.findByLabelText('All Users')).toBeChecked();
+    expect(screen.getByLabelText('Read Users')).toBeChecked();
+    expect(screen.getByLabelText('Create Users')).toBeChecked();
+    expect(screen.getByLabelText('Read Roles')).not.toBeChecked();
+  });
+
   it('adds registered application permissions when the catalog is available', async () => {
     const user = userEvent.setup();
     useAssignablePermissionCatalog.mockReturnValue({

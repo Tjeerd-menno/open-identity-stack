@@ -18,6 +18,9 @@ vi.mock('./PermissionSelector', () => ({
       <button type="button" disabled={disabled} onClick={() => onChange(['users:read'])}>
         Pick read permission
       </button>
+      <button type="button" disabled={disabled} onClick={() => onChange(['users:*'])}>
+        Pick wildcard permission
+      </button>
     </div>
   ),
 }));
@@ -76,5 +79,34 @@ describe('RoleForm', () => {
 
     expect(onCancel).toHaveBeenCalledOnce();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('confirms wildcard grants when saving instead of requiring an acknowledgement checkbox', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<RoleForm onSubmit={onSubmit} onCancel={vi.fn()} />);
+
+    await user.type(screen.getByLabelText(/^name$/i), 'user-admin');
+    await user.type(screen.getByLabelText(/display name/i), 'User Admin');
+    await user.click(screen.getByRole('button', { name: /pick wildcard permission/i }));
+
+    expect(screen.queryByRole('checkbox', { name: /acknowledge wildcard grant/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /create role/i }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(await screen.findByText(/permissions include wildcard permissions/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /save role/i }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        name: 'user-admin',
+        displayName: 'User Admin',
+        description: '',
+        permissions: ['users:*'],
+        acknowledgeWildcardGrant: true,
+      });
+    });
   });
 });
