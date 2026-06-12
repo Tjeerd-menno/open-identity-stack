@@ -22,4 +22,11 @@ describe('Navigation', () => {
     expect(screen.getByRole('link', { name: 'Authentication settings' })).toHaveAttribute('href', '/providers/settings');
     expect(screen.queryByRole('link', { name: 'Identity providers' })).not.toBeInTheDocument();
   });
+
+  it('keeps overview visible for scoped operators', () => {
+    renderManagementWeb(<Navigation permissions={['users:read']} />);
+
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Users' })).toHaveAttribute('href', '/users');
+  });
 });

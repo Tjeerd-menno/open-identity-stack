@@ -1,6 +1,7 @@
 import { Alert, Checkbox, Group, Loader, Select, Stack, Switch, Text, TextInput, Title } from '@mantine/core';
 import { useMemo, useState } from 'react';
 import { getApiErrorMessage } from '@/lib/admin-api';
+import { hasPermission } from '@/lib/permissions';
 import { usePlatformPermissionCatalog } from './roles-hooks';
 import type { PlatformPermissionCatalogItem } from './roles-api';
 
@@ -155,15 +156,5 @@ function isPermissionChecked(permission: string, selectedPermissions: string[]) 
     return false;
   }
 
-  return selectedPermissions.some((selectedPermission) => {
-    if (selectedPermission === '*') {
-      return true;
-    }
-
-    if (!selectedPermission.endsWith(':*') || selectedPermission === permission) {
-      return false;
-    }
-
-    return permission.startsWith(selectedPermission.slice(0, -1));
-  });
+  return hasPermission(selectedPermissions, permission);
 }

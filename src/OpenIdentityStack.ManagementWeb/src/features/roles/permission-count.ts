@@ -1,3 +1,4 @@
+import { hasPermission } from '@/lib/permissions';
 import type { PlatformPermissionCatalogItem } from './roles-api';
 
 export function getEffectivePermissionCount(
@@ -31,11 +32,7 @@ export function getEffectivePermissionCount(
 }
 
 function isCoveredByWildcard(permission: string, wildcardPermission: string) {
-  if (wildcardPermission === '*') {
-    return true;
-  }
-
-  return wildcardPermission.endsWith(':*') && permission.startsWith(wildcardPermission.slice(0, -1));
+  return hasPermission([wildcardPermission], permission);
 }
 
 function isWildcardPermission(permission: string) {

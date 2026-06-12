@@ -20,7 +20,7 @@ type NavigationItem = {
   to: string;
   icon: ComponentType;
   match?: string[];
-  requiredPermissions: string[];
+  requiredPermissions?: string[];
 };
 
 type NavigationProps = {
@@ -32,7 +32,7 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
   {
     label: 'Identity',
     items: [
-      { label: 'Overview', to: '/', icon: OverviewIcon, match: ['/'], requiredPermissions: ['*'] },
+      { label: 'Overview', to: '/', icon: OverviewIcon, match: ['/'] },
       { label: 'Users', to: '/users', icon: UsersIcon, match: ['/users'], requiredPermissions: ['users:read'] },
       { label: 'Groups', to: '/groups', icon: GroupsIcon, match: ['/groups'], requiredPermissions: ['groups:read'] },
     ],
@@ -73,7 +73,7 @@ export function Navigation({ onNavigate, permissions = ['*'] }: NavigationProps)
     <nav aria-label="Management navigation">
       <Stack gap="md">
         {navigationGroups.map((group) => {
-          const visibleItems = group.items.filter((item) => hasAnyPermission(permissions, item.requiredPermissions));
+          const visibleItems = group.items.filter((item) => !item.requiredPermissions || hasAnyPermission(permissions, item.requiredPermissions));
 
           if (visibleItems.length === 0) {
             return null;

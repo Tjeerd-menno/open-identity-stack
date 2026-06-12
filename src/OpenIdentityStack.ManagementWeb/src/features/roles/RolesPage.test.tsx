@@ -291,6 +291,45 @@ describe('RolesPage', () => {
     });
   });
 
+  it('does not visualize nested permissions as covered by a resource wildcard', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/roles?page=1&pageSize=20` && method === 'GET') {
+        return jsonResponse(roleListResponse());
+      }
+
+      if (url === `${apiBase}/api/admin/permissions/platform` && method === 'GET') {
+        return jsonResponse({
+          items: [
+            ...platformCatalog.items,
+            {
+              permission: 'users:settings:update',
+              resource: 'users:settings',
+              action: 'update',
+              kind: 'concrete',
+              displayName: 'Update User Settings',
+              assignable: true,
+            },
+          ],
+        });
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderManagementWeb(<RolesPage permissions={['roles:read', 'roles:write']} />, { initialEntries: ['/roles/new'] });
+
+    await user.click(await screen.findByLabelText(/users all/i));
+
+    expect(screen.getByLabelText(/read users/i)).toBeChecked();
+    expect(screen.getByLabelText(/update user settings/i)).not.toBeChecked();
+    expect(screen.getByText(/permission count: 1/i)).toBeInTheDocument();
+  });
+
   it('validates role create input before submitting', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {

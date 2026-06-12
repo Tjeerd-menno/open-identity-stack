@@ -105,6 +105,28 @@ describe('PermissionSelector', () => {
     expect(screen.getByLabelText('Read inventory')).toBeChecked();
   });
 
+  it('does not visualize application permissions as covered by the platform wildcard', async () => {
+    const user = userEvent.setup();
+    useAssignablePermissionCatalog.mockReturnValue({
+      data: {
+        items: [
+          {
+            fullPermissionKey: 'inventory:read',
+            displayName: 'Read inventory',
+            applicationId: 'inventory-api',
+            applicationName: 'Inventory API',
+          },
+        ],
+      },
+    });
+
+    renderSelector(<PermissionSelector selectedPermissions={['*']} onChange={vi.fn()} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Inventory API' }));
+
+    expect(screen.getByLabelText('Read inventory')).not.toBeChecked();
+  });
+
   it('shows application tabs with built-in permissions first', async () => {
     const user = userEvent.setup();
     useAssignablePermissionCatalog.mockReturnValue({

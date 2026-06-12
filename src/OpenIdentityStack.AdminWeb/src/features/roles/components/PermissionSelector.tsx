@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { hasPermission } from '@openidentitystack/admin-api-client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useAssignablePermissionCatalog } from '@/features/application-permissions/hooks';
@@ -146,6 +147,7 @@ export function PermissionSelector({
     ...Array.from(applicationTabs.values()).sort((left, right) => left.label.localeCompare(right.label)),
   ];
   const currentTab = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
+  const isPlatformTab = currentTab.id === 'built-in';
 
   return (
     <div className="space-y-4" data-testid="permission-selector">
@@ -186,7 +188,7 @@ export function PermissionSelector({
               {permissions.map((permission) => {
                 const descriptionId = permission.description ? `${permission.value}-description` : undefined;
                 const checked = selected.has(permission.value)
-                  || isCoveredByWildcard(permission.value, selectedPermissions);
+                  || isCoveredByWildcard(permission.value, selectedPermissions, isPlatformTab);
                 return (
                   <div key={permission.value} className="flex items-start gap-2 rounded-md border p-3">
                     <Checkbox
@@ -235,20 +237,18 @@ function toTitle(value: string) {
     .join(' ');
 }
 
-function isCoveredByWildcard(permission: string, selectedPermissions: string[]) {
+function isCoveredByWildcard(permission: string, selectedPermissions: string[], isPlatformPermission: boolean) {
   if (permission === '*') {
     return false;
   }
 
-  return selectedPermissions.some((selectedPermission) => {
+  const wildcardPermissions = selectedPermissions.filter((selectedPermission) => {
     if (selectedPermission === '*') {
-      return true;
+      return isPlatformPermission;
     }
 
-    if (!selectedPermission.endsWith(':*') || selectedPermission === permission) {
-      return false;
-    }
-
-    return permission.startsWith(selectedPermission.slice(0, -1));
+    return selectedPermission.endsWith(':*');
   });
+
+  return hasPermission(wildcardPermissions, permission);
 }
