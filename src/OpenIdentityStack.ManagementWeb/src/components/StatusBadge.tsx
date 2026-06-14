@@ -15,7 +15,7 @@ const statusColors: Record<string, MantineColor> = {
 
 export function StatusBadge({ status, color }: { status: string; color?: MantineColor }) {
   return (
-    <Badge color={color ?? statusColors[status.toLowerCase()] ?? 'gray'} radius="sm" variant="light">
+    <Badge color={color ?? statusColors[status.toLowerCase()] ?? 'gray'} variant="light">
       {status}
     </Badge>
   );

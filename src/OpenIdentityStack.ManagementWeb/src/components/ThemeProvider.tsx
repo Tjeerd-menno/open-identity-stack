@@ -1,13 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import {
   Alert,
-  Badge,
   Button,
   MantineProvider,
   NavLink,
-  Paper,
   Table,
-  TextInput,
   createTheme,
 } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
@@ -29,52 +26,36 @@ type ThemePreferenceContextValue = {
 
 const ThemePreferenceContext = createContext<ThemePreferenceContextValue | null>(null);
 
+// Aligned with the OpenIdentityStack Design System. Spacing (10/12/16/20/32) and
+// the radius scale (2/4/8/16/32) are the Mantine v8 defaults the design tokens
+// encode, so they are left unset. We keep the Inter webfont as the brand typeface
+// and override the defaults the design calls out: control radius `md`, dark primary
+// shade 8, heading weight 700, and a heading scale sized to the product screens.
 const managementTheme = createTheme({
   primaryColor: 'blue',
-  primaryShade: { light: 6, dark: 5 },
+  primaryShade: { light: 6, dark: 8 },
   autoContrast: true,
   luminanceThreshold: 0.35,
   fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   headings: {
     fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    fontWeight: '650',
+    fontWeight: '700',
+    // Sized to the design system's Management Web screens (page titles 26px,
+    // section headings 16px), not the larger generic foundation specimen.
     sizes: {
-      h1: { fontSize: '1.55rem', lineHeight: '1.25' },
-      h2: { fontSize: '1.2rem', lineHeight: '1.3' },
-      h3: { fontSize: '1rem', lineHeight: '1.35' },
+      h1: { fontSize: '1.625rem', lineHeight: '1.3' },
+      h2: { fontSize: '1.25rem', lineHeight: '1.35' },
+      h3: { fontSize: '1rem', lineHeight: '1.4' },
     },
   },
-  defaultRadius: 'sm',
-  radius: {
-    xs: '4px',
-    sm: '6px',
-    md: '8px',
-    lg: '10px',
-    xl: '12px',
-  },
-  spacing: {
-    xs: '0.45rem',
-    sm: '0.65rem',
-    md: '0.9rem',
-    lg: '1.2rem',
-    xl: '1.6rem',
-  },
+  defaultRadius: 'md',
   components: {
     Alert: Alert.extend({
       defaultProps: {
-        radius: 'sm',
         variant: 'light',
       },
     }),
-    Badge: Badge.extend({
-      defaultProps: {
-        radius: 'sm',
-      },
-    }),
     Button: Button.extend({
-      defaultProps: {
-        radius: 'sm',
-      },
       styles: {
         section: {
           '& svg': {
@@ -88,20 +69,10 @@ const managementTheme = createTheme({
         variant: 'light',
       },
     }),
-    Paper: Paper.extend({
-      defaultProps: {
-        radius: 'sm',
-      },
-    }),
     Table: Table.extend({
       defaultProps: {
         horizontalSpacing: 'sm',
         verticalSpacing: 'xs',
-      },
-    }),
-    TextInput: TextInput.extend({
-      defaultProps: {
-        radius: 'sm',
       },
     }),
   },

@@ -348,7 +348,7 @@ function RegisterApplicationForm({
   return (
     <Stack gap="lg">
       {error ? <Alert color="red">{getApiErrorMessage(error)}</Alert> : null}
-      <Paper withBorder p="md" radius="sm">
+      <Paper withBorder p="md" radius="md">
         <form
           noValidate
           onSubmit={(event) => {
@@ -385,7 +385,7 @@ function RegisterApplicationForm({
 
       <form noValidate onSubmit={form.onSubmit((values) => void submitManifest(values))}>
         <Stack gap="lg">
-          <Paper withBorder p="md" radius="sm">
+          <Paper withBorder p="md" radius="md">
             <Title order={2} size="h3">Application</Title>
             <Group grow align="flex-start" mt="md">
               <TextInput aria-label="Application ID" label="Application ID" required {...form.getInputProps('applicationId')} />
@@ -406,7 +406,7 @@ function RegisterApplicationForm({
             </Group>
           </Paper>
 
-          <Paper withBorder p="md" radius="sm">
+          <Paper withBorder p="md" radius="md">
             <Group justify="space-between" align="center">
               <Title order={2} size="h3">Permissions</Title>
               <Button
@@ -419,7 +419,7 @@ function RegisterApplicationForm({
             </Group>
             <Stack gap="md" mt="md">
               {form.values.permissions.map((permission, index) => (
-                <Paper key={index} withBorder p="sm" radius="sm">
+                <Paper key={index} withBorder p="sm" radius="md">
                   <Group grow align="flex-start">
                     <TextInput aria-label={`Permission key ${index + 1}`} label={`Permission key ${index + 1}`} required {...form.getInputProps(`permissions.${index}.key`)} />
                     <TextInput aria-label={`Permission display name ${index + 1}`} label={`Permission display name ${index + 1}`} required {...form.getInputProps(`permissions.${index}.displayName`)} />
@@ -610,7 +610,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
 
         <Tabs.Panel value="overview" pt="md">
           <Stack gap="md">
-            <Paper withBorder p="md" radius="sm">
+            <Paper withBorder p="md" radius="md">
               <Stack gap="xs">
                 <Text size="sm">Description: {registeredApplication.description || 'Not set'}</Text>
                 <Text size="sm">Manifest Version: {registeredApplication.manifestVersion || 'Not set'}</Text>
@@ -620,7 +620,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
             </Paper>
 
             {editing && isManifestBacked && canWrite && (
-              <Paper withBorder p="md" radius="sm">
+              <Paper withBorder p="md" radius="md">
                 <form noValidate onSubmit={manifestBaseUrlForm.onSubmit((values) => void submitManifestBaseUrl(values))}>
                   <Group align="end">
                     <TextInput
@@ -636,7 +636,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
               </Paper>
             )}
 
-            <Paper withBorder p="md" radius="sm">
+            <Paper withBorder p="md" radius="md">
               <Title order={2} size="h3">Ownership</Title>
               <Group gap="xs" mt="xs">
                 <Text>Current owner:</Text>
@@ -669,7 +669,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
 
         <Tabs.Panel value="permissions" pt="md">
           <Stack gap="md">
-            <Paper withBorder p="md" radius="sm">
+            <Paper withBorder p="md" radius="md">
               <Group justify="space-between" align="center">
                 <Title order={2} size="h3">Permissions</Title>
                 {editing && !isManifestBacked && canWrite && (
@@ -690,7 +690,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
               )}
               <Stack gap="xs" mt="md">
                 {registeredApplication.permissions.map((permission) => (
-                  <Paper key={permission.id} withBorder p="sm" radius="sm">
+                  <Paper key={permission.id} withBorder p="sm" radius="md">
                     <Text fw={500}>{permission.fullPermissionKey}</Text>
                     {permission.description && <Text size="sm" c="dimmed">{permission.description}</Text>}
                     {permission.category && <Badge mt="xs" variant="light">{permission.category}</Badge>}
@@ -699,7 +699,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
               </Stack>
             </Paper>
 
-            <Paper withBorder p="md" radius="sm">
+            <Paper withBorder p="md" radius="md">
               <Title order={2} size="h3">Catalog</Title>
               {catalog.isError && <Alert color="red">{getApiErrorMessage(catalog.error)}</Alert>}
               <Stack gap="xs" mt="md">
@@ -713,7 +713,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
         </Tabs.Panel>
 
         <Tabs.Panel value="maintainers" pt="md">
-          <Paper withBorder p="md" radius="sm">
+          <Paper withBorder p="md" radius="md">
             <Title order={2} size="h3">Maintainers</Title>
             {editing && !isManifestBacked && canAdmin && (
               <form noValidate onSubmit={maintainerForm.onSubmit((values) => void submitMaintainer(values))}>
@@ -758,7 +758,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
         </Tabs.Panel>
 
         <Tabs.Panel value="history" pt="md">
-          <Paper withBorder p="md" radius="sm">
+          <Paper withBorder p="md" radius="md">
             <Title order={2} size="h3">History</Title>
             {history.isError && <Alert color="red">{getApiErrorMessage(history.error)}</Alert>}
             <Stack gap="xs" mt="md">
@@ -771,7 +771,7 @@ function RegisteredApplicationDetailView({ applicationId, permissions }: { appli
         </Tabs.Panel>
 
         <Tabs.Panel value="diagnostics" pt="md">
-          <Paper withBorder p="md" radius="sm">
+          <Paper withBorder p="md" radius="md">
             <Title order={2} size="h3">Diagnostics</Title>
             {diagnostics.isError && <Alert color="red">{getApiErrorMessage(diagnostics.error)}</Alert>}
             <Stack gap="xs" mt="md">

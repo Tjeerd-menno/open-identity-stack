@@ -81,7 +81,7 @@ export function Navigation({ onNavigate, permissions = ['*'] }: NavigationProps)
 
           return (
           <Stack key={group.label} gap={4}>
-            <Text c="dimmed" fw={650} size="xs" tt="uppercase">
+            <Text c="dimmed" fw={600} size="xs" tt="uppercase">
               {group.label}
             </Text>
             {visibleItems.map((item) => {

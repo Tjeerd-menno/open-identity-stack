@@ -113,7 +113,7 @@ export function FoundationTable<T extends { id: string }>({
         <HorizontalScrollIcon />
         <Text size="xs">Swipe horizontally to view all columns.</Text>
       </Group>
-      <Paper withBorder radius="sm" style={{ overflow: 'hidden' }}>
+      <Paper withBorder radius="md" style={{ overflow: 'hidden' }}>
         <Table.ScrollContainer className="foundation-table-scroll" minWidth={minWidth}>
           <Table
             highlightOnHover

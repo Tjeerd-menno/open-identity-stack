@@ -121,7 +121,7 @@ function OverviewContent({ permissions }: { permissions: string[] }) {
       </nav>
 
       <SimpleGrid cols={{ base: 1, lg: 3 }}>
-        <Card withBorder radius="sm" padding="md">
+        <Card withBorder radius="md" padding="md">
           <Stack gap="xs">
             <Title order={2} size="h4">Access Summary</Title>
             <Progress value={(availableSections.length / overviewSections.length) * 100} color="blue" />
@@ -130,7 +130,7 @@ function OverviewContent({ permissions }: { permissions: string[] }) {
             </Text>
           </Stack>
         </Card>
-        <Card withBorder radius="sm" padding="md">
+        <Card withBorder radius="md" padding="md">
           <Stack gap="xs">
             <Title order={2} size="h4">Recent Signals</Title>
             <Text size="sm">Audit trail: {hasPermission(effectivePermissions, 'audit-logs:read') ? 'Available' : 'No access'}</Text>
@@ -139,7 +139,7 @@ function OverviewContent({ permissions }: { permissions: string[] }) {
             <Text size="sm">Authentication settings: {hasPermission(effectivePermissions, 'system:settings') ? 'Available' : 'No access'}</Text>
           </Stack>
         </Card>
-        <Card withBorder radius="sm" padding="md">
+        <Card withBorder radius="md" padding="md">
           <Stack gap="xs">
             <Title order={2} size="h4">Quick Actions</Title>
             {availableSections.slice(0, 3).map((section) => (
@@ -156,9 +156,9 @@ function OverviewContent({ permissions }: { permissions: string[] }) {
 
 function MetricCard({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <Card withBorder radius="sm" padding="md" style={{ borderTop: `3px solid var(--mantine-color-${tone}-5)` }}>
+    <Card withBorder radius="md" padding="md" style={{ borderTop: `3px solid var(--mantine-color-${tone}-5)` }}>
       <Stack gap={4}>
-        <Text size="xs" c="dimmed" fw={650} tt="uppercase">{label}</Text>
+        <Text size="xs" c="dimmed" fw={600} tt="uppercase">{label}</Text>
         <Title order={2} size="h3">{value}</Title>
       </Stack>
     </Card>
@@ -173,7 +173,7 @@ function OverviewSectionCard({
   isAvailable: boolean;
 }) {
   return (
-    <Card aria-label={section.label} component="article" withBorder radius="sm" padding="md">
+    <Card aria-label={section.label} component="article" withBorder radius="md" padding="md">
       <Stack gap="sm">
         <Group justify="space-between" align="flex-start">
           <Title order={2} size="h4">{section.label}</Title>

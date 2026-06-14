@@ -97,7 +97,7 @@ export function PageToolbar({
   const hasAppliedFilters = appliedFilters.length > 0;
 
   return (
-    <Paper withBorder radius="sm" p="md">
+    <Paper withBorder radius="md" p="md">
       <Stack gap="sm">
         <Group align="flex-end" gap="sm">
           {onSearchChange && (
@@ -188,7 +188,6 @@ export function AppliedFilters({ filters }: { filters: AppliedFilter[] }) {
         <Badge
           key={filter.key}
           color="blue"
-          radius="sm"
           rightSection={filter.onRemove ? (
             <button
               aria-label={`Remove ${filter.label} filter`}
@@ -227,7 +226,7 @@ export function LoadingState({ title, description, label = title }: LoadingState
       mih={320}
       role="status"
     >
-      <Paper withBorder radius="sm" p="xl" maw={520} w="100%">
+      <Paper withBorder radius="md" p="xl" maw={520} w="100%">
         <Stack align="center" gap="sm" ta="center">
           <Loader aria-hidden="true" />
           <Title order={1} size="h3">{title}</Title>
