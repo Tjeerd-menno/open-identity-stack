@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { hasPermission } from '@openidentitystack/admin-api-client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useAssignablePermissionCatalog } from '@/features/application-permissions/hooks';
@@ -146,6 +147,7 @@ export function PermissionSelector({
     ...Array.from(applicationTabs.values()).sort((left, right) => left.label.localeCompare(right.label)),
   ];
   const currentTab = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
+  const isPlatformTab = currentTab.id === 'built-in';
 
   return (
     <div className="space-y-4" data-testid="permission-selector">
@@ -185,11 +187,13 @@ export function PermissionSelector({
             <div className="grid gap-3 md:grid-cols-2">
               {permissions.map((permission) => {
                 const descriptionId = permission.description ? `${permission.value}-description` : undefined;
+                const checked = selected.has(permission.value)
+                  || isCoveredByWildcard(permission.value, selectedPermissions, isPlatformTab);
                 return (
                   <div key={permission.value} className="flex items-start gap-2 rounded-md border p-3">
                     <Checkbox
                       id={permission.value}
-                      checked={selected.has(permission.value)}
+                      checked={checked}
                       onCheckedChange={(checked) =>
                         handleToggle(permission.value, checked as boolean)
                       }
@@ -231,4 +235,20 @@ function toTitle(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function isCoveredByWildcard(permission: string, selectedPermissions: string[], isPlatformPermission: boolean) {
+  if (permission === '*') {
+    return false;
+  }
+
+  const wildcardPermissions = selectedPermissions.filter((selectedPermission) => {
+    if (selectedPermission === '*') {
+      return isPlatformPermission;
+    }
+
+    return selectedPermission.endsWith(':*');
+  });
+
+  return hasPermission(wildcardPermissions, permission);
 }

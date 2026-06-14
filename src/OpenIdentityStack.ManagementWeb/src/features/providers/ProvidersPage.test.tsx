@@ -29,6 +29,18 @@ const contosoProvider = {
   createdAt: '2026-01-02T00:00:00Z',
 };
 
+let settings = {
+  defaultProviderId: 'local',
+  isLocalDefault: true,
+  localFallbackEnabled: true,
+  updatedAt: '2026-01-01T00:00:00Z',
+};
+
+const authenticationProviders = [
+  { id: 'local', name: 'local', displayName: 'Local Accounts', type: 'local', isActive: true },
+  { id: 'provider-1', name: 'google', displayName: 'Google Login', type: 'external', isActive: true },
+];
+
 function jsonResponse(body: unknown, status = 200) {
   return Promise.resolve(new Response(JSON.stringify(body), {
     status,
@@ -44,6 +56,12 @@ function setupProviderFetch() {
     scopes: ['openid', 'profile', 'email'],
     jitProvisioningEnabled: true,
     status: 'Active',
+  };
+  settings = {
+    defaultProviderId: 'local',
+    isLocalDefault: true,
+    localFallbackEnabled: true,
+    updatedAt: '2026-01-01T00:00:00Z',
   };
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -90,6 +108,33 @@ function setupProviderFetch() {
 
     if (url === `${apiBase}/api/admin/providers/provider-1` && method === 'DELETE') {
       return Promise.resolve(new Response(null, { status: 204 }));
+    }
+
+    if (url === `${apiBase}/api/admin/authentication-settings` && method === 'GET') {
+      return jsonResponse(settings);
+    }
+
+    if (url === `${apiBase}/api/admin/authentication-settings/providers` && method === 'GET') {
+      return jsonResponse(authenticationProviders);
+    }
+
+    if (url === `${apiBase}/api/admin/authentication-settings/default-provider` && method === 'PUT') {
+      const body = JSON.parse(init?.body?.toString() ?? '{}') as { providerId: string };
+      settings = {
+        ...settings,
+        defaultProviderId: body.providerId,
+        isLocalDefault: body.providerId === 'local',
+      };
+      return jsonResponse(settings);
+    }
+
+    if (url === `${apiBase}/api/admin/authentication-settings/local-fallback` && method === 'PUT') {
+      const body = JSON.parse(init?.body?.toString() ?? '{}') as { enabled: boolean };
+      settings = {
+        ...settings,
+        localFallbackEnabled: body.enabled,
+      };
+      return jsonResponse(settings);
     }
 
     return Promise.resolve(new Response(null, { status: 404 }));
@@ -232,5 +277,30 @@ describe('ProvidersPage', () => {
     expect(await screen.findByText(/read-only access/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /new provider/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /delete google/i })).not.toBeInTheDocument();
+  });
+
+  it('opens authentication settings from the identity providers context', async () => {
+    const user = userEvent.setup();
+    setupProviderFetch();
+
+    renderManagementWeb(
+      <ProvidersPage permissions={['providers:read', 'system:settings']} />,
+      { initialEntries: ['/providers'] }
+    );
+
+    expect(await screen.findByRole('heading', { name: /^identity providers$/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: /authentication settings/i }));
+
+    expect(await screen.findByRole('heading', { name: /authentication settings/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /default authentication provider/i })).toBeInTheDocument();
+  });
+
+  it('hides authentication settings link when the operator lacks settings permission', async () => {
+    setupProviderFetch();
+
+    renderManagementWeb(<ProvidersPage permissions={['providers:read']} />);
+
+    expect(await screen.findByRole('heading', { name: /^identity providers$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /authentication settings/i })).not.toBeInTheDocument();
   });
 });

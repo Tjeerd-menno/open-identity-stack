@@ -1,10 +1,11 @@
 import { Alert, Badge, Button, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
 import { ProviderForm } from './ProviderForm';
@@ -26,6 +27,10 @@ export function ProvidersPage({ permissions = ['*'] }: ProvidersPageProps) {
   const location = useLocation();
   const { id } = useParams();
   const pathProviderId = getProviderIdFromPath(location.pathname);
+
+  if (location.pathname === '/providers/settings') {
+    return <SettingsPage />;
+  }
 
   if (location.pathname.endsWith('/new')) {
     return <CreateProviderView permissions={permissions} />;
@@ -61,6 +66,7 @@ function ProviderListView({ permissions }: Required<ProvidersPageProps>) {
   const deleteProvider = useDeleteProvider(providerToDelete?.id ?? '');
   const canWrite = hasPermission(permissions, 'providers:write');
   const canDelete = hasPermission(permissions, 'providers:delete');
+  const canManageSettings = hasPermission(permissions, 'system:settings');
 
   useEffect(() => {
     if (!searchMounted.current) {
@@ -128,7 +134,16 @@ function ProviderListView({ permissions }: Required<ProvidersPageProps>) {
       <PageHeader
         title="Identity Providers"
         description="Manage OIDC identity providers and JIT provisioning."
-        actions={canWrite && <Button onClick={() => navigate('/providers/new')}>New provider</Button>}
+        actions={(
+          <Group>
+            {canManageSettings && (
+              <Button component={Link} to="/providers/settings" variant="default">
+                Authentication settings
+              </Button>
+            )}
+            {canWrite && <Button onClick={() => navigate('/providers/new')}>New provider</Button>}
+          </Group>
+        )}
       />
 
       {(!canWrite || !canDelete) && <Alert color="blue">Read-only access. Some provider actions require additional permissions.</Alert>}
