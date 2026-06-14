@@ -6,7 +6,7 @@ using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 namespace OpenIdentityStack.ManagementWeb.E2ETests;
 
 /// <summary>
-/// E2E coverage for the ManagementWeb Settings slice.
+/// E2E coverage for authentication settings in the ManagementWeb Identity providers surface.
 /// API responses are route-mocked so this verifies the frontend contract and routing surface.
 /// </summary>
 public class SettingsManagementTests : IAsyncLifetime
@@ -52,7 +52,7 @@ public class SettingsManagementTests : IAsyncLifetime
     {
         string baseUrl = fixture.ManagementWebUrl ?? throw new InvalidOperationException("ManagementWeb URL was not initialized.");
 
-        await page!.GotoAsync(new Uri(new Uri(baseUrl), "/settings").ToString());
+        await page!.GotoAsync(new Uri(new Uri(baseUrl), "/providers/settings").ToString());
         await page.GetByRole(AriaRole.Heading, new() { Name = "Authentication Settings", Exact = true }).WaitForAsync();
         await page.GetByRole(AriaRole.Heading, new() { Name = "Default Authentication Provider", Exact = true }).WaitForAsync();
         await page.GetByRole(AriaRole.Heading, new() { Name = "Admin Local Fallback", Exact = true }).WaitForAsync();

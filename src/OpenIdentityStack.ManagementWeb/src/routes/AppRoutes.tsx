@@ -1,5 +1,5 @@
 import { type ReactElement } from 'react';
-import { Route, Routes } from 'react-router';
+import { Navigate, Route, Routes } from 'react-router';
 import { AppShell } from '@/components/AppShell';
 import { ApplicationsPage } from '@/features/applications/ApplicationsPage';
 import { ApplicationDetailPage } from '@/features/applications/ApplicationDetailPage';
@@ -13,6 +13,7 @@ import { ProvidersPage } from '@/features/providers/ProvidersPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { SessionsPage } from '@/features/sessions/SessionsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
+import { useAuth } from '@/lib/auth-context';
 import { AuthCallbackRoute } from './auth-callback';
 import { AuthenticatedRoute, managementRoutePermissions, RequirePermission } from './route-guards';
 import { UsersRoute } from './users';
@@ -43,11 +44,12 @@ export function AppRoutes() {
         <Route path="application-permissions/:id" element={withPermission(<ApplicationPermissionsPage />, managementRoutePermissions.applicationPermissions)} />
         <Route path="sessions" element={withPermission(<SessionsPage />, managementRoutePermissions.sessions)} />
         <Route path="sessions/:id" element={withPermission(<SessionsPage />, managementRoutePermissions.sessions)} />
-        <Route path="providers" element={withPermission(<ProvidersPage />, managementRoutePermissions.providers)} />
-        <Route path="providers/new" element={withPermission(<ProvidersPage />, ['providers:write'])} />
-        <Route path="providers/:id" element={withPermission(<ProvidersPage />, managementRoutePermissions.providers)} />
-        <Route path="providers/:id/edit" element={withPermission(<ProvidersPage />, ['providers:write'])} />
-        <Route path="settings" element={withPermission(<SettingsPage />, managementRoutePermissions.settings)} />
+        <Route path="providers" element={withPermission(<ProvidersRoute />, managementRoutePermissions.providers)} />
+        <Route path="providers/settings" element={withPermission(<SettingsPage />, managementRoutePermissions.settings)} />
+        <Route path="providers/new" element={withPermission(<ProvidersRoute />, ['providers:write'])} />
+        <Route path="providers/:id" element={withPermission(<ProvidersRoute />, managementRoutePermissions.providers)} />
+        <Route path="providers/:id/edit" element={withPermission(<ProvidersRoute />, ['providers:write'])} />
+        <Route path="settings" element={<Navigate to="/providers/settings" replace />} />
         <Route path="audit-entries" element={withPermission(<AuditEntriesPage />, managementRoutePermissions.audit)} />
       </Route>
     </Routes>
@@ -56,4 +58,9 @@ export function AppRoutes() {
 
 function withPermission(element: ReactElement, requiredPermissions: readonly string[]) {
   return <RequirePermission requiredPermissions={requiredPermissions}>{element}</RequirePermission>;
+}
+
+function ProvidersRoute() {
+  const { permissions } = useAuth();
+  return <ProvidersPage permissions={permissions} />;
 }
