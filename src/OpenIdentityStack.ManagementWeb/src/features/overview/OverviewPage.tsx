@@ -56,13 +56,13 @@ const overviewSections: OverviewSection[] = [
     label: 'Identity providers',
     path: '/providers',
     permission: 'providers:read',
-    description: 'OIDC provider configuration and lifecycle.',
+    description: 'OIDC provider configuration and lifecycle management.',
   },
   {
-    label: 'Settings',
-    path: '/settings',
+    label: 'Authentication settings',
+    path: '/providers/settings',
     permission: 'system:settings',
-    description: 'Authentication defaults and local fallback controls.',
+    description: 'Authentication defaults and sign-in policy controls.',
   },
   {
     label: 'Audit',
@@ -136,6 +136,7 @@ function OverviewContent({ permissions }: { permissions: string[] }) {
             <Text size="sm">Audit trail: {hasPermission(effectivePermissions, 'audit-logs:read') ? 'Available' : 'No access'}</Text>
             <Text size="sm">Session controls: {hasPermission(effectivePermissions, 'sessions:read') ? 'Available' : 'No access'}</Text>
             <Text size="sm">Provider lifecycle: {hasPermission(effectivePermissions, 'providers:read') ? 'Available' : 'No access'}</Text>
+            <Text size="sm">Authentication settings: {hasPermission(effectivePermissions, 'system:settings') ? 'Available' : 'No access'}</Text>
           </Stack>
         </Card>
         <Card withBorder radius="sm" padding="md">

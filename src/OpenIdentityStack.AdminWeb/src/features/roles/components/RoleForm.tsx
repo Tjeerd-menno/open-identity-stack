@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import {
   Form,
   FormControl,
@@ -73,6 +73,7 @@ interface RoleFormProps {
  */
 export function RoleForm({ role, onSubmit, onCancel, isLoading = false }: RoleFormProps) {
   const isEditMode = !!role;
+  const [pendingWildcardSubmission, setPendingWildcardSubmission] = useState<CreateRoleRequest | null>(null);
 
   const form = useForm<RoleFormData>({
     resolver: zodResolver(roleFormSchema),
@@ -99,31 +100,24 @@ export function RoleForm({ role, onSubmit, onCancel, isLoading = false }: RoleFo
   }, [role, form]);
 
   const handleSubmit = (data: RoleFormData) => {
-    if (isEditMode) {
-      // In edit mode, send all fields (for compatibility with onSubmit signature)
-      const updateData: CreateRoleRequest = {
-        name: data.name,
-        displayName: data.displayName,
-        description: data.description,
-        permissions: data.permissions,
-        ...(data.acknowledgeWildcardGrant ? { acknowledgeWildcardGrant: true } : {}),
-      };
-      onSubmit(updateData);
-    } else {
-      // In create mode, send all fields
-      const createData: CreateRoleRequest = {
-        name: data.name,
-        displayName: data.displayName,
-        description: data.description,
-        permissions: data.permissions,
-        ...(data.acknowledgeWildcardGrant ? { acknowledgeWildcardGrant: true } : {}),
-      };
-      onSubmit(createData);
+    const payload = toRoleRequest(data, hasWildcardPermission(data.permissions));
+
+    if (hasWildcardPermission(data.permissions)) {
+      setPendingWildcardSubmission(payload);
+      return;
     }
+
+    onSubmit(payload);
   };
 
-  const selectedPermissions = useWatch({ control: form.control, name: 'permissions' }) ?? [];
-  const hasWildcardGrant = selectedPermissions.some((permission) => permission === '*' || permission.endsWith(':*'));
+  const handleConfirmWildcardSubmission = () => {
+    if (!pendingWildcardSubmission) {
+      return;
+    }
+
+    onSubmit(pendingWildcardSubmission);
+    setPendingWildcardSubmission(null);
+  };
 
   return (
     <Form {...form}>
@@ -218,34 +212,6 @@ export function RoleForm({ role, onSubmit, onCancel, isLoading = false }: RoleFo
           )}
         />
 
-        {hasWildcardGrant && (
-          <FormField
-            control={form.control}
-            name="acknowledgeWildcardGrant"
-            render={({ field }) => (
-              <FormItem className="rounded-md border p-4">
-                <div className="flex items-start gap-3">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value ?? false}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                      aria-label="Acknowledge wildcard grant"
-                    />
-                  </FormControl>
-                  <div className="space-y-1">
-                    <FormLabel>Acknowledge wildcard grant</FormLabel>
-                    <FormDescription>
-                      This role includes a broad wildcard permission grant.
-                    </FormDescription>
-                  </div>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
         {/* Action buttons */}
         <div className="flex justify-end space-x-4">
           <Button
@@ -267,6 +233,34 @@ export function RoleForm({ role, onSubmit, onCancel, isLoading = false }: RoleFo
           </Button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={pendingWildcardSubmission !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingWildcardSubmission(null);
+          }
+        }}
+        title="Confirm wildcard permissions"
+        description="The permissions include wildcard permissions. Are you sure you want to save this role?"
+        confirmLabel="Save role"
+        onConfirm={handleConfirmWildcardSubmission}
+        loading={isLoading}
+      />
     </Form>
   );
+}
+
+function hasWildcardPermission(permissions: string[]) {
+  return permissions.some((permission) => permission === '*' || permission.endsWith(':*'));
+}
+
+function toRoleRequest(data: RoleFormData, acknowledgeWildcardGrant: boolean): CreateRoleRequest {
+  return {
+    name: data.name,
+    displayName: data.displayName,
+    description: data.description,
+    permissions: data.permissions,
+    ...(acknowledgeWildcardGrant ? { acknowledgeWildcardGrant: true } : {}),
+  };
 }

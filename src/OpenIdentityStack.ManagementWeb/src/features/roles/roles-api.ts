@@ -2,9 +2,9 @@ import { adminApiClient } from '@/lib/admin-api';
 import {
   createRolesContract,
   type CreateRoleRequest,
+  type PlatformPermissionCatalogItem,
   type PlatformPermissionCatalogResponse,
   type Role as SharedRole,
-  type RoleListItem,
   type RoleListParams,
   type UpdateRoleRequest,
   type PaginatedResponse,
@@ -14,7 +14,15 @@ const contract = createRolesContract(adminApiClient);
 
 export type Role = SharedRole;
 export type RoleListItem = Role;
-export type { CreateRoleRequest, UpdateRoleRequest, PaginatedResponse, PlatformPermissionCatalogResponse };
+export type RoleListResponse = PaginatedResponse<RoleListItem>;
+export type {
+  CreateRoleRequest,
+  PaginatedResponse,
+  PlatformPermissionCatalogItem,
+  PlatformPermissionCatalogResponse,
+  RoleListParams,
+  UpdateRoleRequest,
+};
 
 export function getRoles(params?: RoleListParams): Promise<PaginatedResponse<RoleListItem>> {
   return contract.getRoles(params);
