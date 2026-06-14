@@ -1,13 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
-using OpenIddict.Validation.AspNetCore;
+
 using OpenIdentityStack.Api.Admin.Requests;
 using OpenIdentityStack.Api.Admin.Responses;
-using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Api.Common;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Domain.Common;
-using OpenIdentityStack.Domain.Roles;
 
 using SharedKernel;
 namespace OpenIdentityStack.Api.Admin;
@@ -125,7 +124,7 @@ internal static class RolesApi
 
         if (result.IsFailure)
         {
-            return TypedResults.BadRequest(new { error = result.Error.Description });
+            return ErrorResultMapper.ToErrorResult(result.Error);
         }
 
         var response = new RolesListResponse
@@ -140,19 +139,16 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> GetRole(
-        [FromServices] IRoleRepository roleRepository,
+        [FromServices] IGetRoleQueryHandler getRoleQueryHandler,
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var roleId = new RoleId(id);
-        Role? role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
+        var query = new GetRoleQuery(new RoleId(id));
+        Result<RoleDto> result = await getRoleQueryHandler.HandleAsync(query, cancellationToken);
 
-        if (role is null)
-        {
-            return TypedResults.NotFound(new { error = "Role not found." });
-        }
-
-        return TypedResults.Ok(MapToResponse(role));
+        return result.IsFailure
+            ? ErrorResultMapper.ToErrorResult(result.Error)
+            : TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static async Task<IResult> CreateRole(
@@ -170,12 +166,7 @@ internal static class RolesApi
 
         if (result.IsFailure)
         {
-            if (result.Error.Code.Contains("Conflict"))
-            {
-                return TypedResults.Conflict(new { error = result.Error.Description });
-            }
-
-            return TypedResults.BadRequest(new { error = result.Error.Description });
+            return ErrorResultMapper.ToErrorResult(result.Error);
         }
 
         var response = new RoleResponse
@@ -193,243 +184,123 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> UpdateRole(
-        [FromServices] IRoleRepository roleRepository,
-        [FromServices] IPermissionAssignmentValidator permissionAssignmentValidator,
+        [FromServices] IUpdateRoleUseCase updateRoleUseCase,
         Guid id,
         [FromBody] UpdateRoleRequest request,
         CancellationToken cancellationToken = default)
     {
-        var roleId = new RoleId(id);
-        Role? role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
+        var command = new UpdateRoleCommand(
+            new RoleId(id),
+            request.DisplayName,
+            request.Description,
+            request.Permissions,
+            request.AcknowledgeWildcardGrant);
+        Result<RoleDto> result = await updateRoleUseCase.ExecuteAsync(command, cancellationToken);
 
-        if (role is null)
-        {
-            return TypedResults.NotFound(new { error = "Role not found." });
-        }
-
-        role.UpdateDescription(request.Description);
-        if (request.DisplayName is not null)
-        {
-            role.UpdateDisplayName(request.DisplayName);
-        }
-
-        if (request.Permissions is not null)
-        {
-            IEnumerable<string> newPermissions = request.Permissions.Except(role.Permissions, StringComparer.OrdinalIgnoreCase);
-            Result validationResult = await permissionAssignmentValidator.ValidateAssignableAsync(
-                newPermissions,
-                request.AcknowledgeWildcardGrant,
-                cancellationToken);
-            if (validationResult.IsFailure)
-            {
-                return MapPermissionValidationFailure(validationResult.Error);
-            }
-
-            role.SetPermissions(request.Permissions);
-        }
-
-        await roleRepository.SaveChangesAsync(cancellationToken);
-
-        return TypedResults.Ok(MapToResponse(role));
+        return result.IsFailure
+            ? ErrorResultMapper.ToErrorResult(result.Error)
+            : TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static async Task<IResult> DeleteRole(
-        [FromServices] IRoleRepository roleRepository,
+        [FromServices] IDeleteRoleUseCase deleteRoleUseCase,
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var roleId = new RoleId(id);
-        Role? role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
+        var command = new DeleteRoleCommand(new RoleId(id));
+        Result result = await deleteRoleUseCase.ExecuteAsync(command, cancellationToken);
 
-        if (role is null)
-        {
-            return TypedResults.NotFound(new { error = "Role not found." });
-        }
-
-        if (role.IsSystemRole)
-        {
-            return TypedResults.BadRequest(new { error = "System roles cannot be deleted." });
-        }
-
-        roleRepository.Remove(role);
-        await roleRepository.SaveChangesAsync(cancellationToken);
-
-        return TypedResults.NoContent();
+        return result.IsFailure
+            ? ErrorResultMapper.ToErrorResult(result.Error)
+            : TypedResults.NoContent();
     }
 
     private static async Task<IResult> DisableRole(
-        [FromServices] IRoleRepository roleRepository,
+        [FromServices] IDisableRoleUseCase disableRoleUseCase,
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var roleId = new RoleId(id);
-        Role? role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
+        var command = new DisableRoleCommand(new RoleId(id));
+        Result<RoleDto> result = await disableRoleUseCase.ExecuteAsync(command, cancellationToken);
 
-        if (role is null)
-        {
-            return TypedResults.NotFound(new { error = "Role not found." });
-        }
-
-        Result result = role.Disable();
-        if (result.IsFailure)
-        {
-            return TypedResults.BadRequest(new { error = result.Error.Description });
-        }
-
-        await roleRepository.SaveChangesAsync(cancellationToken);
-
-        return TypedResults.Ok(MapToResponse(role));
+        return result.IsFailure
+            ? ErrorResultMapper.ToErrorResult(result.Error)
+            : TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static async Task<IResult> EnableRole(
-        [FromServices] IRoleRepository roleRepository,
+        [FromServices] IEnableRoleUseCase enableRoleUseCase,
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var roleId = new RoleId(id);
-        Role? role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
+        var command = new EnableRoleCommand(new RoleId(id));
+        Result<RoleDto> result = await enableRoleUseCase.ExecuteAsync(command, cancellationToken);
 
-        if (role is null)
-        {
-            return TypedResults.NotFound(new { error = "Role not found." });
-        }
-
-        Result result = role.Enable();
-        if (result.IsFailure)
-        {
-            return TypedResults.BadRequest(new { error = result.Error.Description });
-        }
-
-        await roleRepository.SaveChangesAsync(cancellationToken);
-
-        return TypedResults.Ok(MapToResponse(role));
+        return result.IsFailure
+            ? ErrorResultMapper.ToErrorResult(result.Error)
+            : TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static async Task<IResult> GetPermissions(
-        [FromServices] IRoleRepository roleRepository,
+        [FromServices] IGetRoleQueryHandler getRoleQueryHandler,
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var roleId = new RoleId(id);
-        Role? role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
+        var query = new GetRoleQuery(new RoleId(id));
+        Result<RoleDto> result = await getRoleQueryHandler.HandleAsync(query, cancellationToken);
 
-        if (role is null)
-        {
-            return TypedResults.NotFound(new { error = "Role not found." });
-        }
-
-        return TypedResults.Ok(role.Permissions);
+        return result.IsFailure
+            ? ErrorResultMapper.ToErrorResult(result.Error)
+            : TypedResults.Ok(result.Value.Permissions);
     }
 
     private static async Task<IResult> SetPermissions(
-        [FromServices] IRoleRepository roleRepository,
-        [FromServices] IPermissionAssignmentValidator permissionAssignmentValidator,
+        [FromServices] ISetRolePermissionsUseCase setRolePermissionsUseCase,
         Guid id,
         [FromBody] SetRolePermissionsRequest request,
         CancellationToken cancellationToken = default)
     {
-        var roleId = new RoleId(id);
-        Role? role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
+        var command = new SetRolePermissionsCommand(
+            new RoleId(id),
+            request.Permissions,
+            request.AcknowledgeWildcardGrant);
+        Result<RoleDto> result = await setRolePermissionsUseCase.ExecuteAsync(command, cancellationToken);
 
-        if (role is null)
-        {
-            return TypedResults.NotFound(new { error = "Role not found." });
-        }
-
-        IEnumerable<string> newPermissions = request.Permissions.Except(role.Permissions, StringComparer.OrdinalIgnoreCase);
-        Result validationResult = await permissionAssignmentValidator.ValidateAssignableAsync(
-            newPermissions,
-            request.AcknowledgeWildcardGrant,
-            cancellationToken);
-        if (validationResult.IsFailure)
-        {
-            return MapPermissionValidationFailure(validationResult.Error);
-        }
-
-        role.SetPermissions(request.Permissions);
-        await roleRepository.SaveChangesAsync(cancellationToken);
-
-        return TypedResults.Ok(MapToResponse(role));
+        return result.IsFailure
+            ? ErrorResultMapper.ToErrorResult(result.Error)
+            : TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static async Task<IResult> AddPermission(
-        [FromServices] IRoleRepository roleRepository,
-        [FromServices] IPermissionAssignmentValidator permissionAssignmentValidator,
+        [FromServices] IAddRolePermissionUseCase addRolePermissionUseCase,
         Guid id,
         [FromBody] AddPermissionRequest request,
         CancellationToken cancellationToken = default)
     {
-        var roleId = new RoleId(id);
-        Role? role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
+        var command = new AddRolePermissionCommand(
+            new RoleId(id),
+            request.Permission,
+            request.AcknowledgeWildcardGrant);
+        Result<RoleDto> result = await addRolePermissionUseCase.ExecuteAsync(command, cancellationToken);
 
-        if (role is null)
-        {
-            return TypedResults.NotFound(new { error = "Role not found." });
-        }
-
-        Result validationResult = await permissionAssignmentValidator.ValidateAssignableAsync(
-            [request.Permission],
-            request.AcknowledgeWildcardGrant,
-            cancellationToken);
-        if (validationResult.IsFailure)
-        {
-            return MapPermissionValidationFailure(validationResult.Error);
-        }
-
-        Result result = role.AddPermission(request.Permission);
-        if (result.IsFailure)
-        {
-            if (result.Error.Code.Contains("Conflict"))
-            {
-                return TypedResults.Conflict(new { error = result.Error.Description });
-            }
-
-            return TypedResults.BadRequest(new { error = result.Error.Description });
-        }
-
-        await roleRepository.SaveChangesAsync(cancellationToken);
-
-        return TypedResults.Ok(MapToResponse(role));
+        return result.IsFailure
+            ? ErrorResultMapper.ToErrorResult(result.Error)
+            : TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static async Task<IResult> RemovePermission(
-        [FromServices] IRoleRepository roleRepository,
+        [FromServices] IRemoveRolePermissionUseCase removeRolePermissionUseCase,
         Guid id,
         string permission,
         CancellationToken cancellationToken = default)
     {
-        var roleId = new RoleId(id);
-        Role? role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
-
-        if (role is null)
-        {
-            return TypedResults.NotFound(new { error = "Role not found." });
-        }
-
         string decodedPermission = Uri.UnescapeDataString(permission);
-        Result result = role.RemovePermission(decodedPermission);
-        if (result.IsFailure)
-        {
-            return TypedResults.BadRequest(new { error = result.Error.Description });
-        }
+        var command = new RemoveRolePermissionCommand(new RoleId(id), decodedPermission);
+        Result<RoleDto> result = await removeRolePermissionUseCase.ExecuteAsync(command, cancellationToken);
 
-        await roleRepository.SaveChangesAsync(cancellationToken);
-
-        return TypedResults.Ok(MapToResponse(role));
-    }
-
-    private static RoleResponse MapToResponse(Role role)
-    {
-        return new RoleResponse
-        {
-            Id = role.Id.Value,
-            Name = role.Name,
-            DisplayName = role.DisplayName,
-            Description = role.Description,
-            IsSystemRole = role.IsSystemRole,
-            IsActive = role.IsActive,
-            Permissions = role.Permissions
-        };
+        return result.IsFailure
+            ? ErrorResultMapper.ToErrorResult(result.Error)
+            : TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static RoleResponse MapToResponse(RoleDto dto)
@@ -444,12 +315,5 @@ internal static class RolesApi
             IsActive = dto.IsActive,
             Permissions = dto.Permissions
         };
-    }
-
-    private static IResult MapPermissionValidationFailure(DomainError error)
-    {
-        return error.Code.Contains("Conflict", StringComparison.OrdinalIgnoreCase)
-            ? TypedResults.Conflict(new { error = error.Description })
-            : TypedResults.BadRequest(new { error = error.Description });
     }
 }
