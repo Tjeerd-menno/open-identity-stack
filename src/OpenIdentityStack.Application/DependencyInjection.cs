@@ -4,6 +4,7 @@ using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.ApplicationPermissions;
 using OpenIdentityStack.Application.ApplicationPermissions.Commands;
 using OpenIdentityStack.Application.ApplicationPermissions.Queries;
+using OpenIdentityStack.Application.Applications;
 using OpenIdentityStack.Application.Applications.Commands;
 using OpenIdentityStack.Application.Applications.Queries;
 using OpenIdentityStack.Application.Audit.Queries;
@@ -115,26 +116,22 @@ public static class DependencyInjection
     private static void AddApplicationUseCases(IServiceCollection services)
     {
         services.AddScoped<ApplicationLifecycleUseCases>();
-        services.AddScoped<ICreateApplicationUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
-        services.AddScoped<IUpdateApplicationMetadataUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
-        services.AddScoped<IConfigureApplicationOAuthUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
-        services.AddScoped<IDisableApplicationUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
-        services.AddScoped<IEnableApplicationUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
-        services.AddScoped<IDeleteApplicationUseCase>(provider => provider.GetRequiredService<ApplicationLifecycleUseCases>());
 
         services.AddScoped<ApplicationCredentialUseCases>();
-        services.AddScoped<IAddApplicationSecretUseCase>(provider => provider.GetRequiredService<ApplicationCredentialUseCases>());
-        services.AddScoped<IAddApplicationCertificateUseCase>(provider => provider.GetRequiredService<ApplicationCredentialUseCases>());
-        services.AddScoped<IRevokeApplicationCredentialUseCase>(provider => provider.GetRequiredService<ApplicationCredentialUseCases>());
 
         services.AddScoped<ApplicationCredentialValidationUseCases>();
         services.AddScoped<IValidateApplicationClientCredentialsUseCase>(provider => provider.GetRequiredService<ApplicationCredentialValidationUseCases>());
         services.AddScoped<IValidateApplicationCertificateUseCase>(provider => provider.GetRequiredService<ApplicationCredentialValidationUseCases>());
 
-        services.AddScoped<IListApplicationsQueryHandler, ListApplicationsQueryHandler>();
-        services.AddScoped<IGetApplicationQueryHandler, GetApplicationQueryHandler>();
-        services.AddScoped<IListApplicationCredentialsQueryHandler, ListApplicationCredentialsQueryHandler>();
-        services.AddScoped<IListApplicationProfilePoliciesQueryHandler, ListApplicationProfilePoliciesQueryHandler>();
+        services.AddScoped<ListApplicationsQueryHandler>();
+        services.AddScoped<IListApplicationsQueryHandler>(provider => provider.GetRequiredService<ListApplicationsQueryHandler>());
+        services.AddScoped<GetApplicationQueryHandler>();
+        services.AddScoped<IGetApplicationQueryHandler>(provider => provider.GetRequiredService<GetApplicationQueryHandler>());
+        services.AddScoped<ListApplicationCredentialsQueryHandler>();
+        services.AddScoped<IListApplicationCredentialsQueryHandler>(provider => provider.GetRequiredService<ListApplicationCredentialsQueryHandler>());
+        services.AddScoped<ListApplicationProfilePoliciesQueryHandler>();
+        services.AddScoped<IListApplicationProfilePoliciesQueryHandler>(provider => provider.GetRequiredService<ListApplicationProfilePoliciesQueryHandler>());
+        services.AddScoped<IApplicationsAdminWorkflow, ApplicationsAdminWorkflow>();
     }
 
     private static void AddApplicationPermissionUseCases(IServiceCollection services)

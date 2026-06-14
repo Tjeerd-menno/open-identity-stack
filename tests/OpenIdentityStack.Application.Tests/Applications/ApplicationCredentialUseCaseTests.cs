@@ -1,6 +1,7 @@
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Applications;
 using OpenIdentityStack.Application.Applications.Commands;
+using OpenIdentityStack.Application.Applications.Queries;
 using OpenIdentityStack.Domain.Applications;
 using SharedKernel;
 using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
@@ -115,6 +116,37 @@ public sealed class ApplicationCredentialUseCaseTests
     }
 
     [Fact]
+    public async Task ListCredentialsAfterSecretRotation_ReturnsMetadataWithoutSecretMaterial()
+    {
+        DomainApplication application = this.CreateMachineToMachineApplication();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>())
+            .Returns(application);
+        var listCredentials = new ListApplicationCredentialsQueryHandler(this.repository);
+
+        Result<ApplicationCredentialCommandResult> firstSecret = await this.credentialUseCases.ExecuteAsync(
+            new AddApplicationSecretCommand(application.Id, "Initial secret", this.now.AddDays(30), RevokeExisting: false));
+        Result<ApplicationCredentialCommandResult> rotatedSecret = await this.credentialUseCases.ExecuteAsync(
+            new AddApplicationSecretCommand(application.Id, "Rotated secret", this.now.AddDays(60), RevokeExisting: true));
+
+        Result<IReadOnlyList<ApplicationCredentialDetails>> result = await listCredentials.HandleAsync(
+            new ListApplicationCredentialsQuery(application.Id));
+
+        firstSecret.Value.OneTimeSecret.ShouldNotBeNullOrWhiteSpace();
+        rotatedSecret.Value.OneTimeSecret.ShouldNotBeNullOrWhiteSpace();
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Count.ShouldBe(2);
+        foreach (ApplicationCredentialDetails credential in result.Value)
+        {
+            typeof(ApplicationCredentialDetails).GetProperties()
+                .Select(property => property.Name)
+                .ShouldNotContain(name => ContainsSecretMaterialName(name));
+            credential.Description.ShouldNotBe(firstSecret.Value.OneTimeSecret);
+            credential.Description.ShouldNotBe(rotatedSecret.Value.OneTimeSecret);
+            credential.Description.ShouldNotBe("hashed-secret");
+        }
+    }
+
+    [Fact]
     public async Task ValidateClientCredentialsExecuteAsync_WithActiveSecret_ReturnsApplicationAndRecordsUsage()
     {
         DomainApplication application = this.CreateMachineToMachineApplication();
@@ -175,4 +207,8 @@ public sealed class ApplicationCredentialUseCaseTests
             null,
             ["orders.read"],
             this.dateTimeProvider).Value;
+
+    private static bool ContainsSecretMaterialName(string propertyName) =>
+        propertyName.Contains("Secret", StringComparison.OrdinalIgnoreCase) ||
+        propertyName.Contains("Hash", StringComparison.OrdinalIgnoreCase);
 }

@@ -1,5 +1,4 @@
 using OpenIdentityStack.Domain.Applications;
-using SharedKernel;
 using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 
 namespace OpenIdentityStack.Application.Applications.Commands;
@@ -14,10 +13,3 @@ public sealed record ConfigureApplicationOAuthCommand(
     IReadOnlyList<string> PostLogoutRedirectUris,
     bool RequirePkce,
     bool RequireConsent);
-
-public interface IConfigureApplicationOAuthUseCase
-{
-    Task<Result<ApplicationCommandResult>> ExecuteAsync(
-        ConfigureApplicationOAuthCommand command,
-        CancellationToken cancellationToken = default);
-}

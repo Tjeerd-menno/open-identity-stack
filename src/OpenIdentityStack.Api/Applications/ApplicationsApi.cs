@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using OpenIdentityStack.Application.Applications;
 using OpenIdentityStack.Api.Common;
 using OpenIdentityStack.Application.Applications.Commands;
 using OpenIdentityStack.Application.Applications.Queries;
@@ -120,12 +121,11 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> CreateApplication(
-        [FromServices] ICreateApplicationUseCase createApplicationUseCase,
-        [FromServices] IGetApplicationQueryHandler getApplicationQueryHandler,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         [FromBody] CreateApplicationRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new CreateApplicationCommand(
+        var workflowRequest = new CreateApplicationAdminWorkflowRequest(
             request.ClientId,
             request.DisplayName,
             request.Description,
@@ -136,21 +136,21 @@ internal static class ApplicationsApi
             request.RedirectUris,
             request.PostLogoutRedirectUris,
             request.RequirePkce,
-            request.RequireConsent);
+            request.RequireConsent,
+            request.InitialCredential is null
+                ? null
+                : new CreateInitialCredentialAdminWorkflowRequest(
+                    request.InitialCredential.Type,
+                    request.InitialCredential.Description,
+                    request.InitialCredential.ExpiresAt));
 
-        Result<ApplicationCommandResult> result = await createApplicationUseCase.ExecuteAsync(command, cancellationToken);
+        Result<ApplicationCreateOperationResult> result = await applicationsAdminWorkflow.CreateAsync(workflowRequest, cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
         }
 
-        Result<ApplicationDetails> detailsResult = await getApplicationQueryHandler.HandleAsync(result.Value.Id, cancellationToken);
-        if (detailsResult.IsFailure)
-        {
-            return ErrorResultMapper.ToErrorResult(detailsResult.Error);
-        }
-
-        ApplicationDetails details = detailsResult.Value;
+        ApplicationDetails details = result.Value.Details;
         var response = new ApplicationCreatedResponse(
             details.Id.Value,
             details.ClientId,
@@ -158,14 +158,14 @@ internal static class ApplicationsApi
             details.Profile,
             details.ClientType,
             details.Status,
-            InitialSecret: null,
+            result.Value.InitialSecret,
             details.CreatedAt);
 
         return TypedResults.Created($"/api/admin/applications/{details.Id.Value}", response);
     }
 
     private static async Task<IResult> ListApplications(
-        [FromServices] IListApplicationsQueryHandler listApplicationsQueryHandler,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] ApplicationProfile? profile = null,
@@ -174,13 +174,14 @@ internal static class ApplicationsApi
         [FromQuery] string? search = null,
         CancellationToken cancellationToken = default)
     {
-        Result<PagedResult<ApplicationSummary>> result = await listApplicationsQueryHandler.HandleAsync(
-            page,
-            pageSize,
-            profile,
-            status,
-            clientType,
-            search,
+        Result<PagedResult<ApplicationSummary>> result = await applicationsAdminWorkflow.ListAsync(
+            new ListApplicationsAdminWorkflowRequest(
+                page,
+                pageSize,
+                profile,
+                status,
+                clientType,
+                search),
             cancellationToken);
         if (result.IsFailure)
         {
@@ -211,11 +212,11 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> ListApplicationProfilePolicies(
-        [FromServices] IListApplicationProfilePoliciesQueryHandler listApplicationProfilePoliciesQueryHandler,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         CancellationToken cancellationToken)
     {
         Result<IReadOnlyList<ApplicationProfilePolicyDetails>> result =
-            await listApplicationProfilePoliciesQueryHandler.HandleAsync(cancellationToken);
+            await applicationsAdminWorkflow.ListProfilePoliciesAsync(new ListApplicationProfilePoliciesAdminWorkflowRequest(), cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
@@ -241,38 +242,39 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> GetApplication(
-        [FromServices] IGetApplicationQueryHandler getApplicationQueryHandler,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         CancellationToken cancellationToken)
     {
-        return await GetApplicationResponseAsync(getApplicationQueryHandler, id, cancellationToken);
+        return await GetApplicationResponseAsync(applicationsAdminWorkflow, id, cancellationToken);
     }
 
     private static async Task<IResult> UpdateApplicationMetadata(
-        [FromServices] IUpdateApplicationMetadataUseCase updateApplicationMetadataUseCase,
-        [FromServices] IGetApplicationQueryHandler getApplicationQueryHandler,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         [FromBody] UpdateApplicationMetadataRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new UpdateApplicationMetadataCommand(new DomainApplicationId(id), request.DisplayName, request.Description);
-        Result<ApplicationCommandResult> result = await updateApplicationMetadataUseCase.ExecuteAsync(command, cancellationToken);
+        var workflowRequest = new UpdateApplicationMetadataAdminWorkflowRequest(
+            new DomainApplicationId(id),
+            request.DisplayName,
+            request.Description);
+        Result<ApplicationDetails> result = await applicationsAdminWorkflow.UpdateMetadataAsync(workflowRequest, cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
         }
 
-        return await GetApplicationResponseAsync(getApplicationQueryHandler, id, cancellationToken);
+        return TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static async Task<IResult> ConfigureApplicationOAuth(
-        [FromServices] IConfigureApplicationOAuthUseCase configureApplicationOAuthUseCase,
-        [FromServices] IGetApplicationQueryHandler getApplicationQueryHandler,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         [FromBody] ConfigureApplicationOAuthRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new ConfigureApplicationOAuthCommand(
+        var workflowRequest = new ConfigureApplicationOAuthAdminWorkflowRequest(
             new DomainApplicationId(id),
             request.Profile,
             request.ClientType,
@@ -283,51 +285,55 @@ internal static class ApplicationsApi
             request.RequirePkce,
             request.RequireConsent);
 
-        Result<ApplicationCommandResult> result = await configureApplicationOAuthUseCase.ExecuteAsync(command, cancellationToken);
+        Result<ApplicationDetails> result = await applicationsAdminWorkflow.ConfigureOAuthAsync(workflowRequest, cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
         }
 
-        return await GetApplicationResponseAsync(getApplicationQueryHandler, id, cancellationToken);
+        return TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static async Task<IResult> DisableApplication(
-        [FromServices] IDisableApplicationUseCase disableApplicationUseCase,
-        [FromServices] IGetApplicationQueryHandler getApplicationQueryHandler,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         CancellationToken cancellationToken)
     {
-        Result result = await disableApplicationUseCase.ExecuteAsync(new DisableApplicationCommand(new DomainApplicationId(id)), cancellationToken);
+        Result<ApplicationDetails> result = await applicationsAdminWorkflow.DisableAsync(
+            new DisableApplicationAdminWorkflowRequest(new DomainApplicationId(id)),
+            cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
         }
 
-        return await GetApplicationResponseAsync(getApplicationQueryHandler, id, cancellationToken);
+        return TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static async Task<IResult> EnableApplication(
-        [FromServices] IEnableApplicationUseCase enableApplicationUseCase,
-        [FromServices] IGetApplicationQueryHandler getApplicationQueryHandler,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         CancellationToken cancellationToken)
     {
-        Result result = await enableApplicationUseCase.ExecuteAsync(new EnableApplicationCommand(new DomainApplicationId(id)), cancellationToken);
+        Result<ApplicationDetails> result = await applicationsAdminWorkflow.EnableAsync(
+            new EnableApplicationAdminWorkflowRequest(new DomainApplicationId(id)),
+            cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
         }
 
-        return await GetApplicationResponseAsync(getApplicationQueryHandler, id, cancellationToken);
+        return TypedResults.Ok(MapToResponse(result.Value));
     }
 
     private static async Task<IResult> DeleteApplication(
-        [FromServices] IDeleteApplicationUseCase deleteApplicationUseCase,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         CancellationToken cancellationToken)
     {
-        Result result = await deleteApplicationUseCase.ExecuteAsync(new DeleteApplicationCommand(new DomainApplicationId(id)), cancellationToken);
+        Result result = await applicationsAdminWorkflow.DeleteAsync(
+            new DeleteApplicationAdminWorkflowRequest(new DomainApplicationId(id)),
+            cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
@@ -337,13 +343,13 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> ListApplicationCredentials(
-        [FromServices] IListApplicationCredentialsQueryHandler listApplicationCredentialsQueryHandler,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         CancellationToken cancellationToken)
     {
         Result<IReadOnlyList<ApplicationCredentialDetails>> result =
-            await listApplicationCredentialsQueryHandler.HandleAsync(
-                new ListApplicationCredentialsQuery(new DomainApplicationId(id)),
+            await applicationsAdminWorkflow.ListCredentialsAsync(
+                new ListApplicationCredentialsAdminWorkflowRequest(new DomainApplicationId(id)),
                 cancellationToken);
         if (result.IsFailure)
         {
@@ -354,18 +360,18 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> AddApplicationSecret(
-        [FromServices] IAddApplicationSecretUseCase addApplicationSecretUseCase,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         [FromBody] AddApplicationSecretRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new AddApplicationSecretCommand(
+        var workflowRequest = new AddApplicationSecretAdminWorkflowRequest(
             new DomainApplicationId(id),
             request.Description,
             request.ExpiresAt,
             request.RevokeExisting);
-        Result<ApplicationCredentialCommandResult> result =
-            await addApplicationSecretUseCase.ExecuteAsync(command, cancellationToken);
+        Result<ApplicationSecretOperationResult> result =
+            await applicationsAdminWorkflow.AddSecretAsync(workflowRequest, cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
@@ -373,23 +379,23 @@ internal static class ApplicationsApi
 
         return TypedResults.Ok(new AddApplicationSecretResponse(
             result.Value.CredentialId,
-            result.Value.OneTimeSecret ?? string.Empty));
+            result.Value.OneTimeSecret));
     }
 
     private static async Task<IResult> AddApplicationCertificate(
-        [FromServices] IAddApplicationCertificateUseCase addApplicationCertificateUseCase,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         [FromBody] AddApplicationCertificateRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new AddApplicationCertificateCommand(
+        var workflowRequest = new AddApplicationCertificateAdminWorkflowRequest(
             new DomainApplicationId(id),
             request.Thumbprint,
             request.Subject,
             request.Description,
             request.ExpiresAt);
         Result<ApplicationCredentialCommandResult> result =
-            await addApplicationCertificateUseCase.ExecuteAsync(command, cancellationToken);
+            await applicationsAdminWorkflow.AddCertificateAsync(workflowRequest, cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
@@ -401,13 +407,13 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> RevokeApplicationCredential(
-        [FromServices] IRevokeApplicationCredentialUseCase revokeApplicationCredentialUseCase,
+        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         Guid credentialId,
         CancellationToken cancellationToken)
     {
-        Result result = await revokeApplicationCredentialUseCase.ExecuteAsync(
-            new RevokeApplicationCredentialCommand(new DomainApplicationId(id), credentialId),
+        Result result = await applicationsAdminWorkflow.RevokeCredentialAsync(
+            new RevokeApplicationCredentialAdminWorkflowRequest(new DomainApplicationId(id), credentialId),
             cancellationToken);
         if (result.IsFailure)
         {
@@ -418,11 +424,13 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> GetApplicationResponseAsync(
-        IGetApplicationQueryHandler getApplicationQueryHandler,
+        IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         CancellationToken cancellationToken)
     {
-        Result<ApplicationDetails> result = await getApplicationQueryHandler.HandleAsync(new DomainApplicationId(id), cancellationToken);
+        Result<ApplicationDetails> result = await applicationsAdminWorkflow.GetDetailsAsync(
+            new GetApplicationAdminWorkflowRequest(new DomainApplicationId(id)),
+            cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);

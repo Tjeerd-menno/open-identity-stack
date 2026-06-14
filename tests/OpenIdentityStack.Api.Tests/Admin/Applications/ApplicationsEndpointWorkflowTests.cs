@@ -50,6 +50,83 @@ public sealed class ApplicationsEndpointWorkflowTests(AppHostFixture fixture) : 
     }
 
     [Fact]
+    public async Task CreateApplication_WithInitialClientSecret_ReturnsInitialSecretAndListsCredentialMetadataOnly()
+    {
+        var request = new
+        {
+            ClientId = $"app-{Guid.NewGuid():N}",
+            DisplayName = "Orders API",
+            Description = "Orders API",
+            Profile = "MachineToMachine",
+            ClientType = "Confidential",
+            AllowedGrantTypes = new[] { "client_credentials" },
+            AllowedScopes = new[] { "orders.read" },
+            RedirectUris = Array.Empty<string>(),
+            PostLogoutRedirectUris = Array.Empty<string>(),
+            RequirePkce = false,
+            RequireConsent = false,
+            InitialCredential = new
+            {
+                Type = "ClientSecret",
+                Description = "Initial secret",
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(30)
+            }
+        };
+
+        HttpResponseMessage createResponse = await this.SendRequestAsync(HttpMethod.Post, "/api/admin/applications", request);
+
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.Created, await createResponse.Content.ReadAsStringAsync());
+        JsonNode created = await createResponse.Content.ReadFromJsonAsync<JsonNode>()
+            ?? throw new InvalidOperationException("Application response not returned.");
+        Guid applicationId = created["id"]?.GetValue<Guid>() ?? throw new InvalidOperationException("Application ID not returned.");
+        string initialSecret = created["initialSecret"]?.GetValue<string>() ?? string.Empty;
+        initialSecret.ShouldNotBeNullOrWhiteSpace();
+
+        HttpResponseMessage credentialsResponse = await this.SendRequestAsync(
+            HttpMethod.Get,
+            $"/api/admin/applications/{applicationId}/credentials");
+
+        credentialsResponse.StatusCode.ShouldBe(HttpStatusCode.OK, await credentialsResponse.Content.ReadAsStringAsync());
+        JsonNode credentials = await credentialsResponse.Content.ReadFromJsonAsync<JsonNode>()
+            ?? throw new InvalidOperationException("Credentials response not returned.");
+        JsonNode credential = credentials.AsArray().Single()
+            ?? throw new InvalidOperationException("Credential response not returned.");
+        credential["description"]?.GetValue<string>().ShouldBe("Initial secret");
+        credential["clientSecret"].ShouldBeNull();
+        credential["secretHash"].ShouldBeNull();
+        credentials.ToJsonString().ShouldNotContain(initialSecret);
+        credentials.ToJsonString().ShouldNotContain("hashed-secret");
+    }
+
+    [Fact]
+    public async Task CreateApplication_WithMissingInitialCredentialType_ReturnsBadRequest()
+    {
+        var request = new
+        {
+            ClientId = $"app-{Guid.NewGuid():N}",
+            DisplayName = "Orders API",
+            Description = "Orders API",
+            Profile = "MachineToMachine",
+            ClientType = "Confidential",
+            AllowedGrantTypes = new[] { "client_credentials" },
+            AllowedScopes = new[] { "orders.read" },
+            RedirectUris = Array.Empty<string>(),
+            PostLogoutRedirectUris = Array.Empty<string>(),
+            RequirePkce = false,
+            RequireConsent = false,
+            InitialCredential = new
+            {
+                Description = "Initial secret",
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(30)
+            }
+        };
+
+        HttpResponseMessage response = await this.SendRequestAsync(HttpMethod.Post, "/api/admin/applications", request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task GetApplication_WithValidId_Returns200Ok()
     {
         JsonNode created = await this.CreateApplicationAsync();

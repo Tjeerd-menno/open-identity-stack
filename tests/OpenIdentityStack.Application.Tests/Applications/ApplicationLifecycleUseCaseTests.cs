@@ -12,6 +12,7 @@ public sealed class ApplicationLifecycleUseCaseTests
 {
     private readonly IApplicationRepository repository;
     private readonly IApplicationProtocolProjection projection;
+    private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
     private readonly ApplicationLifecycleUseCases useCases;
@@ -21,6 +22,7 @@ public sealed class ApplicationLifecycleUseCaseTests
     {
         this.repository = Substitute.For<IApplicationRepository>();
         this.projection = Substitute.For<IApplicationProtocolProjection>();
+        this.passwordHasher = Substitute.For<IPasswordHasher>();
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.auditLog = Substitute.For<IAuditLog>();
         this.dateTimeProvider.UtcNow.Returns(this.now);
@@ -31,6 +33,7 @@ public sealed class ApplicationLifecycleUseCaseTests
         this.useCases = new ApplicationLifecycleUseCases(
             this.repository,
             this.projection,
+            this.passwordHasher,
             this.dateTimeProvider,
             this.auditLog);
     }
@@ -91,6 +94,170 @@ public sealed class ApplicationLifecycleUseCaseTests
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe(ApplicationErrors.ClientIdExists.Code);
         await this.repository.DidNotReceive().AddAsync(Arg.Any<DomainApplication>(), Arg.Any<CancellationToken>());
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteCreateAsync_WhenSaveFailsAfterProjection_DeletesProjectionAndReturnsFailure()
+    {
+        this.passwordHasher.HashPassword(Arg.Any<string>()).Returns("hashed-secret");
+        DomainApplication? projectedApplication = null;
+        this.projection.UpsertAsync(Arg.Do<DomainApplication>(application => projectedApplication = application), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        this.repository
+            .When(repository => repository.SaveChangesAsync(Arg.Any<CancellationToken>()))
+            .Do(_ => throw new InvalidOperationException("Database write failed."));
+        var command = new CreateApplicationCommand(
+            "orders-worker",
+            "Orders Worker",
+            "Orders worker",
+            ApplicationProfile.MachineToMachine,
+            OAuthClientType.Confidential,
+            ["client_credentials"],
+            ["orders.read"],
+            [],
+            [],
+            RequirePkce: false,
+            RequireConsent: false);
+
+        Result<ApplicationCreateCommandResult> result = await this.useCases.ExecuteCreateAsync(
+            command,
+            new CreateApplicationInitialSecretCommand("Initial secret", this.now.AddDays(30)));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Failure.Application.CreatePersistenceFailed");
+        result.Error.Description.ShouldNotContain("InvalidOperationException");
+        result.Error.Description.ShouldNotContain("Database write failed");
+        projectedApplication.ShouldNotBeNull();
+        await this.projection.Received(1).DeleteAsync(projectedApplication.Id, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteCreateAsync_WhenAddFailsAfterProjection_DeletesProjectionAndReturnsFailure()
+    {
+        DomainApplication? projectedApplication = null;
+        this.projection.UpsertAsync(Arg.Do<DomainApplication>(application => projectedApplication = application), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        this.repository
+            .When(repository => repository.AddAsync(Arg.Any<DomainApplication>(), Arg.Any<CancellationToken>()))
+            .Do(_ => throw new InvalidOperationException("Repository add failed."));
+        var command = new CreateApplicationCommand(
+            "orders-web",
+            "Orders Web",
+            "Orders portal",
+            ApplicationProfile.Web,
+            OAuthClientType.Confidential,
+            ["authorization_code"],
+            ["openid", "orders.read"],
+            ["https://orders.example.com/callback"],
+            [],
+            RequirePkce: false,
+            RequireConsent: true);
+
+        Result<ApplicationCreateCommandResult> result = await this.useCases.ExecuteCreateAsync(
+            command,
+            initialSecretCommand: null);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Failure.Application.CreatePersistenceFailed");
+        projectedApplication.ShouldNotBeNull();
+        await this.projection.Received(1).DeleteAsync(projectedApplication.Id, Arg.Any<CancellationToken>());
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteCreateAsync_WhenAuditFailsAfterSave_DoesNotDeleteProjectionAndPropagatesException()
+    {
+        DomainApplication? projectedApplication = null;
+        this.projection.UpsertAsync(Arg.Do<DomainApplication>(application => projectedApplication = application), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        this.auditLog
+            .When(auditLog => auditLog.LogAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>()))
+            .Do(_ => throw new InvalidOperationException("Audit write failed."));
+        var command = new CreateApplicationCommand(
+            "orders-web",
+            "Orders Web",
+            "Orders portal",
+            ApplicationProfile.Web,
+            OAuthClientType.Confidential,
+            ["authorization_code"],
+            ["openid", "orders.read"],
+            ["https://orders.example.com/callback"],
+            [],
+            RequirePkce: false,
+            RequireConsent: true);
+
+        InvalidOperationException exception = await Should.ThrowAsync<InvalidOperationException>(
+            () => this.useCases.ExecuteCreateAsync(command, initialSecretCommand: null));
+
+        exception.Message.ShouldBe("Audit write failed.");
+        projectedApplication.ShouldNotBeNull();
+        await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await this.projection.DidNotReceive().DeleteAsync(projectedApplication.Id, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteCreateAsync_WhenSaveIsCanceled_PropagatesCancellationWithoutDeletingProjection()
+    {
+        DomainApplication? projectedApplication = null;
+        this.projection.UpsertAsync(Arg.Do<DomainApplication>(application => projectedApplication = application), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        this.repository
+            .When(repository => repository.SaveChangesAsync(Arg.Any<CancellationToken>()))
+            .Do(_ => throw new OperationCanceledException("Save canceled."));
+        var command = new CreateApplicationCommand(
+            "orders-web",
+            "Orders Web",
+            "Orders portal",
+            ApplicationProfile.Web,
+            OAuthClientType.Confidential,
+            ["authorization_code"],
+            ["openid", "orders.read"],
+            ["https://orders.example.com/callback"],
+            [],
+            RequirePkce: false,
+            RequireConsent: true);
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => this.useCases.ExecuteCreateAsync(command, initialSecretCommand: null));
+
+        projectedApplication.ShouldNotBeNull();
+        await this.projection.DidNotReceive().DeleteAsync(projectedApplication.Id, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteCreateAsync_WhenAddIsCanceled_PropagatesCancellationWithoutDeletingProjection()
+    {
+        DomainApplication? projectedApplication = null;
+        this.projection.UpsertAsync(Arg.Do<DomainApplication>(application => projectedApplication = application), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        this.repository
+            .When(repository => repository.AddAsync(Arg.Any<DomainApplication>(), Arg.Any<CancellationToken>()))
+            .Do(_ => throw new OperationCanceledException("Add canceled."));
+        var command = new CreateApplicationCommand(
+            "orders-web",
+            "Orders Web",
+            "Orders portal",
+            ApplicationProfile.Web,
+            OAuthClientType.Confidential,
+            ["authorization_code"],
+            ["openid", "orders.read"],
+            ["https://orders.example.com/callback"],
+            [],
+            RequirePkce: false,
+            RequireConsent: true);
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => this.useCases.ExecuteCreateAsync(command, initialSecretCommand: null));
+
+        projectedApplication.ShouldNotBeNull();
+        await this.projection.DidNotReceive().DeleteAsync(projectedApplication.Id, Arg.Any<CancellationToken>());
         await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
