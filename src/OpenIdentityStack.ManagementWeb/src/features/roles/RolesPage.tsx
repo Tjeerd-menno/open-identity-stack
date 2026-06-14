@@ -147,6 +147,7 @@ function RoleListView({ permissions }: Required<RolesPageProps>) {
 function CreateRoleView({ permissions }: Required<RolesPageProps>) {
   const navigate = useNavigate();
   const createRole = useCreateRole();
+  const platformCatalog = usePlatformPermissionCatalog();
   const canWrite = hasPermission(permissions, 'roles:write');
 
   if (!canWrite) {
@@ -161,6 +162,7 @@ function CreateRoleView({ permissions }: Required<RolesPageProps>) {
       </div>
       <RoleForm
         mode="create"
+        catalogItems={platformCatalog.data?.items}
         loading={createRole.isPending}
         error={createRole.error}
         onCancel={() => navigate('/roles')}

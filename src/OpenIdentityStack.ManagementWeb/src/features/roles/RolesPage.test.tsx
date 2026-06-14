@@ -291,6 +291,43 @@ describe('RolesPage', () => {
     });
   });
 
+  it('expands wildcard permission counts in the create role form', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (url === `${apiBase}/api/admin/roles?page=1&pageSize=20` && method === 'GET') {
+        return jsonResponse(roleListResponse());
+      }
+
+      if (url === `${apiBase}/api/admin/permissions/platform` && method === 'GET') {
+        return jsonResponse({
+          items: [
+            ...platformCatalog.items,
+            {
+              permission: '*',
+              resource: '*',
+              action: '*',
+              kind: 'wildcard',
+              displayName: 'All Platform Permissions',
+              assignable: true,
+            },
+          ],
+        });
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderManagementWeb(<RolesPage permissions={['roles:read', 'roles:write']} />, { initialEntries: ['/roles/new'] });
+
+    await user.click(await screen.findByLabelText(/all platform permissions/i));
+
+    expect(screen.getByText(/permission count: 2/i)).toBeInTheDocument();
+  });
+
   it('does not visualize nested permissions as covered by a resource wildcard', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
