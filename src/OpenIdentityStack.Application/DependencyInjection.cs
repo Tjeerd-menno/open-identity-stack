@@ -76,6 +76,14 @@ public static class DependencyInjection
     private static void AddRoleUseCases(IServiceCollection services)
     {
         services.AddScoped<ICreateRoleUseCase, CreateRoleUseCase>();
+        services.AddScoped<IUpdateRoleUseCase, UpdateRoleUseCase>();
+        services.AddScoped<IDeleteRoleUseCase, DeleteRoleUseCase>();
+        services.AddScoped<IDisableRoleUseCase, DisableRoleUseCase>();
+        services.AddScoped<IEnableRoleUseCase, EnableRoleUseCase>();
+        services.AddScoped<ISetRolePermissionsUseCase, SetRolePermissionsUseCase>();
+        services.AddScoped<IAddRolePermissionUseCase, AddRolePermissionUseCase>();
+        services.AddScoped<IRemoveRolePermissionUseCase, RemoveRolePermissionUseCase>();
+        services.AddScoped<IGetRoleQueryHandler, GetRoleQueryHandler>();
         services.AddScoped<IListRolesQueryHandler, ListRolesQueryHandler>();
         services.AddScoped<IAssignRoleUseCase, AssignRoleUseCase>();
         services.AddScoped<IUnassignRoleUseCase, UnassignRoleUseCase>();
