@@ -21,10 +21,16 @@ export function getEffectivePermissionCount(
       continue;
     }
 
+    let matchedConcretePermission = false;
     for (const concretePermission of assignableConcretePermissions) {
       if (isCoveredByWildcard(concretePermission, permission)) {
         effectivePermissions.add(concretePermission);
+        matchedConcretePermission = true;
       }
+    }
+
+    if (!matchedConcretePermission) {
+      effectivePermissions.add(permission);
     }
   }
 

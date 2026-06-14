@@ -33,4 +33,8 @@ describe('getEffectivePermissionCount', () => {
   it('counts only the next segment covered by a wildcard grant', () => {
     expect(getEffectivePermissionCount(['users:*'], catalogItems)).toBe(1);
   });
+
+  it('counts unmatched dynamic wildcards as a grant', () => {
+    expect(getEffectivePermissionCount(['inventory:claims:*'], catalogItems)).toBe(1);
+  });
 });
