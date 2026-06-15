@@ -15,7 +15,7 @@ const auth: AuthContextValue = {
 };
 
 describe('AppShell', () => {
-  it('does not expose disabled global search in the header', () => {
+  it('shows operator name in sidebar and sign-out action without exposing unlabelled global search', () => {
     renderManagementWeb(
       <AuthContextProvider value={auth}>
         <AppShell />
@@ -23,7 +23,8 @@ describe('AppShell', () => {
     );
 
     expect(screen.queryByRole('textbox', { name: /global search/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /operator menu/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument();
+    expect(screen.getByText('Test Operator')).toBeInTheDocument();
   });
 
   it('shows breadcrumbs for nested management routes', () => {
@@ -36,7 +37,7 @@ describe('AppShell', () => {
 
     const breadcrumbs = screen.getByRole('navigation', { name: /breadcrumbs/i });
 
-    expect(within(breadcrumbs).getByRole('link', { name: /overview/i })).toHaveAttribute('href', '/');
+    expect(within(breadcrumbs).getByRole('link', { name: /management/i })).toHaveAttribute('href', '/');
     expect(within(breadcrumbs).getByRole('link', { name: /identity providers/i })).toHaveAttribute('href', '/providers');
     expect(within(breadcrumbs).getByText(/authentication settings/i)).toBeInTheDocument();
   });

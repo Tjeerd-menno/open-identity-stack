@@ -74,12 +74,12 @@ describe('ApplicationsPage', () => {
 
     renderManagementWeb(<ApplicationsPage />);
 
-    expect(await screen.findByRole('cell', { name: 'orders-web' })).toBeInTheDocument();
+    expect(await screen.findByText('orders-web')).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText(/search by client id or display name/i), 'worker');
 
-    expect(await screen.findByRole('cell', { name: 'worker' })).toBeInTheDocument();
-    expect(screen.queryByRole('cell', { name: 'orders-web' })).not.toBeInTheDocument();
+    expect(await screen.findByText('worker')).toBeInTheDocument();
+    expect(screen.queryByText('orders-web')).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -141,7 +141,7 @@ describe('ApplicationsPage', () => {
     await user.selectOptions(screen.getByLabelText(/status/i), 'Disabled');
     await user.selectOptions(screen.getByLabelText(/client type/i), 'Confidential');
 
-    expect(await screen.findByRole('cell', { name: 'worker' })).toBeInTheDocument();
+    expect(await screen.findByText('worker')).toBeInTheDocument();
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         `${apiBase}/api/admin/applications?page=1&pageSize=20&profile=MachineToMachine&status=Disabled&clientType=Confidential`,
@@ -187,7 +187,7 @@ describe('ApplicationsPage', () => {
 
     renderManagementWeb(<ApplicationsPage />);
 
-    await screen.findByRole('cell', { name: 'orders-web' });
+    await screen.findByText('orders-web');
     await user.click(screen.getByRole('button', { name: /delete orders web/i }));
     await user.click(await screen.findByRole('button', { name: /^delete$/i }));
 

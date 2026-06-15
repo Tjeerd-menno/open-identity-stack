@@ -1,10 +1,9 @@
-import { ActionIcon, Anchor, AppShell as MantineAppShell, Badge, Breadcrumbs, Burger, Group, Menu, Stack, Text, Title } from '@mantine/core';
+import { ActionIcon, Anchor, AppShell as MantineAppShell, Breadcrumbs, Burger, Group, Text, TextInput } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '@/lib/auth-context';
 import { hasAnyPermission } from '@/lib/permissions';
-import { LogoutIcon } from './IamIcons';
-import { ThemeToggle } from './ThemeToggle';
+import { BellIcon, SearchIcon } from './IamIcons';
 import { Navigation } from './Navigation';
 
 type BreadcrumbItem = {
@@ -24,9 +23,9 @@ export function AppShell() {
 
   return (
     <MantineAppShell
-      header={{ height: 64 }}
+      header={{ height: 61 }}
       navbar={{
-        width: 280,
+        width: 264,
         breakpoint: 'sm',
         collapsed: { mobile: !opened },
       }}
@@ -43,54 +42,48 @@ export function AppShell() {
               opened={opened}
               size="sm"
             />
-            <div>
-              <Title order={3} size="h4">OpenIdentityStack</Title>
-              <Text size="xs" c="dimmed">
-                IAM Console
-              </Text>
-            </div>
-            <Badge visibleFrom="sm" color="teal" variant="light">Local tenant</Badge>
+            <nav aria-label="Breadcrumbs">
+              <Breadcrumbs>
+                {breadcrumbs.map((item, index) =>
+                  item.href ? (
+                    <Anchor component={Link} key={`${item.href}-${item.label}`} size="sm" to={item.href}>
+                      {item.label}
+                    </Anchor>
+                  ) : (
+                    <Text c="dimmed" fw={600} key={`${index}-${item.label}`} size="sm">
+                      {item.label}
+                    </Text>
+                  )
+                )}
+              </Breadcrumbs>
+            </nav>
           </Group>
-          <Group gap="xs" justify="flex-end">
-            <ThemeToggle />
-            <Menu position="bottom-end" shadow="md">
-              <Menu.Target>
-                <ActionIcon aria-label="Operator menu" variant="light">
-                  {auth.displayName.slice(0, 1).toUpperCase()}
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>{auth.displayName}</Menu.Label>
-                <Menu.Item leftSection={<LogoutIcon />} onClick={() => void auth.logout()}>
-                  Sign out
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+          <Group gap="xs">
+            <TextInput
+              visibleFrom="sm"
+              placeholder="Search…"
+              leftSection={<SearchIcon aria-hidden="true" />}
+              size="xs"
+              w={200}
+            />
+            <ActionIcon variant="subtle" color="gray" size="md" aria-label="Notifications">
+              <BellIcon />
+            </ActionIcon>
           </Group>
         </Group>
       </MantineAppShell.Header>
-      <MantineAppShell.Navbar p="md">
-        <Navigation onNavigate={close} permissions={auth.permissions} />
+
+      <MantineAppShell.Navbar>
+        <Navigation
+          onNavigate={close}
+          permissions={auth.permissions}
+          displayName={auth.displayName}
+          onLogout={() => void auth.logout()}
+        />
       </MantineAppShell.Navbar>
+
       <MantineAppShell.Main>
-        <Stack gap="lg">
-          <nav aria-label="Breadcrumbs">
-            <Breadcrumbs>
-              {breadcrumbs.map((item, index) => (
-                item.href ? (
-                  <Anchor component={Link} key={`${item.href}-${item.label}`} size="sm" to={item.href}>
-                    {item.label}
-                  </Anchor>
-                ) : (
-                  <Text c="dimmed" fw={600} key={`${index}-${item.label}`} size="sm">
-                    {item.label}
-                  </Text>
-                )
-              ))}
-            </Breadcrumbs>
-          </nav>
-          <Outlet />
-        </Stack>
+        <Outlet />
       </MantineAppShell.Main>
     </MantineAppShell>
   );
@@ -98,10 +91,10 @@ export function AppShell() {
 
 function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
   const normalizedPath = normalizePath(pathname);
-  const trail: BreadcrumbItem[] = [{ label: 'Overview', href: '/' }];
+  const trail: BreadcrumbItem[] = [{ label: 'Management', href: '/' }];
 
   if (normalizedPath === '/') {
-    return [{ label: 'Overview' }];
+    return [{ label: 'Management' }, { label: 'Overview' }];
   }
 
   const route = routeBreadcrumbs.find(({ pattern }) => pattern.test(normalizedPath));

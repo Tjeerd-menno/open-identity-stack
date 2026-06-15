@@ -1,4 +1,4 @@
-import { Alert, Button, Group, Loader, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
+import { Alert, Avatar, Button, Group, Loader, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -166,14 +166,17 @@ export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
     {
       header: 'User',
       cell: (user: UserListItem) => (
-        <Stack gap={2}>
-          <Button variant="subtle" onClick={() => navigate(`/users/${user.id}`)}>
-            {user.displayName}
-          </Button>
-          <Text size="sm" c="dimmed">
-            {user.email}
-          </Text>
-        </Stack>
+        <Group gap="sm" wrap="nowrap">
+          <Avatar name={user.displayName} color="blue" size={36} />
+          <Stack gap={2}>
+            <Button variant="subtle" p={0} h="auto" onClick={() => navigate(`/users/${user.id}`)}>
+              {user.displayName}
+            </Button>
+            <Text size="xs" c="dimmed">
+              {user.email}
+            </Text>
+          </Stack>
+        </Group>
       ),
     },
     {

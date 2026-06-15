@@ -1,18 +1,30 @@
-import { Badge, Button, Card, Group, Progress, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { Card, Group, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from '@mantine/core';
 import { Link } from 'react-router';
 import { PageHeader } from '@/components/PagePrimitives';
+import {
+  ApplicationsIcon,
+  ArrowRightIcon,
+  AuditIcon,
+  GroupsIcon,
+  OverviewIcon,
+  PermissionsIcon,
+  ProvidersIcon,
+  RolesIcon,
+  SessionsIcon,
+  SettingsIcon,
+  UsersIcon,
+} from '@/components/IamIcons';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
-
-type OverviewPageProps = {
-  permissions?: string[];
-};
+import type { ComponentType } from 'react';
 
 type OverviewSection = {
   label: string;
   path: string;
   permission: string;
   description: string;
+  icon: ComponentType;
+  color: string;
 };
 
 const overviewSections: OverviewSection[] = [
@@ -21,56 +33,78 @@ const overviewSections: OverviewSection[] = [
     path: '/users',
     permission: 'users:read',
     description: 'Accounts, status, roles, groups, and upstream identities.',
+    icon: UsersIcon,
+    color: 'blue',
   },
   {
     label: 'Roles',
     path: '/roles',
     permission: 'roles:read',
     description: 'Role catalog, platform permissions, and assignment rules.',
+    icon: RolesIcon,
+    color: 'green',
   },
   {
     label: 'Groups',
     path: '/groups',
     permission: 'groups:read',
     description: 'Group membership and external mapping management.',
+    icon: GroupsIcon,
+    color: 'grape',
   },
   {
     label: 'Applications',
     path: '/applications',
     permission: 'applications:read',
     description: 'Consolidated OAuth and OIDC applications.',
+    icon: ApplicationsIcon,
+    color: 'teal',
   },
   {
     label: 'Permissions',
     path: '/application-permissions',
     permission: 'application-permissions:read',
     description: 'Application permission registry, manifests, and diagnostics.',
+    icon: PermissionsIcon,
+    color: 'violet',
   },
   {
     label: 'Sessions',
     path: '/sessions',
     permission: 'sessions:read',
     description: 'Active, expired, revoked, and logged-out user sessions.',
+    icon: SessionsIcon,
+    color: 'green',
   },
   {
     label: 'Identity providers',
     path: '/providers',
     permission: 'providers:read',
     description: 'OIDC provider configuration and lifecycle management.',
+    icon: ProvidersIcon,
+    color: 'orange',
   },
   {
     label: 'Authentication settings',
     path: '/providers/settings',
     permission: 'system:settings',
     description: 'Authentication defaults and sign-in policy controls.',
+    icon: SettingsIcon,
+    color: 'gray',
   },
   {
     label: 'Audit',
     path: '/audit-entries',
     permission: 'audit-logs:read',
     description: 'Read-only administrative audit trail.',
+    icon: AuditIcon,
+    color: 'yellow',
   },
 ];
+
+type OverviewPageProps = {
+  permissions?: string[];
+};
 
 export function OverviewPage({ permissions }: OverviewPageProps) {
   if (permissions) {
@@ -86,67 +120,74 @@ function OverviewFromAuth() {
 }
 
 function OverviewContent({ permissions }: { permissions: string[] }) {
-  const effectivePermissions = permissions;
-  const availableSections = overviewSections.filter((section) => hasPermission(effectivePermissions, section.permission));
-  const unavailableCount = overviewSections.length - availableSections.length;
+  const available = overviewSections.filter((s) => hasPermission(permissions, s.permission));
+  const unavailable = overviewSections.filter((s) => !hasPermission(permissions, s.permission));
 
   return (
     <Stack gap="lg">
       <PageHeader
         title="Overview"
-        description="Operational IAM console for identity, access, application, federation, and audit workflows."
-        badges={[
-          { label: `${availableSections.length} available`, color: 'green' },
-          { label: `${unavailableCount} unavailable`, color: unavailableCount === 0 ? 'gray' : 'yellow' },
-        ]}
+        description="A summary of your identity tenant and quick access to the domains you administer."
       />
 
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-        <MetricCard label="Accessible surfaces" value={`${availableSections.length}/${overviewSections.length}`} tone="green" />
-        <MetricCard label="Access coverage" value={`${Math.round((availableSections.length / overviewSections.length) * 100)}%`} tone="blue" />
-        <MetricCard label="Security signals" value={hasPermission(effectivePermissions, 'audit-logs:read') ? 'Audit ready' : 'Limited'} tone="teal" />
-        <MetricCard label="Operator scope" value={hasPermission(effectivePermissions, '*') ? 'Full' : 'Scoped'} tone="gray" />
-      </SimpleGrid>
-
-      <nav aria-label="Overview quick links">
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-          {overviewSections.map((section) => (
-            <OverviewSectionCard
-              key={section.path}
-              section={section}
-              isAvailable={hasPermission(effectivePermissions, section.permission)}
-            />
-          ))}
-        </SimpleGrid>
-      </nav>
-
-      <SimpleGrid cols={{ base: 1, lg: 3 }}>
-        <Card withBorder radius="md" padding="md">
-          <Stack gap="xs">
-            <Title order={2} size="h4">Access Summary</Title>
-            <Progress value={(availableSections.length / overviewSections.length) * 100} color="blue" />
-            <Text size="sm" c="dimmed">
-              Route visibility is based on effective permissions in the current operator token.
-            </Text>
+      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+        {/* Domains quick-access card */}
+        <Card withBorder radius="md" padding="lg">
+          <Stack gap="xs" mb="md">
+            <Group gap="xs">
+              <ThemeIcon color="blue" size={28} radius="md" variant="light">
+                <OverviewIcon />
+              </ThemeIcon>
+              <Title order={2} size="h4">Domains</Title>
+            </Group>
+            <Text size="sm" c="dimmed">Jump to the areas your permissions grant.</Text>
           </Stack>
-        </Card>
-        <Card withBorder radius="md" padding="md">
-          <Stack gap="xs">
-            <Title order={2} size="h4">Recent Signals</Title>
-            <Text size="sm">Audit trail: {hasPermission(effectivePermissions, 'audit-logs:read') ? 'Available' : 'No access'}</Text>
-            <Text size="sm">Session controls: {hasPermission(effectivePermissions, 'sessions:read') ? 'Available' : 'No access'}</Text>
-            <Text size="sm">Provider lifecycle: {hasPermission(effectivePermissions, 'providers:read') ? 'Available' : 'No access'}</Text>
-            <Text size="sm">Authentication settings: {hasPermission(effectivePermissions, 'system:settings') ? 'Available' : 'No access'}</Text>
-          </Stack>
-        </Card>
-        <Card withBorder radius="md" padding="md">
-          <Stack gap="xs">
-            <Title order={2} size="h4">Quick Actions</Title>
-            {availableSections.slice(0, 3).map((section) => (
-              <Button key={section.path} component={Link} to={section.path} variant="subtle">
-                {section.label}
-              </Button>
+
+          <SimpleGrid cols={2} spacing="xs">
+            {available.map((section) => (
+              <DomainButton key={section.path} section={section} />
             ))}
+            {unavailable.map((section) => (
+              <DomainButton key={section.path} section={section} disabled />
+            ))}
+          </SimpleGrid>
+        </Card>
+
+        {/* Access summary card */}
+        <Card withBorder radius="md" padding="lg">
+          <Stack gap="xs" mb="md">
+            <Group gap="xs">
+              <ThemeIcon color="teal" size={28} radius="md" variant="light">
+                <RolesIcon />
+              </ThemeIcon>
+              <Title order={2} size="h4">Access summary</Title>
+            </Group>
+            <Text size="sm" c="dimmed">Effective operator permissions in this session.</Text>
+          </Stack>
+
+          <Stack gap="xs">
+            {overviewSections.map((section) => {
+              const isAccessible = hasPermission(permissions, section.permission);
+              const Icon = section.icon;
+              return (
+                <Group key={section.path} gap="sm" justify="space-between">
+                  <Group gap="xs">
+                    <ThemeIcon
+                      color={isAccessible ? section.color : 'gray'}
+                      size={24}
+                      radius="sm"
+                      variant="light"
+                    >
+                      <Icon />
+                    </ThemeIcon>
+                    <Text size="sm" c={isAccessible ? 'inherit' : 'dimmed'}>{section.label}</Text>
+                  </Group>
+                  <Text size="xs" c={isAccessible ? 'green' : 'dimmed'} fw={600}>
+                    {isAccessible ? 'Accessible' : 'No access'}
+                  </Text>
+                </Group>
+              );
+            })}
           </Stack>
         </Card>
       </SimpleGrid>
@@ -154,42 +195,62 @@ function OverviewContent({ permissions }: { permissions: string[] }) {
   );
 }
 
-function MetricCard({ label, value, tone }: { label: string; value: string; tone: string }) {
-  return (
-    <Card withBorder radius="md" padding="md" style={{ borderTop: `3px solid var(--mantine-color-${tone}-5)` }}>
-      <Stack gap={4}>
-        <Text size="xs" c="dimmed" fw={600} tt="uppercase">{label}</Text>
-        <Title order={2} size="h3">{value}</Title>
-      </Stack>
-    </Card>
-  );
-}
+function DomainButton({ section, disabled }: { section: OverviewSection; disabled?: boolean }) {
+  const Icon = section.icon;
 
-function OverviewSectionCard({
-  section,
-  isAvailable,
-}: {
-  section: OverviewSection;
-  isAvailable: boolean;
-}) {
+  if (disabled) {
+    return (
+      <Group
+        gap="xs"
+        p="sm"
+        style={{
+          border: '1px solid var(--mantine-color-default-border)',
+          borderRadius: 'var(--mantine-radius-md)',
+          opacity: 0.45,
+          cursor: 'not-allowed',
+        }}
+      >
+        <ThemeIcon color="gray" size={32} radius="md" variant="light">
+          <Icon />
+        </ThemeIcon>
+        <Text size="sm" fw={600} style={{ flex: 1 }}>{section.label}</Text>
+      </Group>
+    );
+  }
+
   return (
-    <Card aria-label={section.label} component="article" withBorder radius="md" padding="md">
-      <Stack gap="sm">
-        <Group justify="space-between" align="flex-start">
-          <Title order={2} size="h4">{section.label}</Title>
-          <Badge color={isAvailable ? 'green' : 'gray'} variant="light">
-            {isAvailable ? 'Available' : 'No access'}
-          </Badge>
-        </Group>
-        <Text size="sm" c="dimmed">{section.description}</Text>
-        {isAvailable ? (
-          <Button component={Link} to={section.path} variant="light" size="sm">
-            Open {section.label}
-          </Button>
-        ) : (
-          <Text size="sm">Requires {section.permission}</Text>
-        )}
-      </Stack>
-    </Card>
+    <UnstyledButton
+      component={Link}
+      to={section.path}
+      p="sm"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        border: '1px solid var(--mantine-color-default-border)',
+        borderRadius: 'var(--mantine-radius-md)',
+        background: 'var(--mantine-color-body)',
+        textDecoration: 'none',
+        transition: 'border-color 120ms, background 120ms',
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget as HTMLElement;
+        el.style.borderColor = 'var(--mantine-color-blue-5)';
+        el.style.background = 'var(--mantine-color-blue-0)';
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget as HTMLElement;
+        el.style.borderColor = 'var(--mantine-color-default-border)';
+        el.style.background = 'var(--mantine-color-body)';
+      }}
+    >
+      <ThemeIcon color={section.color} size={32} radius="md" variant="light">
+        <Icon />
+      </ThemeIcon>
+      <Text size="sm" fw={600} style={{ flex: 1, color: 'inherit' }}>{section.label}</Text>
+      <Text c="dimmed" style={{ display: 'flex', flexShrink: 0 }}>
+        <ArrowRightIcon width="1em" height="1em" />
+      </Text>
+    </UnstyledButton>
   );
 }

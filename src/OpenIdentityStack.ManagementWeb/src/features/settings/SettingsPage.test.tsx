@@ -83,7 +83,6 @@ describe('SettingsPage', () => {
     expect(await screen.findByRole('heading', { name: /authentication settings/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /default authentication provider/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /admin local fallback/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /how authentication provider selection works/i })).toBeInTheDocument();
     expect(screen.getByText(/local accounts \(default\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/enable local fallback for iam admins/i)).toBeDisabled();
 
@@ -110,7 +109,6 @@ describe('SettingsPage', () => {
     });
 
     expect(await screen.findByText(/local fallback setting updated successfully/i)).toBeInTheDocument();
-    expect(screen.getByText(/last updated:/i)).toBeInTheDocument();
   });
 
   it('renders a load error when settings or providers fail', async () => {

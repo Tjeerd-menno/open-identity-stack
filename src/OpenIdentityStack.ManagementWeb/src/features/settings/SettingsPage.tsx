@@ -1,6 +1,7 @@
 import { Alert, Badge, Checkbox, Group, NativeSelect, Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useState } from 'react';
 import { getApiErrorMessage } from '@/lib/admin-api';
+import { LoadingState, PageHeader } from '@/components/PagePrimitives';
 import {
   useAuthenticationProviders,
   useAuthenticationSettings,
@@ -20,7 +21,7 @@ export function SettingsPage() {
   const error = settings.error ?? providers.error;
 
   if (isLoading) {
-    return <Text>Loading authentication settings</Text>;
+    return <LoadingState title="Loading settings" description="Fetching authentication configuration..." />;
   }
 
   if (settings.isError || providers.isError) {
@@ -60,10 +61,10 @@ export function SettingsPage() {
 
   return (
     <Stack gap="lg">
-      <div>
-        <Title order={1}>Authentication Settings</Title>
-        <Text c="dimmed">Configure default authentication provider and local fallback options.</Text>
-      </div>
+      <PageHeader
+        title="Authentication Settings"
+        description="Configure default authentication provider and local fallback options."
+      />
 
       {successMessage && <Alert color="green">{successMessage}</Alert>}
       {errorMessage && <Alert color="red">{errorMessage}</Alert>}
@@ -132,35 +133,6 @@ export function SettingsPage() {
         </Paper>
       </SimpleGrid>
 
-      <section aria-label="Authentication provider selection guidance">
-        <Title order={2} size="h3">How Authentication Provider Selection Works</Title>
-        <Stack gap="sm" mt="sm">
-          <div>
-            <Title order={3} size="h4">Default Provider Selection</Title>
-            <Text size="sm" c="dimmed">
-              The default provider determines which login method is presented first on the authentication page.
-            </Text>
-          </div>
-          <div>
-            <Title order={3} size="h4">Admin-Only Local Fallback</Title>
-            <Text size="sm" c="dimmed">
-              IAM administrators retain local credentials for emergency access when an external provider is primary.
-            </Text>
-          </div>
-          <div>
-            <Title order={3} size="h4">Login Page Behavior</Title>
-            <Text size="sm" c="dimmed">
-              Local Accounts shows the username/password form first; external providers make provider sign-in primary.
-            </Text>
-          </div>
-        </Stack>
-      </section>
-
-      {settings.data.updatedAt && (
-        <Text size="sm" c="dimmed" ta="right">
-          Last updated: {new Date(settings.data.updatedAt).toLocaleString()}
-        </Text>
-      )}
     </Stack>
   );
 }

@@ -1,8 +1,9 @@
-import { Button, Stack } from '@mantine/core';
+import { Badge, Button, Group, Stack, Text, ThemeIcon } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
+import { ApplicationsIcon, ServerIcon } from '@/components/IamIcons';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { PageHeader, PageToolbar, type AppliedFilter } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
@@ -25,10 +26,23 @@ const applicationProfileLabels: Record<ApplicationProfile, string> = {
   [ApplicationProfile.Custom]: 'Custom',
 };
 
+const profileBadgeColors: Record<ApplicationProfile, string> = {
+  [ApplicationProfile.Web]: 'blue',
+  [ApplicationProfile.SinglePage]: 'teal',
+  [ApplicationProfile.Native]: 'cyan',
+  [ApplicationProfile.MachineToMachine]: 'orange',
+  [ApplicationProfile.Device]: 'grape',
+  [ApplicationProfile.Custom]: 'gray',
+};
+
 const clientTypeLabels: Record<ApplicationClientType, string> = {
   [ApplicationClientType.Confidential]: 'Confidential',
   [ApplicationClientType.Public]: 'Public',
 };
+
+function isMachineToMachine(profile: ApplicationProfile) {
+  return profile === ApplicationProfile.MachineToMachine;
+}
 
 export function ApplicationsPage() {
   const navigate = useNavigate();
@@ -59,27 +73,52 @@ export function ApplicationsPage() {
   }, [search]);
 
   const columns: FoundationColumn<ApplicationListItem>[] = [
-    { header: 'Client ID', accessorKey: 'clientId' },
-    { header: 'Display Name', accessorKey: 'displayName' },
     {
-      header: 'Profile',
-      cell: (application) => applicationProfileLabels[application.profile],
+      header: 'Application',
+      cell: (application) => (
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon
+            color={profileBadgeColors[application.profile] ?? 'gray'}
+            size={36}
+            radius="md"
+            variant="light"
+          >
+            {isMachineToMachine(application.profile) ? <ServerIcon /> : <ApplicationsIcon />}
+          </ThemeIcon>
+          <Stack gap={2}>
+            <Text size="sm" fw={600}>{application.displayName}</Text>
+            <Text size="xs" c="dimmed" ff="monospace">{application.clientId}</Text>
+          </Stack>
+        </Group>
+      ),
     },
     {
-      header: 'Client Type',
-      cell: (application) => clientTypeLabels[application.clientType],
+      header: 'Profile',
+      cell: (application) => (
+        <Badge
+          color={profileBadgeColors[application.profile] ?? 'gray'}
+          variant="dot"
+          size="sm"
+        >
+          {applicationProfileLabels[application.profile]}
+        </Badge>
+      ),
+    },
+    {
+      header: 'Client type',
+      cell: (application) => (
+        <Text size="sm" c="dimmed">{clientTypeLabels[application.clientType]}</Text>
+      ),
     },
     {
       header: 'Status',
       cell: (application) => <ApplicationStatusBadge status={application.status} />,
     },
     {
-      header: 'Grant Types',
-      cell: (application) => application.allowedGrantTypes.join(', '),
-    },
-    {
-      header: 'Created',
-      cell: (application) => new Date(application.createdAt).toLocaleDateString(),
+      header: 'Grant types',
+      cell: (application) => (
+        <Text size="xs" c="dimmed" ff="monospace">{application.allowedGrantTypes.join(', ')}</Text>
+      ),
     },
     {
       header: 'Actions',
@@ -95,6 +134,7 @@ export function ApplicationsPage() {
       ),
     },
   ];
+
   const appliedFilters: AppliedFilter[] = [
     ...(profile ? [{ key: 'profile', label: 'Profile', value: applicationProfileLabels[profile], onRemove: () => setProfile('') }] : []),
     ...(status ? [{ key: 'status', label: 'Status', value: status, onRemove: () => setStatus('') }] : []),
@@ -105,7 +145,7 @@ export function ApplicationsPage() {
     <Stack gap="lg">
       <PageHeader
         title="Applications"
-        description="Manage OAuth 2.0 and OpenID Connect applications."
+        description="OAuth/OIDC software registrations that can sign users in or request tokens."
         actions={<Button onClick={() => navigate('/applications/new')}>New application</Button>}
       />
 

@@ -274,3 +274,32 @@ export function LogoutIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+export function BellIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+      <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
+    </IconBase>
+  );
+}
+
+export function ArrowRightIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </IconBase>
+  );
+}
+
+export function ServerIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+      <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+      <line x1="6" x2="6.01" y1="6" y2="6" />
+      <line x1="6" x2="6.01" y1="18" y2="18" />
+    </IconBase>
+  );
+}

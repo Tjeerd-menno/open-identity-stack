@@ -1,5 +1,6 @@
-import { Alert, Code, Collapse, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Code, Collapse, Group, Paper, SimpleGrid, Stack, Text, TextInput, ThemeIcon, Title } from '@mantine/core';
 import { useState } from 'react';
+import { AuditIcon } from '@/components/IamIcons';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { PageHeader, PageToolbar, type AppliedFilter } from '@/components/PagePrimitives';
@@ -56,13 +57,38 @@ export function AuditEntriesPage({ permissions = ['*'] }: AuditEntriesPageProps)
 
   const columns: FoundationColumn<AuditEntry>[] = [
     {
-      header: 'Timestamp',
-      cell: (entry) => formatDate(entry.timestamp),
+      header: 'Event',
+      cell: (entry) => (
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon color="blue" size={36} radius="md" variant="light">
+            <AuditIcon />
+          </ThemeIcon>
+          <Stack gap={2}>
+            <Text size="sm" fw={600}>{formatDate(entry.timestamp)}</Text>
+            <Text size="xs" c="dimmed" ff="monospace">{entry.id}</Text>
+          </Stack>
+        </Group>
+      ),
     },
-    { header: 'User ID', accessorKey: 'userId' },
-    { header: 'Action', accessorKey: 'action' },
-    { header: 'Entity Type', accessorKey: 'entityType' },
-    { header: 'Entity ID', accessorKey: 'entityId' },
+    {
+      header: 'User',
+      cell: (entry) => <Text size="sm" ff="monospace">{entry.userId}</Text>,
+    },
+    {
+      header: 'Action',
+      cell: (entry) => (
+        <Badge variant="light" color="blue" size="sm">{entry.action}</Badge>
+      ),
+    },
+    {
+      header: 'Entity',
+      cell: (entry) => (
+        <Stack gap={2}>
+          <Text size="sm">{entry.entityType}</Text>
+          <Text size="xs" c="dimmed" ff="monospace">{entry.entityId}</Text>
+        </Stack>
+      ),
+    },
     {
       header: 'Details',
       cell: (entry) => <Text size="sm" maw={260} truncate>{entry.details ?? 'No details'}</Text>,
@@ -73,7 +99,7 @@ export function AuditEntriesPage({ permissions = ['*'] }: AuditEntriesPageProps)
       cell: (entry) => (
         <EntityActionGroup
           actions={[{
-            label: expandedEntryId === entry.id ? `Collapse audit entry ${entry.id}` : `Expand audit entry ${entry.id}`,
+            label: expandedEntryId === entry.id ? 'Collapse' : 'Expand',
             onClick: () => setExpandedEntryId(expandedEntryId === entry.id ? null : entry.id),
           }]}
         />
@@ -181,18 +207,22 @@ export function AuditEntriesPage({ permissions = ['*'] }: AuditEntriesPageProps)
 
 function AuditEntryDetails({ entry }: { entry: AuditEntry }) {
   return (
-    <Stack gap="sm" role="region" aria-label="Audit entry details">
-      <Title order={2} size="h3">Audit Entry Details</Title>
-      <Text size="sm">Details: {entry.details ?? 'No details'}</Text>
-      <Stack gap={4}>
-        <Text fw={600} size="sm">Before state</Text>
-        <Code block>{entry.beforeState ?? 'null'}</Code>
+    <Paper withBorder p="md" radius="md" role="region" aria-label="Audit entry details">
+      <Stack gap="md">
+        <Title order={2} size="h3">Audit Entry Details</Title>
+        {entry.details && <Text size="sm">{entry.details}</Text>}
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+          <Stack gap={4}>
+            <Text fw={600} size="sm">Before state</Text>
+            <Code block>{entry.beforeState ?? 'null'}</Code>
+          </Stack>
+          <Stack gap={4}>
+            <Text fw={600} size="sm">After state</Text>
+            <Code block>{entry.afterState ?? 'null'}</Code>
+          </Stack>
+        </SimpleGrid>
       </Stack>
-      <Stack gap={4}>
-        <Text fw={600} size="sm">After state</Text>
-        <Code block>{entry.afterState ?? 'null'}</Code>
-      </Stack>
-    </Stack>
+    </Paper>
   );
 }
 
