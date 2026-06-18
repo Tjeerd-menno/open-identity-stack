@@ -6,6 +6,7 @@ import {
   type PaginatedResponse,
   type RequestParams,
 } from '@openidentitystack/admin-api-client';
+import { getApiBaseUrl } from './runtime-config';
 
 export type { ApiError, PaginatedResponse } from '@openidentitystack/admin-api-client';
 export { isApiError };
@@ -34,10 +35,6 @@ export function setAccessTokenProvider(provider: () => Promise<string | null>): 
 
 export function setUnauthorizedHandler(handler: (() => void) | null): void {
   unauthorizedHandler = handler;
-}
-
-function getApiBaseUrl(): string {
-  return import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000';
 }
 
 export async function request<T>(path: string, options: RequestInit = {}, params?: RequestParams): Promise<T> {

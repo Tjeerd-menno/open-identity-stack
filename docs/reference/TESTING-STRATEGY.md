@@ -92,7 +92,7 @@ public async Task CreateUser_ThenGetUser_ReturnsCreatedUser()
 public async Task GetUser_ReturnsExpectedSchema()
 {
     // Arrange - Define consumer expectation
-    var pact = PactHelper.CreatePactBuilder("AdminWeb", "OpenIdentityStack.Api")
+    var pact = PactHelper.CreatePactBuilder("ManagementWeb", "OpenIdentityStack.Api")
         .UponReceiving("A request to get a user")
             .WithRequest(HttpMethod.Get, "/api/admin/users/123")
             .WithHeader("Authorization", "Bearer token")

@@ -47,7 +47,6 @@ bool seedDevData = builder.Environment.IsDevelopment()
     || builder.Environment.IsEnvironment("Testing")
     || builder.Configuration.GetValue<bool>("Seed:DevelopmentData");
 
-await SeedAdminWebClientAsync(services);
 await SeedManagementWebClientAsync(services);
 if (seedCertificationProfile)
 {
@@ -99,115 +98,6 @@ static bool ShouldSeedDemoClients(
     return hostEnvironment.IsDevelopment()
         || hostEnvironment.IsEnvironment("Testing")
         || seedDevData;
-}
-
-static async Task SeedAdminWebClientAsync(IServiceProvider serviceProvider)
-{
-    ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-    IOpenIddictApplicationManager applicationManager = serviceProvider.GetRequiredService<IOpenIddictApplicationManager>();
-    IOpenIddictScopeManager scopeManager = serviceProvider.GetRequiredService<IOpenIddictScopeManager>();
-    IConfiguration configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    IHostEnvironment hostEnvironment = serviceProvider.GetRequiredService<IHostEnvironment>();
-
-    const string clientId = "admin-web-client";
-
-    string[] requiredScopes = ["openid", "profile", "email", "api"];
-    foreach (string scopeName in requiredScopes)
-    {
-        if (await scopeManager.FindByNameAsync(scopeName) is null)
-        {
-            await scopeManager.CreateAsync(new OpenIddictScopeDescriptor
-            {
-                Name = scopeName,
-                DisplayName = $"{scopeName} Scope"
-            });
-            logger.LogDebug("Created OpenIddict scope '{ScopeName}'", scopeName);
-        }
-    }
-
-    var descriptor = new OpenIddictApplicationDescriptor
-    {
-        ClientId = clientId,
-        DisplayName = "Admin Web Application",
-        ClientType = OpenIddictConstants.ClientTypes.Public,
-        ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
-        Permissions =
-        {
-            OpenIddictConstants.Permissions.Endpoints.Authorization,
-            OpenIddictConstants.Permissions.Endpoints.Token,
-            OpenIddictConstants.Permissions.Endpoints.EndSession,
-            OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
-            OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
-            OpenIddictConstants.Permissions.ResponseTypes.Code,
-            OpenIddictConstants.Permissions.Prefixes.Scope + "openid",
-            OpenIddictConstants.Permissions.Prefixes.Scope + "profile",
-            OpenIddictConstants.Permissions.Prefixes.Scope + "email",
-            OpenIddictConstants.Permissions.Prefixes.Scope + "api",
-        },
-        Requirements =
-        {
-            OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange
-        }
-    };
-
-    string[] configuredRedirectUris = GetConfiguredUris(configuration, "OpenIddict:Clients:AdminWeb:RedirectUris");
-    string[] configuredPostLogoutUris = GetConfiguredUris(configuration, "OpenIddict:Clients:AdminWeb:PostLogoutRedirectUris");
-
-    // Only register localhost redirect URIs in Development/Testing to avoid exposing them in production.
-    bool isDevOrTesting = hostEnvironment.IsDevelopment() || hostEnvironment.IsEnvironment("Testing");
-    if (isDevOrTesting)
-    {
-        string[] devRedirectUris =
-        [
-            "http://localhost:5175/auth/callback",
-            "http://localhost:5175/auth/silent-callback",
-            "http://localhost:5173/auth/callback",
-            "http://localhost:5173/auth/silent-callback",
-            "http://localhost:5174/auth/callback",
-            "http://localhost:5174/auth/silent-callback",
-            "http://localhost:3000/auth/callback",
-            "http://localhost:3000/auth/silent-callback",
-        ];
-
-        string[] devPostLogoutUris =
-        [
-            "http://localhost:5175/",
-            "http://localhost:5173/",
-            "http://localhost:5174/",
-            "http://localhost:3000/",
-        ];
-
-        foreach (string uri in devRedirectUris)
-        {
-            descriptor.RedirectUris.Add(new Uri(uri));
-        }
-
-        foreach (string uri in devPostLogoutUris)
-        {
-            descriptor.PostLogoutRedirectUris.Add(new Uri(uri));
-        }
-    }
-
-    foreach (string uri in configuredRedirectUris)
-    {
-        descriptor.RedirectUris.Add(new Uri(uri));
-    }
-
-    foreach (string uri in configuredPostLogoutUris)
-    {
-        descriptor.PostLogoutRedirectUris.Add(new Uri(uri));
-    }
-
-    object? existingApp = await applicationManager.FindByClientIdAsync(clientId);
-    if (existingApp is not null)
-    {
-        await applicationManager.UpdateAsync(existingApp, descriptor);
-        logger.LogInformation("Updated OpenIddict public client '{ClientId}' for AdminWeb", clientId);
-        return;
-    }
-
-    await applicationManager.CreateAsync(descriptor);
-    logger.LogInformation("Created OpenIddict public client '{ClientId}' for AdminWeb", clientId);
 }
 
 static async Task SeedManagementWebClientAsync(IServiceProvider serviceProvider)
@@ -268,8 +158,6 @@ static async Task SeedManagementWebClientAsync(IServiceProvider serviceProvider)
     {
         string[] devRedirectUris =
         [
-            "http://localhost:5176/auth/callback",
-            "http://localhost:5176/auth/silent-callback",
             "http://localhost:5175/auth/callback",
             "http://localhost:5175/auth/silent-callback",
             "http://localhost:5173/auth/callback",
@@ -282,7 +170,6 @@ static async Task SeedManagementWebClientAsync(IServiceProvider serviceProvider)
 
         string[] devPostLogoutUris =
         [
-            "http://localhost:5176/",
             "http://localhost:5175/",
             "http://localhost:5173/",
             "http://localhost:5174/",

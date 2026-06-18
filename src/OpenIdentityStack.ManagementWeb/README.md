@@ -1,6 +1,6 @@
 # OpenIdentityStack Management Web
 
-Mantine-based management UI for OpenIdentityStack. It runs side by side with the existing AdminWeb during rollout.
+Mantine-based management UI for OpenIdentityStack. It is the only supported browser frontend for operator workflows.
 
 ## Scope
 
@@ -14,6 +14,7 @@ npm run dev
 ```
 
 The Aspire AppHost configures `VITE_API_BASE_URL`, `VITE_OIDC_AUTHORITY`, and `VITE_OIDC_CLIENT_ID` for local runs.
+The published container also reads those same variables at startup and writes them into `runtime-config.js`, so operators can point the image at the deployed API/OIDC host without rebuilding it.
 
 ## Validation
 

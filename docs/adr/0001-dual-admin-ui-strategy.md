@@ -1,3 +1,3 @@
-# Dual admin UI strategy
+# Management Web as the sole frontend
 
-OpenIdentityStack will run and actively develop two management frontends in parallel: `OpenIdentityStack.AdminWeb` and `OpenIdentityStack.ManagementWeb` (Mantine-first). We chose this to ship a higher-quality Management Web quickly without blocking ongoing AdminWeb delivery, while accepting that parity is best-effort rather than a strict release gate.
+OpenIdentityStack standardizes on `OpenIdentityStack.ManagementWeb` as the only supported operator frontend. The earlier dual-frontend migration is complete, so runtime composition, documentation, and test strategy should assume a single browser UI backed by the existing Admin API.

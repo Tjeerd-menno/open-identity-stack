@@ -12,7 +12,7 @@
 - wrong redirect URI
 - wrong issuer or audience
 - stale signing keys on the consumer side
-- missing admin web browser origin
+- missing management web browser origin
 - upstream federation mismatch
 
 ## Checks

@@ -40,10 +40,10 @@ jobs:
             image: db-migrator
             context: .
             dockerfile: src/OpenIdentityStack.DbMigrator/Dockerfile
-          - name: admin-web
-            image: admin-web
-            context: src/OpenIdentityStack.AdminWeb
-            dockerfile: src/OpenIdentityStack.AdminWeb/Dockerfile
+          - name: management-web
+            image: management-web
+            context: .
+            dockerfile: src/OpenIdentityStack.ManagementWeb/Dockerfile
     steps:
       - name: Resolve and validate release version
         shell: pwsh

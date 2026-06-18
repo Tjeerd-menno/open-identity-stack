@@ -4,7 +4,7 @@
 
 - local runs work but production browser calls fail
 - redirects use the wrong scheme or host
-- the admin web cannot call the API
+- the management web cannot call the API
 
 ## Likely causes
 
@@ -16,7 +16,7 @@
 
 1. confirm `ForwardedHeaders__Enabled`
 2. review trusted proxies or networks
-3. confirm `AllowedCorsOrigins` contains the exact admin web origin
+3. confirm `AllowedCorsOrigins` contains the exact management web origin
 4. verify the public authority URL and host headers seen by the API
 
 ## Fixes

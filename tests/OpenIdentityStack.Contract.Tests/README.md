@@ -42,7 +42,7 @@ If provider verification is added later, prefer a dedicated provider-verificatio
 `Common/PactHelper.cs` contains shared Pact setup and common matchers. Use it when adding real Pact consumer tests that generate pact files:
 
 ```csharp
-var pact = PactHelper.CreatePactBuilder("AdminWeb", "OpenIdentityStack.Api")
+var pact = PactHelper.CreatePactBuilder("ManagementWeb", "OpenIdentityStack.Api")
     .UponReceiving("A request to get a user")
     .WithRequest(HttpMethod.Get, "/api/admin/users/00000000-0000-0000-0000-000000000000")
     .WillRespond()

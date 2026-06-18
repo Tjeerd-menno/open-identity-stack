@@ -37,7 +37,7 @@ Set the variable before starting AppHost.
 Confirm the following in the AppHost output and browser:
 
 1. the API responds and health endpoints come up
-2. the admin web loads
+2. the management web loads
 3. the migrator completes
 4. you can reach the sign-in path
 

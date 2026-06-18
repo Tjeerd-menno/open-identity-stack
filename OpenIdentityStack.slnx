@@ -17,7 +17,6 @@
     <Project Path="src/SharedKernel/SharedKernel.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/OpenIdentityStack.AdminWeb.E2ETests/OpenIdentityStack.AdminWeb.E2ETests.csproj" />
     <Project Path="tests/OpenIdentityStack.Api.Tests/OpenIdentityStack.Api.Tests.csproj" />
     <Project Path="tests/OpenIdentityStack.Api.UnitTests/OpenIdentityStack.Api.UnitTests.csproj" />
     <Project Path="tests/OpenIdentityStack.Application.Tests/OpenIdentityStack.Application.Tests.csproj" />

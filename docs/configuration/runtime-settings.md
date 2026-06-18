@@ -26,7 +26,7 @@ Use these values to trust specific proxy networks in CIDR format.
 
 `AllowedCorsOrigins`
 
-Comma-separated list of allowed browser origins for the admin web in production. In local development and testing, the API allows dynamic origins for Aspire and test-hosted flows.
+Comma-separated list of allowed browser origins for the management web in production. In local development and testing, the API allows dynamic origins for Aspire and test-hosted flows.
 
 ## Certificates and keys
 
@@ -43,6 +43,6 @@ For Kubernetes deployments, a common convention is to project PEM material into 
 
 Disables the persistent PostgreSQL volume in the Aspire local composition.
 
-`OPENIDENTITYSTACK_ENABLE_ADMINWEB`
+`OPENIDENTITYSTACK_ENABLE_MANAGEMENTWEB`
 
-Lets you skip the admin web app in local composition when you only want the backend runtime.
+Lets you skip the management web app in local composition when you only want the backend runtime.

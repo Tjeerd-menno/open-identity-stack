@@ -193,7 +193,7 @@ public async ValueTask InitializeAsync()
 public async Task CreateUser_DefinesPactContract()
 {
     // Define consumer expectation
-    var pact = PactHelper.CreatePactBuilder("AdminWeb", "OpenIdentityStack.Api")
+    var pact = PactHelper.CreatePactBuilder("ManagementWeb", "OpenIdentityStack.Api")
         .UponReceiving("A request to create a user")
             .WithRequest(HttpMethod.Post, "/api/admin/users")
             .WithJsonBody(new { email = "test@example.com", displayName = "Test" })

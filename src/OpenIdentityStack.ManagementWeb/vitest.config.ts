@@ -8,10 +8,15 @@ export default defineConfig({
     __E2E_TEST_MODE__: 'false',
   },
   test: {
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text'],
+    },
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     reporters: ['dot'],
+    testTimeout: 20000,
   },
   resolve: {
     alias: {

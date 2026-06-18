@@ -16,7 +16,7 @@ Integrated Playwright E2E tests into the .NET test suite so they run and block C
   - Seeds test data: creates test admin user (Ada Lovelace), operator role, and OAuth client
   - Provides HttpClient for API access
   - Properly cleans up resources on disposal
-  - Follows the same pattern as `AdminWebAppHostFixture`
+  - Follows the same Aspire fixture pattern used for frontend E2E coverage
 
 ### 2. Updated: `ManagementWebE2ETestProjectTests.cs`
 **Location:** `tests/OpenIdentityStack.ManagementWeb.E2ETests/ManagementWebE2ETestProjectTests.cs`
@@ -132,7 +132,7 @@ When `dotnet test` is run (including in CI):
 ## Validation Results
 
 ✅ **Compilation:** Project builds successfully with no warnings or errors
-✅ **Structure:** Follows established patterns (AdminWeb E2ETests fixture)
+✅ **Structure:** Follows established frontend E2E fixture patterns
 ✅ **Dependencies:** All required packages and project references are in place
 ✅ **Integration:** Test properly starts Aspire, runs Playwright, captures output
 ✅ **Error Handling:** Comprehensive error messages for debugging failures
