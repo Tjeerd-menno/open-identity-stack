@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/coverage
+**/.env.local
+**/bin
+**/obj
+**/.DS_Store
+**/Thumbs.db
