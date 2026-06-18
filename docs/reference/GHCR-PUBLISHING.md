@@ -10,7 +10,7 @@ The workflow publishes these images:
 | --- | --- |
 | API | `ghcr.io/tjeerd-menno/open-identity-stack-api:<version>` |
 | DbMigrator | `ghcr.io/tjeerd-menno/open-identity-stack-db-migrator:<version>` |
-| Admin Web | `ghcr.io/tjeerd-menno/open-identity-stack-admin-web:<version>` |
+| Management Web | `ghcr.io/tjeerd-menno/open-identity-stack-management-web:<version>` |
 
 Each image also receives a `sha-<commit>` tag. The workflow emits build provenance attestations for the published images.
 

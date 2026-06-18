@@ -92,9 +92,9 @@ jobs:
             /o:"tjeerdmenno" `
             /d:sonar.token="$env:SONAR_TOKEN" `
             /d:sonar.cs.cobertura.reportsPaths="tests/**/coverage.cobertura.xml" `
-            /d:sonar.javascript.lcov.reportPaths="src/OpenIdentityStack.AdminWeb/coverage/lcov.info" `
-            /d:sonar.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.AdminWeb/coverage/**,src/OpenIdentityStack.AdminWeb/dist/**" `
-            /d:sonar.coverage.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.DbMigrator/**,src/OpenIdentityStack.AppHost/**,src/OpenIdentityStack.ServiceDefaults/**,src/OpenIdentityStack.AdminWeb/src/main.tsx"
+            /d:sonar.javascript.lcov.reportPaths="src/OpenIdentityStack.ManagementWeb/coverage/lcov.info" `
+            /d:sonar.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.ManagementWeb/coverage/**,src/OpenIdentityStack.ManagementWeb/dist/**" `
+            /d:sonar.coverage.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.DbMigrator/**,src/OpenIdentityStack.AppHost/**,src/OpenIdentityStack.ServiceDefaults/**,src/OpenIdentityStack.ManagementWeb/src/main.tsx"
 
       - name: Restore
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet restore OpenIdentityStack.slnx
@@ -102,31 +102,18 @@ jobs:
       - name: Build
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet build OpenIdentityStack.slnx --no-restore
 
-      - name: Install AdminWeb dependencies
-        working-directory: src/OpenIdentityStack.AdminWeb
-        run: npm ci --ignore-scripts
-
-      - name: Test AdminWeb with coverage
-        working-directory: src/OpenIdentityStack.AdminWeb
-        run: npm run test:coverage
-
       - name: Install ManagementWeb dependencies
         working-directory: src/OpenIdentityStack.ManagementWeb
         run: npm ci --ignore-scripts
+
+      - name: Test ManagementWeb with coverage
+        working-directory: src/OpenIdentityStack.ManagementWeb
+        run: npm run test:coverage
 
       - name: Install Playwright browsers for ManagementWeb E2E tests
         shell: pwsh
         run: |
           $playwrightScript = "tests/OpenIdentityStack.ManagementWeb.E2ETests/bin/Debug/net10.0/playwright.ps1"
-          if (-not (Test-Path $playwrightScript)) {
-            throw "Playwright install script not found at '$playwrightScript'. Ensure the E2E test project was built successfully."
-          }
-          pwsh $playwrightScript install --with-deps chromium
-
-      - name: Install Playwright browsers
-        shell: pwsh
-        run: |
-          $playwrightScript = "tests/OpenIdentityStack.AdminWeb.E2ETests/bin/Debug/net10.0/playwright.ps1"
           if (-not (Test-Path $playwrightScript)) {
             throw "Playwright install script not found at '$playwrightScript'. Ensure the E2E test project was built successfully."
           }
