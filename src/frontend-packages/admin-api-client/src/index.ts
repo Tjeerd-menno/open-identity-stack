@@ -90,7 +90,24 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
 }
 
 export { createUsersContract } from './users';
-export * from './users';
+export type {
+  UserStatus,
+  UserListItem,
+  UserProfile,
+  User,
+  RoleListItem as UserRoleListItem,
+  UserGroup,
+  UpstreamIdentity,
+  UserListParams,
+  CreateUserRequest,
+  UpdateUserRequest,
+  DisableUserRequest,
+  ResetPasswordRequest,
+  LinkUpstreamIdentityRequest,
+  UserStatusChangeResponse,
+  PasswordResetResponse,
+  UsersContract,
+} from './users';
 export { createGroupsContract } from './groups';
 export * from './groups';
 export { createApplicationsContract } from './applications';

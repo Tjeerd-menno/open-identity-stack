@@ -1,5 +1,5 @@
 import { adminApiClient } from '@/lib/admin-api';
-import { createApplicationPermissionsContract, type PaginationParams } from '@openidentitystack/admin-api-client';
+import { createApplicationPermissionsContract } from '@openidentitystack/admin-api-client';
 import type {
   AddApplicationPermissionRequest,
   AddDelegatedMaintainerRequest,
@@ -9,15 +9,15 @@ import type {
   ChangeLifecycleRequest,
   ManifestApplyResult,
   ManifestPreview,
+  PaginationParams,
   PermissionDiagnostics,
+  PermissionManifestPermission,
   PermissionManifestRequest,
   RegisteredApplication,
   RegisteredApplicationListItem,
   RegisteredApplicationPermission,
-  RegisteredApplication as SharedRegisteredApplication,
   RemovedPermissionDetail,
   ReplacementGuidanceRequest,
-  DelegatedMaintainer,
   TransferApplicationOwnershipRequest,
   UpdateRegisteredApplicationRequest,
   PrincipalType,
@@ -31,16 +31,26 @@ const contract = createApplicationPermissionsContract(adminApiClient);
 
 export type { AddApplicationPermissionRequest, AddDelegatedMaintainerPayload as AddDelegatedMaintainerRequest };
 export type { ApplicationPermissionHistory, ChangeLifecycleRequest, ManifestApplyResult };
-export type { ManifestPreview, PermissionDiagnostics, PermissionManifestRequest, RegisteredApplication, RegisteredApplicationListItem, RegisteredApplicationPermission, RemovedPermissionDetail, ReplacementGuidanceRequest, TransferApplicationOwnershipRequest, UpdateRegisteredApplicationRequest, PrincipalType, OwnerType, RoleAssignmentDependency, AssignablePermissionCatalogItem, PaginatedResponse };
-
-export const PermissionManifestStatus = {
-  Active: 'Active' as const,
-  Disabled: 'Disabled' as const,
-  Removed: 'Removed' as const,
+export type {
+  ApplicationPermissionStatus,
+  ManifestPreview,
+  PaginationParams,
+  PermissionDiagnostics,
+  PermissionManifestPermission,
+  PermissionManifestRequest,
+  RegisteredApplication,
+  RegisteredApplicationListItem,
+  RegisteredApplicationPermission,
+  RemovedPermissionDetail,
+  ReplacementGuidanceRequest,
+  TransferApplicationOwnershipRequest,
+  UpdateRegisteredApplicationRequest,
+  PrincipalType,
+  OwnerType,
+  RoleAssignmentDependency,
+  AssignablePermissionCatalogItem,
+  PaginatedResponse,
 };
-export type ApplicationPermissionStatus = typeof PermissionManifestStatus[keyof typeof PermissionManifestStatus];
-
-export { ApplicationPermissionStatus };
 
 export function getRegisteredApplications(params?: PaginationParams) {
   return contract.getRegisteredApplications(params);

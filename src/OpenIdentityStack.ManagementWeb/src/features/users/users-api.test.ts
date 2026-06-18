@@ -45,7 +45,7 @@ describe('users API client', () => {
     );
   });
 
-  it('uses AdminWeb-equivalent user lifecycle endpoints', async () => {
+  it('uses ManagementWeb user lifecycle endpoints', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
       const method = init?.method ?? 'GET';

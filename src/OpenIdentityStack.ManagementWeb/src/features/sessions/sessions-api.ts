@@ -4,14 +4,14 @@ import {
   type RevokeAllUserSessionsResponse,
   type Session,
   type SessionListParams,
-  type SessionListResponse,
   type SessionListResponse as SharedSessionListResponse,
+  type SessionStatus,
   type PaginatedResponse,
 } from '@openidentitystack/admin-api-client';
 
 const contract = createSessionsContract(adminApiClient);
 
-export type { Session, SessionListParams, RevokeAllUserSessionsResponse, PaginatedResponse };
+export type { Session, SessionListParams, SessionStatus, RevokeAllUserSessionsResponse, PaginatedResponse };
 export type SessionListResponse = SharedSessionListResponse;
 
 export function getSessions(params?: SessionListParams): Promise<SessionListResponse> {

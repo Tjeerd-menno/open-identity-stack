@@ -18,7 +18,7 @@ public static class PactHelper
     /// <summary>
     /// Creates a Pact builder for consumer-side contract testing.
     /// </summary>
-    /// <param name="consumerName">Name of the consumer (e.g., "AdminWeb", "IsotopesWeb")</param>
+    /// <param name="consumerName">Name of the consumer (e.g., "ManagementWeb", "IsotopesWeb")</param>
     /// <param name="providerName">Name of the provider (e.g., "OpenIdentityStack.Api", "TraceableIsotopes.Api")</param>
     /// <param name="pactDir">Optional directory to store pact files (defaults to "pacts")</param>
     /// <returns>A configured Pact builder</returns>
@@ -97,7 +97,7 @@ public static class PactHelper
 /// [Fact]
 /// public async Task GetUser_ReturnsUserSchema()
 /// {
-///     var pact = PactHelper.CreatePactBuilder("AdminWeb", "OpenIdentityStack.Api")
+///     var pact = PactHelper.CreatePactBuilder("ManagementWeb", "OpenIdentityStack.Api")
 ///         .UponReceiving("A request for a user")
 ///             .WithRequest(HttpMethod.Get, "/api/admin/users/123")
 ///             .WithHeader("Authorization", "Bearer token")

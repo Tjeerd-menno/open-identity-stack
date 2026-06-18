@@ -1,13 +1,13 @@
 # Production deployment
 
-Use this guide for production planning and rollout. The repository provides container images for the API, admin web, and database migrator.
+Use this guide for production planning and rollout. The repository provides container images for the API, management web, and database migrator.
 
 ## Deployment model
 
 Production deployments should treat these as separate concerns:
 
 - API runtime
-- admin web runtime
+- management web runtime
 - database migrator job
 - PostgreSQL
 - signing and encryption certificate delivery
@@ -20,7 +20,7 @@ For Kubernetes deployments, you'll need to create manifests that include:
 - an `open-identity-stack` namespace
 - a PostgreSQL cluster (e.g., using CNPG or another operator)
 - a database migrator job
-- API and admin web deployments
+- API and management web deployments
 - certificate resources for OpenIddict signing and encryption (e.g., using cert-manager)
 
 ### Required secrets
@@ -54,13 +54,13 @@ The API deployment expects:
 
 ### Admin web
 
-The admin web deployment reads its browser-facing configuration from the shared config map. It should point at the public authority and API paths that your users will actually reach.
+The management web deployment reads its browser-facing configuration from the shared config map. It should point at the public authority and API paths that your users will actually reach.
 
 ### Database migrator
 
 The migrator runs schema updates and can seed:
 
-- admin web client redirect URIs
+- management web client redirect URIs
 - an initial admin account through the optional seed secret
 
 ## Production readiness checklist

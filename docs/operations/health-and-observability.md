@@ -18,7 +18,7 @@ Look for:
 - successful database connectivity
 - completion of the database migrator
 - clean API startup without certificate loading errors
-- successful admin web availability
+- successful management web availability
 
 ## Logs that matter first
 
@@ -27,7 +27,7 @@ When triaging a fresh problem, start with:
 - database connection failures
 - OpenIddict certificate loading errors
 - forwarded header validation issues
-- CORS failures between the admin web and API
+- CORS failures between the management web and API
 - login and token endpoint failures
 
 ## Operational behaviors worth knowing

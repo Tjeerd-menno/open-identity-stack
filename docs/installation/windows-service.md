@@ -23,7 +23,7 @@ A Windows service deployment still needs the same production inputs as the conta
 
 - PostgreSQL connection string
 - OpenIddict signing and encryption material
-- admin web hosting strategy or reverse proxy plan
+- management web hosting strategy or reverse proxy plan
 - log collection and service recovery policy
 
 ## Validation checklist
@@ -33,6 +33,6 @@ Confirm:
 1. the service starts cleanly
 2. `/health` and `/alive` respond through the host or reverse proxy path
 3. token issuance works with the configured certificates
-4. the admin web can still reach the API authority you published
+4. the management web can still reach the API authority you published
 
 If your environment supports containers, the Kubernetes or container path is usually easier to operate and upgrade.

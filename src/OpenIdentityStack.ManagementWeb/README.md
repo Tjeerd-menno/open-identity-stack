@@ -1,6 +1,6 @@
 # OpenIdentityStack Management Web
 
-Mantine-based management UI for OpenIdentityStack. It runs side by side with the existing AdminWeb during rollout.
+Mantine-based management UI for OpenIdentityStack. It is the only supported browser frontend for operator workflows.
 
 ## Scope
 

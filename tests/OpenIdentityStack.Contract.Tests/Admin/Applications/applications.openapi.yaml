@@ -74,7 +74,7 @@ paths:
       tags: [Applications]
       operationId: listApplicationProfilePolicies
       summary: List application profile policies
-      description: Returns application-profile policy metadata used to railroad AdminWeb choices and document API-enforced defaults, restrictions, and advanced options.
+      description: Returns application-profile policy metadata used to railroad Management Web choices and document API-enforced defaults, restrictions, and advanced options.
       x-required-permission: applications:read
       responses:
         "200":
