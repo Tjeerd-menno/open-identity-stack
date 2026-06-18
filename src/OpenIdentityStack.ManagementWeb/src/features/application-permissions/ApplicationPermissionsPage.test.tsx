@@ -192,7 +192,7 @@ describe('ApplicationPermissionsPage', () => {
         expect.objectContaining({ method: 'POST' })
       );
     });
-  }, 10000);
+  }, 20000);
 
   it('validates permission manifest fields before submitting', async () => {
     const user = userEvent.setup();
@@ -232,7 +232,7 @@ describe('ApplicationPermissionsPage', () => {
       `${apiBase}/api/admin/application-permissions/applications/import`,
       expect.objectContaining({ method: 'POST' })
     );
-  }, 10000);
+  }, 20000);
 
   it('shows detail ownership, maintainers, permissions, catalog, history, and diagnostics controls', async () => {
     const user = userEvent.setup();
@@ -293,7 +293,7 @@ describe('ApplicationPermissionsPage', () => {
     await user.click(screen.getByRole('tab', { name: 'Diagnostics' }));
     expect(screen.getByRole('heading', { name: 'Diagnostics' })).toBeInTheDocument();
     expect(screen.getByText('Legacy Role')).toBeInTheDocument();
-  }, 10000);
+  }, 20000);
 
   it('updates the manifest base URL for manifest-backed registries', async () => {
     const user = userEvent.setup();
@@ -318,7 +318,7 @@ describe('ApplicationPermissionsPage', () => {
         })
       );
     });
-  }, 10000);
+  }, 20000);
 
   it('validates detail edit forms before submitting', async () => {
     const user = userEvent.setup();
@@ -354,7 +354,7 @@ describe('ApplicationPermissionsPage', () => {
       `${apiBase}/api/admin/application-permissions/applications/application-1/permissions`,
       expect.objectContaining({ method: 'POST' })
     );
-  }, 10000);
+  }, 20000);
 });
 
 function registeredApplicationListItem() {

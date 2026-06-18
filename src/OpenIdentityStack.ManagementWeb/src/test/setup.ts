@@ -31,9 +31,19 @@ class ResizeObserverMock {
 }
 
 globalThis.ResizeObserver = ResizeObserverMock;
+window.__OIS_RUNTIME_CONFIG__ = {
+  apiBaseUrl: 'http://localhost:5000',
+  oidcAuthority: 'http://localhost:5000',
+  oidcClientId: 'management-web-client',
+};
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   localStorage.clear();
+  window.__OIS_RUNTIME_CONFIG__ = {
+    apiBaseUrl: 'http://localhost:5000',
+    oidcAuthority: 'http://localhost:5000',
+    oidcClientId: 'management-web-client',
+  };
 });
