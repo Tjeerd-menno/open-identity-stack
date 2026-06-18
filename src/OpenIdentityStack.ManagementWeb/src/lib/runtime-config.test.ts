@@ -20,11 +20,11 @@ describe('runtime config', () => {
     expect(getOidcClientId()).toBe('ops-web');
   });
 
-  it('falls back to the current browser origin when runtime values are absent', () => {
+  it('falls back to the API host during test runs when runtime values are absent', () => {
     window.__OIS_RUNTIME_CONFIG__ = {};
 
-    expect(getApiBaseUrl()).toBe(window.location.origin);
-    expect(getOidcAuthority()).toBe(window.location.origin);
+    expect(getApiBaseUrl()).toBe('http://localhost:5000');
+    expect(getOidcAuthority()).toBe('http://localhost:5000');
     expect(getOidcClientId()).toBe('management-web-client');
   });
 });

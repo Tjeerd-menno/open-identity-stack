@@ -20,6 +20,14 @@ function getBrowserOrigin(): string {
   return window.location.origin;
 }
 
+function getDefaultAuthority(): string {
+  if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
+    return 'http://localhost:5000';
+  }
+
+  return getBrowserOrigin();
+}
+
 function firstNonEmpty(...values: Array<string | undefined>): string | undefined {
   return values.find((value) => typeof value === 'string' && value.length > 0);
 }
@@ -28,14 +36,14 @@ export function getApiBaseUrl(): string {
   return firstNonEmpty(
     readWindowRuntimeConfig().apiBaseUrl,
     import.meta.env.VITE_API_BASE_URL
-  ) ?? getBrowserOrigin();
+  ) ?? getDefaultAuthority();
 }
 
 export function getOidcAuthority(): string {
   return firstNonEmpty(
     readWindowRuntimeConfig().oidcAuthority,
     import.meta.env.VITE_OIDC_AUTHORITY
-  ) ?? getBrowserOrigin();
+  ) ?? getDefaultAuthority();
 }
 
 export function getOidcClientId(): string {
