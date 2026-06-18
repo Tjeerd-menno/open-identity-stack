@@ -5,21 +5,18 @@ import { useLocation } from 'react-router';
 import { setAccessTokenProvider, setUnauthorizedHandler } from './admin-api';
 import { extractGrantedPermissions } from './auth-claims';
 import { AuthContextProvider, type AuthContextValue } from './auth-context';
+import { getOidcAuthority, getOidcClientId } from './runtime-config';
 export { AuthContextProvider, useAuth, type AuthContextValue } from './auth-context';
 
 function isE2ETestMode(): boolean {
   return __E2E_TEST_MODE__ || (import.meta.env.DEV && globalThis.window?.__OIS_E2E_AUTH__ === true);
 }
 
-function getOidcAuthority(): string {
-  return import.meta.env.VITE_OIDC_AUTHORITY ?? 'http://localhost:5000';
-}
-
 function createUserManager(): UserManager {
   const baseUrl = globalThis.location.origin;
   const settings: UserManagerSettings = {
     authority: getOidcAuthority(),
-    client_id: import.meta.env.VITE_OIDC_CLIENT_ID ?? 'management-web-client',
+    client_id: getOidcClientId(),
     redirect_uri: `${baseUrl}/auth/callback`,
     post_logout_redirect_uri: `${baseUrl}/`,
     silent_redirect_uri: `${baseUrl}/auth/silent-callback`,
