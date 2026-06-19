@@ -7,7 +7,7 @@ OpenIdentityStack is built for teams that want to run their own identity service
 - an OpenIddict-based authorization server
 - authorization code with PKCE, client credentials, and refresh token support
 - local accounts plus external provider federation
-- an admin web UI for day-to-day operations
+- a management web UI for day-to-day operations
 - roles, groups, permissions, delegated administration, and service accounts
 - database-backed data protection and controlled migrations
 

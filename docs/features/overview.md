@@ -22,7 +22,7 @@ OpenIdentityStack gives platform teams a self-hosted identity service with admin
 ## Operations
 
 - separate database migrator for schema and seed work
-- container images for API, admin web, and migrator
+- container images for API, management web, and migrator
 - Kubernetes deployment manifests with CNPG and cert-manager examples
 - Windows service packaging for API-hosted environments
 - readiness and liveness endpoints for operational checks
@@ -33,7 +33,7 @@ OpenIdentityStack gives platform teams a self-hosted identity service with admin
 - database-backed data-protection keys
 - forwarded header validation support
 - rate limiting on login and token endpoints
-- environment-specific CORS behavior for admin web access
+- environment-specific CORS behavior for management web access
 
 ## Product boundaries
 

@@ -65,7 +65,7 @@ For a clean first rollout, plan these items together:
 
 - database connection string
 - initial admin identity
-- admin web redirect URIs
+- management web redirect URIs
 - allowed browser origins
 - first client application
 - first service account, if machine-to-machine access is part of the rollout
@@ -77,7 +77,7 @@ The Kubernetes manifests support an optional admin seed secret for first-run onb
 Your first validation should prove all of these:
 
 1. the API is healthy
-2. the admin web can reach the API
+2. the management web can reach the API
 3. the first admin can sign in
 4. at least one client can complete its intended flow
 5. logs and health endpoints are visible to operators

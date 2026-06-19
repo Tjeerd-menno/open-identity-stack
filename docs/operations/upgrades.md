@@ -1,6 +1,6 @@
 # Upgrades
 
-Treat upgrades as coordinated changes across the migrator, API, admin web, and deployment configuration.
+Treat upgrades as coordinated changes across the migrator, API, management web, and deployment configuration.
 
 ## Recommended sequence
 
@@ -9,12 +9,12 @@ Treat upgrades as coordinated changes across the migrator, API, admin web, and d
 3. update manifests or runtime configuration
 4. run the database migrator
 5. roll out the API
-6. roll out the admin web
+6. roll out the management web
 7. verify health, sign-in, and at least one token flow
 
 ## Pay special attention to
 
-- redirect URI changes for admin web or integrated applications
+- redirect URI changes for management web or integrated applications
 - certificate or key location changes
 - browser origin changes
 - changes to the admin seed behavior

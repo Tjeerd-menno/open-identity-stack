@@ -5,10 +5,6 @@ bool disableDataVolume = string.Equals(
     Environment.GetEnvironmentVariable("OPENIDENTITYSTACK_DISABLE_DATA_VOLUME"),
     "true",
     StringComparison.OrdinalIgnoreCase);
-bool enableAdminWeb = !string.Equals(
-    Environment.GetEnvironmentVariable("OPENIDENTITYSTACK_ENABLE_ADMINWEB"),
-    "false",
-    StringComparison.OrdinalIgnoreCase);
 bool enableManagementWeb = !string.Equals(
     Environment.GetEnvironmentVariable("OPENIDENTITYSTACK_ENABLE_MANAGEMENTWEB"),
     "false",
@@ -52,33 +48,9 @@ IResourceBuilder<ProjectResource> api = builder.AddProject<Projects.OpenIdentity
     .WaitFor(openIdentityStackDb)
     .WaitForCompletion(openIdModuleMigrator);
 
-if (enableAdminWeb)
-{
-    // Add the Admin Web App (React + Vite)
-    // Use a fixed port in local development, but allow dynamic ports for test runs.
-#pragma warning disable IDE0008 // Var improves fluency with Aspire builder APIs.
-    var adminWeb = builder.AddJavaScriptApp("adminweb", "../OpenIdentityStack.AdminWeb")
-        .WithReference(api)
-        .WithExternalHttpEndpoints()
-        .WithEnvironment("VITE_OIDC_AUTHORITY", api.GetEndpoint("http"))
-        .WithEnvironment("VITE_API_BASE_URL", api.GetEndpoint("http"))
-        .PublishAsDockerFile();
-
-    if (disableDataVolume)
-    {
-        adminWeb.WithHttpEndpoint(env: "PORT");
-    }
-    else
-    {
-        adminWeb.WithHttpEndpoint(port: 5175, env: "PORT");
-    }
-
-#pragma warning restore IDE0008
-}
-
 if (enableManagementWeb)
 {
-    // Add the Management Web App (React + Vite + Mantine) as a side-by-side UI.
+    // Add the Management Web App (React + Vite + Mantine).
     // Use a fixed local port for stable OAuth callback registration, but dynamic
     // endpoints during test runs to avoid port contention.
 #pragma warning disable IDE0008 // Var improves fluency with Aspire builder APIs.
@@ -98,7 +70,7 @@ if (enableManagementWeb)
     }
     else
     {
-        managementWeb.WithHttpEndpoint(port: 5176, env: "PORT");
+        managementWeb.WithHttpEndpoint(port: 5175, env: "PORT");
     }
 
 #pragma warning restore IDE0008

@@ -40,10 +40,10 @@ jobs:
             image: db-migrator
             context: .
             dockerfile: src/OpenIdentityStack.DbMigrator/Dockerfile
-          - name: admin-web
-            image: admin-web
-            context: src/OpenIdentityStack.AdminWeb
-            dockerfile: src/OpenIdentityStack.AdminWeb/Dockerfile
+          - name: management-web
+            image: management-web
+            context: .
+            dockerfile: src/OpenIdentityStack.ManagementWeb/Dockerfile
     steps:
       - name: Resolve and validate release version
         shell: pwsh
@@ -62,7 +62,7 @@ jobs:
           "PACKAGE_VERSION=$($tag.TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
@@ -133,7 +133,7 @@ jobs:
           "PACKAGE_VERSION=$($tag.TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false

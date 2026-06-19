@@ -1,13 +1,13 @@
 import { adminApiClient } from '@/lib/admin-api';
 import {
   createUsersContract,
-  type Group as SharedUserGroup,
   type CreateUserRequest,
   type DisableUserRequest,
   type PasswordResetResponse,
   type LinkUpstreamIdentityRequest as SharedLinkUpstreamIdentityRequest,
   type PaginatedResponse,
-  type RoleListItem,
+  type UserRoleListItem as SharedUserRoleListItem,
+  type UserGroup as SharedUserGroup,
   type UpstreamIdentity as SharedUpstreamIdentity,
   type UpdateUserRequest,
   type User,
@@ -30,10 +30,10 @@ export type {
   UpdateUserRequest,
   DisableUserRequest,
   PasswordResetResponse,
-  RoleListItem,
   PaginatedResponse,
 };
 
+export type RoleListItem = SharedUserRoleListItem;
 export type UserGroup = SharedUserGroup;
 
 export type UpstreamIdentity = SharedUpstreamIdentity & {

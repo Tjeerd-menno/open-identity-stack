@@ -36,7 +36,7 @@ The admin API is organized around these resource areas:
 - `/api/admin/providers`
 - `/api/admin/settings`
 
-These routes are intended for the admin web and other trusted administrative tooling rather than public internet clients.
+These routes are intended for the management web and other trusted administrative tooling rather than public internet clients.
 
 ## Root endpoint
 

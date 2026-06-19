@@ -26,13 +26,13 @@ The AppHost composes:
 - PostgreSQL
 - the database migrator
 - the API
-- the admin web app
+- the management web app
 
 ## Local runtime behavior
 
 - PostgreSQL uses a persistent data volume by default
 - `Seed__DevelopmentData=true` is set for the local migrator path
-- the admin web receives `VITE_OIDC_AUTHORITY` and `VITE_API_BASE_URL` from the API endpoint
+- the management web receives `VITE_OIDC_AUTHORITY` and `VITE_API_BASE_URL` from the API endpoint
 
 ## Useful local toggles
 
@@ -42,16 +42,16 @@ The AppHost composes:
 OPENIDENTITYSTACK_DISABLE_DATA_VOLUME=true
 ```
 
-### Skip the admin web
+### Skip the management web
 
 ```text
-OPENIDENTITYSTACK_ENABLE_ADMINWEB=false
+OPENIDENTITYSTACK_ENABLE_MANAGEMENTWEB=false
 ```
 
 ## First-run checklist
 
 1. confirm the migrator completes
-2. open the admin web
+2. open the management web
 3. confirm the API root or health endpoints respond
 4. sign in and verify that an admin page loads
 

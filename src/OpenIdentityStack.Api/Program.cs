@@ -96,12 +96,12 @@ builder.Services.AddAuthorization(options =>
 });
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
-// T043: Configure CORS for Admin Web App
+// T043: Configure CORS for Management Web
 // In development/testing, allow dynamic origins (Aspire assigns random ports)
 // In production, configure specific allowed origins
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AdminWeb", policy =>
+    options.AddPolicy("ManagementWeb", policy =>
     {
         if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
         {
@@ -157,8 +157,8 @@ app.UseStaticFiles();
 // Routing
 app.UseRouting();
 
-// Enable CORS for Admin Web App
-app.UseCors("AdminWeb");
+// Enable CORS for Management Web
+app.UseCors("ManagementWeb");
 
 // Add security headers
 // Keep the default CSP until Razor/OpenIddict pages that require inline scripts

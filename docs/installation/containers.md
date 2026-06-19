@@ -3,7 +3,7 @@
 OpenIdentityStack publishes separate container images for:
 
 - the API
-- the admin web
+- the management web
 - the database migrator
 
 ## What each image is for
@@ -33,7 +33,7 @@ At a minimum, a container deployment needs:
 
 1. run the database migrator first
 2. start the API and wait for `/health`
-3. start the admin web
+3. start the management web
 4. verify sign-in and a first client flow
 
 ## What to keep out of the image

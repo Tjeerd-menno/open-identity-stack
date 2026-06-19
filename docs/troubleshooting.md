@@ -17,4 +17,4 @@ Use this section as a playbook when deployment or sign-in behavior does not matc
 - exact error text
 - recent configuration changes
 - health check results
-- relevant logs from API, admin web, or migrator
+- relevant logs from API, management web, or migrator

@@ -6,7 +6,8 @@ import {
   type ApplicationCredential,
   type ApplicationListItem as SharedApplicationListItem,
   type ApplicationListParams,
-  type ApplicationListResponse,
+  type ApplicationListResponse as SharedApplicationListResponse,
+  type ApplicationStatus,
   type ApplicationProfile as SharedApplicationProfile,
   type ApplicationProfilePolicy,
   type AddApplicationCertificateRequest,
@@ -51,7 +52,7 @@ export type Application = SharedApplication & {
 };
 export type ApplicationListItem = SharedApplicationListItem;
 export type ApplicationListResponse = SharedApplicationListResponse;
-export type { ApplicationListParams, ApplicationProfilePolicy, CreateApplicationRequest };
+export type { ApplicationListParams, ApplicationProfilePolicy, CreateApplicationRequest, ApplicationStatus };
 export type { UpdateApplicationMetadataRequest, ConfigureApplicationOAuthRequest };
 export type { ApplicationCreatedResponse, AddApplicationSecretRequest, AddApplicationSecretResponse };
 export type { AddApplicationCertificateRequest, AddApplicationCertificateResponse };

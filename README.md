@@ -16,7 +16,7 @@ OpenIdentityStack is an OpenIddict-based identity and access management stack bu
 - Unified Applications model for web, native, API, and machine-to-machine registrations.
 - OAuth client management, certificate support, and secret rotation.
 - User sessions, session revocation, upstream identities, and logout endpoints.
-- React/Vite admin web UI.
+- React/Vite management web UI.
 - Dedicated database migrator for schema updates and development seeding.
 
 ## Documentation
@@ -42,7 +42,7 @@ open-identity-stack/
 │   ├── OpenIdentityStack.Domain/
 │   ├── OpenIdentityStack.Infrastructure/
 │   ├── OpenIdentityStack.DbMigrator/
-│   └── OpenIdentityStack.AdminWeb/
+│   └── OpenIdentityStack.ManagementWeb/
 ├── tests/
 ├── deploy/
 │   ├── open-identity-stack/
@@ -68,7 +68,7 @@ cd src/OpenIdentityStack.AppHost
 dotnet run
 ```
 
-The AppHost starts PostgreSQL, runs the OpenIdentityStack migrator, starts the API, and starts the admin web UI. In normal local development it uses a persistent PostgreSQL data volume; set `OPENIDENTITYSTACK_DISABLE_DATA_VOLUME=true` for disposable test-style runs.
+The AppHost starts PostgreSQL, runs the OpenIdentityStack migrator, starts the API, and starts the management web UI. In normal local development it uses a persistent PostgreSQL data volume; set `OPENIDENTITYSTACK_DISABLE_DATA_VOLUME=true` for disposable test-style runs.
 
 ## Build and test
 
@@ -81,10 +81,10 @@ dotnet test --project tests/OpenIdentityStack.Infrastructure.Tests/OpenIdentityS
 dotnet test --project tests/OpenIdentityStack.Api.UnitTests/OpenIdentityStack.Api.UnitTests.csproj
 ```
 
-## Admin web
+## Management web
 
 ```bash
-cd src/OpenIdentityStack.AdminWeb
+cd src/OpenIdentityStack.ManagementWeb
 npm install
 npm run build
 npm run lint
@@ -97,7 +97,7 @@ The release workflow is designed to publish:
 
 - `ghcr.io/tjeerd-menno/open-identity-stack-api:<version>`
 - `ghcr.io/tjeerd-menno/open-identity-stack-db-migrator:<version>`
-- `ghcr.io/tjeerd-menno/open-identity-stack-admin-web:<version>`
+- `ghcr.io/tjeerd-menno/open-identity-stack-management-web:<version>`
 - `open-identity-stack-api-win-x64-<version>.zip`
 
 The Windows service zip includes the published API executable and PowerShell install/uninstall scripts from `deploy/windows-service`.
@@ -112,8 +112,8 @@ See [GHCR publishing](docs/GHCR-PUBLISHING.md) for image names, tags, triggers, 
 | `OPENIDENTITYSTACK_DISABLE_DATA_VOLUME` | Disable persistent Aspire PostgreSQL volume when set to `true` | `false` |
 | `ForwardedHeaders__Enabled` | Enables forwarded header processing behind a reverse proxy | `false` |
 | `AllowedCorsOrigins` | Comma-separated production CORS origins | unset |
-| `VITE_OIDC_AUTHORITY` | Admin web OIDC authority | AppHost-provided locally |
-| `VITE_API_BASE_URL` | Admin web API base URL | AppHost-provided locally |
+| `VITE_OIDC_AUTHORITY` | Management web OIDC authority | AppHost-provided locally |
+| `VITE_API_BASE_URL` | Management web API base URL | AppHost-provided locally |
 
 Production deployments must provide persistent data-protection storage and OpenIddict signing/encryption certificates. Development and Testing environments may use ephemeral development certificates.
 

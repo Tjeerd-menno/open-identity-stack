@@ -15,7 +15,7 @@ Use "Application" in user-facing instructions. Use `client_id` only when describ
 
 ## Application profile choices
 
-The Applications create form is policy-driven. The API is authoritative, and AdminWeb uses `/api/admin/applications/policies/profiles` to show only sensible choices for each application profile.
+The Applications create form is policy-driven. The API is authoritative, and Management Web uses `/api/admin/applications/policies/profiles` to show only sensible choices for each application profile.
 
 | Application profile | Fixed client profile | Default grants | Administrator experience |
 |------|---------|---------|---------|
@@ -42,11 +42,11 @@ Machine-to-machine Applications replace Service Accounts. They are confidential 
 
 ## Public application credentials
 
-Single Page and Native Applications are public clients. AdminWeb hides shared-secret and certificate actions for those profiles, and the API rejects credential combinations that require confidential client behavior.
+Single Page and Native Applications are public clients. Management Web hides shared-secret and certificate actions for those profiles, and the API rejects credential combinations that require confidential client behavior.
 
 ## Screenshot checklist
 
-Capture updated AdminWeb screenshots whenever the Applications UI changes:
+Capture updated Management Web screenshots whenever the Applications UI changes:
 
 - Applications list with type/status filters visible
 - Create Application form for web and machine-to-machine profiles

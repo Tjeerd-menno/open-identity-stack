@@ -2,7 +2,7 @@ import { adminApiClient } from '@/lib/admin-api';
 import {
   createProvidersContract,
   type CreateProviderRequest,
-  type Provider,
+  type ProviderStatus,
   type Provider as SharedProvider,
   type UpdateProviderRequest,
 } from '@openidentitystack/admin-api-client';
@@ -10,7 +10,7 @@ import {
 const contract = createProvidersContract(adminApiClient);
 
 export type Provider = SharedProvider;
-export type { CreateProviderRequest, UpdateProviderRequest };
+export type { CreateProviderRequest, ProviderStatus, UpdateProviderRequest };
 
 export function getProviders(includeDisabled = false): Promise<Provider[]> {
   return contract.getProviders(includeDisabled);

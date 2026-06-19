@@ -1,6 +1,6 @@
 # Management Web
 
-Management Web is the new Mantine-based OpenIdentityStack operator UI. It runs side by side with AdminWeb while domains are migrated incrementally.
+Management Web is the OpenIdentityStack operator UI. It is the only supported frontend for interactive administration.
 
 ## Current parity scope
 
@@ -22,7 +22,7 @@ The navigation intentionally excludes Clients and Service Accounts. Application-
 ## Operator access
 
 - Local Aspire resource: `managementweb`
-- Local development port: `http://localhost:5176`
+- Local development port: `http://localhost:5175`
 - OIDC client ID: `management-web-client`
 - Admin API authority and base URL are supplied by the AppHost during local runs.
 
@@ -42,13 +42,8 @@ Management Web uses shared permission helpers for route and action gates, but ba
 
 Operators can choose light, dark, or system appearance. The preference is stored only in browser local storage under `openidentitystack.management.theme`.
 
-## Rollout posture
+## Runtime posture
 
-AdminWeb remains available on its existing host while Management Web is introduced on a separate host. Backend authorization remains authoritative for both UIs. If rollout issues appear, disable Management Web by setting `OPENIDENTITYSTACK_ENABLE_MANAGEMENTWEB=false`; AdminWeb continues to serve operators.
+Management Web is the only frontend resource started by the local AppHost. Backend authorization remains authoritative. If you need a backend-only local run, set `OPENIDENTITYSTACK_ENABLE_MANAGEMENTWEB=false`.
 
-AdminWeb decommission should wait until:
-
-- all retained Management Web routes pass slice-level component and .NET/xUnit Playwright E2E coverage;
-- Applications, Users, Audit, and Overview workflows pass production-like smoke validation;
-- no Management Web code or navigation exposes Clients or Service Accounts;
-- operations has rollback and hostname routing documented for both UIs.
+The frontend continues to exclude Clients and Service Accounts. Application-like administration is consolidated into Applications and uses `/api/admin/applications`.

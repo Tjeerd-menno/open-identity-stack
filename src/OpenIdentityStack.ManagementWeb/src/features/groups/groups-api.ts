@@ -16,7 +16,18 @@ import {
 
 const contract = createGroupsContract(adminApiClient);
 
-export type { Group, GroupListItem, GroupListParams, GroupMember, GroupMapping, AddGroupMappingRequest, UpdateGroupRequest, PaginatedResponse };
+export type {
+  Group,
+  GroupListItem,
+  GroupListParams,
+  GroupMember,
+  GroupMapping,
+  GroupMappingsResponse,
+  AddGroupMappingRequest,
+  CreateGroupRequest,
+  UpdateGroupRequest,
+  PaginatedResponse,
+};
 
 export { type RequestParams as GroupMemberParams };
 
