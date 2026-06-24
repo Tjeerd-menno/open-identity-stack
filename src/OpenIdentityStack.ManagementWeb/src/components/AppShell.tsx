@@ -1,8 +1,21 @@
-import { ActionIcon, Anchor, AppShell as MantineAppShell, Badge, Breadcrumbs, Burger, Group, Menu, Stack, Text, Title } from '@mantine/core';
+import {
+  ActionIcon,
+  Anchor,
+  AppShell as MantineAppShell,
+  Avatar,
+  Box,
+  Breadcrumbs,
+  Burger,
+  Group,
+  ScrollArea,
+  Stack,
+  Text,
+} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '@/lib/auth-context';
 import { hasAnyPermission } from '@/lib/permissions';
+import { BrandMark } from './BrandMark';
 import { LogoutIcon } from './IamIcons';
 import { ThemeToggle } from './ThemeToggle';
 import { Navigation } from './Navigation';
@@ -24,73 +37,100 @@ export function AppShell() {
 
   return (
     <MantineAppShell
-      header={{ height: 64 }}
+      header={{ height: 61 }}
       navbar={{
-        width: 280,
+        width: 264,
         breakpoint: 'sm',
         collapsed: { mobile: !opened },
       }}
-      padding="lg"
+      padding={0}
     >
       <MantineAppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Group gap="sm">
-            <Burger
-              aria-expanded={opened}
-              aria-label={opened ? 'Close navigation' : 'Open navigation'}
-              hiddenFrom="sm"
-              onClick={toggle}
-              opened={opened}
-              size="sm"
-            />
-            <div>
-              <Title order={3} size="h4">OpenIdentityStack</Title>
-              <Text size="xs" c="dimmed">
-                IAM Console
-              </Text>
-            </div>
-            <Badge visibleFrom="sm" color="teal" variant="light">Local tenant</Badge>
-          </Group>
-          <Group gap="xs" justify="flex-end">
-            <ThemeToggle />
-            <Menu position="bottom-end" shadow="md">
-              <Menu.Target>
-                <ActionIcon aria-label="Operator menu" variant="light">
-                  {auth.displayName.slice(0, 1).toUpperCase()}
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>{auth.displayName}</Menu.Label>
-                <Menu.Item leftSection={<LogoutIcon />} onClick={() => void auth.logout()}>
-                  Sign out
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          </Group>
-        </Group>
-      </MantineAppShell.Header>
-      <MantineAppShell.Navbar p="md">
-        <Navigation onNavigate={close} permissions={auth.permissions} />
-      </MantineAppShell.Navbar>
-      <MantineAppShell.Main>
-        <Stack gap="lg">
-          <nav aria-label="Breadcrumbs">
-            <Breadcrumbs>
+        <Group h="100%" px="lg" gap="sm">
+          <Burger
+            aria-expanded={opened}
+            aria-label={opened ? 'Close navigation' : 'Open navigation'}
+            hiddenFrom="sm"
+            onClick={toggle}
+            opened={opened}
+            size="sm"
+          />
+          <nav aria-label="Breadcrumbs" style={{ minWidth: 0 }}>
+            <Breadcrumbs separatorMargin={6}>
               {breadcrumbs.map((item, index) => (
                 item.href ? (
-                  <Anchor component={Link} key={`${item.href}-${item.label}`} size="sm" to={item.href}>
+                  <Anchor component={Link} c="dimmed" key={`${item.href}-${item.label}`} size="sm" to={item.href}>
                     {item.label}
                   </Anchor>
                 ) : (
-                  <Text c="dimmed" fw={600} key={`${index}-${item.label}`} size="sm">
+                  <Text c="var(--mw-text-body)" fw={600} key={`${index}-${item.label}`} size="sm">
                     {item.label}
                   </Text>
                 )
               ))}
             </Breadcrumbs>
           </nav>
-          <Outlet />
+        </Group>
+      </MantineAppShell.Header>
+      <MantineAppShell.Navbar
+        style={{ background: 'var(--mw-surface-card)', display: 'flex', flexDirection: 'column' }}
+      >
+        <Box
+          px="lg"
+          style={{
+            height: 60,
+            display: 'flex',
+            alignItems: 'center',
+            borderBottom: '1px solid var(--mw-border)',
+            flexShrink: 0,
+          }}
+        >
+          <BrandMark />
+        </Box>
+        <ScrollArea style={{ flex: 1 }} p="md">
+          <Navigation onNavigate={close} permissions={auth.permissions} />
+        </ScrollArea>
+        <Stack
+          gap={8}
+          p="md"
+          style={{ borderTop: '1px solid var(--mw-border)', flexShrink: 0 }}
+        >
+          <ThemeToggle />
+          <Group
+            gap={10}
+            wrap="nowrap"
+            style={{
+              padding: '8px 10px',
+              borderRadius: 'var(--mantine-radius-md)',
+              background: 'var(--mw-surface-sunken)',
+            }}
+          >
+            <Avatar name={auth.displayName} color="initials" radius="xl" size={34} />
+            <Box style={{ minWidth: 0, flex: 1 }}>
+              <Text size="sm" fw={600} truncate c="var(--mw-text-strong)">
+                {auth.displayName}
+              </Text>
+              <Text size="xs" c="dimmed" truncate>
+                Operator
+              </Text>
+            </Box>
+            <ActionIcon
+              aria-label="Sign out"
+              variant="subtle"
+              color="gray"
+              onClick={() => void auth.logout()}
+            >
+              <LogoutIcon />
+            </ActionIcon>
+          </Group>
         </Stack>
+      </MantineAppShell.Navbar>
+      <MantineAppShell.Main style={{ background: 'var(--mw-surface-sunken)' }}>
+        <Box p={28} mih="100%">
+          <Box maw={1080} mx="auto">
+            <Outlet />
+          </Box>
+        </Box>
       </MantineAppShell.Main>
     </MantineAppShell>
   );

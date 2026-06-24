@@ -15,7 +15,7 @@ const auth: AuthContextValue = {
 };
 
 describe('AppShell', () => {
-  it('does not expose disabled global search in the header', () => {
+  it('does not expose disabled global search and surfaces the operator in the sidebar footer', () => {
     renderManagementWeb(
       <AuthContextProvider value={auth}>
         <AppShell />
@@ -23,7 +23,22 @@ describe('AppShell', () => {
     );
 
     expect(screen.queryByRole('textbox', { name: /global search/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /operator menu/i })).toBeInTheDocument();
+    expect(screen.getByText('Test Operator')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument();
+  });
+
+  it('signs the operator out from the sidebar footer', async () => {
+    const user = userEvent.setup();
+
+    renderManagementWeb(
+      <AuthContextProvider value={auth}>
+        <AppShell />
+      </AuthContextProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: /sign out/i }));
+
+    expect(auth.logout).toHaveBeenCalledOnce();
   });
 
   it('shows breadcrumbs for nested management routes', () => {

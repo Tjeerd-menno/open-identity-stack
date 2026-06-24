@@ -1,3 +1,40 @@
+/* ============================================================
+   Management Web — semantic design tokens
+   Refreshed design language (claude.ai/design "OpenIdentityStack
+   Design System" · ui_kits/management-web). Mapped onto Mantine v8
+   CSS variables with light-dark() so every surface tracks the
+   active colour scheme.
+   ============================================================ */
+:root {
+  --mw-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+
+  --mw-surface-card: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+  --mw-surface-sunken: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8));
+  --mw-surface-hover: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+
+  --mw-border: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+
+  --mw-text-strong: light-dark(var(--mantine-color-black), var(--mantine-color-white));
+  --mw-text-body: light-dark(var(--mantine-color-gray-9), var(--mantine-color-dark-0));
+  --mw-text-muted: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+
+  --mw-primary: var(--mantine-primary-color-filled);
+  --mw-primary-light: var(--mantine-color-blue-light);
+  --mw-text-link: light-dark(var(--mantine-color-blue-6), var(--mantine-color-blue-4));
+}
+
+.mw-mono {
+  font-family: var(--mw-font-mono);
+}
+
+.mw-sidebar-button {
+  transition: background 120ms ease;
+}
+.mw-sidebar-button:hover {
+  background: var(--mw-surface-hover);
+}
+
 .foundation-table-scroll {
   scrollbar-width: thin;
   scrollbar-color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-4)) transparent;
