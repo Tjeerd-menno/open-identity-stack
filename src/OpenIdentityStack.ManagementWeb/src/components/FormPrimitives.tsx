@@ -1,4 +1,4 @@
-import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core';
+import { Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core';
 import type { ReactNode } from 'react';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -10,13 +10,15 @@ type FormSectionProps = {
 
 export function FormSection({ title, description, children }: FormSectionProps) {
   return (
-    <Stack component="section" aria-label={title} gap="md">
-      <div>
-        <Title order={2}>{title}</Title>
-        {description && <Text c="dimmed">{description}</Text>}
-      </div>
-      <Stack gap="sm">{children}</Stack>
-    </Stack>
+    <Paper component="section" aria-label={title} withBorder radius="sm" p="lg">
+      <Stack gap="md">
+        <div>
+          <Title order={2} size="h4">{title}</Title>
+          {description && <Text c="dimmed" size="sm">{description}</Text>}
+        </div>
+        <Stack gap="sm">{children}</Stack>
+      </Stack>
+    </Paper>
   );
 }
 

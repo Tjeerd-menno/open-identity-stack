@@ -171,6 +171,7 @@ function CreateRoleView({ permissions }: Required<RolesPageProps>) {
 
   return (
     <Stack gap="lg">
+      <BackLink label="Back to Roles" to="/roles" />
       <div>
         <Title order={1}>Create role</Title>
         <Text c="dimmed">Create a custom platform role.</Text>
@@ -215,6 +216,7 @@ function RoleDetailView({ roleId, permissions }: { roleId: string; permissions: 
   if (isEditing) {
     return (
       <Stack gap="lg">
+        <BackLink label="Back to role" onClick={() => setIsEditing(false)} />
         <div>
           <Title order={1}>Edit role</Title>
           <Text c="dimmed">{role.data.displayName}</Text>

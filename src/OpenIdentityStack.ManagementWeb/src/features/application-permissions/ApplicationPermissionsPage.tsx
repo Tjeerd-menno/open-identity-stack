@@ -18,6 +18,7 @@ import { useForm } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
+import { BackLink } from '@/components/DetailPrimitives';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
@@ -230,6 +231,7 @@ function RegisterApplicationView({ permissions }: Required<ApplicationPermission
 
   return (
     <Stack gap="lg">
+      <BackLink label="Back to Permissions" to="/application-permissions" />
       <div>
         <Title order={1}>Add Application</Title>
         <Text c="dimmed">Register a manual permission manifest or import a well-known permissions endpoint.</Text>

@@ -204,6 +204,7 @@ function CreateProviderView({ permissions }: Required<ProvidersPageProps>) {
 
   return (
     <Stack gap="lg">
+      <BackLink label="Back to Providers" to="/providers" />
       <div>
         <Title order={1}>Create provider</Title>
         <Text c="dimmed">Register an OIDC identity provider.</Text>
@@ -245,6 +246,7 @@ function EditProviderView({ providerId, permissions }: { providerId: string; per
 
   return (
     <Stack gap="lg">
+      <BackLink label="Back to provider" to={`/providers/${providerId}`} />
       <div>
         <Title order={1}>Edit provider</Title>
         <Text c="dimmed">{provider.data.displayName}</Text>

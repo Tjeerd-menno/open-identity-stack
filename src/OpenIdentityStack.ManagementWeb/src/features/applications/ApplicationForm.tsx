@@ -8,10 +8,10 @@ import {
   Text,
   Textarea,
   TextInput,
-  Title,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useEffect } from 'react';
+import { FormSection } from '@/components/FormPrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { firstError, maxLength, required, validHttpUrl } from '@/lib/form-validation';
 import {
@@ -167,8 +167,7 @@ function CreateApplicationForm({
       })}
     >
       <Stack gap="lg">
-        <Stack gap="sm">
-          <Title order={2}>Basic information</Title>
+        <FormSection title="Basic information">
           <TextInput label="Client ID" placeholder="orders-web" {...form.getInputProps('clientId')} />
           <TextInput label="Display name" placeholder="Orders Web" {...form.getInputProps('displayName')} />
           <Textarea label="Description" rows={3} {...form.getInputProps('description')} />
@@ -195,7 +194,7 @@ function CreateApplicationForm({
                 {policy.unavailabilityReason}
               </Text>
             ))}
-        </Stack>
+        </FormSection>
 
         {form.values.profile === ApplicationProfile.SinglePage && (
           <Alert>Browser applications are public clients. PKCE is always required.</Alert>
@@ -208,8 +207,7 @@ function CreateApplicationForm({
         )}
 
         {!isOptionHidden(selectedPolicy, 'redirectUris') && (
-          <Stack gap="sm">
-            <Title order={2}>Redirect URIs</Title>
+          <FormSection title="Redirect URIs">
             {form.values.redirectUris.map((uri, index) => (
               <TextInput
                 key={index}
@@ -220,12 +218,11 @@ function CreateApplicationForm({
             <Button type="button" variant="default" onClick={() => appendArrayValue(form, 'redirectUris')}>
               Add redirect URI
             </Button>
-          </Stack>
+          </FormSection>
         )}
 
         {!isOptionHidden(selectedPolicy, 'postLogoutRedirectUris') && (
-          <Stack gap="sm">
-            <Title order={2}>Post Logout Redirect URIs</Title>
+          <FormSection title="Post Logout Redirect URIs">
             {form.values.postLogoutRedirectUris.map((uri, index) => (
               <TextInput
                 key={index}
@@ -236,11 +233,10 @@ function CreateApplicationForm({
             <Button type="button" variant="default" onClick={() => appendArrayValue(form, 'postLogoutRedirectUris')}>
               Add post logout redirect URI
             </Button>
-          </Stack>
+          </FormSection>
         )}
 
-        <Stack gap="sm">
-          <Title order={2}>Allowed scopes</Title>
+        <FormSection title="Allowed scopes">
           {availableScopes.map((scope) => (
             <Checkbox
               key={scope}
@@ -250,10 +246,9 @@ function CreateApplicationForm({
             />
           ))}
           {form.errors.allowedScopes && <Text c="red">{form.errors.allowedScopes}</Text>}
-        </Stack>
+        </FormSection>
 
-        <Stack gap="sm">
-          <Title order={2}>Allowed grant types</Title>
+        <FormSection title="Allowed grant types">
           {selectedPolicy.defaultGrantTypes.map((grantType) => (
             <Text key={grantType} fw={500}>{grantType}</Text>
           ))}
@@ -267,11 +262,10 @@ function CreateApplicationForm({
                 onChange={(event) => toggleValue(form, 'allowedGrantTypes', grantType, event.currentTarget.checked)}
               />
             ))}
-        </Stack>
+        </FormSection>
 
         {(!isOptionHidden(selectedPolicy, 'pkce') || !isOptionHidden(selectedPolicy, 'consent')) && (
-          <Stack gap="sm">
-            <Title order={2}>Security options</Title>
+          <FormSection title="Security options">
             {!isOptionHidden(selectedPolicy, 'pkce') && (
               <Checkbox
                 label="Require PKCE"
@@ -287,7 +281,7 @@ function CreateApplicationForm({
                 onChange={(event) => form.setFieldValue('requireConsent', event.currentTarget.checked)}
               />
             )}
-          </Stack>
+          </FormSection>
         )}
 
         <Group justify="flex-end">
@@ -326,9 +320,10 @@ function UpdateApplicationForm({
       description: data.description?.trim() || null,
     }))}>
       <Stack gap="lg">
-        <Title order={2}>Basic information</Title>
-        <TextInput label="Display name" {...form.getInputProps('displayName')} />
-        <Textarea label="Description" rows={3} {...form.getInputProps('description')} />
+        <FormSection title="Basic information">
+          <TextInput label="Display name" {...form.getInputProps('displayName')} />
+          <Textarea label="Description" rows={3} {...form.getInputProps('description')} />
+        </FormSection>
         <Group justify="flex-end">
           <Button type="submit" loading={isLoading}>Update application</Button>
         </Group>

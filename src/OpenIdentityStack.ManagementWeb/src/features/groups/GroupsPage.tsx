@@ -207,6 +207,7 @@ function CreateGroupView({ permissions }: Required<GroupsPageProps>) {
 
   return (
     <Stack gap="lg">
+      <BackLink label="Back to Groups" to="/groups" />
       <div>
         <Title order={1}>Create group</Title>
         <Text c="dimmed">Create a new group for membership and mappings.</Text>
@@ -244,6 +245,7 @@ function EditGroupView({ groupId }: { groupId: string }) {
 
   return (
     <Stack gap="lg">
+      <BackLink label="Back to group" to={`/groups/${groupId}`} />
       <div>
         <Title order={1}>Edit group</Title>
         <Text c="dimmed">{group.data.name}</Text>

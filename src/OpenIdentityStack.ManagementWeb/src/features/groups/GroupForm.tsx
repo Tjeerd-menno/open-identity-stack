@@ -1,5 +1,6 @@
 import { Alert, Button, Group as MantineGroup, Stack, Textarea, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { FormSection } from '@/components/FormPrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { firstError, maxLength, required } from '@/lib/form-validation';
 import type { CreateGroupRequest, Group as GroupModel, UpdateGroupRequest } from './groups-api';
@@ -43,17 +44,19 @@ export function GroupForm({ group, mode, error, loading = false, onSubmit, onCan
       <Stack gap="md">
         {errorMessage && <Alert color="red">{errorMessage}</Alert>}
 
-        <TextInput
-          label="Group name"
-          required
-          {...form.getInputProps('name')}
-        />
-        <Textarea
-          label="Description"
-          minRows={4}
-          autosize
-          {...form.getInputProps('description')}
-        />
+        <FormSection title="Group details">
+          <TextInput
+            label="Group name"
+            required
+            {...form.getInputProps('name')}
+          />
+          <Textarea
+            label="Description"
+            minRows={4}
+            autosize
+            {...form.getInputProps('description')}
+          />
+        </FormSection>
 
         <MantineGroup justify="flex-end">
           <Button type="button" variant="default" onClick={onCancel}>

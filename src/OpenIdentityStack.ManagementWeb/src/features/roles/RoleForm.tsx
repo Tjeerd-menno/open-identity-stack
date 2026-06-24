@@ -2,6 +2,7 @@ import { Alert, Button, Group, Stack, Text, Textarea, TextInput } from '@mantine
 import { useForm } from '@mantine/form';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { FormSection } from '@/components/FormPrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { firstError, maxLength, required } from '@/lib/form-validation';
 import { getEffectivePermissionCount } from './permission-count';
@@ -95,34 +96,38 @@ export function RoleForm({ role, mode, error, catalogItems, loading = false, onS
         <Stack gap="md">
           {errorMessage && <Alert color="red">{errorMessage}</Alert>}
 
-          <TextInput
-            label="Name"
-            aria-label="Name"
-            disabled={mode === 'edit'}
-            required
-            {...form.getInputProps('name')}
-          />
-          <TextInput
-            label="Display name"
-            aria-label="Display name"
-            required
-            {...form.getInputProps('displayName')}
-          />
-          <Textarea
-            label="Description"
-            autosize
-            minRows={3}
-            {...form.getInputProps('description')}
-          />
+          <FormSection title="Role details">
+            <TextInput
+              label="Name"
+              aria-label="Name"
+              disabled={mode === 'edit'}
+              required
+              {...form.getInputProps('name')}
+            />
+            <TextInput
+              label="Display name"
+              aria-label="Display name"
+              required
+              {...form.getInputProps('displayName')}
+            />
+            <Textarea
+              label="Description"
+              autosize
+              minRows={3}
+              {...form.getInputProps('description')}
+            />
+          </FormSection>
 
-          <PermissionSelector
-            selectedPermissions={values.permissions}
-            onChange={(permissions) => form.setFieldValue('permissions', permissions)}
-          />
-          <Text size="sm" c="dimmed">
-            Permission count: {getEffectivePermissionCount(values.permissions, catalogItems)}
-          </Text>
-          {form.errors.permissions && <Alert color="red">{form.errors.permissions}</Alert>}
+          <FormSection title="Permissions">
+            <PermissionSelector
+              selectedPermissions={values.permissions}
+              onChange={(permissions) => form.setFieldValue('permissions', permissions)}
+            />
+            <Text size="sm" c="dimmed">
+              Permission count: {getEffectivePermissionCount(values.permissions, catalogItems)}
+            </Text>
+            {form.errors.permissions && <Alert color="red">{form.errors.permissions}</Alert>}
+          </FormSection>
 
           <Group justify="flex-end">
             <Button type="button" variant="default" onClick={onCancel}>

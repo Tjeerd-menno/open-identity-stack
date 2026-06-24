@@ -1,5 +1,6 @@
 import { Alert, Button, Checkbox, Group, PasswordInput, Stack, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { FormSection } from '@/components/FormPrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { firstError, maxLength, required, validHttpUrl, validSlug } from '@/lib/form-validation';
 import type { CreateProviderRequest, Provider, UpdateProviderRequest } from './providers-api';
@@ -93,41 +94,46 @@ export function ProviderForm({ provider, mode, loading = false, error, onSubmit,
       <Stack gap="md">
         {errorMessage && <Alert color="red">{errorMessage}</Alert>}
 
-        <TextInput
-          label="Provider name"
-          disabled={mode === 'edit'}
-          required
-          {...form.getInputProps('name')}
-        />
-        <TextInput
-          label="Display name"
-          required
-          {...form.getInputProps('displayName')}
-        />
-        <TextInput
-          label="Authority"
-          disabled={mode === 'edit'}
-          required
-          {...form.getInputProps('authority')}
-        />
-        <TextInput
-          label="Client ID"
-          required
-          {...form.getInputProps('clientId')}
-        />
-        <PasswordInput
-          label="Client secret"
-          {...form.getInputProps('clientSecret')}
-        />
-        <TextInput
-          label="Scopes"
-          required
-          {...form.getInputProps('scopes')}
-        />
-        <Checkbox
-          label="JIT provisioning"
-          {...form.getInputProps('jitProvisioningEnabled', { type: 'checkbox' })}
-        />
+        <FormSection title="Connection" description="OAuth 2.0 / OIDC endpoint and client credentials.">
+          <TextInput
+            label="Provider name"
+            disabled={mode === 'edit'}
+            required
+            {...form.getInputProps('name')}
+          />
+          <TextInput
+            label="Display name"
+            required
+            {...form.getInputProps('displayName')}
+          />
+          <TextInput
+            label="Authority"
+            disabled={mode === 'edit'}
+            required
+            {...form.getInputProps('authority')}
+          />
+          <TextInput
+            label="Client ID"
+            required
+            {...form.getInputProps('clientId')}
+          />
+          <PasswordInput
+            label="Client secret"
+            {...form.getInputProps('clientSecret')}
+          />
+          <TextInput
+            label="Scopes"
+            required
+            {...form.getInputProps('scopes')}
+          />
+        </FormSection>
+
+        <FormSection title="Provisioning" description="How users from this provider are created on first sign-in.">
+          <Checkbox
+            label="JIT provisioning"
+            {...form.getInputProps('jitProvisioningEnabled', { type: 'checkbox' })}
+          />
+        </FormSection>
 
         <Group justify="flex-end">
           <Button type="button" variant="default" onClick={onCancel}>

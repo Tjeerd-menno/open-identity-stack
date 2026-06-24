@@ -1,6 +1,7 @@
-import { Button, Group, Stack, Text, Title } from '@mantine/core';
+import { Stack, Text, Title } from '@mantine/core';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { BackLink } from '@/components/DetailPrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { ApplicationForm, type CreateApplicationFormData } from './ApplicationForm';
 import { useCreateApplication } from './applications-hooks';
@@ -23,13 +24,11 @@ export function CreateApplicationPage() {
 
   return (
     <Stack gap="lg">
-      <Group align="flex-start">
-        <Button variant="default" onClick={() => navigate('/applications')}>Back</Button>
-        <div>
-          <Title order={1}>Create application</Title>
-          <Text c="dimmed">Create a unified OAuth 2.0 / OpenID Connect application.</Text>
-        </div>
-      </Group>
+      <BackLink label="Back to Applications" to="/applications" />
+      <div>
+        <Title order={1}>Create application</Title>
+        <Text c="dimmed">Create a unified OAuth 2.0 / OpenID Connect application.</Text>
+      </div>
       {error && <Text c="red">{error}</Text>}
       <ApplicationForm onSubmit={handleSubmit} isLoading={createApplication.isPending} />
     </Stack>
