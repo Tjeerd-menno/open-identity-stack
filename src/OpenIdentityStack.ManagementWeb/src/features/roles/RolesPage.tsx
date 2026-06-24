@@ -1,9 +1,10 @@
-import { Alert, Badge, Button, Group, Stack, Text, Title } from '@mantine/core';
+import { Alert, Badge, Button, Group, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { ShieldIcon } from '@/components/IamIcons';
 import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
@@ -72,8 +73,21 @@ function RoleListView({ permissions }: Required<RolesPageProps>) {
   }, [search]);
 
   const columns: FoundationColumn<RoleListItem>[] = [
-    { header: 'Name', accessorKey: 'name' },
-    { header: 'Display Name', accessorKey: 'displayName' },
+    {
+      header: 'Name',
+      cell: (role) => <Text ff="monospace" size="sm" c="dimmed">{role.name}</Text>,
+    },
+    {
+      header: 'Display Name',
+      cell: (role) => (
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon color={role.isSystemRole ? 'blue' : 'violet'} variant="light" size={34} radius="md">
+            <ShieldIcon />
+          </ThemeIcon>
+          <Text fw={600} style={{ color: 'var(--mw-text-strong)' }}>{role.displayName}</Text>
+        </Group>
+      ),
+    },
     {
       header: 'Type',
       cell: (role) => <RoleTypeBadge isSystemRole={role.isSystemRole} />,

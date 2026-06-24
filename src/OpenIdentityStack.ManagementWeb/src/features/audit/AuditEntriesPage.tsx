@@ -1,7 +1,8 @@
-import { Alert, Code, Collapse, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Code, Collapse, Group, SimpleGrid, Stack, Text, TextInput, ThemeIcon, Title } from '@mantine/core';
 import { useState } from 'react';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { AuditIcon } from '@/components/IamIcons';
 import { PageHeader, PageToolbar, type AppliedFilter } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
@@ -57,12 +58,31 @@ export function AuditEntriesPage({ permissions = ['*'] }: AuditEntriesPageProps)
   const columns: FoundationColumn<AuditEntry>[] = [
     {
       header: 'Timestamp',
-      cell: (entry) => formatDate(entry.timestamp),
+      cell: (entry) => <Text size="sm" c="dimmed">{formatDate(entry.timestamp)}</Text>,
     },
-    { header: 'User ID', accessorKey: 'userId' },
-    { header: 'Action', accessorKey: 'action' },
-    { header: 'Entity Type', accessorKey: 'entityType' },
-    { header: 'Entity ID', accessorKey: 'entityId' },
+    {
+      header: 'User ID',
+      cell: (entry) => <Text ff="monospace" size="sm" c="dimmed">{entry.userId}</Text>,
+    },
+    {
+      header: 'Action',
+      cell: (entry) => (
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon color="gray" variant="light" size={32} radius="md">
+            <AuditIcon />
+          </ThemeIcon>
+          <Text ff="monospace" size="sm" fw={600} style={{ color: 'var(--mw-text-strong)' }}>{entry.action}</Text>
+        </Group>
+      ),
+    },
+    {
+      header: 'Entity Type',
+      cell: (entry) => <Badge color="gray" variant="outline" size="sm">{entry.entityType}</Badge>,
+    },
+    {
+      header: 'Entity ID',
+      cell: (entry) => <Text ff="monospace" size="sm" c="dimmed">{entry.entityId}</Text>,
+    },
     {
       header: 'Details',
       cell: (entry) => <Text size="sm" maw={260} truncate>{entry.details ?? 'No details'}</Text>,

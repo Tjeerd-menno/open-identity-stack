@@ -8,6 +8,7 @@ import {
   Stack,
   Text,
   TextInput,
+  ThemeIcon,
   Title,
 } from '@mantine/core';
 import { FormEvent, useEffect, useRef, useState } from 'react';
@@ -15,6 +16,7 @@ import { useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { GroupsIcon } from '@/components/IamIcons';
 import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { hasPermission } from '@/lib/permissions';
@@ -98,10 +100,20 @@ function GroupListView({ permissions }: Required<GroupsPageProps>) {
   }, [search]);
 
   const columns: FoundationColumn<GroupListItem>[] = [
-    { header: 'Name', accessorKey: 'name' },
+    {
+      header: 'Name',
+      cell: (group) => (
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon color="teal" variant="light" size={34} radius="md">
+            <GroupsIcon />
+          </ThemeIcon>
+          <Text fw={600} style={{ color: 'var(--mw-text-strong)' }}>{group.name}</Text>
+        </Group>
+      ),
+    },
     {
       header: 'Description',
-      cell: (group) => group.description ?? '',
+      cell: (group) => <Text size="sm" c="dimmed">{group.description ?? ''}</Text>,
     },
     {
       header: 'Members',

@@ -1,9 +1,10 @@
-import { Alert, Badge, Button, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { Alert, Badge, Button, Group, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { ProvidersIcon } from '@/components/IamIcons';
 import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { getApiErrorMessage } from '@/lib/admin-api';
@@ -95,13 +96,21 @@ function ProviderListView({ permissions }: Required<ProvidersPageProps>) {
     {
       header: 'Display name',
       cell: (provider) => (
-        <Stack gap={0}>
-          <Text fw={500}>{provider.displayName}</Text>
-          <Text size="sm" c="dimmed">{provider.name}</Text>
-        </Stack>
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon color={provider.status === 'Active' ? 'blue' : 'gray'} variant="light" size={34} radius="md">
+            <ProvidersIcon />
+          </ThemeIcon>
+          <Stack gap={0} style={{ minWidth: 0 }}>
+            <Text fw={600} style={{ color: 'var(--mw-text-strong)' }}>{provider.displayName}</Text>
+            <Text size="sm" c="dimmed">{provider.name}</Text>
+          </Stack>
+        </Group>
       ),
     },
-    { header: 'Authority', accessorKey: 'authority' },
+    {
+      header: 'Authority',
+      cell: (provider) => <Text ff="monospace" size="sm" c="dimmed">{provider.authority}</Text>,
+    },
     {
       header: 'Type',
       cell: () => <Badge variant="light">OIDC</Badge>,
