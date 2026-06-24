@@ -11,6 +11,7 @@ import {
   Text,
   Textarea,
   TextInput,
+  ThemeIcon,
   Title,
   useCombobox,
 } from '@mantine/core';
@@ -21,6 +22,7 @@ import { useLocation, useNavigate, useParams } from 'react-router';
 import { BackLink } from '@/components/DetailPrimitives';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { PermissionsIcon } from '@/components/IamIcons';
 import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
 import { getGroup, getGroups, type GroupListItem } from '@/features/groups/groups-api';
 import { getUser, getUsers, type UserListItem } from '@/features/users/users-api';
@@ -154,8 +156,21 @@ function RegisteredApplicationListView({ permissions }: Required<ApplicationPerm
   }, [search]);
 
   const columns: FoundationColumn<RegisteredApplicationListItem>[] = [
-    { header: 'Application', accessorKey: 'applicationIdentifier' },
-    { header: 'Display Name', accessorKey: 'displayName' },
+    {
+      header: 'Application',
+      cell: (application) => <Text ff="monospace" size="sm" c="dimmed">{application.applicationIdentifier}</Text>,
+    },
+    {
+      header: 'Display Name',
+      cell: (application) => (
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon color="grape" variant="light" size={34} radius="md">
+            <PermissionsIcon />
+          </ThemeIcon>
+          <Text fw={600} style={{ color: 'var(--mw-text-strong)' }}>{application.displayName}</Text>
+        </Group>
+      ),
+    },
     {
       header: 'Owner',
       cell: (application) => `${application.ownerId} (${application.ownerType})`,
