@@ -11,6 +11,7 @@ import {
   Stack,
   Text,
   TextInput,
+  ThemeIcon,
   Title,
   type MantineColor,
 } from '@mantine/core';
@@ -42,6 +43,37 @@ export function PageHeader({ title, description, badges = [], actions, metadata 
       </Stack>
       {actions && <Group gap="xs">{actions}</Group>}
     </Group>
+  );
+}
+
+type StatCardProps = {
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
+  icon: ReactNode;
+  color?: MantineColor;
+};
+
+/**
+ * Compact metric tile: label + large value (+ optional hint) on the left, a
+ * tinted ThemeIcon on the right. Used on the Overview dashboard.
+ */
+export function StatCard({ label, value, hint, icon, color = 'blue' }: StatCardProps) {
+  return (
+    <Paper withBorder radius="sm" p="lg">
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <Stack gap={4} style={{ minWidth: 0 }}>
+          <Text size="sm" c="dimmed" fw={500}>{label}</Text>
+          <Text fw={700} lh={1.1} style={{ fontSize: 28, letterSpacing: '-0.5px', color: 'var(--mw-text-strong)' }}>
+            {value}
+          </Text>
+          {hint && <Text size="xs" c="dimmed">{hint}</Text>}
+        </Stack>
+        <ThemeIcon color={color} variant="light" size={40} radius="md" style={{ flexShrink: 0 }}>
+          {icon}
+        </ThemeIcon>
+      </Group>
+    </Paper>
   );
 }
 

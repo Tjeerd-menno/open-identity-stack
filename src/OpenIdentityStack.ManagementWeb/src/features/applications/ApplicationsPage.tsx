@@ -1,9 +1,10 @@
-import { Button, Stack } from '@mantine/core';
+import { Badge, Button, Group, Stack, Text, ThemeIcon } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
+import { AppWindowIcon, ServerIcon } from '@/components/IamIcons';
 import { PageHeader, PageToolbar, type AppliedFilter } from '@/components/PagePrimitives';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import {
@@ -23,6 +24,15 @@ const applicationProfileLabels: Record<ApplicationProfile, string> = {
   [ApplicationProfile.MachineToMachine]: 'Machine-to-machine',
   [ApplicationProfile.Device]: 'Device',
   [ApplicationProfile.Custom]: 'Custom',
+};
+
+const applicationProfileColors: Record<ApplicationProfile, string> = {
+  [ApplicationProfile.Web]: 'blue',
+  [ApplicationProfile.SinglePage]: 'teal',
+  [ApplicationProfile.Native]: 'cyan',
+  [ApplicationProfile.MachineToMachine]: 'orange',
+  [ApplicationProfile.Device]: 'grape',
+  [ApplicationProfile.Custom]: 'gray',
 };
 
 const clientTypeLabels: Record<ApplicationClientType, string> = {
@@ -59,11 +69,33 @@ export function ApplicationsPage() {
   }, [search]);
 
   const columns: FoundationColumn<ApplicationListItem>[] = [
-    { header: 'Client ID', accessorKey: 'clientId' },
-    { header: 'Display Name', accessorKey: 'displayName' },
+    {
+      header: 'Client ID',
+      cell: (application) => (
+        <Text ff="monospace" size="sm" c="dimmed">{application.clientId}</Text>
+      ),
+    },
+    {
+      header: 'Display Name',
+      cell: (application) => {
+        const isMachine = application.profile === ApplicationProfile.MachineToMachine;
+        return (
+          <Group gap="sm" wrap="nowrap">
+            <ThemeIcon color={applicationProfileColors[application.profile]} variant="light" size={34} radius="md">
+              {isMachine ? <ServerIcon /> : <AppWindowIcon />}
+            </ThemeIcon>
+            <Text fw={600} style={{ color: 'var(--mw-text-strong)' }}>{application.displayName}</Text>
+          </Group>
+        );
+      },
+    },
     {
       header: 'Profile',
-      cell: (application) => applicationProfileLabels[application.profile],
+      cell: (application) => (
+        <Badge color={applicationProfileColors[application.profile]} variant="dot">
+          {applicationProfileLabels[application.profile]}
+        </Badge>
+      ),
     },
     {
       header: 'Client Type',

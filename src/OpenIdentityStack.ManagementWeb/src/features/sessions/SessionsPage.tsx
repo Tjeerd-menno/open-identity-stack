@@ -73,7 +73,10 @@ function SessionListView({ permissions }: Required<SessionsPageProps>) {
       header: 'User ID',
       cell: (session) => <Text ff="monospace" size="sm">{shortId(session.userId)}</Text>,
     },
-    { header: 'IP Address', accessorKey: 'ipAddress' },
+    {
+      header: 'IP Address',
+      cell: (session) => <Text ff="monospace" size="sm" c="dimmed">{session.ipAddress}</Text>,
+    },
     {
       header: 'User Agent',
       cell: (session) => <Text size="sm" maw={260} truncate>{session.userAgent}</Text>,
