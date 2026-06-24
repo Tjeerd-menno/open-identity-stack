@@ -2,6 +2,7 @@ import { Alert, Badge, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { BackLink, DetailCard, FieldRow } from '@/components/DetailPrimitives';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
@@ -207,40 +208,37 @@ function SessionDetailView({ sessionId, permissions }: { sessionId: string; perm
 
   return (
     <Stack gap="lg" role="region" aria-label="Session details">
-      <Group justify="space-between" align="flex-start">
+      <BackLink label="Back to Sessions" to="/sessions" />
+      <Group justify="space-between" align="flex-start" gap="md" wrap="wrap">
         <div>
-          <Title order={1}>Session Details</Title>
-          <Text c="dimmed" ff="monospace">{session.data.id}</Text>
+          <Group gap="sm" align="center">
+            <Title order={1}>Session Details</Title>
+            <SessionStatusBadge status={session.data.status} />
+          </Group>
+          <Text c="dimmed" ff="monospace" mt={2}>{session.data.id}</Text>
         </div>
-        <Group>
-          <Button variant="default" onClick={() => navigate('/sessions')}>Back to Sessions</Button>
-          {canRevoke && isActive && (
-            <>
-              <Button color="red" variant="light" onClick={() => setConfirmRevoke(true)}>Revoke session</Button>
-              <Button color="red" onClick={() => setConfirmRevokeAll(true)}>Revoke all sessions for user</Button>
-            </>
-          )}
-        </Group>
+        {canRevoke && isActive && (
+          <Group>
+            <Button color="red" variant="light" onClick={() => setConfirmRevoke(true)}>Revoke session</Button>
+            <Button color="red" onClick={() => setConfirmRevokeAll(true)}>Revoke all sessions for user</Button>
+          </Group>
+        )}
       </Group>
 
       {!canRevoke && <Alert color="blue">Read-only access. Session revocation requires sessions:revoke.</Alert>}
 
       <section aria-label="Session information">
-        <Title order={2} size="h3">Session Information</Title>
-        <Stack gap={4} mt="sm">
-          <Text size="sm">Session ID: {session.data.id}</Text>
-          <Group gap="xs">
-            <Text size="sm">Status:</Text>
-            <SessionStatusBadge status={session.data.status} />
-          </Group>
-          <Text size="sm">User ID: {session.data.userId}</Text>
-          <Text size="sm">Application count: {session.data.clientCount}</Text>
-          <Text size="sm">IP address: {session.data.ipAddress}</Text>
-          <Text size="sm">User agent: {session.data.userAgent}</Text>
-          <Text size="sm">Created: {formatDate(session.data.createdAt)}</Text>
-          <Text size="sm">Last activity: {formatDate(session.data.lastActivityAt)}</Text>
-          <Text size="sm">Expires: {formatDate(session.data.expiresAt)}</Text>
-        </Stack>
+        <DetailCard title="Session information">
+          <FieldRow label="Session ID" value={session.data.id} mono />
+          <FieldRow label="Status" value={<SessionStatusBadge status={session.data.status} />} />
+          <FieldRow label="User ID" value={session.data.userId} mono />
+          <FieldRow label="Applications" value={session.data.clientCount} />
+          <FieldRow label="IP address" value={session.data.ipAddress} mono />
+          <FieldRow label="User agent" value={session.data.userAgent} />
+          <FieldRow label="Created" value={formatDate(session.data.createdAt)} />
+          <FieldRow label="Last activity" value={formatDate(session.data.lastActivityAt)} />
+          <FieldRow label="Expires" value={formatDate(session.data.expiresAt)} last />
+        </DetailCard>
       </section>
 
       <ConfirmDialog

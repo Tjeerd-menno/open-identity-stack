@@ -275,6 +275,15 @@ export function LogoutIcon(props: IconProps) {
   );
 }
 
+export function ArrowLeftIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M20 12H4" />
+      <path d="m10 6-6 6 6 6" />
+    </IconBase>
+  );
+}
+
 export function ChevronRightIcon(props: IconProps) {
   return (
     <IconBase {...props}>

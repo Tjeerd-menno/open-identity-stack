@@ -3,6 +3,7 @@ import { useForm } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
+import { BackLink } from '@/components/DetailPrimitives';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FormSection } from '@/components/FormPrimitives';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
@@ -114,10 +115,10 @@ export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
   if (selectedUserId) {
     return (
       <Stack gap="lg" role="region" aria-label="User detail page">
+        <BackLink label="Back to Users" to="/users" />
         <PageHeader
           title="User details"
           description={selectedUserId}
-          actions={<Button variant="default" onClick={() => navigate('/users')}>Back to Users</Button>}
         />
         {(details.isLoading
           || roles.isLoading

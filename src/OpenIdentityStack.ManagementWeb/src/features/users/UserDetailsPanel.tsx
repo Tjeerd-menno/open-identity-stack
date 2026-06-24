@@ -1,4 +1,4 @@
-import { Alert, Badge, Card, Group, Stack, Text, Title } from '@mantine/core';
+import { Alert, Avatar, Badge, Card, Group, Stack, Text, Title } from '@mantine/core';
 import type { RoleListItem, UpstreamIdentity, User, UserGroup } from './users-api';
 import { UserEditForm } from './UserEditForm';
 
@@ -32,13 +32,16 @@ export function UserDetailsPanel({
   return (
     <Card withBorder shadow="sm" radius="md" p="lg" role="region" aria-label="User details">
       <Stack gap="md">
-        <div>
-          <Title order={2}>{user.displayName}</Title>
-          <Text c="dimmed">{user.email}</Text>
-        </div>
-        <Group>
-          <Badge color={user.status === 'Active' ? 'green' : 'gray'}>{user.status}</Badge>
-          {user.mfaEnabled && <Badge color="blue">MFA enabled</Badge>}
+        <Group gap="md" wrap="nowrap" align="center">
+          <Avatar name={user.displayName} color="initials" radius="xl" size={52} />
+          <div style={{ minWidth: 0 }}>
+            <Group gap="sm" align="center">
+              <Title order={2}>{user.displayName}</Title>
+              <Badge color={user.status === 'Active' ? 'green' : 'gray'}>{user.status}</Badge>
+              {user.mfaEnabled && <Badge color="blue">MFA enabled</Badge>}
+            </Group>
+            <Text c="dimmed">{user.email}</Text>
+          </div>
         </Group>
         <Text size="sm">Assigned roles: {assignedRoles.length > 0 ? assignedRoles.map((role) => role.displayName).join(', ') : 'None'}</Text>
         {canReadGroups && (

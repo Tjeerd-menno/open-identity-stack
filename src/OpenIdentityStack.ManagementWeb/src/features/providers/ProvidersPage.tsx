@@ -2,6 +2,7 @@ import { Alert, Badge, Button, Group, SimpleGrid, Stack, Text, ThemeIcon, Title 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { BackLink, DetailCard, FieldRow } from '@/components/DetailPrimitives';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { ProvidersIcon } from '@/components/IamIcons';
@@ -288,13 +289,21 @@ function ProviderDetailView({ providerId, permissions }: { providerId: string; p
 
   return (
     <Stack gap="lg" role="region" aria-label="Provider details">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>{provider.data.displayName}</Title>
-          <Text c="dimmed">{provider.data.name}</Text>
-        </div>
+      <BackLink label="Back to Providers" to="/providers" />
+      <Group justify="space-between" align="flex-start" gap="md" wrap="wrap">
+        <Group gap="md" wrap="nowrap" align="center">
+          <ThemeIcon color={isActive ? 'blue' : 'gray'} variant="light" size={52} radius="md">
+            <ProvidersIcon style={{ width: 26, height: 26 }} />
+          </ThemeIcon>
+          <div>
+            <Group gap="sm" align="center">
+              <Title order={1}>{provider.data.displayName}</Title>
+              <ProviderStatusBadge status={provider.data.status} />
+            </Group>
+            <Text c="dimmed" mt={2}>OIDC · {provider.data.name}</Text>
+          </div>
+        </Group>
         <Group>
-          <Button variant="default" onClick={() => navigate('/providers')}>Back to Providers</Button>
           {canWrite && (
             <>
               <Button
@@ -320,36 +329,35 @@ function ProviderDetailView({ providerId, permissions }: { providerId: string; p
 
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
         <section aria-label="Provider information">
-          <Title order={2} size="h3">Provider Information</Title>
-          <Stack gap={4} mt="sm">
-            <Group gap="xs">
-              <Text size="sm">Status:</Text>
-              <ProviderStatusBadge status={provider.data.status} />
-            </Group>
-            <Group gap="xs">
-              <Text size="sm">Type:</Text>
-              <Badge variant="light">OIDC</Badge>
-            </Group>
-            <Text size="sm">Authority: {provider.data.authority}</Text>
-            <Text size="sm">Client ID: {provider.data.clientId}</Text>
-            <Text size="sm">Created: {new Date(provider.data.createdAt).toLocaleString()}</Text>
-          </Stack>
+          <DetailCard title="Provider information" description="OIDC connection details for this upstream provider.">
+            <FieldRow label="Status" value={<ProviderStatusBadge status={provider.data.status} />} />
+            <FieldRow label="Type" value={<Badge variant="light">OIDC</Badge>} />
+            <FieldRow label="Authority" value={provider.data.authority} mono />
+            <FieldRow label="Client ID" value={provider.data.clientId} mono />
+            <FieldRow label="Created" value={new Date(provider.data.createdAt).toLocaleString()} last />
+          </DetailCard>
         </section>
 
         <section aria-label="Provider configuration">
-          <Title order={2} size="h3">Configuration</Title>
-          <Stack gap={4} mt="sm">
-            <Group gap="xs">
-              <Text size="sm">Scopes:</Text>
-              {provider.data.scopes.map((scope) => <Badge key={scope} variant="outline">{scope}</Badge>)}
-            </Group>
-            <Group gap="xs">
-              <Text size="sm">JIT Provisioning:</Text>
-              <Badge color={provider.data.jitProvisioningEnabled ? 'green' : 'gray'} variant="light">
-                {provider.data.jitProvisioningEnabled ? 'Enabled' : 'Disabled'}
-              </Badge>
-            </Group>
-          </Stack>
+          <DetailCard title="Configuration" description="Requested scopes and provisioning behaviour.">
+            <FieldRow
+              label="Scopes"
+              value={(
+                <Group gap={6} justify="flex-end" wrap="wrap">
+                  {provider.data.scopes.map((scope) => <Badge key={scope} variant="outline">{scope}</Badge>)}
+                </Group>
+              )}
+            />
+            <FieldRow
+              label="JIT provisioning"
+              last
+              value={(
+                <Badge color={provider.data.jitProvisioningEnabled ? 'green' : 'gray'} variant="light">
+                  {provider.data.jitProvisioningEnabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+              )}
+            />
+          </DetailCard>
         </section>
       </SimpleGrid>
 

@@ -97,8 +97,10 @@ describe('SessionsPage', () => {
 
     await user.click(screen.getByRole('button', { name: /view session session-1/i }));
     expect(await screen.findByRole('heading', { name: /session details/i })).toBeInTheDocument();
-    expect(screen.getByText(/Firefox on Windows/)).toBeInTheDocument();
-    expect(screen.getByText(/application count: 2/i)).toBeInTheDocument();
+    const sessionDetails = screen.getByRole('region', { name: /session details/i });
+    expect(within(sessionDetails).getByText(/Firefox on Windows/)).toBeInTheDocument();
+    expect(within(sessionDetails).getByText('Applications')).toBeInTheDocument();
+    expect(within(sessionDetails).getByText('2')).toBeInTheDocument();
     expect(screen.queryByText(/client count/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /^revoke session$/i }));

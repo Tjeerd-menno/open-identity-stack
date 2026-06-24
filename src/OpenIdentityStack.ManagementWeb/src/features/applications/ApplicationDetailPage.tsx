@@ -1,6 +1,8 @@
-import { Alert, Badge, Button, Group, Loader, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { Alert, Badge, Button, Group, Loader, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { BackLink, DetailCard, FieldRow } from '@/components/DetailPrimitives';
+import { AppWindowIcon, ServerIcon } from '@/components/IamIcons';
 import { getApiErrorMessage } from '@/lib/admin-api';
 import { useState } from 'react';
 import { ApplicationClientType, ApplicationProfile, type Application } from './applications-api';
@@ -54,14 +56,22 @@ export function ApplicationDetailPage() {
 
   const app = application.data;
 
+  const isMachine = app.profile === ApplicationProfile.MachineToMachine;
+
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-start">
-        <Group align="flex-start">
-          <Button variant="default" onClick={() => navigate('/applications')}>Back</Button>
+      <BackLink label="Back to Applications" to="/applications" />
+      <Group justify="space-between" align="flex-start" gap="md" wrap="wrap">
+        <Group gap="md" wrap="nowrap" align="center">
+          <ThemeIcon color={isMachine ? 'orange' : 'blue'} variant="light" size={52} radius="md">
+            {isMachine ? <ServerIcon style={{ width: 26, height: 26 }} /> : <AppWindowIcon style={{ width: 26, height: 26 }} />}
+          </ThemeIcon>
           <div>
-            <Title order={1}>{app.displayName}</Title>
-            <Text c="dimmed">{app.clientId}</Text>
+            <Group gap="sm" align="center">
+              <Title order={1}>{app.displayName}</Title>
+              <ApplicationStatusBadge status={app.status} />
+            </Group>
+            <Text c="dimmed" ff="monospace" mt={2}>{app.clientId}</Text>
           </div>
         </Group>
         <Group>
@@ -105,25 +115,20 @@ export function ApplicationDetailPage() {
 function ApplicationOverview({ application }: { application: Application }) {
   return (
     <Stack gap="md">
-      <Title order={2}>Application information</Title>
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-        <Field label="ID" value={application.id} />
-        <div>
-          <Text size="sm" c="dimmed">Status</Text>
-          <ApplicationStatusBadge status={application.status} />
-        </div>
-        <Field label="Application profile" value={profileLabels[application.profile]} />
-        <Field label="Client type" value={clientTypeLabels[application.clientType]} />
-        <Field label="Require PKCE" value={application.requirePkce ? 'Yes' : 'No'} />
-        <Field label="Require consent" value={application.requireConsent ? 'Yes' : 'No'} />
-        <Field label="Created" value={formatDate(application.createdAt)} />
-        <Field label="Modified" value={formatDate(application.modifiedAt)} />
-      </SimpleGrid>
+      <DetailCard title="Application information">
+        <FieldRow label="ID" value={application.id} mono />
+        <FieldRow label="Status" value={<ApplicationStatusBadge status={application.status} />} />
+        <FieldRow label="Application profile" value={profileLabels[application.profile]} />
+        <FieldRow label="Client type" value={clientTypeLabels[application.clientType]} />
+        <FieldRow label="Require PKCE" value={application.requirePkce ? 'Yes' : 'No'} />
+        <FieldRow label="Require consent" value={application.requireConsent ? 'Yes' : 'No'} />
+        <FieldRow label="Created" value={formatDate(application.createdAt)} />
+        <FieldRow label="Modified" value={formatDate(application.modifiedAt)} last />
+      </DetailCard>
       {application.description && (
-        <div>
-          <Text size="sm" c="dimmed">Description</Text>
+        <DetailCard title="Description">
           <Text>{application.description}</Text>
-        </div>
+        </DetailCard>
       )}
       {application.requiresMigrationReview && (
         <Alert color="yellow">
@@ -134,36 +139,27 @@ function ApplicationOverview({ application }: { application: Application }) {
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <Text size="sm" c="dimmed">{label}</Text>
-      <Text>{value}</Text>
-    </div>
-  );
-}
-
 function ValueList({ title, values, emptyMessage }: { title: string; values: string[]; emptyMessage: string }) {
   return (
-    <Stack gap="xs">
-      <Title order={2}>{title}</Title>
+    <DetailCard title={title}>
       {values.length === 0 ? (
         <Text c="dimmed">{emptyMessage}</Text>
       ) : (
-        values.map((value) => <Text key={value}>{value}</Text>)
+        <Stack gap="xs">
+          {values.map((value) => <Text key={value} ff="monospace" size="sm">{value}</Text>)}
+        </Stack>
       )}
-    </Stack>
+    </DetailCard>
   );
 }
 
 function TagList({ title, values }: { title: string; values: string[] }) {
   return (
-    <Stack gap="xs">
-      <Title order={2}>{title}</Title>
-      <Group>
+    <DetailCard title={title}>
+      <Group gap={6}>
         {values.map((value) => <Badge key={value} variant="light">{value}</Badge>)}
       </Group>
-    </Stack>
+    </DetailCard>
   );
 }
 

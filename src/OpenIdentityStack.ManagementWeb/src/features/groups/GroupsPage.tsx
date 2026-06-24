@@ -14,6 +14,7 @@ import {
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { BackLink, DetailCard, FieldRow, MetaStrip } from '@/components/DetailPrimitives';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { GroupsIcon } from '@/components/IamIcons';
@@ -285,11 +286,17 @@ function GroupDetailView({ groupId, permissions }: { groupId: string; permission
 
   return (
     <Stack gap="lg" role="region" aria-label="Group details">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>{group.data.name}</Title>
-          {group.data.description && <Text c="dimmed">{group.data.description}</Text>}
-        </div>
+      <BackLink label="Back to Groups" to="/groups" />
+      <Group justify="space-between" align="flex-start" gap="md" wrap="wrap">
+        <Group gap="md" wrap="nowrap" align="center">
+          <ThemeIcon color="teal" variant="light" size={52} radius="md">
+            <GroupsIcon style={{ width: 26, height: 26 }} />
+          </ThemeIcon>
+          <div>
+            <Title order={1}>{group.data.name}</Title>
+            {group.data.description && <Text c="dimmed" mt={2}>{group.data.description}</Text>}
+          </div>
+        </Group>
         <Group>
           {canWrite && <Button onClick={() => navigate(`/groups/${groupId}/edit`)}>Edit group</Button>}
           {canDelete && (
@@ -300,14 +307,21 @@ function GroupDetailView({ groupId, permissions }: { groupId: string; permission
         </Group>
       </Group>
 
+      <MetaStrip
+        items={[
+          { label: 'Members', value: group.data.memberCount ?? 0 },
+          { label: 'Mappings', value: group.data.mappingCount ?? 0 },
+          { label: 'Created', value: new Date(group.data.createdAt).toLocaleDateString() },
+        ]}
+      />
+
       <section aria-label="Group metadata">
-        <Title order={2} size="h3">Group information</Title>
-        <Stack gap={4} mt="sm">
-          <Text size="sm">Group ID: {group.data.id}</Text>
-          <Text size="sm">Members: {group.data.memberCount ?? 0}</Text>
-          <Text size="sm">Mappings: {group.data.mappingCount ?? 0}</Text>
-          <Text size="sm">Created: {new Date(group.data.createdAt).toLocaleString()}</Text>
-        </Stack>
+        <DetailCard title="Group information">
+          <FieldRow label="Group ID" value={group.data.id} mono />
+          <FieldRow label="Members" value={group.data.memberCount ?? 0} />
+          <FieldRow label="Mappings" value={group.data.mappingCount ?? 0} />
+          <FieldRow label="Created" value={new Date(group.data.createdAt).toLocaleString()} last />
+        </DetailCard>
       </section>
 
       <GroupMembersSection groupId={groupId} canManageMembers={canManageMembers} />

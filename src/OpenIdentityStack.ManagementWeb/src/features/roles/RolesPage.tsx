@@ -2,6 +2,7 @@ import { Alert, Badge, Button, Group, Stack, Text, ThemeIcon, Title } from '@man
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { BackLink, DetailCard, MetaStrip } from '@/components/DetailPrimitives';
 import { EntityActionGroup } from '@/components/EntityActionMenu';
 import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
 import { ShieldIcon } from '@/components/IamIcons';
@@ -234,18 +235,44 @@ function RoleDetailView({ roleId, permissions }: { roleId: string; permissions: 
     );
   }
 
+  const permissionCount = getEffectivePermissionCount(role.data.permissions, platformCatalog.data?.items);
+
   return (
     <Stack gap="lg" role="region" aria-label="Role details">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>{role.data.displayName}</Title>
-          <Text c="dimmed">{role.data.name}</Text>
-        </div>
-        <Group>
-          <RoleTypeBadge isSystemRole={role.data.isSystemRole} />
-          <RoleStatusBadge isActive={role.data.isActive} />
+      <BackLink label="Back to Roles" to="/roles" />
+      <Group justify="space-between" align="flex-start" gap="md" wrap="wrap">
+        <Group gap="md" wrap="nowrap" align="center">
+          <ThemeIcon color={role.data.isSystemRole ? 'blue' : 'violet'} variant="light" size={52} radius="md">
+            <ShieldIcon style={{ width: 26, height: 26 }} />
+          </ThemeIcon>
+          <div>
+            <Group gap="sm" align="center">
+              <Title order={1}>{role.data.displayName}</Title>
+              <RoleTypeBadge isSystemRole={role.data.isSystemRole} />
+              <RoleStatusBadge isActive={role.data.isActive} />
+            </Group>
+            <Text c="dimmed" ff="monospace" mt={2}>{role.data.name}</Text>
+          </div>
         </Group>
+        {canWrite && (
+          <Group>
+            <Button onClick={() => setIsEditing(true)}>Edit role</Button>
+            {!role.data.isSystemRole && (
+              <Button color="red" variant="light" onClick={() => setConfirmDelete(true)}>
+                Delete role
+              </Button>
+            )}
+          </Group>
+        )}
       </Group>
+
+      <MetaStrip
+        items={[
+          { label: 'Permissions', value: permissionCount },
+          { label: 'Type', value: role.data.isSystemRole ? 'System' : 'Custom' },
+          { label: 'Status', value: role.data.isActive ? 'Active' : 'Inactive' },
+        ]}
+      />
 
       {role.data.isSystemRole && (
         <Alert color="blue">
@@ -256,41 +283,29 @@ function RoleDetailView({ roleId, permissions }: { roleId: string; permissions: 
       {!canWrite && <Alert color="blue">Read-only access. Role changes require roles:write.</Alert>}
 
       {role.data.description && (
-        <section aria-label="Role description">
-          <Title order={2} size="h3">Description</Title>
-          <Text>{role.data.description}</Text>
-        </section>
+        <DetailCard title="Description">
+          <Text aria-label="Role description">{role.data.description}</Text>
+        </DetailCard>
       )}
 
       <section aria-label="Role permissions">
-        <Title order={2} size="h3">Permissions</Title>
-        <Group mt="sm" gap="xs">
-          {role.data.permissions.map((permission) => (
-            <Badge key={permission} variant="light">{permission}</Badge>
-          ))}
-        </Group>
+        <DetailCard title="Permissions">
+          <Group gap="xs">
+            {role.data.permissions.map((permission) => (
+              <Badge key={permission} variant="light">{permission}</Badge>
+            ))}
+          </Group>
+        </DetailCard>
       </section>
 
       <section aria-label="Role metadata">
-        <Title order={2} size="h3">Metadata</Title>
-        <Stack gap={4} mt="sm">
-          <Text size="sm">Role ID: {role.data.id}</Text>
-          <Text size="sm">
-            Permission count: {getEffectivePermissionCount(role.data.permissions, platformCatalog.data?.items)}
-          </Text>
-        </Stack>
+        <DetailCard title="Metadata">
+          <Stack gap={4}>
+            <Text size="sm">Role ID: {role.data.id}</Text>
+            <Text size="sm">Permission count: {permissionCount}</Text>
+          </Stack>
+        </DetailCard>
       </section>
-
-      {canWrite && (
-        <Group>
-          <Button onClick={() => setIsEditing(true)}>Edit role</Button>
-          {!role.data.isSystemRole && (
-            <Button color="red" variant="light" onClick={() => setConfirmDelete(true)}>
-              Delete role
-            </Button>
-          )}
-        </Group>
-      )}
 
       <ConfirmDialog
         opened={confirmDelete}

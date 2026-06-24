@@ -197,8 +197,9 @@ describe('ProvidersPage', () => {
     );
 
     expect(await screen.findByRole('heading', { name: /google login/i })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: /provider details/i })).toBeInTheDocument();
-    expect(screen.getByText(/client id: google-client/i)).toBeInTheDocument();
+    const providerDetails = screen.getByRole('region', { name: /provider details/i });
+    expect(providerDetails).toBeInTheDocument();
+    expect(within(providerDetails).getByText('google-client')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /disable provider/i }));
     await waitFor(() => {
