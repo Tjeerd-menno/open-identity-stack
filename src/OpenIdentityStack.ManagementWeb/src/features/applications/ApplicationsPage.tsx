@@ -1,4 +1,4 @@
-import { Badge, Button, Group, Stack, Text, ThemeIcon } from '@mantine/core';
+import { Badge, Button, Group, Stack, Text, ThemeIcon, type MantineColor } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -26,7 +26,7 @@ const applicationProfileLabels: Record<ApplicationProfile, string> = {
   [ApplicationProfile.Custom]: 'Custom',
 };
 
-const applicationProfileColors: Record<ApplicationProfile, string> = {
+const applicationProfileColors: Record<ApplicationProfile, MantineColor> = {
   [ApplicationProfile.Web]: 'blue',
   [ApplicationProfile.SinglePage]: 'teal',
   [ApplicationProfile.Native]: 'cyan',

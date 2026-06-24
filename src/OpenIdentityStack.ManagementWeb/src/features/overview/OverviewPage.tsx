@@ -1,5 +1,5 @@
-import { Anchor, Badge, Group, Paper, SimpleGrid, Stack, Text, ThemeIcon } from '@mantine/core';
-import type { ComponentType } from 'react';
+import { Anchor, Badge, Group, Paper, SimpleGrid, Stack, Text, ThemeIcon, type MantineColor } from '@mantine/core';
+import type { ComponentType, SVGProps } from 'react';
 import { Link } from 'react-router';
 import { PageHeader, StatCard } from '@/components/PagePrimitives';
 import {
@@ -27,8 +27,8 @@ type OverviewSection = {
   path: string;
   permission: string;
   description: string;
-  icon: ComponentType;
-  color: string;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  color: MantineColor;
 };
 
 const overviewSections: OverviewSection[] = [
