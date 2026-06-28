@@ -1,16 +1,24 @@
-import { Badge, Box, Text } from '@mantine/core';
+import { Badge, Box, Button, Text } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { RegisteredApplicationListItem } from '@openidentitystack/admin-api-client';
+import { Icon } from '@/components/Icon';
 import { DataTable, type Column } from '@/components/DataTable';
 import { FilterToolbar } from '@/components/FilterToolbar';
 import { Pager } from '@/components/ListControls';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
+import { hasPermission } from '@/lib/permissions';
+import { RegisterManifestModal } from './RegisterManifestModal';
 
 export function PermissionsPage() {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const canWrite = hasPermission(auth.permissions, 'application-permissions:write');
+  const [registerOpened, registerControls] = useDisclosure(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -62,6 +70,13 @@ export function PermissionsPage() {
       <PageHeader
         title="Permissions"
         description="Resource servers that declare the permissions (scopes) applications can be granted."
+        actions={
+          canWrite ? (
+            <Button leftSection={<Icon name="plus" size={16} />} onClick={registerControls.open}>
+              Register application
+            </Button>
+          ) : undefined
+        }
       />
 
       <FilterToolbar
@@ -97,6 +112,8 @@ export function PermissionsPage() {
           />
         </>
       )}
+
+      {registerOpened && <RegisterManifestModal onClose={registerControls.close} />}
     </div>
   );
 }
