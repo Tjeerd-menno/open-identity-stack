@@ -29,12 +29,66 @@ public sealed class ProviderManagementTests : ManagementWebPageTest
         await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).WaitForAsync();
     }
 
+    [Fact]
+    public async Task OperatorCanAddAProvider()
+    {
+        await StubAsync();
+
+        await GotoAsync("/providers");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add provider", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        // "Name" (required) renders a "*"; target it by placeholder instead.
+        await dialog.GetByPlaceholder("google-workspace").FillAsync("google-workspace");
+        await dialog.GetByLabel("Display name").FillAsync("Google Workspace");
+        await dialog.GetByLabel(new Regex("Issuer", RegexOptions.IgnoreCase)).FillAsync("https://accounts.google.com");
+        await dialog.GetByLabel("Client ID").FillAsync("northwind.apps.googleusercontent.com");
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Add provider", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Added Google Workspace", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanDisableAProviderFromTheRowMenu()
+    {
+        await StubAsync();
+
+        await GotoAsync("/providers");
+        await Page.GetByText("Google Workspace").WaitForAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).First.ClickAsync();
+        await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Disable provider", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Provider updated", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanDeleteAProviderFromTheDetailPage()
+    {
+        await StubAsync();
+
+        await GotoAsync($"/providers/{ProviderId}");
+        await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Delete provider", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Provider deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
     private Task StubAsync() =>
         Page.RouteAsync("**/api/admin/**", async route =>
         {
             string path = new Uri(route.Request.Url).AbsolutePath;
             string method = route.Request.Method;
 
+            if (Regex.IsMatch(path, @"/api/admin/providers/[^/]+/(enable|disable)$", RegexOptions.IgnoreCase) && method == "POST")
+            {
+                await FulfillJsonAsync(route, MockProvider());
+                return;
+            }
+            if (path == "/api/admin/providers" && method == "POST")
+            {
+                await FulfillJsonAsync(route, MockProvider());
+                return;
+            }
             if (Regex.IsMatch(path, @"/api/admin/providers/[^/]+$", RegexOptions.IgnoreCase) && method == "GET")
             {
                 await FulfillJsonAsync(route, MockProvider());

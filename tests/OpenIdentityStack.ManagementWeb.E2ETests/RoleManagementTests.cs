@@ -33,6 +33,38 @@ public sealed class RoleManagementTests : ManagementWebPageTest
         await Page.GetByText("read", new() { Exact = true }).First.WaitForAsync();
     }
 
+    [Fact]
+    public async Task OperatorCanCreateARole()
+    {
+        await StubAsync();
+
+        await GotoAsync("/roles");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Create role", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByLabel("Role name").FillAsync("ops-viewer");
+        await dialog.GetByLabel("Display name").FillAsync("Ops viewer");
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Create role", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Created Ops viewer", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanDeleteARole()
+    {
+        await StubAsync();
+
+        await GotoAsync("/roles");
+        await Page.GetByText("Operator", new() { Exact = true }).First.WaitForAsync();
+
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).First.ClickAsync();
+        await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Delete role", Exact = true }).ClickAsync();
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Delete role", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Role deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
     private Task StubAsync() =>
         Page.RouteAsync("**/api/admin/**", async route =>
         {
@@ -53,6 +85,20 @@ public sealed class RoleManagementTests : ManagementWebPageTest
             if (Regex.IsMatch(path, @"/api/admin/roles/[^/]+$", RegexOptions.IgnoreCase) && method == "GET")
             {
                 await FulfillJsonAsync(route, MockRole(detail: true));
+                return;
+            }
+            if (path == "/api/admin/roles" && method == "POST")
+            {
+                await FulfillJsonAsync(route, new
+                {
+                    id = "role-new-1",
+                    name = "ops-viewer",
+                    displayName = "Ops viewer",
+                    isSystemRole = false,
+                    isActive = true,
+                    description = (string?)null,
+                    permissions = Array.Empty<string>(),
+                });
                 return;
             }
             if (path.StartsWith("/api/admin/roles", StringComparison.OrdinalIgnoreCase) && method == "GET")

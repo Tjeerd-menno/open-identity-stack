@@ -53,6 +53,23 @@ public sealed class UserManagementTests : ManagementWebPageTest
         await Page.GetByText(new Regex("User status updated", RegexOptions.IgnoreCase)).WaitForAsync();
     }
 
+    [Fact]
+    public async Task OperatorCanCreateAUser()
+    {
+        await StubUsersApiAsync();
+
+        await GotoAsync("/users");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add user", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByLabel("Full name").FillAsync("Grace Hopper");
+        await dialog.GetByLabel("Email").FillAsync("grace.hopper@northwind.io");
+        await dialog.GetByLabel(new Regex("Temporary password", RegexOptions.IgnoreCase)).FillAsync("Temp1234!Temp");
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Create user", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Created Grace Hopper", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
     private Task StubUsersApiAsync() =>
         Page.RouteAsync("**/api/admin/**", async route =>
         {
@@ -107,6 +124,22 @@ public sealed class UserManagementTests : ManagementWebPageTest
             if (path.StartsWith("/api/admin/providers", StringComparison.OrdinalIgnoreCase) && method == "GET")
             {
                 await FulfillJsonAsync(route, Array.Empty<object>());
+                return;
+            }
+            if (path == "/api/admin/users" && method == "POST")
+            {
+                await FulfillJsonAsync(route, new
+                {
+                    id = "user-new-1",
+                    email = "grace.hopper@northwind.io",
+                    displayName = "Grace Hopper",
+                    status = "Active",
+                    createdAt = "2026-06-28T00:00:00Z",
+                    mfaEnabled = false,
+                    lastLoginAt = (string?)null,
+                    modifiedAt = (string?)null,
+                    profile = new { },
+                });
                 return;
             }
             if (path.StartsWith("/api/admin/users", StringComparison.OrdinalIgnoreCase) && method == "GET")

@@ -30,6 +30,37 @@ public sealed class GroupManagementTests : ManagementWebPageTest
         await Page.GetByText("Ada Lovelace").WaitForAsync();
     }
 
+    [Fact]
+    public async Task OperatorCanCreateAGroup()
+    {
+        await StubAsync();
+
+        await GotoAsync("/groups");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Create group", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByLabel("Group name").FillAsync("Engineering");
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Create group", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Created Engineering", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanAddAMemberToAGroup()
+    {
+        await StubAsync();
+
+        await GotoAsync($"/groups/{GroupId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Engineering", Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add members", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByText("Grace Hopper").WaitForAsync();
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Add", Exact = true }).First.ClickAsync();
+
+        await Page.GetByText(new Regex("Member added", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
     private Task StubAsync() =>
         Page.RouteAsync("**/api/admin/**", async route =>
         {
@@ -51,9 +82,26 @@ public sealed class GroupManagementTests : ManagementWebPageTest
                 await FulfillJsonAsync(route, MockGroup());
                 return;
             }
+            if (path == "/api/admin/groups" && method == "POST")
+            {
+                await FulfillJsonAsync(route, MockGroup());
+                return;
+            }
             if (path.StartsWith("/api/admin/groups", StringComparison.OrdinalIgnoreCase) && method == "GET")
             {
                 await FulfillJsonAsync(route, Paged(MockGroup()));
+                return;
+            }
+            if (path.StartsWith("/api/admin/users", StringComparison.OrdinalIgnoreCase) && method == "GET")
+            {
+                await FulfillJsonAsync(route, Paged(new
+                {
+                    id = "u-pick-1",
+                    email = "grace.hopper@northwind.io",
+                    displayName = "Grace Hopper",
+                    status = "Active",
+                    createdAt = "2026-06-01T00:00:00Z",
+                }));
                 return;
             }
             await NoContentAsync(route);

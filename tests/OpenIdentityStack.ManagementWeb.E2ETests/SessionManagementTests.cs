@@ -24,6 +24,22 @@ public sealed class SessionManagementTests : ManagementWebPageTest
         await Page.GetByLabel("Status").WaitForAsync();
     }
 
+    [Fact]
+    public async Task OperatorCanRevokeASession()
+    {
+        await StubAsync();
+
+        await GotoAsync("/sessions");
+        await Page.GetByText("192.0.2.14").WaitForAsync();
+
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).First.ClickAsync();
+        await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Revoke session", Exact = true }).ClickAsync();
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Revoke", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Session revoked", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
     private Task StubAsync() =>
         Page.RouteAsync("**/api/admin/**", async route =>
         {

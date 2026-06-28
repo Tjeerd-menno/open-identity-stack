@@ -23,6 +23,20 @@ public sealed class SettingsManagementTests : ManagementWebPageTest
         await Page.GetByText("Current configuration", new() { Exact = true }).WaitForAsync();
     }
 
+    [Fact]
+    public async Task OperatorCanToggleLocalFallback()
+    {
+        await StubAsync();
+
+        await GotoAsync("/providers/settings");
+        await Page.GetByText("Default sign-in", new() { Exact = true }).WaitForAsync();
+        // The Mantine Switch input is visually hidden; force the click.
+        await Page.GetByLabel(new Regex("Local password fallback", RegexOptions.IgnoreCase))
+            .ClickAsync(new LocatorClickOptions { Force = true });
+
+        await Page.GetByText(new Regex("Local fallback updated", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
     private Task StubAsync() =>
         Page.RouteAsync("**/api/admin/**", async route =>
         {

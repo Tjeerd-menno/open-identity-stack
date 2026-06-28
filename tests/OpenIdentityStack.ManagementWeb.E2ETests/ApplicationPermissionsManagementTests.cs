@@ -29,6 +29,28 @@ public sealed class ApplicationPermissionsManagementTests : ManagementWebPageTes
         await Page.GetByText("orders:read").WaitForAsync();
     }
 
+    [Fact]
+    public async Task OperatorCanRegisterAManifestManually()
+    {
+        await StubAsync();
+
+        await GotoAsync("/application-permissions");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Register application", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByText("Register manually").ClickAsync();
+        await dialog.GetByLabel("Application ID").FillAsync("orders-api");
+        await dialog.GetByLabel("Display name").FillAsync("Orders API");
+        await dialog.GetByLabel("Owner ID").FillAsync("platform-engineering");
+        await dialog.GetByLabel(new Regex("Permission key 1", RegexOptions.IgnoreCase)).FillAsync("orders:read");
+        await dialog.GetByLabel(new Regex("Permission name 1", RegexOptions.IgnoreCase)).FillAsync("Read orders");
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Register application", Exact = true }).ClickAsync();
+
+        // Registration navigates to the new application's permission detail page.
+        await Page.WaitForURLAsync(new Regex($"/application-permissions/{RegistrationId}$"));
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Orders API", Exact = true }).WaitForAsync();
+    }
+
     private Task StubAsync() =>
         Page.RouteAsync("**/api/admin/**", async route =>
         {
@@ -38,6 +60,11 @@ public sealed class ApplicationPermissionsManagementTests : ManagementWebPageTes
             if (Regex.IsMatch(path, @"/application-permissions/applications/[^/]+$", RegexOptions.IgnoreCase) && method == "GET")
             {
                 await FulfillJsonAsync(route, MockApp(detail: true));
+                return;
+            }
+            if (path.EndsWith("/application-permissions/applications", StringComparison.OrdinalIgnoreCase) && method == "POST")
+            {
+                await FulfillJsonAsync(route, new { id = RegistrationId });
                 return;
             }
             if (path.Contains("/application-permissions/applications", StringComparison.OrdinalIgnoreCase) && method == "GET")
