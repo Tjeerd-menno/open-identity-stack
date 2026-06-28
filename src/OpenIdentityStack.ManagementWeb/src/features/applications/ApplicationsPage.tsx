@@ -1,4 +1,5 @@
-import { Badge, Box, Group, Text, ThemeIcon } from '@mantine/core';
+import { Badge, Box, Button, Group, Text, ThemeIcon } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -15,6 +16,7 @@ import { Pager } from '@/components/ListControls';
 import { RowMenu } from '@/components/RowMenu';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/primitives';
+import { CreateApplicationModal } from './CreateApplicationModal';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
@@ -49,6 +51,7 @@ export function ApplicationsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [pendingDelete, setPendingDelete] = useState<ApplicationListItem | null>(null);
+  const [createOpened, createControls] = useDisclosure(false);
 
   const query = useQuery({
     queryKey: ['applications', { page, pageSize, search, profile, status }],
@@ -148,6 +151,13 @@ export function ApplicationsPage() {
       <PageHeader
         title="Applications"
         description="OAuth/OIDC software registrations that can sign users in or request tokens."
+        actions={
+          canWrite ? (
+            <Button leftSection={<Icon name="plus" size={16} />} onClick={createControls.open}>
+              Create application
+            </Button>
+          ) : undefined
+        }
       />
 
       <FilterToolbar
@@ -200,6 +210,7 @@ export function ApplicationsPage() {
         </>
       )}
 
+      {createOpened && <CreateApplicationModal onClose={createControls.close} />}
       <ConfirmModal
         opened={pendingDelete !== null}
         title="Delete application"
