@@ -25,6 +25,7 @@ import { Icon } from '@/components/Icon';
 import { DataTable, type Column } from '@/components/DataTable';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
+import { EditOAuthModal } from './EditOAuthModal';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
@@ -47,6 +48,7 @@ export function ApplicationDetailPage() {
   });
 
   const [addSecretOpened, addSecretControls] = useDisclosure(false);
+  const [editOAuthOpened, editOAuthControls] = useDisclosure(false);
   const [pendingRevoke, setPendingRevoke] = useState<ApplicationCredential | null>(null);
   const [confirmDelete, deleteControls] = useDisclosure(false);
 
@@ -149,14 +151,19 @@ export function ApplicationDetailPage() {
         badge={<StatusBadge status={app.status} />}
         actions={
           canWrite ? (
-            <Button
-              variant="default"
-              loading={toggleStatus.isPending}
-              leftSection={<Icon name={app.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
-              onClick={() => toggleStatus.mutate(app)}
-            >
-              {app.status === 'Disabled' ? 'Enable' : 'Disable'}
-            </Button>
+            <>
+              <Button variant="default" leftSection={<Icon name="pencil" size={16} />} onClick={editOAuthControls.open}>
+                Edit configuration
+              </Button>
+              <Button
+                variant="default"
+                loading={toggleStatus.isPending}
+                leftSection={<Icon name={app.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
+                onClick={() => toggleStatus.mutate(app)}
+              >
+                {app.status === 'Disabled' ? 'Enable' : 'Disable'}
+              </Button>
+            </>
           ) : undefined
         }
       />
@@ -291,6 +298,7 @@ export function ApplicationDetailPage() {
           onClose={addSecretControls.close}
         />
       )}
+      {editOAuthOpened && <EditOAuthModal app={app} onSaved={invalidateApp} onClose={editOAuthControls.close} />}
       <ConfirmModal
         opened={pendingRevoke !== null}
         title="Revoke credential"
