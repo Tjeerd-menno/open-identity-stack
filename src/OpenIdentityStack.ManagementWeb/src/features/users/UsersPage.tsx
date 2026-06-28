@@ -1,283 +1,234 @@
-import { Alert, Button, Group, Loader, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
+import { Avatar, Box, Button, Group, Modal, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router';
-import { EntityActionGroup } from '@/components/EntityActionMenu';
-import { FormSection } from '@/components/FormPrimitives';
-import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
-import { LoadingState, PageHeader, PageToolbar } from '@/components/PagePrimitives';
-import { listRoles } from '@/lib/admin-api';
-import { firstError, maxLength, minLength, required, validEmail } from '@/lib/form-validation';
+import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import type { UserListItem } from '@openidentitystack/admin-api-client';
+import { Icon } from '@/components/Icon';
+import { DataTable, type Column } from '@/components/DataTable';
+import { FilterToolbar } from '@/components/FilterToolbar';
+import { Pager } from '@/components/ListControls';
+import { RowMenu } from '@/components/RowMenu';
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { ErrorState, PageHeader, StatusBadge } from '@/components/primitives';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
-import { UserDetailsPanel } from './UserDetailsPanel';
-import { useCreateUserMutation } from './user-mutations';
-import { getUser, getUserGroups, getUserRoles, getUsers, getUserUpstreamIdentities, type UserListItem } from './users-api';
+import { formatRelativeTime, getInitials } from '@/lib/format';
 
-type UsersPageProps = {
-  permissions?: string[];
-};
-
-export function UsersPage({ permissions = ['*'] }: UsersPageProps) {
-  const location = useLocation();
+export function UsersPage() {
+  const auth = useAuth();
   const navigate = useNavigate();
-  const { id } = useParams();
-  const pathUserId = getUserIdFromPath(location.pathname);
-  const selectedUserId = pathUserId ?? (id === 'create' ? undefined : id) ?? '';
+  const queryClient = useQueryClient();
+  const canWrite = hasPermission(auth.permissions, 'users:write');
   const [search, setSearch] = useState('');
-  const [submittedSearch, setSubmittedSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const searchMounted = useRef(false);
-  const createUser = useCreateUserMutation();
-  const createForm = useForm({
-    mode: 'controlled',
-    validateInputOnBlur: true,
-    initialValues: {
-      email: '',
-      displayName: '',
-      password: '',
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [createOpened, createControls] = useDisclosure(false);
+  const [pendingDelete, setPendingDelete] = useState<UserListItem | null>(null);
+
+  const query = useQuery({
+    queryKey: ['users', { page, pageSize, search }],
+    queryFn: () => api.users.getUsers({ page, pageSize, search: search || undefined }),
+  });
+
+  const setStatus = useMutation({
+    mutationFn: (user: UserListItem) =>
+      user.status === 'Disabled'
+        ? api.users.enableUser(user.id)
+        : api.users.disableUser(user.id, { reason: 'Disabled from Management Web' }),
+    onSuccess: () => {
+      notifications.show({ message: 'User status updated', color: 'green' });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
     },
-    validate: {
-      email: (value) => firstError(
-        required(value, 'Email is required.'),
-        validEmail(value),
-        maxLength(value, 256, 'Email')
-      ),
-      displayName: (value) => firstError(
-        required(value, 'Display name is required.'),
-        maxLength(value, 200, 'Display name')
-      ),
-      password: (value) => firstError(
-        required(value, 'Password is required.'),
-        minLength(value, 8, 'Password'),
-        maxLength(value, 256, 'Password')
-      ),
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  const deleteUser = useMutation({
+    mutationFn: (user: UserListItem) => api.users.deleteUser(user.id),
+    onSuccess: () => {
+      notifications.show({ message: 'User deleted', color: 'green' });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+      setPendingDelete(null);
     },
-  });
-  const canWriteUsers = hasPermission(permissions, 'users:write');
-  const canDisableUsers = hasPermission(permissions, 'users:disable');
-  const canDeleteUsers = hasPermission(permissions, 'users:delete');
-  const canResetUserPasswords = hasPermission(permissions, 'users:reset-password');
-  const canAssignRoles = hasPermission(permissions, 'roles:assign');
-  const canReadGroups = hasPermission(permissions, 'groups:read');
-  const users = useQuery({
-    queryKey: ['users', 'list', submittedSearch, currentPage],
-    queryFn: () => getUsers({ page: currentPage, pageSize: 20, search: submittedSearch || undefined }),
-    enabled: !selectedUserId,
-  });
-  const details = useQuery({
-    queryKey: ['users', selectedUserId],
-    queryFn: () => getUser(selectedUserId),
-    enabled: !!selectedUserId,
-  });
-  const roles = useQuery({
-    queryKey: ['roles', 'list'],
-    queryFn: () => listRoles(),
-    enabled: !!selectedUserId,
-  });
-  const assignedRoles = useQuery({
-    queryKey: ['users', selectedUserId, 'roles'],
-    queryFn: () => getUserRoles(selectedUserId),
-    enabled: !!selectedUserId,
-  });
-  const groups = useQuery({
-    queryKey: ['users', selectedUserId, 'groups'],
-    queryFn: () => getUserGroups(selectedUserId),
-    enabled: !!selectedUserId && canReadGroups,
-  });
-  const upstreamIdentities = useQuery({
-    queryKey: ['users', selectedUserId, 'upstream-identities'],
-    queryFn: () => getUserUpstreamIdentities(selectedUserId),
-    enabled: !!selectedUserId,
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
 
-  useEffect(() => {
-    if (selectedUserId) {
-      return;
-    }
-
-    if (!searchMounted.current) {
-      searchMounted.current = true;
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setSubmittedSearch(search);
-      setCurrentPage(1);
-    }, 300);
-
-    return () => window.clearTimeout(timer);
-  }, [search, selectedUserId]);
-
-  if (selectedUserId) {
-    return (
-      <Stack gap="lg" role="region" aria-label="User detail page">
-        <PageHeader
-          title="User details"
-          description={selectedUserId}
-          actions={<Button variant="default" onClick={() => navigate('/users')}>Back to Users</Button>}
-        />
-        {(details.isLoading
-          || roles.isLoading
-          || assignedRoles.isLoading
-          || (canReadGroups && groups.isLoading)
-          || upstreamIdentities.isLoading)
-          && <Loader aria-label="Loading user details" />}
-        {(details.isError || roles.isError || assignedRoles.isError || groups.isError || upstreamIdentities.isError) && (
-          <Alert color="red">Unable to load user details.</Alert>
-        )}
-        {details.data && roles.data && assignedRoles.data && upstreamIdentities.data && (!canReadGroups || groups.data) && (
-          <UserDetailsPanel
-            user={details.data}
-            availableRoles={roles.data.items}
-            assignedRoles={assignedRoles.data}
-            groups={groups.data ?? []}
-            upstreamIdentities={upstreamIdentities.data}
-            canUpdate={canWriteUsers}
-            canDisable={canDisableUsers}
-            canDelete={canDeleteUsers}
-            canResetPassword={canResetUserPasswords}
-            canAssignRoles={canAssignRoles}
-            canReadGroups={canReadGroups}
-          />
-        )}
-      </Stack>
-    );
-  }
-
-  if (users.isLoading) {
-    return (
-      <LoadingState
-        label="Loading users"
-        title="Loading users"
-        description="Retrieving user accounts and assignment summaries."
-      />
-    );
-  }
-
-  if (users.isError) {
-    return <Alert color="red">Unable to load users.</Alert>;
-  }
-
-  const userItems = users.data?.items ?? [];
-  const userColumns: FoundationColumn<UserListItem>[] = [
+  const columns: Column<UserListItem>[] = [
     {
+      key: 'user',
       header: 'User',
-      cell: (user: UserListItem) => (
-        <Stack gap={2}>
-          <Button variant="subtle" onClick={() => navigate(`/users/${user.id}`)}>
-            {user.displayName}
-          </Button>
-          <Text size="sm" c="dimmed">
-            {user.email}
-          </Text>
-        </Stack>
+      render: (user) => (
+        <Group gap="sm" wrap="nowrap">
+          <Avatar color="blue" name={user.displayName} size={36} radius="xl">
+            {getInitials(user.displayName)}
+          </Avatar>
+          <Box style={{ minWidth: 0 }}>
+            <Text fw={600} size="sm" truncate>
+              {user.displayName}
+            </Text>
+            <Text c="dimmed" size="xs" truncate>
+              {user.email}
+            </Text>
+          </Box>
+        </Group>
+      ),
+    },
+    { key: 'status', header: 'Status', render: (user) => <StatusBadge status={user.status} /> },
+    {
+      key: 'created',
+      header: 'Created',
+      render: (user) => (
+        <Text c="dimmed" size="sm">
+          {formatRelativeTime(user.createdAt)}
+        </Text>
       ),
     },
     {
-      header: 'Status',
-      accessorKey: 'status' as const,
-    },
-    {
-      header: 'Actions',
+      key: 'actions',
+      header: '',
       align: 'right',
-      cell: (user) => (
-        <EntityActionGroup
-          actions={[
-            { label: `View ${user.displayName}`, onClick: () => navigate(`/users/${user.id}`) },
-            ...(canWriteUsers ? [{ label: `Edit ${user.displayName}`, onClick: () => navigate(`/users/${user.id}/edit`) }] : []),
+      width: 48,
+      render: (user) => (
+        <RowMenu
+          items={[
+            { label: 'Open', icon: 'arrow-up-right', onClick: () => navigate(`/users/${user.id}`) },
+            {
+              label: user.status === 'Disabled' ? 'Enable user' : 'Disable user',
+              icon: 'ban',
+              disabled: !canWrite,
+              onClick: () => setStatus.mutate(user),
+            },
+            { separator: true },
+            { label: 'Delete user', icon: 'trash-2', danger: true, disabled: !canWrite, onClick: () => setPendingDelete(user) },
           ]}
         />
       ),
     },
   ];
 
-  const submitCreateUser = async (values: typeof createForm.values) => {
-    setCreateError(null);
-    try {
-      await createUser.mutateAsync({
-        email: values.email.trim(),
-        displayName: values.displayName.trim(),
-        password: values.password,
-      });
-      setShowCreateForm(false);
-      createForm.reset();
-    } catch (mutationError) {
-      setCreateError(mutationError instanceof Error ? mutationError.message : 'Unable to create user.');
-    }
-  };
-
   return (
-    <Stack gap="lg">
+    <div>
       <PageHeader
         title="Users"
-        description="Operate user accounts, status, and role assignment from Management Web."
-        actions={canWriteUsers && (
-          <Button onClick={() => setShowCreateForm((value) => !value)}>
-            Create user
-          </Button>
-        )}
+        description="Accounts, status, roles, groups and the upstream identities you administer."
+        actions={
+          canWrite ? (
+            <Button leftSection={<Icon name="user-plus" size={16} />} onClick={createControls.open}>
+              Add user
+            </Button>
+          ) : undefined
+        }
       />
-      {!canWriteUsers && <Alert color="yellow">Read-only access. You do not have permission to modify users.</Alert>}
-      <PageToolbar
-        searchLabel="Search users"
-        searchPlaceholder="Search by email or display name..."
-        searchValue={search}
-        resultCount={users.data?.totalCount}
-        onSearchChange={setSearch}
-        onClear={() => {
-          setSearch('');
-          setSubmittedSearch('');
-          setCurrentPage(1);
+
+      <FilterToolbar
+        noun="users"
+        search={search}
+        onSearch={(value) => {
+          setSearch(value);
+          setPage(1);
         }}
+        rows={pageSize}
+        onRows={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+        count={query.data?.totalCount}
       />
-      {showCreateForm && (
-        <FormSection title="Create user" description="Create a Management Web user account with an initial password.">
-          <form noValidate onSubmit={createForm.onSubmit((values) => void submitCreateUser(values))}>
-            <Stack gap="sm">
-              <TextInput aria-label="Email" label="Email" required {...createForm.getInputProps('email')} />
-              <TextInput label="New display name" required {...createForm.getInputProps('displayName')} />
-              <PasswordInput aria-label="Password" label="Password" required {...createForm.getInputProps('password')} />
-              <Group justify="flex-end">
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setCreateError(null);
-                    createForm.reset();
-                  }}
-                >
-                  Close
-                </Button>
-                <Button type="submit" loading={createUser.isPending}>
-                  Save new user
-                </Button>
-              </Group>
-              {createError && <Alert color="red">{createError}</Alert>}
-            </Stack>
-          </form>
-        </FormSection>
+
+      {query.isError ? (
+        <ErrorState message={getApiErrorMessage(query.error)} />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={query.data?.items ?? []}
+            getRowKey={(user) => user.id}
+            onRowClick={(user) => navigate(`/users/${user.id}`)}
+            isLoading={query.isLoading}
+            emptyIcon="users"
+            emptyTitle="No users found"
+            emptyText="Adjust your search or add a user."
+          />
+          <Pager
+            page={page}
+            pageSize={pageSize}
+            totalCount={query.data?.totalCount ?? 0}
+            totalPages={query.data?.totalPages ?? 0}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
+        </>
       )}
-      <FoundationTable
-        columns={userColumns}
-        data={userItems}
-        emptyMessage="No users found"
-        pagination={users.data ? {
-          page: users.data.page,
-          pageSize: users.data.pageSize,
-          totalCount: users.data.totalCount,
-          totalPages: users.data.totalPages,
-          onPageChange: setCurrentPage,
-        } : undefined}
+
+      {createOpened && <CreateUserModal onClose={createControls.close} />}
+      <ConfirmModal
+        opened={pendingDelete !== null}
+        title="Delete user"
+        message={`Permanently delete ${pendingDelete?.displayName ?? 'this user'}? This cannot be undone.`}
+        confirmLabel="Delete user"
+        loading={deleteUser.isPending}
+        onConfirm={() => pendingDelete && deleteUser.mutate(pendingDelete)}
+        onClose={() => setPendingDelete(null)}
       />
-    </Stack>
+    </div>
   );
 }
 
-function getUserIdFromPath(pathname: string) {
-  const userId = /^\/users\/([^/]+)$/.exec(pathname)?.[1];
-  return userId && userId !== 'create' ? userId : undefined;
+function CreateUserModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const form = useForm({
+    initialValues: { email: '', displayName: '', password: '' },
+    validate: {
+      email: (value) => (/^\S+@\S+\.\S+$/.test(value) ? null : 'Enter a valid email'),
+      displayName: (value) => (value.trim().length > 0 ? null : 'Required'),
+      password: (value) => (value.length >= 12 ? null : 'Use at least 12 characters'),
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (values: typeof form.values) => api.users.createUser(values),
+    onSuccess: (user) => {
+      notifications.show({ message: `Created ${user.displayName}`, color: 'green' });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+      onClose();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  return (
+    <Modal opened onClose={onClose} title="Add user" centered>
+      <form onSubmit={form.onSubmit((values) => mutation.mutate(values))}>
+        <Stack gap="md">
+          <TextInput label="Full name" placeholder="Grace Hopper" required {...form.getInputProps('displayName')} />
+          <TextInput
+            label="Email"
+            placeholder="grace.hopper@example.com"
+            leftSection={<Icon name="mail" size={16} />}
+            required
+            {...form.getInputProps('email')}
+          />
+          <PasswordInput
+            label="Temporary password"
+            description="The user should change this at first sign-in."
+            required
+            {...form.getInputProps('password')}
+          />
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button variant="default" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={mutation.isPending}>
+              Create user
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
+  );
 }

@@ -1,129 +1,87 @@
-import {
-  Alert,
-  Badge,
-  Button,
-  Group,
-  Modal,
-  NativeSelect,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-} from '@mantine/core';
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { EntityActionGroup } from '@/components/EntityActionMenu';
-import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
-import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
-import { getApiErrorMessage } from '@/lib/admin-api';
+import { Badge, Box, Button, Group, Modal, Stack, Text, TextInput, Textarea, ThemeIcon } from '@mantine/core';
+import { useForm } from '@mantine/form';
+import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import type { GroupListItem } from '@openidentitystack/admin-api-client';
+import { Icon } from '@/components/Icon';
+import { DataTable, type Column } from '@/components/DataTable';
+import { FilterToolbar } from '@/components/FilterToolbar';
+import { Pager } from '@/components/ListControls';
+import { RowMenu } from '@/components/RowMenu';
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { ErrorState, PageHeader } from '@/components/primitives';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
-import { getRoles, type RoleListItem } from '@/features/roles/roles-api';
-import { getUsers, type UserListItem } from '@/features/users/users-api';
-import { GroupForm } from './GroupForm';
-import {
-  useAddGroupMapping,
-  useAddGroupMember,
-  useCreateGroup,
-  useDeleteGroup,
-  useGroup,
-  useGroupMappings,
-  useGroupMembers,
-  useGroups,
-  useRemoveGroupMapping,
-  useRemoveGroupMember,
-  useUpdateGroup,
-} from './groups-hooks';
-import type { AddGroupMappingRequest, GroupListItem, GroupMapping, GroupMember } from './groups-api';
 
-const pageSize = 20;
-
-type GroupsPageProps = {
-  permissions?: string[];
-};
-
-export function GroupsPage({ permissions = ['*'] }: GroupsPageProps) {
-  const location = useLocation();
-  const { id } = useParams();
-  const pathGroupId = getGroupIdFromPath(location.pathname);
-
-  if (location.pathname.endsWith('/new')) {
-    return <CreateGroupView permissions={permissions} />;
-  }
-
-  if (location.pathname.endsWith('/edit') && (id || pathGroupId)) {
-    return <EditGroupView groupId={id ?? pathGroupId ?? ''} />;
-  }
-
-  if (id || pathGroupId) {
-    return <GroupDetailView groupId={id ?? pathGroupId ?? ''} permissions={permissions} />;
-  }
-
-  return <GroupListView permissions={permissions} />;
-}
-
-function getGroupIdFromPath(pathname: string) {
-  const editMatch = /^\/groups\/([^/]+)\/edit$/.exec(pathname);
-  if (editMatch) {
-    return editMatch[1];
-  }
-
-  return /^\/groups\/([^/]+)$/.exec(pathname)?.[1];
-}
-
-function GroupListView({ permissions }: Required<GroupsPageProps>) {
+export function GroupsPage() {
+  const auth = useAuth();
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
+  const queryClient = useQueryClient();
+  const canWrite = hasPermission(auth.permissions, 'groups:write');
   const [search, setSearch] = useState('');
-  const [submittedSearch, setSubmittedSearch] = useState('');
-  const [groupToDelete, setGroupToDelete] = useState<GroupListItem | null>(null);
-  const searchMounted = useRef(false);
-  const groups = useGroups({ page, pageSize, search: submittedSearch || undefined });
-  const deleteGroup = useDeleteGroup(groupToDelete?.id ?? '');
-  const canWrite = hasPermission(permissions, 'groups:write');
-  const canDelete = hasPermission(permissions, 'groups:delete');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [createOpened, createControls] = useDisclosure(false);
+  const [pendingDelete, setPendingDelete] = useState<GroupListItem | null>(null);
 
-  useEffect(() => {
-    if (!searchMounted.current) {
-      searchMounted.current = true;
-      return;
-    }
+  const query = useQuery({
+    queryKey: ['groups', { page, pageSize, search }],
+    queryFn: () => api.groups.getGroups({ page, pageSize, search: search || undefined }),
+  });
 
-    const timer = window.setTimeout(() => {
-      setSubmittedSearch(search);
-      setPage(1);
-    }, 300);
+  const remove = useMutation({
+    mutationFn: (group: GroupListItem) => api.groups.deleteGroup(group.id),
+    onSuccess: () => {
+      notifications.show({ message: 'Group deleted', color: 'green' });
+      void queryClient.invalidateQueries({ queryKey: ['groups'] });
+      setPendingDelete(null);
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
 
-    return () => window.clearTimeout(timer);
-  }, [search]);
-
-  const columns: FoundationColumn<GroupListItem>[] = [
-    { header: 'Name', accessorKey: 'name' },
+  const columns: Column<GroupListItem>[] = [
     {
-      header: 'Description',
-      cell: (group) => group.description ?? '',
+      key: 'group',
+      header: 'Group',
+      render: (group) => (
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon color="blue" radius="md" size={36} variant="light">
+            <Icon name="users-round" size={18} />
+          </ThemeIcon>
+          <Box style={{ minWidth: 0 }}>
+            <Text fw={600} size="sm">{group.name}</Text>
+            <Text c="dimmed" size="xs" lineClamp={1}>{group.description ?? '—'}</Text>
+          </Box>
+        </Group>
+      ),
     },
     {
+      key: 'members',
       header: 'Members',
-      cell: (group) => <Badge variant="light">{group.memberCount ?? 0}</Badge>,
-    },
-    {
-      header: 'Mappings',
-      cell: (group) => <Badge variant="light">{group.mappingCount ?? 0}</Badge>,
-    },
-    {
-      header: 'Created',
-      cell: (group) => new Date(group.createdAt).toLocaleDateString(),
-    },
-    {
-      header: 'Actions',
       align: 'right',
-      cell: (group) => (
-        <EntityActionGroup
-          actions={[
-            { label: `View ${group.name}`, onClick: () => navigate(`/groups/${group.id}`) },
-            ...(canWrite ? [{ label: `Edit ${group.name}`, onClick: () => navigate(`/groups/${group.id}/edit`) }] : []),
-            ...(canDelete ? [{ label: `Delete ${group.name}`, color: 'red' as const, onClick: () => setGroupToDelete(group) }] : []),
+      render: (group) => <Badge color="blue" variant="light">{group.memberCount ?? 0}</Badge>,
+    },
+    {
+      key: 'mappings',
+      header: 'Mappings',
+      align: 'right',
+      render: (group) => <Text c="dimmed" size="sm">{group.mappingCount ?? 0}</Text>,
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      width: 48,
+      render: (group) => (
+        <RowMenu
+          items={[
+            { label: 'Open', icon: 'arrow-up-right', onClick: () => navigate(`/groups/${group.id}`) },
+            { separator: true },
+            { label: 'Delete group', icon: 'trash-2', danger: true, disabled: !canWrite, onClick: () => setPendingDelete(group) },
           ]}
         />
       ),
@@ -131,487 +89,94 @@ function GroupListView({ permissions }: Required<GroupsPageProps>) {
   ];
 
   return (
-    <Stack gap="lg">
+    <div>
       <PageHeader
         title="Groups"
-        description="Manage group memberships and role or claim mappings."
-        actions={canWrite && <Button onClick={() => navigate('/groups/new')}>New group</Button>}
-      />
-
-      {(!canWrite || !canDelete) && <Alert color="blue">Read-only access. Some group actions require additional permissions.</Alert>}
-
-      <PageToolbar
-        searchLabel="Search groups"
-        searchPlaceholder="Search groups by name or description..."
-        searchValue={search}
-        resultCount={groups.data?.totalCount}
-        onSearchChange={setSearch}
-        onClear={() => {
-          setSearch('');
-          setSubmittedSearch('');
-          setPage(1);
-        }}
-      />
-
-      <FoundationTable
-        columns={columns}
-        data={groups.data?.items ?? []}
-        isLoading={groups.isLoading}
-        error={groups.isError ? getApiErrorMessage(groups.error) : null}
-        emptyMessage="No groups found"
-        pagination={{
-          page,
-          pageSize,
-          totalCount: groups.data?.totalCount ?? 0,
-          totalPages: groups.data?.totalPages ?? 0,
-          onPageChange: setPage,
-        }}
-      />
-
-      <ConfirmDialog
-        opened={groupToDelete !== null}
-        onOpenChange={(opened) => !opened && setGroupToDelete(null)}
-        title="Delete group"
-        message={`Delete ${groupToDelete?.name}? This action cannot be undone and will remove members and mappings.`}
-        confirmLabel={`Delete ${groupToDelete?.name ?? 'group'}`}
-        loading={deleteGroup.isPending}
-        onConfirm={async () => {
-          await deleteGroup.mutateAsync();
-          setGroupToDelete(null);
-        }}
-      />
-    </Stack>
-  );
-}
-
-function CreateGroupView({ permissions }: Required<GroupsPageProps>) {
-  const navigate = useNavigate();
-  const createGroup = useCreateGroup();
-
-  if (!hasPermission(permissions, 'groups:write')) {
-    return <Alert color="blue">Read-only access. Group changes require groups:write.</Alert>;
-  }
-
-  return (
-    <Stack gap="lg">
-      <div>
-        <Title order={1}>Create group</Title>
-        <Text c="dimmed">Create a new group for membership and mappings.</Text>
-      </div>
-      <GroupForm
-        mode="create"
-        loading={createGroup.isPending}
-        error={createGroup.error}
-        onCancel={() => navigate('/groups')}
-        onSubmit={async (data) => {
-          const group = await createGroup.mutateAsync(data);
-          navigate(`/groups/${group.id}`);
-        }}
-      />
-    </Stack>
-  );
-}
-
-function EditGroupView({ groupId }: { groupId: string }) {
-  const navigate = useNavigate();
-  const group = useGroup(groupId);
-  const updateGroup = useUpdateGroup(groupId);
-
-  if (group.isLoading) {
-    return <Text>Loading group</Text>;
-  }
-
-  if (group.isError) {
-    return <Alert color="red">{getApiErrorMessage(group.error)}</Alert>;
-  }
-
-  if (!group.data) {
-    return <Alert color="red">Group not found.</Alert>;
-  }
-
-  return (
-    <Stack gap="lg">
-      <div>
-        <Title order={1}>Edit group</Title>
-        <Text c="dimmed">{group.data.name}</Text>
-      </div>
-      <GroupForm
-        mode="edit"
-        group={group.data}
-        loading={updateGroup.isPending}
-        error={updateGroup.error}
-        onCancel={() => navigate(`/groups/${groupId}`)}
-        onSubmit={async (data) => {
-          await updateGroup.mutateAsync(data);
-          navigate(`/groups/${groupId}`);
-        }}
-      />
-    </Stack>
-  );
-}
-
-function GroupDetailView({ groupId, permissions }: { groupId: string; permissions: string[] }) {
-  const navigate = useNavigate();
-  const group = useGroup(groupId);
-  const deleteGroup = useDeleteGroup(groupId);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const canWrite = hasPermission(permissions, 'groups:write');
-  const canDelete = hasPermission(permissions, 'groups:delete');
-  const canManageMembers = hasPermission(permissions, 'groups:manage-members');
-
-  if (group.isLoading) {
-    return <Text>Loading group</Text>;
-  }
-
-  if (group.isError) {
-    return <Alert color="red">{getApiErrorMessage(group.error)}</Alert>;
-  }
-
-  if (!group.data) {
-    return <Alert color="red">Group not found.</Alert>;
-  }
-
-  return (
-    <Stack gap="lg" role="region" aria-label="Group details">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>{group.data.name}</Title>
-          {group.data.description && <Text c="dimmed">{group.data.description}</Text>}
-        </div>
-        <Group>
-          {canWrite && <Button onClick={() => navigate(`/groups/${groupId}/edit`)}>Edit group</Button>}
-          {canDelete && (
-            <Button color="red" variant="light" onClick={() => setConfirmDelete(true)}>
-              Delete group
+        description="Collections of users with shared role delegations and external mappings."
+        actions={
+          canWrite ? (
+            <Button leftSection={<Icon name="plus" size={16} />} onClick={createControls.open}>
+              Create group
             </Button>
-          )}
-        </Group>
-      </Group>
-
-      <section aria-label="Group metadata">
-        <Title order={2} size="h3">Group information</Title>
-        <Stack gap={4} mt="sm">
-          <Text size="sm">Group ID: {group.data.id}</Text>
-          <Text size="sm">Members: {group.data.memberCount ?? 0}</Text>
-          <Text size="sm">Mappings: {group.data.mappingCount ?? 0}</Text>
-          <Text size="sm">Created: {new Date(group.data.createdAt).toLocaleString()}</Text>
-        </Stack>
-      </section>
-
-      <GroupMembersSection groupId={groupId} canManageMembers={canManageMembers} />
-      <GroupMappingsSection groupId={groupId} canWrite={canWrite} />
-
-      <ConfirmDialog
-        opened={confirmDelete}
-        onOpenChange={setConfirmDelete}
-        title="Delete group"
-        message={`Delete ${group.data.name}? This action cannot be undone and will remove members and mappings.`}
-        confirmLabel={`Delete ${group.data.name}`}
-        loading={deleteGroup.isPending}
-        onConfirm={async () => {
-          await deleteGroup.mutateAsync();
-          navigate('/groups');
-        }}
-      />
-    </Stack>
-  );
-}
-
-function GroupMembersSection({ groupId, canManageMembers }: { groupId: string; canManageMembers: boolean }) {
-  const members = useGroupMembers(groupId);
-  const addMember = useAddGroupMember(groupId);
-  const removeMember = useRemoveGroupMember(groupId);
-  const [addOpen, setAddOpen] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<GroupMember | null>(null);
-
-  return (
-    <section aria-label="Group members">
-      <Group justify="space-between" align="center">
-        <Title order={2} size="h3">Members ({members.data?.items.length ?? 0})</Title>
-        {canManageMembers && <Button size="sm" onClick={() => setAddOpen(true)}>Add member</Button>}
-      </Group>
-
-      {members.isLoading && <Text c="dimmed">Loading members</Text>}
-      {members.isError && <Alert color="red">{getApiErrorMessage(members.error)}</Alert>}
-      {!members.isLoading && (members.data?.items.length ?? 0) === 0 && <Text c="dimmed">No members in this group</Text>}
-      <Stack gap="xs" mt="sm">
-        {(members.data?.items ?? []).map((member) => (
-          <Group key={member.userId} justify="space-between">
-            <div>
-              <Text fw={500}>{member.displayName}</Text>
-              <Text size="sm" c="dimmed">{member.email}</Text>
-            </div>
-            {canManageMembers && (
-              <Button
-                size="xs"
-                variant="subtle"
-                color="red"
-                aria-label={`Remove member ${member.displayName}`}
-                onClick={() => setMemberToRemove(member)}
-              >
-                Remove
-              </Button>
-            )}
-          </Group>
-        ))}
-      </Stack>
-
-      <AddMemberDialog
-        opened={addOpen}
-        loading={addMember.isPending}
-        onOpenChange={setAddOpen}
-        onSubmit={async (userId) => {
-          await addMember.mutateAsync(userId);
-          setAddOpen(false);
-        }}
+          ) : undefined
+        }
       />
 
-      <ConfirmDialog
-        opened={memberToRemove !== null}
-        onOpenChange={(opened) => !opened && setMemberToRemove(null)}
-        title="Remove member"
-        message={`Remove ${memberToRemove?.displayName ?? 'this member'} from the group?`}
-        confirmLabel="Remove member"
-        loading={removeMember.isPending}
-        onConfirm={async () => {
-          await removeMember.mutateAsync(memberToRemove?.userId ?? '');
-          setMemberToRemove(null);
-        }}
-      />
-    </section>
-  );
-}
-
-function GroupMappingsSection({ groupId, canWrite }: { groupId: string; canWrite: boolean }) {
-  const mappings = useGroupMappings(groupId);
-  const addMapping = useAddGroupMapping(groupId);
-  const removeMapping = useRemoveGroupMapping(groupId);
-  const [addOpen, setAddOpen] = useState(false);
-  const [mappingToRemove, setMappingToRemove] = useState<GroupMapping | null>(null);
-
-  return (
-    <section aria-label="Group mappings">
-      <Group justify="space-between" align="center">
-        <Title order={2} size="h3">Mappings ({mappings.data?.items.length ?? 0})</Title>
-        {canWrite && <Button size="sm" onClick={() => setAddOpen(true)}>Add mapping</Button>}
-      </Group>
-
-      {mappings.isLoading && <Text c="dimmed">Loading mappings</Text>}
-      {mappings.isError && <Alert color="red">{getApiErrorMessage(mappings.error)}</Alert>}
-      {!mappings.isLoading && (mappings.data?.items.length ?? 0) === 0 && <Text c="dimmed">No mappings configured for this group</Text>}
-      <Stack gap="xs" mt="sm">
-        {(mappings.data?.items ?? []).map((mapping) => (
-          <Group key={mapping.id} justify="space-between">
-            <Group gap="xs">
-              <Badge variant="light">{mapping.type}</Badge>
-              <Text ff="monospace" size="sm">{mapping.value}</Text>
-            </Group>
-            {canWrite && (
-              <Button
-                size="xs"
-                variant="subtle"
-                color="red"
-                aria-label={`Remove mapping ${mapping.value}`}
-                onClick={() => setMappingToRemove(mapping)}
-              >
-                Remove
-              </Button>
-            )}
-          </Group>
-        ))}
-      </Stack>
-
-      <AddMappingDialog
-        opened={addOpen}
-        loading={addMapping.isPending}
-        onOpenChange={setAddOpen}
-        onSubmit={async (data) => {
-          await addMapping.mutateAsync(data);
-          setAddOpen(false);
-        }}
+      <FilterToolbar
+        noun="groups"
+        search={search}
+        onSearch={(value) => { setSearch(value); setPage(1); }}
+        rows={pageSize}
+        onRows={(size) => { setPageSize(size); setPage(1); }}
+        count={query.data?.totalCount}
       />
 
-      <ConfirmDialog
-        opened={mappingToRemove !== null}
-        onOpenChange={(opened) => !opened && setMappingToRemove(null)}
-        title="Remove mapping"
-        message={`Remove mapping ${mappingToRemove?.value ?? ''}?`}
-        confirmLabel="Remove mapping"
-        loading={removeMapping.isPending}
-        onConfirm={async () => {
-          await removeMapping.mutateAsync(mappingToRemove?.id ?? '');
-          setMappingToRemove(null);
-        }}
-      />
-    </section>
-  );
-}
-
-function AddMemberDialog({
-  opened,
-  loading,
-  onOpenChange,
-  onSubmit,
-}: {
-  opened: boolean;
-  loading: boolean;
-  onOpenChange: (opened: boolean) => void;
-  onSubmit: (userId: string) => Promise<void>;
-}) {
-  const [selectedUserId, setSelectedUserId] = useState('');
-  const [users, setUsers] = useState<UserListItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!opened) {
-      return;
-    }
-
-    let cancelled = false;
-    getUsers({ page: 1, pageSize: 100 })
-      .then((response) => {
-        if (!cancelled) {
-          setUsers(response.items);
-        }
-      })
-      .catch((unknownError) => {
-        if (!cancelled) {
-          setError(getApiErrorMessage(unknownError));
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [opened]);
-
-  return (
-    <Modal opened={opened} onClose={() => onOpenChange(false)} title="Add member" centered>
-      <Stack gap="md">
-        {error && <Alert color="red">{error}</Alert>}
-        <NativeSelect
-          label="Select user"
-          value={selectedUserId}
-          onChange={(event) => setSelectedUserId(event.currentTarget.value)}
-          data={[
-            { value: '', label: 'Select a user...' },
-            ...users.map((user) => ({ value: user.id, label: `${user.displayName} (${user.email})` })),
-          ]}
-        />
-        <Group justify="flex-end">
-          <Button variant="default" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={!selectedUserId} loading={loading} onClick={() => void onSubmit(selectedUserId)}>
-            Add member
-          </Button>
-        </Group>
-      </Stack>
-    </Modal>
-  );
-}
-
-function AddMappingDialog({
-  opened,
-  loading,
-  onOpenChange,
-  onSubmit,
-}: {
-  opened: boolean;
-  loading: boolean;
-  onOpenChange: (opened: boolean) => void;
-  onSubmit: (data: AddGroupMappingRequest) => Promise<void>;
-}) {
-  const [type, setType] = useState<'Role' | 'Claim' | ''>('');
-  const [value, setValue] = useState('');
-  const [roles, setRoles] = useState<RoleListItem[]>([]);
-  const [rolesLoading, setRolesLoading] = useState(false);
-  const [rolesError, setRolesError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!opened || type !== 'Role') {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function loadRoles() {
-      setRolesLoading(true);
-      setRolesError(null);
-
-      try {
-        const response = await getRoles({ page: 1, pageSize: 100 });
-        if (!cancelled) {
-          setRoles(response.items);
-        }
-      } catch (unknownError) {
-        if (!cancelled) {
-          setRolesError(getApiErrorMessage(unknownError));
-        }
-      } finally {
-        if (!cancelled) {
-          setRolesLoading(false);
-        }
-      }
-    }
-
-    void loadRoles();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [opened, type]);
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!type || !value.trim()) {
-      return;
-    }
-
-    void onSubmit({ type, value: value.trim() });
-  }
-
-  return (
-    <Modal opened={opened} onClose={() => onOpenChange(false)} title="Add mapping" centered>
-      <form onSubmit={handleSubmit}>
-        <Stack gap="md">
-          <NativeSelect
-            label="Mapping type"
-            value={type}
-            onChange={(event) => {
-              setType(event.currentTarget.value as 'Role' | 'Claim' | '');
-              setValue('');
-            }}
-            data={[
-              { value: '', label: 'Select type...' },
-              { value: 'Role', label: 'Role' },
-              { value: 'Claim', label: 'Claim' },
-            ]}
+      {query.isError ? (
+        <ErrorState message={getApiErrorMessage(query.error)} />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={query.data?.items ?? []}
+            getRowKey={(group) => group.id}
+            onRowClick={(group) => navigate(`/groups/${group.id}`)}
+            isLoading={query.isLoading}
+            emptyIcon="users-round"
+            emptyTitle="No groups"
+            emptyText="Adjust your search or create a group."
           />
-          {type === 'Role' ? (
-            <>
-              {rolesError && <Alert color="red">{rolesError}</Alert>}
-              <NativeSelect
-                label="Select role"
-                value={value}
-                onChange={(event) => setValue(event.currentTarget.value)}
-                data={[
-                  { value: '', label: rolesLoading ? 'Loading roles...' : 'Select a role...' },
-                  ...roles.map((role) => ({ value: role.id, label: role.displayName })),
-                ]}
-              />
-            </>
-          ) : (
-            <TextInput
-              label="Mapping value"
-              value={value}
-              onChange={(event) => setValue(event.currentTarget.value)}
-              placeholder="department:engineering"
-            />
-          )}
-          <Group justify="flex-end">
-            <Button type="button" variant="default" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={!type || !value.trim()} loading={loading}>
-              Add mapping
-            </Button>
+          <Pager
+            page={page}
+            pageSize={pageSize}
+            totalCount={query.data?.totalCount ?? 0}
+            totalPages={query.data?.totalPages ?? 0}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+          />
+        </>
+      )}
+
+      {createOpened && <CreateGroupModal onClose={createControls.close} />}
+      <ConfirmModal
+        opened={pendingDelete !== null}
+        title="Delete group"
+        message={`Delete ${pendingDelete?.name ?? 'this group'}? Members keep their individual roles.`}
+        confirmLabel="Delete group"
+        loading={remove.isPending}
+        onConfirm={() => pendingDelete && remove.mutate(pendingDelete)}
+        onClose={() => setPendingDelete(null)}
+      />
+    </div>
+  );
+}
+
+function CreateGroupModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const form = useForm({
+    initialValues: { name: '', description: '' },
+    validate: { name: (value) => (value.trim() ? null : 'Required') },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (values: typeof form.values) =>
+      api.groups.createGroup({ name: values.name, description: values.description || null }),
+    onSuccess: (group) => {
+      notifications.show({ message: `Created ${group.name}`, color: 'green' });
+      void queryClient.invalidateQueries({ queryKey: ['groups'] });
+      onClose();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  return (
+    <Modal opened onClose={onClose} title="Create group" centered>
+      <form onSubmit={form.onSubmit((values) => mutation.mutate(values))}>
+        <Stack gap="md">
+          <TextInput label="Group name" placeholder="Platform Engineering" required {...form.getInputProps('name')} />
+          <Textarea label="Description" placeholder="Engineers who build and operate the platform." autosize minRows={2} {...form.getInputProps('description')} />
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button variant="default" onClick={onClose}>Cancel</Button>
+            <Button type="submit" loading={mutation.isPending}>Create group</Button>
           </Group>
         </Stack>
       </form>

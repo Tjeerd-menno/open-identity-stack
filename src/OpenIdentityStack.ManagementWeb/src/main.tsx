@@ -10,9 +10,13 @@ import { ManagementThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/lib/auth';
 import { AppRoutes } from '@/routes/AppRoutes';
 
-const queryClient = new QueryClient();
-const rootElement = document.getElementById('root');
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 15_000 },
+  },
+});
 
+const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error('Root element was not found');
 }

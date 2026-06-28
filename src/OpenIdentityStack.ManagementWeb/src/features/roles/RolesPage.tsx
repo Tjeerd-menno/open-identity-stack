@@ -1,102 +1,95 @@
-import { Alert, Badge, Button, Group, Stack, Text, Title } from '@mantine/core';
-import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { EntityActionGroup } from '@/components/EntityActionMenu';
-import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
-import { PageHeader, PageToolbar } from '@/components/PagePrimitives';
-import { getApiErrorMessage } from '@/lib/admin-api';
+import { Badge, Box, Button, Group, Modal, Stack, Text, TextInput, Textarea, ThemeIcon } from '@mantine/core';
+import { useForm } from '@mantine/form';
+import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import type { RoleListItem } from '@openidentitystack/admin-api-client';
+import { Icon } from '@/components/Icon';
+import { DataTable, type Column } from '@/components/DataTable';
+import { FilterToolbar } from '@/components/FilterToolbar';
+import { Pager } from '@/components/ListControls';
+import { RowMenu } from '@/components/RowMenu';
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { ErrorState, PageHeader } from '@/components/primitives';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
-import { RoleForm } from './RoleForm';
-import { RoleStatusBadge, RoleTypeBadge } from './RoleBadges';
-import {
-  useCreateRole,
-  useDeleteRole,
-  usePlatformPermissionCatalog,
-  useRole,
-  useRoles,
-  useUpdateRole,
-} from './roles-hooks';
-import { getEffectivePermissionCount } from './permission-count';
-import type { CreateRoleRequest, RoleListItem, UpdateRoleRequest } from './roles-api';
 
-const pageSize = 20;
-
-type RolesPageProps = {
-  permissions?: string[];
-};
-
-export function RolesPage({ permissions = ['*'] }: RolesPageProps) {
-  const location = useLocation();
-  const { id } = useParams();
-  const pathRoleId = getRoleIdFromPath(location.pathname);
-
-  if (location.pathname.endsWith('/new')) {
-    return <CreateRoleView permissions={permissions} />;
-  }
-
-  if (id || pathRoleId) {
-    return <RoleDetailView roleId={id ?? pathRoleId ?? ''} permissions={permissions} />;
-  }
-
-  return <RoleListView permissions={permissions} />;
-}
-
-function getRoleIdFromPath(pathname: string) {
-  const match = /^\/roles\/([^/]+)$/.exec(pathname);
-  return match?.[1];
-}
-
-function RoleListView({ permissions }: Required<RolesPageProps>) {
+export function RolesPage() {
+  const auth = useAuth();
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
+  const queryClient = useQueryClient();
+  const canWrite = hasPermission(auth.permissions, 'roles:write');
   const [search, setSearch] = useState('');
-  const [submittedSearch, setSubmittedSearch] = useState('');
-  const searchMounted = useRef(false);
-  const roles = useRoles({ page, pageSize, search: submittedSearch || undefined });
-  const platformCatalog = usePlatformPermissionCatalog();
-  const canWrite = hasPermission(permissions, 'roles:write');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [createOpened, createControls] = useDisclosure(false);
+  const [pendingDelete, setPendingDelete] = useState<RoleListItem | null>(null);
 
-  useEffect(() => {
-    if (!searchMounted.current) {
-      searchMounted.current = true;
-      return;
-    }
+  const query = useQuery({
+    queryKey: ['roles', { page, pageSize, search }],
+    queryFn: () => api.roles.getRoles({ page, pageSize, search: search || undefined }),
+  });
 
-    const timer = window.setTimeout(() => {
-      setSubmittedSearch(search);
-      setPage(1);
-    }, 300);
-
-    return () => window.clearTimeout(timer);
-  }, [search]);
-
-  const columns: FoundationColumn<RoleListItem>[] = [
-    { header: 'Name', accessorKey: 'name' },
-    { header: 'Display Name', accessorKey: 'displayName' },
-    {
-      header: 'Type',
-      cell: (role) => <RoleTypeBadge isSystemRole={role.isSystemRole} />,
+  const remove = useMutation({
+    mutationFn: (role: RoleListItem) => api.roles.deleteRole(role.id),
+    onSuccess: () => {
+      notifications.show({ message: 'Role deleted', color: 'green' });
+      void queryClient.invalidateQueries({ queryKey: ['roles'] });
+      setPendingDelete(null);
     },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  const columns: Column<RoleListItem>[] = [
     {
-      header: 'Status',
-      cell: (role) => <RoleStatusBadge isActive={role.isActive} />,
-    },
-    {
-      header: 'Permissions',
-      cell: (role) => (
-        <Badge variant="light">
-          {getEffectivePermissionCount(role.permissions ?? [], platformCatalog.data?.items)}
-        </Badge>
+      key: 'role',
+      header: 'Role',
+      render: (role) => (
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon color="blue" radius="md" size={36} variant="light">
+            <Icon name="shield" size={18} />
+          </ThemeIcon>
+          <Box style={{ minWidth: 0 }}>
+            <Group gap="xs">
+              <Text fw={600} size="sm">{role.displayName}</Text>
+              {role.isSystemRole && <Badge color="gray" size="sm" variant="outline">System</Badge>}
+            </Group>
+            <Text c="dimmed" className="mw-mono" size="xs">{role.name}</Text>
+          </Box>
+        </Group>
       ),
     },
     {
-      header: 'Actions',
+      key: 'description',
+      header: 'Description',
+      render: (role) => <Text c="dimmed" size="sm" lineClamp={1}>{role.description ?? '—'}</Text>,
+    },
+    {
+      key: 'permissions',
+      header: 'Permissions',
       align: 'right',
-      cell: (role) => (
-        <EntityActionGroup
-          actions={[
-            { label: `View ${role.displayName}`, onClick: () => navigate(`/roles/${role.id}`) },
+      render: (role) => <Badge color="blue" variant="light">{role.permissions.length}</Badge>,
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      width: 48,
+      render: (role) => (
+        <RowMenu
+          items={[
+            { label: 'Open', icon: 'arrow-up-right', onClick: () => navigate(`/roles/${role.id}`) },
+            { separator: true },
+            {
+              label: 'Delete role',
+              icon: 'trash-2',
+              danger: true,
+              disabled: !canWrite || role.isSystemRole,
+              onClick: () => setPendingDelete(role),
+            },
           ]}
         />
       ),
@@ -104,192 +97,108 @@ function RoleListView({ permissions }: Required<RolesPageProps>) {
   ];
 
   return (
-    <Stack gap="lg">
+    <div>
       <PageHeader
         title="Roles"
-        description="Manage platform role grants and permission assignments."
-        actions={canWrite && <Button onClick={() => navigate('/roles/new')}>New role</Button>}
-      />
-
-      {!canWrite && <Alert color="blue">Read-only access. Role changes require roles:write.</Alert>}
-
-      <PageToolbar
-        searchLabel="Search roles"
-        searchPlaceholder="Search by name or display name..."
-        searchValue={search}
-        resultCount={roles.data?.totalCount}
-        onSearchChange={setSearch}
-        onClear={() => {
-          setSearch('');
-          setSubmittedSearch('');
-          setPage(1);
-        }}
-      />
-
-      <FoundationTable
-        columns={columns}
-        data={roles.data?.items ?? []}
-        isLoading={roles.isLoading}
-        error={roles.isError ? getApiErrorMessage(roles.error) : null}
-        emptyMessage="No roles found"
-        pagination={{
-          page,
-          pageSize,
-          totalCount: roles.data?.totalCount ?? 0,
-          totalPages: roles.data?.totalPages ?? 0,
-          onPageChange: setPage,
-        }}
-      />
-    </Stack>
-  );
-}
-
-function CreateRoleView({ permissions }: Required<RolesPageProps>) {
-  const navigate = useNavigate();
-  const createRole = useCreateRole();
-  const platformCatalog = usePlatformPermissionCatalog();
-  const canWrite = hasPermission(permissions, 'roles:write');
-
-  if (!canWrite) {
-    return <Alert color="blue">Read-only access. Role changes require roles:write.</Alert>;
-  }
-
-  return (
-    <Stack gap="lg">
-      <div>
-        <Title order={1}>Create role</Title>
-        <Text c="dimmed">Create a custom platform role.</Text>
-      </div>
-      <RoleForm
-        mode="create"
-        catalogItems={platformCatalog.data?.items}
-        loading={createRole.isPending}
-        error={createRole.error}
-        onCancel={() => navigate('/roles')}
-        onSubmit={async (data) => {
-          const role = await createRole.mutateAsync(data as CreateRoleRequest);
-          navigate(`/roles/${role.id}`);
-        }}
-      />
-    </Stack>
-  );
-}
-
-function RoleDetailView({ roleId, permissions }: { roleId: string; permissions: string[] }) {
-  const navigate = useNavigate();
-  const role = useRole(roleId);
-  const updateRole = useUpdateRole(roleId);
-  const deleteRole = useDeleteRole(roleId);
-  const platformCatalog = usePlatformPermissionCatalog();
-  const [isEditing, setIsEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const canWrite = hasPermission(permissions, 'roles:write');
-
-  if (role.isLoading) {
-    return <Text>Loading role</Text>;
-  }
-
-  if (role.isError) {
-    return <Alert color="red">{getApiErrorMessage(role.error)}</Alert>;
-  }
-
-  if (!role.data) {
-    return <Alert color="red">Role not found.</Alert>;
-  }
-
-  if (isEditing) {
-    return (
-      <Stack gap="lg">
-        <div>
-          <Title order={1}>Edit role</Title>
-          <Text c="dimmed">{role.data.displayName}</Text>
-        </div>
-        <RoleForm
-          mode="edit"
-          role={role.data}
-          catalogItems={platformCatalog.data?.items}
-          loading={updateRole.isPending}
-          error={updateRole.error}
-          onCancel={() => setIsEditing(false)}
-          onSubmit={async (data) => {
-            await updateRole.mutateAsync(data as UpdateRoleRequest);
-            setIsEditing(false);
-          }}
-        />
-      </Stack>
-    );
-  }
-
-  return (
-    <Stack gap="lg" role="region" aria-label="Role details">
-      <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={1}>{role.data.displayName}</Title>
-          <Text c="dimmed">{role.data.name}</Text>
-        </div>
-        <Group>
-          <RoleTypeBadge isSystemRole={role.data.isSystemRole} />
-          <RoleStatusBadge isActive={role.data.isActive} />
-        </Group>
-      </Group>
-
-      {role.data.isSystemRole && (
-        <Alert color="blue">
-          This is a system role and cannot be deleted. Permissions can be modified but the role will always exist in the system.
-        </Alert>
-      )}
-
-      {!canWrite && <Alert color="blue">Read-only access. Role changes require roles:write.</Alert>}
-
-      {role.data.description && (
-        <section aria-label="Role description">
-          <Title order={2} size="h3">Description</Title>
-          <Text>{role.data.description}</Text>
-        </section>
-      )}
-
-      <section aria-label="Role permissions">
-        <Title order={2} size="h3">Permissions</Title>
-        <Group mt="sm" gap="xs">
-          {role.data.permissions.map((permission) => (
-            <Badge key={permission} variant="light">{permission}</Badge>
-          ))}
-        </Group>
-      </section>
-
-      <section aria-label="Role metadata">
-        <Title order={2} size="h3">Metadata</Title>
-        <Stack gap={4} mt="sm">
-          <Text size="sm">Role ID: {role.data.id}</Text>
-          <Text size="sm">
-            Permission count: {getEffectivePermissionCount(role.data.permissions, platformCatalog.data?.items)}
-          </Text>
-        </Stack>
-      </section>
-
-      {canWrite && (
-        <Group>
-          <Button onClick={() => setIsEditing(true)}>Edit role</Button>
-          {!role.data.isSystemRole && (
-            <Button color="red" variant="light" onClick={() => setConfirmDelete(true)}>
-              Delete role
+        description="Roles grant platform permissions. Users and groups inherit the permissions of the roles they hold."
+        actions={
+          canWrite ? (
+            <Button leftSection={<Icon name="plus" size={16} />} onClick={createControls.open}>
+              Create role
             </Button>
-          )}
-        </Group>
+          ) : undefined
+        }
+      />
+
+      <FilterToolbar
+        noun="roles"
+        search={search}
+        onSearch={(value) => { setSearch(value); setPage(1); }}
+        rows={pageSize}
+        onRows={(size) => { setPageSize(size); setPage(1); }}
+        count={query.data?.totalCount}
+      />
+
+      {query.isError ? (
+        <ErrorState message={getApiErrorMessage(query.error)} />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={query.data?.items ?? []}
+            getRowKey={(role) => role.id}
+            onRowClick={(role) => navigate(`/roles/${role.id}`)}
+            isLoading={query.isLoading}
+            emptyIcon="shield"
+            emptyTitle="No roles"
+            emptyText="Adjust your search or create a role."
+          />
+          <Pager
+            page={page}
+            pageSize={pageSize}
+            totalCount={query.data?.totalCount ?? 0}
+            totalPages={query.data?.totalPages ?? 0}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+          />
+        </>
       )}
 
-      <ConfirmDialog
-        opened={confirmDelete}
-        onOpenChange={setConfirmDelete}
+      {createOpened && <CreateRoleModal onClose={createControls.close} />}
+      <ConfirmModal
+        opened={pendingDelete !== null}
         title="Delete role"
-        message={`Delete ${role.data.displayName}? This action cannot be undone.`}
-        confirmLabel={`Delete ${role.data.displayName}`}
-        loading={deleteRole.isPending}
-        onConfirm={async () => {
-          await deleteRole.mutateAsync();
-          navigate('/roles');
-        }}
+        message={`Delete ${pendingDelete?.displayName ?? 'this role'}? Members lose the permissions it grants.`}
+        confirmLabel="Delete role"
+        loading={remove.isPending}
+        onConfirm={() => pendingDelete && remove.mutate(pendingDelete)}
+        onClose={() => setPendingDelete(null)}
       />
-    </Stack>
+    </div>
+  );
+}
+
+function CreateRoleModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const form = useForm({
+    initialValues: { name: '', displayName: '', description: '' },
+    validate: {
+      name: (value) => (/^[a-z0-9-]+$/.test(value) ? null : 'Lowercase letters, numbers and hyphens only'),
+      displayName: (value) => (value.trim() ? null : 'Required'),
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (values: typeof form.values) =>
+      api.roles.createRole({
+        name: values.name,
+        displayName: values.displayName,
+        description: values.description || null,
+        permissions: [],
+        acknowledgeWildcardGrant: false,
+      }),
+    onSuccess: (role) => {
+      notifications.show({ message: `Created ${role.displayName}`, color: 'green' });
+      void queryClient.invalidateQueries({ queryKey: ['roles'] });
+      onClose();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  return (
+    <Modal opened onClose={onClose} title="Create role" centered>
+      <form onSubmit={form.onSubmit((values) => mutation.mutate(values))}>
+        <Stack gap="md">
+          <TextInput label="Role name" placeholder="billing-admin" required {...form.getInputProps('name')} />
+          <TextInput label="Display name" placeholder="Billing admin" required {...form.getInputProps('displayName')} />
+          <Textarea label="Description" placeholder="Manages billing applications and credentials." autosize minRows={2} {...form.getInputProps('description')} />
+          <Text c="dimmed" size="xs">Permissions are assigned to the role after creation from the role detail page.</Text>
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button variant="default" onClick={onClose}>Cancel</Button>
+            <Button type="submit" loading={mutation.isPending}>Create role</Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
   );
 }

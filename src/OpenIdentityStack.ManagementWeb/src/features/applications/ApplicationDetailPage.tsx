@@ -1,172 +1,153 @@
-import { Alert, Badge, Button, Group, Loader, SimpleGrid, Stack, Text, Title } from '@mantine/core';
-import { useNavigate, useParams } from 'react-router';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { getApiErrorMessage } from '@/lib/admin-api';
-import { useState } from 'react';
-import { ApplicationClientType, ApplicationProfile, type Application } from './applications-api';
-import { ApplicationCredentials } from './ApplicationCredentials';
-import { ApplicationStatusBadge } from './ApplicationStatusBadge';
-import {
-  useApplication,
-  useDeleteApplication,
-  useDisableApplication,
-  useEnableApplication,
-} from './applications-hooks';
-
-const profileLabels: Record<ApplicationProfile, string> = {
-  [ApplicationProfile.Web]: 'Web',
-  [ApplicationProfile.SinglePage]: 'Single Page',
-  [ApplicationProfile.Native]: 'Native',
-  [ApplicationProfile.MachineToMachine]: 'Machine-to-machine',
-  [ApplicationProfile.Device]: 'Device',
-  [ApplicationProfile.Custom]: 'Custom',
-};
-
-const clientTypeLabels: Record<ApplicationClientType, string> = {
-  [ApplicationClientType.Confidential]: 'Confidential',
-  [ApplicationClientType.Public]: 'Public',
-};
+import { Badge, Group, Stack, Tabs, Text } from '@mantine/core';
+import { useQuery } from '@tanstack/react-query';
+import { useParams } from 'react-router';
+import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { formatDateTime } from '@/lib/format';
 
 export function ApplicationDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const application = useApplication(id);
-  const disableApplication = useDisableApplication(id ?? '');
-  const enableApplication = useEnableApplication(id ?? '');
-  const deleteApplication = useDeleteApplication(id ?? '');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const { applicationId = '' } = useParams();
 
-  if (!id) {
-    return <Alert color="red">Application ID not provided.</Alert>;
+  const appQuery = useQuery({
+    queryKey: ['application', applicationId],
+    queryFn: () => api.applications.getApplication(applicationId),
+  });
+  const credentialsQuery = useQuery({
+    queryKey: ['application', applicationId, 'credentials'],
+    queryFn: () => api.applications.listApplicationCredentials(applicationId),
+  });
+
+  if (appQuery.isLoading) {
+    return <CenteredState loading title="Loading application…" />;
+  }
+  if (appQuery.isError || !appQuery.data) {
+    return <ErrorState message={getApiErrorMessage(appQuery.error)} />;
   }
 
-  if (application.isLoading) {
-    return <Loader aria-label="Loading application" />;
-  }
+  const app = appQuery.data;
+  const credentials = credentialsQuery.data ?? [];
 
-  if (application.isError) {
-    return <Alert color="red">{getApiErrorMessage(application.error)}</Alert>;
-  }
-
-  if (!application.data) {
-    return <Alert>Application not found.</Alert>;
-  }
-
-  const app = application.data;
-
-  return (
-    <Stack gap="lg">
-      <Group justify="space-between" align="flex-start">
-        <Group align="flex-start">
-          <Button variant="default" onClick={() => navigate('/applications')}>Back</Button>
-          <div>
-            <Title order={1}>{app.displayName}</Title>
-            <Text c="dimmed">{app.clientId}</Text>
-          </div>
-        </Group>
-        <Group>
-          <Button variant="default" onClick={() => navigate(`/applications/${id}/edit`)}>Edit</Button>
-          {app.status === 'Active' ? (
-            <Button variant="default" loading={disableApplication.isPending} onClick={() => disableApplication.mutate()}>
-              Disable
-            </Button>
-          ) : (
-            <Button variant="default" loading={enableApplication.isPending} onClick={() => enableApplication.mutate()}>
-              Enable
-            </Button>
-          )}
-          <Button color="red" onClick={() => setShowDeleteConfirm(true)}>Delete</Button>
-        </Group>
-      </Group>
-
-      <ApplicationOverview application={app} />
-      <ValueList title="Redirect URIs" values={app.redirectUris} emptyMessage="No redirect URIs configured." />
-      <ValueList title="Post Logout Redirect URIs" values={app.postLogoutRedirectUris} emptyMessage="No post logout redirect URIs configured." />
-      <TagList title="Allowed scopes" values={app.allowedScopes} />
-      <TagList title="Allowed grant types" values={app.allowedGrantTypes} />
-      <ApplicationCredentials application={app} />
-
-      <ConfirmDialog
-        opened={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
-        onConfirm={async () => {
-          await deleteApplication.mutateAsync();
-          navigate('/applications');
-        }}
-        title="Delete application"
-        message="Are you sure you want to delete this application? This action cannot be undone."
-        confirmLabel="Delete application"
-        loading={deleteApplication.isPending}
-      />
-    </Stack>
-  );
-}
-
-function ApplicationOverview({ application }: { application: Application }) {
-  return (
-    <Stack gap="md">
-      <Title order={2}>Application information</Title>
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-        <Field label="ID" value={application.id} />
-        <div>
-          <Text size="sm" c="dimmed">Status</Text>
-          <ApplicationStatusBadge status={application.status} />
-        </div>
-        <Field label="Application profile" value={profileLabels[application.profile]} />
-        <Field label="Client type" value={clientTypeLabels[application.clientType]} />
-        <Field label="Require PKCE" value={application.requirePkce ? 'Yes' : 'No'} />
-        <Field label="Require consent" value={application.requireConsent ? 'Yes' : 'No'} />
-        <Field label="Created" value={formatDate(application.createdAt)} />
-        <Field label="Modified" value={formatDate(application.modifiedAt)} />
-      </SimpleGrid>
-      {application.description && (
-        <div>
-          <Text size="sm" c="dimmed">Description</Text>
-          <Text>{application.description}</Text>
-        </div>
-      )}
-      {application.requiresMigrationReview && (
-        <Alert color="yellow">
-          Migration review required{application.migrationSource ? ` from ${application.migrationSource}` : ''}.
-        </Alert>
-      )}
-    </Stack>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <Text size="sm" c="dimmed">{label}</Text>
-      <Text>{value}</Text>
+      <BackLink label="Back to applications" to="/applications" />
+      <DetailHeader
+        icon={app.allowedGrantTypes.includes('client_credentials') ? 'server' : 'app-window'}
+        title={app.displayName}
+        description={app.clientId}
+        badge={<StatusBadge status={app.status} />}
+      />
+
+      <MetaStrip
+        items={[
+          { label: 'Profile', value: app.profile },
+          { label: 'Client type', value: app.clientType },
+          { label: 'Scopes', value: app.allowedScopes.length },
+          { label: 'Created', value: formatDateTime(app.createdAt) },
+        ]}
+      />
+
+      <Tabs defaultValue="config" color="blue" keepMounted={false}>
+        <Tabs.List mb="lg">
+          <Tabs.Tab value="config">Configuration</Tabs.Tab>
+          <Tabs.Tab value="oauth">Scopes &amp; grants</Tabs.Tab>
+          <Tabs.Tab value="uris">Redirect URIs</Tabs.Tab>
+          <Tabs.Tab value="credentials">Credentials ({credentials.length})</Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="config">
+          <SectionCard title="Configuration">
+            <FieldRow label="Client ID" value={app.clientId} mono />
+            <FieldRow label="Profile" value={app.profile} />
+            <FieldRow label="Client type" value={app.clientType} />
+            <FieldRow label="PKCE" value={app.requirePkce ? 'Required' : 'Not required'} />
+            <FieldRow label="Consent" value={app.requireConsent ? 'Required' : 'Not required'} />
+            <FieldRow label="Created" value={formatDateTime(app.createdAt)} last />
+          </SectionCard>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="oauth">
+          <Stack gap="lg">
+            <SectionCard title="Grant types" description="OAuth flows this client is permitted to use.">
+              <Group gap="xs">
+                {app.allowedGrantTypes.length === 0 ? (
+                  <Text c="dimmed" size="sm">None configured.</Text>
+                ) : (
+                  app.allowedGrantTypes.map((grant) => (
+                    <Badge key={grant} color="gray" variant="outline" style={{ fontFamily: 'var(--mw-mono)' }}>
+                      {grant}
+                    </Badge>
+                  ))
+                )}
+              </Group>
+            </SectionCard>
+            <SectionCard title="Allowed scopes" description="Scopes this client may request at the token endpoint.">
+              <Group gap="xs">
+                {app.allowedScopes.length === 0 ? (
+                  <Text c="dimmed" size="sm">No scopes.</Text>
+                ) : (
+                  app.allowedScopes.map((scope) => (
+                    <Badge key={scope} color="blue" variant="light" style={{ fontFamily: 'var(--mw-mono)' }}>
+                      {scope}
+                    </Badge>
+                  ))
+                )}
+              </Group>
+            </SectionCard>
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="uris">
+          <Stack gap="lg">
+            <SectionCard title="Redirect URIs">
+              {app.redirectUris.length === 0 ? (
+                <Text c="dimmed" size="sm">None — this client does not redirect a user.</Text>
+              ) : (
+                <Stack gap={0}>
+                  {app.redirectUris.map((uri, index) => (
+                    <FieldRow key={uri} label={`URI ${index + 1}`} value={uri} mono last={index === app.redirectUris.length - 1} />
+                  ))}
+                </Stack>
+              )}
+            </SectionCard>
+            <SectionCard title="Post-logout redirect URIs">
+              {app.postLogoutRedirectUris.length === 0 ? (
+                <Text c="dimmed" size="sm">None configured.</Text>
+              ) : (
+                <Stack gap={0}>
+                  {app.postLogoutRedirectUris.map((uri, index) => (
+                    <FieldRow key={uri} label={`URI ${index + 1}`} value={uri} mono last={index === app.postLogoutRedirectUris.length - 1} />
+                  ))}
+                </Stack>
+              )}
+            </SectionCard>
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="credentials">
+          <SectionCard title="Credentials" description="Client secrets and certificates registered to this application.">
+            {credentials.length === 0 ? (
+              <Text c="dimmed" size="sm">No credentials.</Text>
+            ) : (
+              <Stack gap={0}>
+                {credentials.map((credential, index) => (
+                  <FieldRow
+                    key={credential.id}
+                    label={credential.type === 'ClientSecret' ? 'Client secret' : 'Certificate'}
+                    value={
+                      credential.revokedAt
+                        ? 'Revoked'
+                        : credential.expiresAt
+                          ? `Expires ${formatDateTime(credential.expiresAt)}`
+                          : 'Active'
+                    }
+                    last={index === credentials.length - 1}
+                  />
+                ))}
+              </Stack>
+            )}
+          </SectionCard>
+        </Tabs.Panel>
+      </Tabs>
     </div>
   );
-}
-
-function ValueList({ title, values, emptyMessage }: { title: string; values: string[]; emptyMessage: string }) {
-  return (
-    <Stack gap="xs">
-      <Title order={2}>{title}</Title>
-      {values.length === 0 ? (
-        <Text c="dimmed">{emptyMessage}</Text>
-      ) : (
-        values.map((value) => <Text key={value}>{value}</Text>)
-      )}
-    </Stack>
-  );
-}
-
-function TagList({ title, values }: { title: string; values: string[] }) {
-  return (
-    <Stack gap="xs">
-      <Title order={2}>{title}</Title>
-      <Group>
-        {values.map((value) => <Badge key={value} variant="light">{value}</Badge>)}
-      </Group>
-    </Stack>
-  );
-}
-
-function formatDate(value: string | null) {
-  return value ? new Date(value).toLocaleString() : 'N/A';
 }

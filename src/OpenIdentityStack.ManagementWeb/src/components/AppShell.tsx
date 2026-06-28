@@ -1,156 +1,196 @@
-import { ActionIcon, Anchor, AppShell as MantineAppShell, Badge, Breadcrumbs, Burger, Group, Menu, Stack, Text, Title } from '@mantine/core';
+import {
+  ActionIcon,
+  AppShell as MantineAppShell,
+  Avatar,
+  Box,
+  Burger,
+  Group,
+  Menu,
+  NavLink,
+  Stack,
+  Text,
+  ThemeIcon,
+  Tooltip,
+  UnstyledButton,
+} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '@/lib/auth-context';
 import { hasAnyPermission } from '@/lib/permissions';
-import { LogoutIcon } from './IamIcons';
-import { ThemeToggle } from './ThemeToggle';
-import { Navigation } from './Navigation';
+import { getInitials } from '@/lib/format';
+import { useThemePreference } from './ThemeProvider';
+import { Icon, type IconName } from './Icon';
 
-type BreadcrumbItem = {
+type NavItem = {
   label: string;
-  href?: string;
+  to: string;
+  icon: IconName;
+  match: string[];
+  permissions?: string[];
 };
+
+const NAV: NavItem[] = [
+  { label: 'Overview', to: '/', icon: 'layout-dashboard', match: ['/'] },
+  { label: 'Users', to: '/users', icon: 'users', match: ['/users'], permissions: ['users:read'] },
+  { label: 'Groups', to: '/groups', icon: 'users-round', match: ['/groups'], permissions: ['groups:read'] },
+  { label: 'Roles', to: '/roles', icon: 'shield', match: ['/roles'], permissions: ['roles:read'] },
+  {
+    label: 'Permissions',
+    to: '/application-permissions',
+    icon: 'list-checks',
+    match: ['/application-permissions'],
+    permissions: ['application-permissions:read'],
+  },
+  { label: 'Applications', to: '/applications', icon: 'app-window', match: ['/applications'], permissions: ['applications:read'] },
+  { label: 'Sessions', to: '/sessions', icon: 'activity', match: ['/sessions'], permissions: ['sessions:read'] },
+  { label: 'Identity providers', to: '/providers', icon: 'globe', match: ['/providers'], permissions: ['providers:read'] },
+  {
+    label: 'Authentication settings',
+    to: '/providers/settings',
+    icon: 'settings',
+    match: ['/providers/settings'],
+    permissions: ['system:settings'],
+  },
+  { label: 'Audit', to: '/audit-entries', icon: 'scroll-text', match: ['/audit-entries'], permissions: ['audit-logs:read'] },
+];
+
+function isActive(pathname: string, item: NavItem): boolean {
+  if (pathname.startsWith('/providers/settings') && item.to === '/providers') {
+    return false;
+  }
+  if (item.to === '/') {
+    return pathname === '/';
+  }
+  return item.match.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
 
 export function AppShell() {
   const [opened, { close, toggle }] = useDisclosure();
   const auth = useAuth();
+  const { resolvedTheme, toggle: toggleTheme } = useThemePreference();
   const location = useLocation();
-  const breadcrumbs = getBreadcrumbs(location.pathname).map((item) => (
-    item.href === '/providers' && !hasAnyPermission(auth.permissions, ['providers:read'])
-      ? { label: item.label }
-      : item
-  ));
+
+  const visibleNav = NAV.filter((item) => !item.permissions || hasAnyPermission(auth.permissions, item.permissions));
+  const current = [...visibleNav].reverse().find((item) => isActive(location.pathname, item));
 
   return (
     <MantineAppShell
-      header={{ height: 64 }}
-      navbar={{
-        width: 280,
-        breakpoint: 'sm',
-        collapsed: { mobile: !opened },
-      }}
-      padding="lg"
+      layout="alt"
+      header={{ height: 61 }}
+      navbar={{ width: 264, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+      padding={0}
     >
       <MantineAppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Group gap="sm">
-            <Burger
-              aria-expanded={opened}
-              aria-label={opened ? 'Close navigation' : 'Open navigation'}
-              hiddenFrom="sm"
-              onClick={toggle}
-              opened={opened}
-              size="sm"
-            />
-            <div>
-              <Title order={3} size="h4">OpenIdentityStack</Title>
-              <Text size="xs" c="dimmed">
-                IAM Console
+        <Group h="100%" px="lg" gap="sm" wrap="nowrap">
+          <Burger
+            aria-expanded={opened}
+            aria-label={opened ? 'Close navigation' : 'Open navigation'}
+            hiddenFrom="sm"
+            onClick={toggle}
+            opened={opened}
+            size="sm"
+          />
+          <nav aria-label="Breadcrumbs">
+            <Group gap={8} wrap="nowrap">
+              <Text c="dimmed" size="sm">
+                Management
               </Text>
-            </div>
-            <Badge visibleFrom="sm" color="teal" variant="light">Local tenant</Badge>
-          </Group>
-          <Group gap="xs" justify="flex-end">
-            <ThemeToggle />
-            <Menu position="bottom-end" shadow="md">
-              <Menu.Target>
-                <ActionIcon aria-label="Operator menu" variant="light">
-                  {auth.displayName.slice(0, 1).toUpperCase()}
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>{auth.displayName}</Menu.Label>
-                <Menu.Item leftSection={<LogoutIcon />} onClick={() => void auth.logout()}>
-                  Sign out
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          </Group>
+              <Icon name="chevron-right" size={14} color="var(--mw-text-muted)" />
+              <Text fw={600} size="sm">
+                {current?.label ?? 'Overview'}
+              </Text>
+            </Group>
+          </nav>
         </Group>
       </MantineAppShell.Header>
-      <MantineAppShell.Navbar p="md">
-        <Navigation onNavigate={close} permissions={auth.permissions} />
-      </MantineAppShell.Navbar>
-      <MantineAppShell.Main>
-        <Stack gap="lg">
-          <nav aria-label="Breadcrumbs">
-            <Breadcrumbs>
-              {breadcrumbs.map((item, index) => (
-                item.href ? (
-                  <Anchor component={Link} key={`${item.href}-${item.label}`} size="sm" to={item.href}>
-                    {item.label}
-                  </Anchor>
-                ) : (
-                  <Text c="dimmed" fw={600} key={`${index}-${item.label}`} size="sm">
-                    {item.label}
-                  </Text>
-                )
+
+      <MantineAppShell.Navbar>
+        <MantineAppShell.Section>
+          <Group h={61} px="lg" gap="xs" wrap="nowrap" style={{ borderBottom: '1px solid var(--mw-border)' }}>
+            <ThemeIcon color="blue" radius="md" size={30} variant="filled">
+              <Icon name="shield-check" size={18} stroke={2.2} />
+            </ThemeIcon>
+            <Text fw={700} size="md" style={{ letterSpacing: '-0.2px' }}>
+              OpenIdentity
+              <Text c="blue" component="span" fw={700} inherit>
+                Stack
+              </Text>
+            </Text>
+          </Group>
+        </MantineAppShell.Section>
+
+        <MantineAppShell.Section grow p="sm" style={{ overflowY: 'auto' }}>
+          <nav aria-label="Management navigation">
+            <Stack gap={2}>
+              {visibleNav.map((item) => (
+                <NavLink
+                  key={item.to}
+                  active={isActive(location.pathname, item)}
+                  component={Link}
+                  label={item.label}
+                  leftSection={<Icon name={item.icon} size={18} />}
+                  onClick={close}
+                  to={item.to}
+                />
               ))}
-            </Breadcrumbs>
+            </Stack>
           </nav>
+        </MantineAppShell.Section>
+
+        <MantineAppShell.Section p="sm" style={{ borderTop: '1px solid var(--mw-border)' }}>
+          <Group gap="xs" justify="space-between" mb="xs">
+            <Text c="dimmed" size="xs">
+              Appearance
+            </Text>
+            <Tooltip label={resolvedTheme === 'dark' ? 'Light appearance' : 'Dark appearance'} withArrow>
+              <ActionIcon aria-label="Toggle appearance" onClick={toggleTheme} variant="subtle" color="gray">
+                <Icon name={resolvedTheme === 'dark' ? 'sun' : 'moon'} size={18} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+          <Menu position="top-end" shadow="md" width={200}>
+            <Menu.Target>
+              <UnstyledButton
+                aria-label="Operator menu"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: 'var(--mantine-radius-md)',
+                  background: 'var(--mw-surface-sunken)',
+                }}
+              >
+                <Avatar color="blue" name={auth.displayName} size={34}>
+                  {getInitials(auth.displayName)}
+                </Avatar>
+                <Box style={{ minWidth: 0, flex: 1 }}>
+                  <Text fw={600} size="sm" truncate>
+                    {auth.displayName}
+                  </Text>
+                  <Text c="dimmed" size="xs" truncate>
+                    Operator
+                  </Text>
+                </Box>
+                <Icon name="log-out" size={16} color="var(--mw-text-muted)" />
+              </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>{auth.displayName}</Menu.Label>
+              <Menu.Item leftSection={<Icon name="log-out" size={16} />} onClick={() => void auth.logout()}>
+                Sign out
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </MantineAppShell.Section>
+      </MantineAppShell.Navbar>
+
+      <MantineAppShell.Main style={{ background: 'var(--mw-surface-sunken)' }}>
+        <Box mx="auto" p={28} style={{ maxWidth: 1080 }}>
           <Outlet />
-        </Stack>
+        </Box>
       </MantineAppShell.Main>
     </MantineAppShell>
   );
 }
-
-function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
-  const normalizedPath = normalizePath(pathname);
-  const trail: BreadcrumbItem[] = [{ label: 'Overview', href: '/' }];
-
-  if (normalizedPath === '/') {
-    return [{ label: 'Overview' }];
-  }
-
-  const route = routeBreadcrumbs.find(({ pattern }) => pattern.test(normalizedPath));
-
-  if (!route) {
-    return [...trail, { label: formatSegment(normalizedPath.split('/').filter(Boolean).at(-1) ?? 'Page') }];
-  }
-
-  return [...trail, ...route.items];
-}
-
-function normalizePath(pathname: string) {
-  const path = pathname.split(/[?#]/)[0] || '/';
-  return path.length > 1 ? path.replace(/\/+$/, '') : path;
-}
-
-function formatSegment(segment: string) {
-  return segment
-    .split('-')
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-const routeBreadcrumbs: Array<{ pattern: RegExp; items: BreadcrumbItem[] }> = [
-  { pattern: /^\/users$/, items: [{ label: 'Users' }] },
-  { pattern: /^\/users\/create$/, items: [{ label: 'Users', href: '/users' }, { label: 'Create user' }] },
-  { pattern: /^\/users\/[^/]+$/, items: [{ label: 'Users', href: '/users' }, { label: 'User details' }] },
-  { pattern: /^\/users\/[^/]+\/edit$/, items: [{ label: 'Users', href: '/users' }, { label: 'Edit user' }] },
-  { pattern: /^\/groups$/, items: [{ label: 'Groups' }] },
-  { pattern: /^\/groups\/new$/, items: [{ label: 'Groups', href: '/groups' }, { label: 'Create group' }] },
-  { pattern: /^\/groups\/[^/]+$/, items: [{ label: 'Groups', href: '/groups' }, { label: 'Group details' }] },
-  { pattern: /^\/groups\/[^/]+\/edit$/, items: [{ label: 'Groups', href: '/groups' }, { label: 'Edit group' }] },
-  { pattern: /^\/roles$/, items: [{ label: 'Roles' }] },
-  { pattern: /^\/roles\/new$/, items: [{ label: 'Roles', href: '/roles' }, { label: 'Create role' }] },
-  { pattern: /^\/roles\/[^/]+$/, items: [{ label: 'Roles', href: '/roles' }, { label: 'Role details' }] },
-  { pattern: /^\/applications$/, items: [{ label: 'Applications' }] },
-  { pattern: /^\/applications\/new$/, items: [{ label: 'Applications', href: '/applications' }, { label: 'Create application' }] },
-  { pattern: /^\/applications\/[^/]+$/, items: [{ label: 'Applications', href: '/applications' }, { label: 'Application details' }] },
-  { pattern: /^\/applications\/[^/]+\/edit$/, items: [{ label: 'Applications', href: '/applications' }, { label: 'Edit application' }] },
-  { pattern: /^\/application-permissions$/, items: [{ label: 'Permissions' }] },
-  { pattern: /^\/application-permissions\/new$/, items: [{ label: 'Permissions', href: '/application-permissions' }, { label: 'Add application' }] },
-  { pattern: /^\/application-permissions\/[^/]+$/, items: [{ label: 'Permissions', href: '/application-permissions' }, { label: 'Application permissions' }] },
-  { pattern: /^\/sessions$/, items: [{ label: 'Sessions' }] },
-  { pattern: /^\/sessions\/[^/]+$/, items: [{ label: 'Sessions', href: '/sessions' }, { label: 'Session details' }] },
-  { pattern: /^\/providers$/, items: [{ label: 'Identity providers' }] },
-  { pattern: /^\/providers\/settings$/, items: [{ label: 'Identity providers', href: '/providers' }, { label: 'Authentication settings' }] },
-  { pattern: /^\/providers\/new$/, items: [{ label: 'Identity providers', href: '/providers' }, { label: 'Create provider' }] },
-  { pattern: /^\/providers\/[^/]+$/, items: [{ label: 'Identity providers', href: '/providers' }, { label: 'Provider details' }] },
-  { pattern: /^\/providers\/[^/]+\/edit$/, items: [{ label: 'Identity providers', href: '/providers' }, { label: 'Edit provider' }] },
-  { pattern: /^\/audit-entries$/, items: [{ label: 'Audit' }] },
-];
