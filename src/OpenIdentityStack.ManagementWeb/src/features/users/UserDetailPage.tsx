@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Button, Group, Select, Stack, Tabs, Text } from '@mantine/core';
+import { ActionIcon, Badge, Box, Button, Group, Select, Stack, Tabs, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -48,6 +48,39 @@ export function UserDetailPage() {
     onSuccess: () => {
       notifications.show({ message: 'Role removed', color: 'green' });
       invalidateRoles();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  const canManageProviders = canWrite && hasPermission(auth.permissions, 'providers:read');
+  const [linkProviderId, setLinkProviderId] = useState<string | null>(null);
+  const [linkSubject, setLinkSubject] = useState('');
+
+  const providersQuery = useQuery({
+    queryKey: ['providers', 'all'],
+    queryFn: () => api.providers.getProviders(true),
+    enabled: canManageProviders,
+  });
+
+  const invalidateIdentities = () => void queryClient.invalidateQueries({ queryKey: ['user', userId, 'identities'] });
+
+  const linkIdentity = useMutation({
+    mutationFn: () =>
+      api.users.linkUserUpstreamIdentity(userId, { providerId: linkProviderId ?? '', subject: linkSubject.trim() }),
+    onSuccess: () => {
+      notifications.show({ message: 'Identity linked', color: 'green' });
+      setLinkProviderId(null);
+      setLinkSubject('');
+      invalidateIdentities();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  const unlinkIdentity = useMutation({
+    mutationFn: (providerId: string) => api.users.unlinkUserUpstreamIdentity(userId, providerId),
+    onSuccess: () => {
+      notifications.show({ message: 'Identity unlinked', color: 'green' });
+      invalidateIdentities();
     },
     onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
@@ -213,6 +246,36 @@ export function UserDetailPage() {
 
         <Tabs.Panel value="identities">
           <SectionCard title="Upstream identities" description="Federated accounts linked to this user.">
+            {canManageProviders && (providersQuery.data?.length ?? 0) > 0 && (
+              <Group align="flex-end" gap="sm" mb="md" wrap="nowrap">
+                <Select
+                  label="Provider"
+                  placeholder="Select a provider"
+                  w={200}
+                  data={(providersQuery.data ?? []).map((provider) => ({
+                    value: provider.id,
+                    label: provider.displayName || provider.name,
+                  }))}
+                  value={linkProviderId}
+                  onChange={setLinkProviderId}
+                />
+                <TextInput
+                  label="Subject"
+                  placeholder="upstream-subject-id"
+                  style={{ flex: 1, fontFamily: 'var(--mw-mono)' }}
+                  value={linkSubject}
+                  onChange={(event) => setLinkSubject(event.currentTarget.value)}
+                />
+                <Button
+                  leftSection={<Icon name="link" size={15} />}
+                  disabled={!linkProviderId || !linkSubject.trim()}
+                  loading={linkIdentity.isPending}
+                  onClick={() => linkIdentity.mutate()}
+                >
+                  Link
+                </Button>
+              </Group>
+            )}
             {identities.length === 0 ? (
               <Text c="dimmed" size="sm">
                 No linked upstream identities.
@@ -220,13 +283,33 @@ export function UserDetailPage() {
             ) : (
               <Stack gap={0}>
                 {identities.map((identity, index) => (
-                  <FieldRow
+                  <Group
                     key={`${identity.providerId}-${identity.subject}`}
-                    label={identity.providerName ?? identity.providerId}
-                    value={identity.subject}
-                    mono
-                    last={index === identities.length - 1}
-                  />
+                    justify="space-between"
+                    wrap="nowrap"
+                    py="sm"
+                    style={{ borderBottom: index === identities.length - 1 ? undefined : '1px solid var(--mw-border)' }}
+                  >
+                    <Box style={{ minWidth: 0 }}>
+                      <Text fw={600} size="sm">
+                        {identity.providerName ?? identity.providerId}
+                      </Text>
+                      <Text c="dimmed" className="mw-mono" size="xs" truncate>
+                        {identity.subject}
+                      </Text>
+                    </Box>
+                    {canWrite && (
+                      <ActionIcon
+                        aria-label={`Unlink ${identity.providerName ?? identity.providerId}`}
+                        color="red"
+                        variant="subtle"
+                        loading={unlinkIdentity.isPending && unlinkIdentity.variables === identity.providerId}
+                        onClick={() => unlinkIdentity.mutate(identity.providerId)}
+                      >
+                        <Icon name="unlink" size={16} />
+                      </ActionIcon>
+                    )}
+                  </Group>
                 ))}
               </Stack>
             )}
