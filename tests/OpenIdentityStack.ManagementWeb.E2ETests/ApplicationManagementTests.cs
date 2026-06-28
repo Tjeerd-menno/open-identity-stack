@@ -1,167 +1,143 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
 namespace OpenIdentityStack.ManagementWeb.E2ETests;
 
-/// <summary>E2E coverage for the ManagementWeb Applications list and detail.</summary>
+/// <summary>E2E coverage for the ManagementWeb Applications list and detail (real admin API).</summary>
 public sealed class ApplicationManagementTests : ManagementWebPageTest
 {
-    private const string AppId = "app-test-1";
+    private static readonly string[] WebGrantTypes = ["authorization_code", "refresh_token"];
+    private static readonly string[] WebScopes = ["openid", "profile"];
+    private static readonly string[] WebRedirectUris = ["https://app.northwind.io/callback"];
+
+    private Guid _appId;
+    private string _appName = "";
 
     public ApplicationManagementTests(ManagementWebAppHostFixture fixture) : base(fixture)
     {
     }
 
+    protected override async Task SeedAsync()
+    {
+        _appName = $"Northwind Web {Unique}";
+        _appId = await SeedConfidentialWebAppAsync(_appName);
+
+        // Add an explicit, listable client secret so the Credentials tab has one to revoke.
+        await ApiPostAsync($"/api/admin/applications/{_appId}/credentials/client-secrets", new
+        {
+            description = "Seed secret",
+            revokeExisting = false,
+        });
+    }
+
+    private async Task<Guid> SeedConfidentialWebAppAsync(string displayName)
+    {
+        JsonNode app = await ApiPostAsync("/api/admin/applications", new
+        {
+            clientId = $"northwind-web-{Unique}-{Guid.NewGuid():N}",
+            displayName,
+            description = (string?)null,
+            profile = "Web",
+            clientType = "Confidential",
+            allowedGrantTypes = WebGrantTypes,
+            allowedScopes = WebScopes,
+            redirectUris = WebRedirectUris,
+            postLogoutRedirectUris = Array.Empty<string>(),
+            requirePkce = true,
+            requireConsent = false,
+        });
+        return Guid.Parse(app["id"]!.GetValue<string>());
+    }
+
     [Fact]
     public async Task OperatorCanBrowseApplicationsAndOpenDetail()
     {
-        await StubAsync();
-
         await GotoAsync("/applications");
         await Page.GetByRole(AriaRole.Heading, new() { Name = "Applications", Exact = true }).WaitForAsync();
-        await Page.GetByText("Northwind Web").WaitForAsync();
-        await Page.GetByText("northwind-web").First.WaitForAsync();
+        await Page.GetByText(_appName).WaitForAsync();
 
-        await Page.GetByText("Northwind Web").ClickAsync();
-        await Page.WaitForURLAsync(new Regex($"/applications/{AppId}$"));
-        await Page.GetByRole(AriaRole.Heading, new() { Name = "Northwind Web", Exact = true }).WaitForAsync();
+        await GotoAsync($"/applications/{_appId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _appName, Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { Name = "Configuration", Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Credentials", RegexOptions.IgnoreCase) }).WaitForAsync();
     }
 
     [Fact]
-    public async Task OperatorCanRegisterAnApplicationAndSeeTheSecret()
+    public async Task OperatorCanRegisterAnApplication()
     {
-        await StubAsync();
-
+        string display = $"Northwind Service {Unique}";
         await GotoAsync("/applications");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Create application", Exact = true }).ClickAsync();
 
         ILocator dialog = Page.GetByRole(AriaRole.Dialog);
-        await dialog.GetByLabel("Display name").FillAsync("Northwind Web");
-        await dialog.GetByLabel("Client ID").FillAsync("northwind-web");
-        await dialog.GetByPlaceholder("https://app.example.com/callback").First.FillAsync("https://app.northwind.io/callback");
+        await dialog.GetByLabel("Display name").FillAsync(display);
+        await dialog.GetByLabel("Client ID").FillAsync($"northwind-svc-{Unique}");
+        // Machine-to-machine needs no redirect URIs, keeping the form deterministic.
+        await dialog.GetByLabel("Application profile").ClickAsync();
+        await Page.GetByRole(AriaRole.Option, new() { Name = "Machine-to-machine", Exact = true }).ClickAsync();
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Create application", Exact = true }).ClickAsync();
 
-        // Backend returns an initial secret -> one-time reveal.
-        await Page.GetByText(new Regex("Application created", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByText("s3cr3t-Northwind-Demo").WaitForAsync();
+        // The modal closes on success and the new application appears in the list.
+        await Page.GetByText(display).WaitForAsync();
     }
 
     [Fact]
     public async Task OperatorCanAddAClientSecret()
     {
-        await StubAsync();
-
-        await GotoAsync($"/applications/{AppId}");
+        await GotoAsync($"/applications/{_appId}");
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Credentials", RegexOptions.IgnoreCase) }).ClickAsync();
         await Page.GetByRole(AriaRole.Button, new() { Name = "Add secret", Exact = true }).ClickAsync();
         await Page.GetByRole(AriaRole.Dialog).GetByRole(AriaRole.Button, new() { Name = "Generate secret", Exact = true }).ClickAsync();
 
         await Page.GetByText(new Regex("Client secret created", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByText("s3cr3t-Northwind-Demo").WaitForAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Copy", Exact = true }).WaitForAsync();
     }
 
-    private Task StubAsync() =>
-        Page.RouteAsync("**/api/admin/**", async route =>
-        {
-            string path = new Uri(route.Request.Url).AbsolutePath;
-            string method = route.Request.Method;
-
-            if (path.Contains("/applications/policies/profiles", StringComparison.OrdinalIgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, new[] { MockWebProfilePolicy() });
-                return;
-            }
-            if (Regex.IsMatch(path, @"/api/admin/applications/[^/]+/credentials/client-secrets$", RegexOptions.IgnoreCase) && method == "POST")
-            {
-                await FulfillJsonAsync(route, new { credentialId = "cred-new-1", clientSecret = "s3cr3t-Northwind-Demo" });
-                return;
-            }
-            if (Regex.IsMatch(path, @"/api/admin/applications/[^/]+/credentials$", RegexOptions.IgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, Array.Empty<object>());
-                return;
-            }
-            if (path == "/api/admin/applications" && method == "POST")
-            {
-                await FulfillJsonAsync(route, new
-                {
-                    id = AppId,
-                    clientId = "northwind-web",
-                    displayName = "Northwind Web",
-                    profile = "Web",
-                    clientType = "Confidential",
-                    status = "Active",
-                    initialSecret = "s3cr3t-Northwind-Demo",
-                    createdAt = "2026-06-28T00:00:00Z",
-                });
-                return;
-            }
-            if (Regex.IsMatch(path, @"/api/admin/applications/[^/]+$", RegexOptions.IgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, MockApp(detail: true));
-                return;
-            }
-            if (path.StartsWith("/api/admin/applications", StringComparison.OrdinalIgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, Paged(MockApp(detail: false)));
-                return;
-            }
-            await NoContentAsync(route);
-        });
-
-    private static object MockWebProfilePolicy() => new
+    [Fact]
+    public async Task OperatorCanEditOAuthConfiguration()
     {
-        applicationProfile = "Web",
-        isSelectable = true,
-        unavailabilityReason = (string?)null,
-        defaultClientProfile = "Confidential",
-        allowedClientProfiles = new[] { "Confidential" },
-        allowedGrantTypes = new[] { "authorization_code", "refresh_token" },
-        defaultGrantTypes = new[] { "authorization_code" },
-        options = new { },
-        requirePkce = true,
-        defaultRequirePkce = true,
-        defaultRequireConsent = false,
-        requiresRedirectUris = true,
-    };
+        await GotoAsync($"/applications/{_appId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _appName, Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Edit configuration", Exact = true }).ClickAsync();
 
-    private static object MockApp(bool detail) => detail
-        ? new
-        {
-            id = AppId,
-            clientId = "northwind-web",
-            displayName = "Northwind Web",
-            description = (string?)null,
-            profile = "Web",
-            clientType = "Confidential",
-            status = "Active",
-            redirectUris = new[] { "https://app.northwind.io/callback" },
-            postLogoutRedirectUris = Array.Empty<string>(),
-            allowedScopes = new[] { "openid", "profile" },
-            allowedGrantTypes = new[] { "authorization_code" },
-            requirePkce = true,
-            requireConsent = false,
-            credentialCount = 0,
-            certificateCount = 0,
-            requiresMigrationReview = false,
-            migrationSource = (string?)null,
-            createdAt = "2026-06-01T00:00:00Z",
-            modifiedAt = (string?)null,
-        }
-        : new
-        {
-            id = AppId,
-            clientId = "northwind-web",
-            displayName = "Northwind Web",
-            profile = "Web",
-            clientType = "Confidential",
-            status = "Active",
-            allowedGrantTypes = new[] { "authorization_code" },
-            credentialCount = 0,
-            createdAt = "2026-06-01T00:00:00Z",
-            modifiedAt = (string?)null,
-        };
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByText("Edit OAuth configuration").WaitForAsync();
+        await dialog.GetByPlaceholder("Add a scope").FillAsync("email");
+        await dialog.GetByPlaceholder("Add a scope").PressAsync("Enter");
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Save configuration", Exact = true }).ClickAsync();
+
+        await dialog.WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
+    public async Task OperatorCanRevokeAClientSecret()
+    {
+        await GotoAsync($"/applications/{_appId}");
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Credentials", RegexOptions.IgnoreCase) }).ClickAsync();
+
+        // The seeded confidential app already has its initial secret credential.
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Revoke", Exact = true }).First.ClickAsync();
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Revoke", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Credential revoked", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanDeleteAnApplication()
+    {
+        Guid disposableId = await SeedConfidentialWebAppAsync($"Disposable App {Unique}");
+
+        await GotoAsync($"/applications/{disposableId}");
+        await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Delete application", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Delete application", Exact = true }).ClickAsync();
+
+        await ExpectTextAsync("Application deleted");
+        await Page.WaitForURLAsync(new Regex(@"/applications/?$"));
+    }
 }

@@ -5,7 +5,8 @@ using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 namespace OpenIdentityStack.ManagementWeb.E2ETests;
 
 /// <summary>
-/// Smoke coverage for the ManagementWeb Overview route and navigation shell.
+/// Smoke coverage for the ManagementWeb Overview route and navigation shell, rendered
+/// after a real OIDC sign-in against the live API.
 /// </summary>
 public sealed class OverviewSmokeTests : ManagementWebPageTest
 {
@@ -16,9 +17,7 @@ public sealed class OverviewSmokeTests : ManagementWebPageTest
     [Fact]
     public async Task OperatorCanOpenOverviewAndNavigateViaTheSidebar()
     {
-        await StubEmptyAdminApiAsync();
-
-        await GotoAsync("/");
+        // The base class already signed in and landed on Overview.
         await Page.GetByRole(AriaRole.Heading, new() { Name = "Overview", Exact = true }).WaitForAsync();
 
         ILocator nav = Page.GetByRole(AriaRole.Navigation, new() { Name = "Management navigation", Exact = true });
@@ -34,23 +33,4 @@ public sealed class OverviewSmokeTests : ManagementWebPageTest
         await Page.WaitForURLAsync(new Regex(@"/applications/?$", RegexOptions.IgnoreCase));
         await Page.GetByRole(AriaRole.Heading, new() { Name = "Applications", Exact = true }).WaitForAsync();
     }
-
-    private Task StubEmptyAdminApiAsync() =>
-        Page.RouteAsync("**/api/admin/**", async route =>
-        {
-            string path = new Uri(route.Request.Url).AbsolutePath;
-            if (route.Request.Method != "GET")
-            {
-                await NoContentAsync(route);
-                return;
-            }
-
-            if (path.Contains("/providers", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, Array.Empty<object>());
-                return;
-            }
-
-            await FulfillJsonAsync(route, Paged());
-        });
 }

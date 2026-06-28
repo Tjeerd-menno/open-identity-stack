@@ -76,8 +76,18 @@ export function createGroupsContract(client: AdminApiClient): GroupsContract {
     createGroup: (data) => client.post<Group>('/api/admin/groups', data),
     updateGroup: (groupId, data) => client.patch<Group>(`/api/admin/groups/${groupId}`, data),
     deleteGroup: (groupId) => client.delete<void>(`/api/admin/groups/${groupId}`),
-    getGroupMembers: (groupId, params) =>
-      client.get<PaginatedResponse<GroupMember>>(`/api/admin/groups/${groupId}/members`, params),
+    getGroupMembers: async (groupId, params) => {
+      // The members endpoint returns a user list whose id field is the user id; map it to
+      // userId so callers (row keys, member removal) get a defined identifier.
+      const response = await client.get<PaginatedResponse<GroupMember>>(
+        `/api/admin/groups/${groupId}/members`,
+        params
+      );
+      return {
+        ...response,
+        items: response.items.map((member) => ({ ...member, userId: member.userId ?? member.id ?? '' })),
+      };
+    },
     addMemberToGroup: (groupId, userId) => client.post<void>(`/api/admin/groups/${groupId}/members/${userId}`),
     removeMemberFromGroup: (groupId, userId) =>
       client.delete<void>(`/api/admin/groups/${groupId}/members/${userId}`),

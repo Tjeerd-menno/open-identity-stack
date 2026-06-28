@@ -1,35 +1,78 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
 namespace OpenIdentityStack.ManagementWeb.E2ETests;
 
 /// <summary>
-/// E2E coverage for the ManagementWeb Users list and user detail (tabs, reset
-/// password, disable, role assignment) against a stubbed admin API.
+/// E2E coverage for the ManagementWeb Users list and user detail against the REAL admin
+/// API. Data is seeded through the real endpoints / seeder; no network stubbing.
 /// </summary>
 public sealed class UserManagementTests : ManagementWebPageTest
 {
-    private const string UserId = "user-test-1";
+    private Guid _adaId;
+    private Guid _disabledId;
+    private string _adaName = "";
+    private string _graceName = "";
+    private string _alanName = "";
+    private string _providerName = "";
 
     public UserManagementTests(ManagementWebAppHostFixture fixture) : base(fixture)
     {
     }
 
+    protected override async Task SeedAsync()
+    {
+        _adaName = $"Ada Lovelace {Unique}";
+        _graceName = $"Grace Hopper {Unique}";
+        _alanName = $"Alan Turing {Unique}";
+        _providerName = $"Google {Unique}";
+
+        _adaId = await Fixture.SeedUserAsync($"ada.{Unique}@northwind.io", _adaName, "Password123!@456");
+        await Fixture.SeedUserAsync($"grace.{Unique}@northwind.io", _graceName, "Password123!@456");
+        _disabledId = await Fixture.SeedUserAsync($"alan.{Unique}@northwind.io", _alanName, "Password123!@456", disabled: true);
+
+        Guid operatorRoleId = await SeedRoleAsync($"operator-{Unique}", "Operator", "users:read");
+        await SeedRoleAsync($"auditor-{Unique}", "Auditor", "audit-logs:read");
+        await Fixture.AssignRoleAsync(_adaId, operatorRoleId);
+
+        await ApiPostAsync("/api/admin/providers", new
+        {
+            name = $"google-{Unique}",
+            displayName = _providerName,
+            authority = "https://accounts.google.com",
+            clientId = "northwind.apps.googleusercontent.com",
+            scopes = OpenidScope,
+            jitProvisioningEnabled = true,
+        });
+    }
+
+    private async Task<Guid> SeedRoleAsync(string name, string displayName, string permission)
+    {
+        JsonNode role = await ApiPostAsync("/api/admin/roles", new
+        {
+            name,
+            displayName,
+            description = displayName,
+            permissions = new[] { permission },
+            acknowledgeWildcardGrant = false,
+        });
+        return Guid.Parse(role["id"]!.GetValue<string>());
+    }
+
     [Fact]
     public async Task OperatorCanBrowseUsersAndManageAUser()
     {
-        await StubUsersApiAsync();
-
         await GotoAsync("/users");
         await Page.GetByRole(AriaRole.Heading, new() { Name = "Users", Exact = true }).WaitForAsync();
         await Page.GetByText(new Regex("Accounts, status, roles", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByText("Ada Lovelace").WaitForAsync();
 
-        // Open the detail page.
-        await Page.GetByText("Ada Lovelace").ClickAsync();
-        await Page.WaitForURLAsync(new Regex($"/users/{UserId}$"));
-        await Page.GetByRole(AriaRole.Heading, new() { Name = "Ada Lovelace", Exact = true }).WaitForAsync();
+        // Search to isolate the seeded user, then open the detail page.
+        await Page.GetByLabel("Search users").FillAsync(_adaName);
+        await Page.GetByText(_adaName).ClickAsync();
+        await Page.WaitForURLAsync(new Regex($"/users/{_adaId}$"));
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
 
         // Roles tab shows the assigned role.
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Roles", RegexOptions.IgnoreCase) }).ClickAsync();
@@ -54,123 +97,70 @@ public sealed class UserManagementTests : ManagementWebPageTest
     }
 
     [Fact]
+    public async Task OperatorCanUnassignARole()
+    {
+        await GotoAsync($"/users/{_adaId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Roles", RegexOptions.IgnoreCase) }).ClickAsync();
+        await Page.GetByText("Operator", new() { Exact = true }).First.WaitForAsync();
+
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Remove Operator", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Role removed", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanLinkAnUpstreamIdentity()
+    {
+        await GotoAsync($"/users/{_adaId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Upstream identities", RegexOptions.IgnoreCase) }).ClickAsync();
+
+        await Page.GetByPlaceholder("Select a provider").ClickAsync();
+        await Page.GetByRole(AriaRole.Option, new() { Name = _providerName, Exact = true }).ClickAsync();
+        await Page.GetByLabel("Subject").FillAsync("google-subject-12345");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Link", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Identity linked", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanEnableADisabledUser()
+    {
+        await GotoAsync($"/users/{_disabledId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _alanName, Exact = true }).WaitForAsync();
+
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Enable user", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("User status updated", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task SearchDrivesTheUsersQuery()
+    {
+        await GotoAsync("/users");
+        await Page.GetByLabel("Search users").FillAsync(_adaName);
+        await Page.GetByText(_adaName).WaitForAsync();
+
+        // Narrow to Grace; Ada no longer matches and drops out.
+        await Page.GetByLabel("Search users").FillAsync(_graceName);
+        await Page.GetByText(_graceName).WaitForAsync();
+        await Page.GetByText(_adaName).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
     public async Task OperatorCanCreateAUser()
     {
-        await StubUsersApiAsync();
-
         await GotoAsync("/users");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Add user", Exact = true }).ClickAsync();
 
         ILocator dialog = Page.GetByRole(AriaRole.Dialog);
-        await dialog.GetByLabel("Full name").FillAsync("Grace Hopper");
-        await dialog.GetByLabel("Email").FillAsync("grace.hopper@northwind.io");
+        string name = $"Katherine Johnson {Unique}";
+        await dialog.GetByLabel("Full name").FillAsync(name);
+        await dialog.GetByLabel("Email").FillAsync($"katherine.{Unique}@northwind.io");
         await dialog.GetByLabel(new Regex("Temporary password", RegexOptions.IgnoreCase)).FillAsync("Temp1234!Temp");
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Create user", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Created Grace Hopper", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText(new Regex($"Created {Regex.Escape(name)}", RegexOptions.IgnoreCase)).WaitForAsync();
     }
 
-    private Task StubUsersApiAsync() =>
-        Page.RouteAsync("**/api/admin/**", async route =>
-        {
-            string path = new Uri(route.Request.Url).AbsolutePath;
-            string method = route.Request.Method;
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/roles/[^/]+$", RegexOptions.IgnoreCase))
-            {
-                await NoContentAsync(route);
-                return;
-            }
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/roles$", RegexOptions.IgnoreCase))
-            {
-                await FulfillJsonAsync(route, new { userId = UserId, roles = new[] { Role("operator", "Operator") } });
-                return;
-            }
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/groups$", RegexOptions.IgnoreCase))
-            {
-                await FulfillJsonAsync(route, new[] { new { id = "g1", name = "engineering", description = "Engineering", memberCount = 3 } });
-                return;
-            }
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/upstream-identities", RegexOptions.IgnoreCase))
-            {
-                if (method == "GET")
-                {
-                    await FulfillJsonAsync(route, new { items = Array.Empty<object>() });
-                    return;
-                }
-                await NoContentAsync(route);
-                return;
-            }
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/reset-password$", RegexOptions.IgnoreCase))
-            {
-                await FulfillJsonAsync(route, new { userId = UserId, temporaryPassword = "Temp1234!Temp" });
-                return;
-            }
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/disable$", RegexOptions.IgnoreCase))
-            {
-                await FulfillJsonAsync(route, new { userId = UserId, status = "Disabled" });
-                return;
-            }
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+$", RegexOptions.IgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, MockUser());
-                return;
-            }
-            if (path.StartsWith("/api/admin/roles", StringComparison.OrdinalIgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, Paged(Role("operator", "Operator"), Role("auditor", "Auditor")));
-                return;
-            }
-            if (path.StartsWith("/api/admin/providers", StringComparison.OrdinalIgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, Array.Empty<object>());
-                return;
-            }
-            if (path == "/api/admin/users" && method == "POST")
-            {
-                await FulfillJsonAsync(route, new
-                {
-                    id = "user-new-1",
-                    email = "grace.hopper@northwind.io",
-                    displayName = "Grace Hopper",
-                    status = "Active",
-                    createdAt = "2026-06-28T00:00:00Z",
-                    mfaEnabled = false,
-                    lastLoginAt = (string?)null,
-                    modifiedAt = (string?)null,
-                    profile = new { },
-                });
-                return;
-            }
-            if (path.StartsWith("/api/admin/users", StringComparison.OrdinalIgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, Paged(MockUser()));
-                return;
-            }
-
-            await NoContentAsync(route);
-        });
-
-    private static object MockUser() => new
-    {
-        id = UserId,
-        email = "ada@northwind.io",
-        displayName = "Ada Lovelace",
-        status = "Active",
-        createdAt = "2026-06-01T00:00:00Z",
-        mfaEnabled = false,
-        lastLoginAt = (string?)null,
-        modifiedAt = (string?)null,
-        profile = new { },
-    };
-
-    private static object Role(string name, string displayName) => new
-    {
-        id = name,
-        name,
-        displayName,
-        isSystemRole = false,
-        isActive = true,
-        permissions = Array.Empty<string>(),
-    };
+    private static readonly string[] OpenidScope = ["openid"];
 }

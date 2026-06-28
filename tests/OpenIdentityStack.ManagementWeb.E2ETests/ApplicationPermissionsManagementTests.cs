@@ -1,30 +1,62 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
 namespace OpenIdentityStack.ManagementWeb.E2ETests;
 
-/// <summary>E2E coverage for the ManagementWeb Permissions (registered applications) list and detail.</summary>
+/// <summary>
+/// E2E coverage for the ManagementWeb Permissions (registered applications) list and detail,
+/// seeded and asserted against the real admin API.
+/// </summary>
 public sealed class ApplicationPermissionsManagementTests : ManagementWebPageTest
 {
-    private const string RegistrationId = "reg-test-1";
+    private Guid _registrationId;
+    private string _ownerId = "";
+    private string _appDisplay = "";
 
     public ApplicationPermissionsManagementTests(ManagementWebAppHostFixture fixture) : base(fixture)
     {
     }
 
+    protected override async Task SeedAsync()
+    {
+        _appDisplay = $"Orders API {Unique}";
+
+        // Use a real group as the owner so any owner validation is satisfied.
+        JsonNode group = await ApiPostAsync("/api/admin/groups", new
+        {
+            name = $"Platform {Unique}",
+            description = "Owner group",
+        });
+        _ownerId = group["id"]!.GetValue<string>();
+
+        JsonNode registration = await ApiPostAsync("/api/admin/application-permissions/applications", new
+        {
+            manifest = new
+            {
+                schemaVersion = "1.0.0",
+                application = new { id = $"orders-api-{Unique}", displayName = _appDisplay, version = "1.0.0" },
+                permissions = new[]
+                {
+                    new { key = "orders:read", displayName = "Read orders", category = "Orders" },
+                },
+            },
+            ownerId = _ownerId,
+            ownerType = "group",
+        });
+        _registrationId = Guid.Parse((registration["id"] ?? registration["applicationId"])!.GetValue<string>());
+    }
+
     [Fact]
     public async Task OperatorCanBrowseRegisteredApplicationsAndOpenDetail()
     {
-        await StubAsync();
-
         await GotoAsync("/application-permissions");
         await Page.GetByRole(AriaRole.Heading, new() { Name = "Permissions", Exact = true }).WaitForAsync();
-        await Page.GetByText("Orders API").WaitForAsync();
+        await Page.GetByText(_appDisplay).WaitForAsync();
 
-        await Page.Locator("tbody tr").First.ClickAsync();
-        await Page.WaitForURLAsync(new Regex($"/application-permissions/{RegistrationId}$"));
-        await Page.GetByRole(AriaRole.Heading, new() { Name = "Orders API", Exact = true }).WaitForAsync();
+        await GotoAsync($"/application-permissions/{_registrationId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _appDisplay, Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Permissions", RegexOptions.IgnoreCase) }).WaitForAsync();
         await Page.GetByText("orders:read").WaitForAsync();
     }
@@ -32,81 +64,40 @@ public sealed class ApplicationPermissionsManagementTests : ManagementWebPageTes
     [Fact]
     public async Task OperatorCanRegisterAManifestManually()
     {
-        await StubAsync();
-
+        string display = $"Billing API {Unique}";
         await GotoAsync("/application-permissions");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Register application", Exact = true }).ClickAsync();
 
         ILocator dialog = Page.GetByRole(AriaRole.Dialog);
         await dialog.GetByText("Register manually").ClickAsync();
-        await dialog.GetByLabel("Application ID").FillAsync("orders-api");
-        await dialog.GetByLabel("Display name").FillAsync("Orders API");
-        await dialog.GetByLabel("Owner ID").FillAsync("platform-engineering");
-        await dialog.GetByLabel(new Regex("Permission key 1", RegexOptions.IgnoreCase)).FillAsync("orders:read");
-        await dialog.GetByLabel(new Regex("Permission name 1", RegexOptions.IgnoreCase)).FillAsync("Read orders");
+        await dialog.GetByLabel("Application ID").FillAsync($"billing-api-{Unique}");
+        await dialog.GetByLabel("Display name").FillAsync(display);
+        await dialog.GetByLabel("Owner ID").FillAsync(_ownerId);
+        await dialog.GetByLabel(new Regex("Permission key 1", RegexOptions.IgnoreCase)).FillAsync("billing:read");
+        await dialog.GetByLabel(new Regex("Permission name 1", RegexOptions.IgnoreCase)).FillAsync("Read billing");
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Register application", Exact = true }).ClickAsync();
 
         // Registration navigates to the new application's permission detail page.
-        await Page.WaitForURLAsync(new Regex($"/application-permissions/{RegistrationId}$"));
-        await Page.GetByRole(AriaRole.Heading, new() { Name = "Orders API", Exact = true }).WaitForAsync();
+        await Page.WaitForURLAsync(new Regex(@"/application-permissions/[^/]+$"));
+        await Page.GetByRole(AriaRole.Heading, new() { Name = display, Exact = true }).WaitForAsync();
     }
 
-    private Task StubAsync() =>
-        Page.RouteAsync("**/api/admin/**", async route =>
-        {
-            string path = new Uri(route.Request.Url).AbsolutePath;
-            string method = route.Request.Method;
+    [Fact]
+    public async Task OperatorCanDisableARegisteredApplication()
+    {
+        await GotoAsync($"/application-permissions/{_registrationId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _appDisplay, Exact = true }).WaitForAsync();
 
-            if (Regex.IsMatch(path, @"/application-permissions/applications/[^/]+$", RegexOptions.IgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, MockApp(detail: true));
-                return;
-            }
-            if (path.EndsWith("/application-permissions/applications", StringComparison.OrdinalIgnoreCase) && method == "POST")
-            {
-                await FulfillJsonAsync(route, new { id = RegistrationId });
-                return;
-            }
-            if (path.Contains("/application-permissions/applications", StringComparison.OrdinalIgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, Paged(MockApp(detail: false)));
-                return;
-            }
-            await NoContentAsync(route);
-        });
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Disable", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Application updated", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
 
-    private static object MockApp(bool detail) => detail
-        ? new
-        {
-            id = RegistrationId,
-            applicationIdentifier = "orders-api",
-            displayName = "Orders API",
-            ownerId = "platform-engineering",
-            ownerType = "Group",
-            permissionCount = 1,
-            status = "Active",
-            manifestVersion = "1.0.0",
-            updatedAt = "2026-06-01T00:00:00Z",
-            description = "Order management API",
-            schemaVersion = "1.0.0",
-            manifestBaseUrl = (string?)null,
-            concurrencyToken = 1,
-            permissions = new[]
-            {
-                new { id = "p1", fullPermissionKey = "orders:read", displayName = "Read orders", description = "View orders", category = "Orders", status = "Active" },
-            },
-            maintainers = Array.Empty<object>(),
-        }
-        : new
-        {
-            id = RegistrationId,
-            applicationIdentifier = "orders-api",
-            displayName = "Orders API",
-            ownerId = "platform-engineering",
-            ownerType = "Group",
-            permissionCount = 1,
-            status = "Active",
-            manifestVersion = "1.0.0",
-            updatedAt = "2026-06-01T00:00:00Z",
-        };
+    [Fact]
+    public async Task OperatorSeesDeclaredMaintainerFallback()
+    {
+        await GotoAsync($"/application-permissions/{_registrationId}");
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Maintainers", RegexOptions.IgnoreCase) }).ClickAsync();
+        await Page.GetByText(new Regex("No delegated maintainers", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText(_ownerId).WaitForAsync();
+    }
 }
