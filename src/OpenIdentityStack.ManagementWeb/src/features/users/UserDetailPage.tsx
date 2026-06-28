@@ -1,4 +1,6 @@
-import { ActionIcon, Badge, Box, Button, Group, Select, Stack, Tabs, Text, TextInput } from '@mantine/core';
+import { ActionIcon, Badge, Box, Button, Group, Modal, PasswordInput, Select, Stack, Tabs, Text, TextInput } from '@mantine/core';
+import { useForm } from '@mantine/form';
+import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -17,6 +19,7 @@ export function UserDetailPage() {
   const canWrite = hasPermission(auth.permissions, 'users:write');
   const canAssignRoles = canWrite && hasPermission(auth.permissions, 'roles:read');
   const [roleToAssign, setRoleToAssign] = useState<string | null>(null);
+  const [resetOpened, resetControls] = useDisclosure(false);
 
   const userQuery = useQuery({ queryKey: ['user', userId], queryFn: () => api.users.getUser(userId) });
   const rolesQuery = useQuery({ queryKey: ['user', userId, 'roles'], queryFn: () => api.users.getUserRoles(userId) });
@@ -119,14 +122,19 @@ export function UserDetailPage() {
         badge={<StatusBadge status={user.status} />}
         actions={
           canWrite ? (
-            <Button
-              variant="default"
-              loading={toggleStatus.isPending}
-              leftSection={<Icon name={user.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
-              onClick={() => toggleStatus.mutate()}
-            >
-              {user.status === 'Disabled' ? 'Enable user' : 'Disable user'}
-            </Button>
+            <>
+              <Button variant="default" leftSection={<Icon name="key-round" size={16} />} onClick={resetControls.open}>
+                Reset password
+              </Button>
+              <Button
+                variant="default"
+                loading={toggleStatus.isPending}
+                leftSection={<Icon name={user.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
+                onClick={() => toggleStatus.mutate()}
+              >
+                {user.status === 'Disabled' ? 'Enable user' : 'Disable user'}
+              </Button>
+            </>
           ) : undefined
         }
       />
@@ -316,6 +324,48 @@ export function UserDetailPage() {
           </SectionCard>
         </Tabs.Panel>
       </Tabs>
+
+      {resetOpened && <ResetPasswordModal userId={userId} userName={user.displayName} onClose={resetControls.close} />}
     </div>
+  );
+}
+
+function ResetPasswordModal({ userId, userName, onClose }: { userId: string; userName: string; onClose: () => void }) {
+  const form = useForm({
+    initialValues: { newPassword: '' },
+    validate: { newPassword: (value) => (value.length >= 12 ? null : 'Use at least 12 characters') },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (values: typeof form.values) => api.users.resetUserPassword(userId, { newPassword: values.newPassword }),
+    onSuccess: (response) => {
+      notifications.show({
+        message: response.temporaryPassword ? 'Password reset — share the temporary password' : 'Password reset',
+        color: 'green',
+      });
+      onClose();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  return (
+    <Modal opened onClose={onClose} title="Reset password" centered>
+      <form onSubmit={form.onSubmit((values) => mutation.mutate(values))}>
+        <Stack gap="md">
+          <Text c="dimmed" size="sm">
+            Set a new temporary password for {userName}. They should change it at next sign-in.
+          </Text>
+          <PasswordInput label="New temporary password" required {...form.getInputProps('newPassword')} />
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button variant="default" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={mutation.isPending}>
+              Reset password
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
   );
 }

@@ -1,6 +1,7 @@
 import { Badge, Box, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import type { RegisteredApplicationListItem } from '@openidentitystack/admin-api-client';
 import { DataTable, type Column } from '@/components/DataTable';
 import { FilterToolbar } from '@/components/FilterToolbar';
@@ -9,6 +10,7 @@ import { ErrorState, PageHeader, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 
 export function PermissionsPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -79,6 +81,7 @@ export function PermissionsPage() {
             columns={columns}
             rows={query.data?.items ?? []}
             getRowKey={(item) => item.id}
+            onRowClick={(item) => navigate(`/application-permissions/${item.id}`)}
             isLoading={query.isLoading}
             emptyIcon="list-checks"
             emptyTitle="No registered applications"

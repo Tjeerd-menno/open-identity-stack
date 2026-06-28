@@ -16,6 +16,7 @@ import { RoleDetailPage } from '@/features/roles/RoleDetailPage';
 import { GroupsPage } from '@/features/groups/GroupsPage';
 import { GroupDetailPage } from '@/features/groups/GroupDetailPage';
 import { PermissionsPage } from '@/features/permissions/PermissionsPage';
+import { PermissionsDetailPage } from '@/features/permissions/PermissionsDetailPage';
 import { SessionsPage } from '@/features/sessions/SessionsPage';
 import { ProvidersPage } from '@/features/providers/ProvidersPage';
 import { ProviderDetailPage } from '@/features/providers/ProviderDetailPage';
@@ -163,6 +164,14 @@ export function AppRoutes() {
           element={
             <RequirePermissions permissions={['application-permissions:read']}>
               <PermissionsPage />
+            </RequirePermissions>
+          }
+        />
+        <Route
+          path="application-permissions/:registrationId"
+          element={
+            <RequirePermissions permissions={['application-permissions:read']}>
+              <PermissionsDetailPage />
             </RequirePermissions>
           }
         />
