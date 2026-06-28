@@ -1,6 +1,7 @@
-import { Badge, Button, Group, Stack, Tabs, Text } from '@mantine/core';
+import { ActionIcon, Badge, Button, Group, Select, Stack, Tabs, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useParams } from 'react-router';
 import { Icon } from '@/components/Icon';
 import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
@@ -14,6 +15,8 @@ export function UserDetailPage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const canWrite = hasPermission(auth.permissions, 'users:write');
+  const canAssignRoles = canWrite && hasPermission(auth.permissions, 'roles:read');
+  const [roleToAssign, setRoleToAssign] = useState<string | null>(null);
 
   const userQuery = useQuery({ queryKey: ['user', userId], queryFn: () => api.users.getUser(userId) });
   const rolesQuery = useQuery({ queryKey: ['user', userId, 'roles'], queryFn: () => api.users.getUserRoles(userId) });
@@ -21,6 +24,32 @@ export function UserDetailPage() {
   const identitiesQuery = useQuery({
     queryKey: ['user', userId, 'identities'],
     queryFn: () => api.users.getUserUpstreamIdentities(userId),
+  });
+  const allRolesQuery = useQuery({
+    queryKey: ['roles', 'all'],
+    queryFn: () => api.roles.getRoles({ page: 1, pageSize: 100 }),
+    enabled: canAssignRoles,
+  });
+
+  const invalidateRoles = () => void queryClient.invalidateQueries({ queryKey: ['user', userId, 'roles'] });
+
+  const assignRole = useMutation({
+    mutationFn: (roleId: string) => api.users.assignUserRole(userId, roleId),
+    onSuccess: () => {
+      notifications.show({ message: 'Role assigned', color: 'green' });
+      setRoleToAssign(null);
+      invalidateRoles();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  const unassignRole = useMutation({
+    mutationFn: (roleId: string) => api.users.unassignUserRole(userId, roleId),
+    onSuccess: () => {
+      notifications.show({ message: 'Role removed', color: 'green' });
+      invalidateRoles();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
 
   const toggleStatus = useMutation({
@@ -97,19 +126,71 @@ export function UserDetailPage() {
         </Tabs.Panel>
 
         <Tabs.Panel value="roles">
-          <SectionCard title="Assigned roles" description="Platform roles assigned directly to this user.">
+          <SectionCard
+            title="Assigned roles"
+            description="Platform roles assigned directly to this user. Members inherit the permissions of every assigned role."
+            right={
+              canAssignRoles ? (
+                <Group gap="xs" wrap="nowrap">
+                  <Select
+                    placeholder="Select a role"
+                    searchable
+                    w={200}
+                    data={(allRolesQuery.data?.items ?? [])
+                      .filter((role) => !roles.some((assigned) => assigned.id === role.id))
+                      .map((role) => ({ value: role.id, label: role.displayName }))}
+                    value={roleToAssign}
+                    onChange={setRoleToAssign}
+                  />
+                  <Button
+                    disabled={!roleToAssign}
+                    loading={assignRole.isPending}
+                    onClick={() => roleToAssign && assignRole.mutate(roleToAssign)}
+                  >
+                    Assign
+                  </Button>
+                </Group>
+              ) : undefined
+            }
+          >
             {roles.length === 0 ? (
               <Text c="dimmed" size="sm">
                 No roles assigned.
               </Text>
             ) : (
-              <Group gap="xs">
-                {roles.map((role) => (
-                  <Badge key={role.id} color="blue" variant="light">
-                    {role.displayName}
-                  </Badge>
+              <Stack gap={0}>
+                {roles.map((role, index) => (
+                  <Group
+                    key={role.id}
+                    justify="space-between"
+                    wrap="nowrap"
+                    py="sm"
+                    style={{ borderBottom: index === roles.length - 1 ? undefined : '1px solid var(--mw-border)' }}
+                  >
+                    <Group gap="sm" wrap="nowrap">
+                      <Badge color="blue" variant="light">
+                        {role.displayName}
+                      </Badge>
+                      {role.isSystemRole && (
+                        <Text c="dimmed" size="xs">
+                          System role
+                        </Text>
+                      )}
+                    </Group>
+                    {canAssignRoles && (
+                      <ActionIcon
+                        aria-label={`Remove ${role.displayName}`}
+                        color="red"
+                        variant="subtle"
+                        loading={unassignRole.isPending && unassignRole.variables === role.id}
+                        onClick={() => unassignRole.mutate(role.id)}
+                      >
+                        <Icon name="x" size={16} />
+                      </ActionIcon>
+                    )}
+                  </Group>
                 ))}
-              </Group>
+              </Stack>
             )}
           </SectionCard>
         </Tabs.Panel>

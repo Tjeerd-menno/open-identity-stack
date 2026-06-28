@@ -1,5 +1,19 @@
-import { Avatar, Badge, Box, Button, Group, Stack, Tabs, Text, TextInput, Textarea } from '@mantine/core';
+import {
+  Avatar,
+  Badge,
+  Box,
+  Button,
+  Group,
+  Modal,
+  Select,
+  Stack,
+  Tabs,
+  Text,
+  TextInput,
+  Textarea,
+} from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -7,7 +21,7 @@ import { useNavigate, useParams } from 'react-router';
 import type { Group as GroupModel, GroupMapping, GroupMember } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
 import { DataTable, type Column } from '@/components/DataTable';
-import { Pager } from '@/components/ListControls';
+import { Pager, SearchInput } from '@/components/ListControls';
 import { RowMenu } from '@/components/RowMenu';
 import { BackLink, CenteredState, DetailHeader, ErrorState, MetaStrip, SectionCard } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
@@ -23,6 +37,8 @@ export function GroupDetailPage() {
   const canWrite = hasPermission(auth.permissions, 'groups:write');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [addMemberOpened, addMemberControls] = useDisclosure(false);
+  const [addMappingOpened, addMappingControls] = useDisclosure(false);
 
   const groupQuery = useQuery({ queryKey: ['group', groupId], queryFn: () => api.groups.getGroup(groupId) });
   const membersQuery = useQuery({
@@ -34,12 +50,20 @@ export function GroupDetailPage() {
     queryFn: () => api.groups.getGroupMappings(groupId),
   });
 
+  const invalidateMembers = () => {
+    void queryClient.invalidateQueries({ queryKey: ['group', groupId, 'members'] });
+    void queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+  };
+  const invalidateMappings = () => {
+    void queryClient.invalidateQueries({ queryKey: ['group', groupId, 'mappings'] });
+    void queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+  };
+
   const removeMember = useMutation({
     mutationFn: (member: GroupMember) => api.groups.removeMemberFromGroup(groupId, member.userId),
     onSuccess: () => {
       notifications.show({ message: 'Member removed', color: 'green' });
-      void queryClient.invalidateQueries({ queryKey: ['group', groupId, 'members'] });
-      void queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+      invalidateMembers();
     },
     onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
@@ -48,8 +72,7 @@ export function GroupDetailPage() {
     mutationFn: (mapping: GroupMapping) => api.groups.removeGroupMapping(groupId, mapping.id),
     onSuccess: () => {
       notifications.show({ message: 'Mapping removed', color: 'green' });
-      void queryClient.invalidateQueries({ queryKey: ['group', groupId, 'mappings'] });
-      void queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+      invalidateMappings();
     },
     onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
@@ -63,6 +86,8 @@ export function GroupDetailPage() {
 
   const group = groupQuery.data;
   const mappings = mappingsQuery.data?.items ?? [];
+  const memberCount =
+    membersQuery.data?.totalCount || membersQuery.data?.items.length || group.memberCount || 0;
 
   const memberColumns: Column<GroupMember>[] = [
     {
@@ -113,11 +138,22 @@ export function GroupDetailPage() {
   return (
     <div>
       <BackLink label="Back to groups" to="/groups" />
-      <DetailHeader icon="users-round" title={group.name} description={group.description ?? undefined} />
+      <DetailHeader
+        icon="users-round"
+        title={group.name}
+        description={group.description ?? undefined}
+        actions={
+          canWrite ? (
+            <Button variant="default" leftSection={<Icon name="user-plus" size={16} />} onClick={addMemberControls.open}>
+              Add members
+            </Button>
+          ) : undefined
+        }
+      />
 
       <MetaStrip
         items={[
-          { label: 'Members', value: group.memberCount ?? membersQuery.data?.totalCount ?? 0 },
+          { label: 'Members', value: memberCount },
           { label: 'Mappings', value: group.mappingCount ?? mappings.length },
           { label: 'Created', value: formatDateTime(group.createdAt) },
         ]}
@@ -125,7 +161,7 @@ export function GroupDetailPage() {
 
       <Tabs defaultValue="members" color="blue" keepMounted={false}>
         <Tabs.List mb="lg">
-          <Tabs.Tab value="members">Members ({membersQuery.data?.totalCount ?? group.memberCount ?? 0})</Tabs.Tab>
+          <Tabs.Tab value="members">Members ({memberCount})</Tabs.Tab>
           <Tabs.Tab value="mappings">Mappings ({mappings.length})</Tabs.Tab>
           <Tabs.Tab value="settings">Settings</Tabs.Tab>
         </Tabs.List>
@@ -138,7 +174,7 @@ export function GroupDetailPage() {
             isLoading={membersQuery.isLoading}
             emptyIcon="users"
             emptyTitle="No members"
-            emptyText="This group has no members yet."
+            emptyText="Add users to this group to grant them its delegated access."
           />
           <Pager
             page={page}
@@ -154,7 +190,17 @@ export function GroupDetailPage() {
         </Tabs.Panel>
 
         <Tabs.Panel value="mappings">
-          <SectionCard title="External mappings" description="Role and claim mappings that grant access based on upstream group membership.">
+          <SectionCard
+            title="External mappings"
+            description="Role and claim mappings that grant access based on upstream group membership."
+            right={
+              canWrite ? (
+                <Button size="xs" leftSection={<Icon name="plus" size={14} />} onClick={addMappingControls.open}>
+                  Add mapping
+                </Button>
+              ) : undefined
+            }
+          >
             {mappings.length === 0 ? (
               <Text c="dimmed" size="sm">
                 No mappings configured.
@@ -172,12 +218,7 @@ export function GroupDetailPage() {
                       </Text>
                     </Group>
                     {canWrite && (
-                      <Button
-                        color="red"
-                        size="xs"
-                        variant="subtle"
-                        onClick={() => removeMapping.mutate(mapping)}
-                      >
+                      <Button color="red" size="xs" variant="subtle" onClick={() => removeMapping.mutate(mapping)}>
                         Remove
                       </Button>
                     )}
@@ -192,7 +233,132 @@ export function GroupDetailPage() {
           <GroupSettings group={group} canWrite={canWrite} onDeleted={() => navigate('/groups')} />
         </Tabs.Panel>
       </Tabs>
+
+      {addMemberOpened && (
+        <AddMembersModal groupId={groupId} onAdded={invalidateMembers} onClose={addMemberControls.close} />
+      )}
+      {addMappingOpened && (
+        <AddMappingModal groupId={groupId} onAdded={invalidateMappings} onClose={addMappingControls.close} />
+      )}
     </div>
+  );
+}
+
+function AddMembersModal({ groupId, onAdded, onClose }: { groupId: string; onAdded: () => void; onClose: () => void }) {
+  const [search, setSearch] = useState('');
+  const usersQuery = useQuery({
+    queryKey: ['users', 'picker', search],
+    queryFn: () => api.users.getUsers({ page: 1, pageSize: 8, search: search || undefined }),
+  });
+
+  const add = useMutation({
+    mutationFn: (userId: string) => api.groups.addMemberToGroup(groupId, userId),
+    onSuccess: () => {
+      notifications.show({ message: 'Member added', color: 'green' });
+      onAdded();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  return (
+    <Modal opened onClose={onClose} title="Add members" centered>
+      <Stack gap="md">
+        <SearchInput placeholder="Search users…" value={search} onChange={setSearch} width="100%" />
+        <Stack gap={4}>
+          {(usersQuery.data?.items ?? []).map((user) => (
+            <Group
+              key={user.id}
+              justify="space-between"
+              wrap="nowrap"
+              gap="sm"
+              p="xs"
+              style={{ borderRadius: 'var(--mantine-radius-md)' }}
+            >
+              <Group gap="sm" wrap="nowrap">
+                <Avatar color="blue" name={user.displayName} size={32} radius="xl">
+                  {getInitials(user.displayName)}
+                </Avatar>
+                <Box style={{ minWidth: 0 }}>
+                  <Text fw={600} size="sm" truncate>
+                    {user.displayName}
+                  </Text>
+                  <Text c="dimmed" size="xs" truncate>
+                    {user.email}
+                  </Text>
+                </Box>
+              </Group>
+              <Button
+                size="xs"
+                variant="light"
+                leftSection={<Icon name="plus" size={14} />}
+                loading={add.isPending && add.variables === user.id}
+                onClick={() => add.mutate(user.id)}
+              >
+                Add
+              </Button>
+            </Group>
+          ))}
+          {(usersQuery.data?.items.length ?? 0) === 0 && (
+            <Text c="dimmed" py="sm" size="sm" ta="center">
+              No users match your search.
+            </Text>
+          )}
+        </Stack>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            Done
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+function AddMappingModal({ groupId, onAdded, onClose }: { groupId: string; onAdded: () => void; onClose: () => void }) {
+  const form = useForm({
+    initialValues: { type: 'Role' as 'Role' | 'Claim', value: '' },
+    validate: { value: (value) => (value.trim() ? null : 'Required') },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (values: typeof form.values) => api.groups.addGroupMapping(groupId, { type: values.type, value: values.value }),
+    onSuccess: () => {
+      notifications.show({ message: 'Mapping added', color: 'green' });
+      onAdded();
+      onClose();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  return (
+    <Modal opened onClose={onClose} title="Add mapping" centered>
+      <form onSubmit={form.onSubmit((values) => mutation.mutate(values))}>
+        <Stack gap="md">
+          <Select
+            label="Type"
+            data={['Role', 'Claim']}
+            allowDeselect={false}
+            value={form.values.type}
+            onChange={(value) => value && form.setFieldValue('type', value as 'Role' | 'Claim')}
+          />
+          <TextInput
+            label="Value"
+            description={form.values.type === 'Role' ? 'The role name granted to members.' : 'The upstream claim value to match.'}
+            placeholder={form.values.type === 'Role' ? 'platform-admin' : 'group:engineering'}
+            required
+            {...form.getInputProps('value')}
+          />
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button variant="default" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={mutation.isPending}>
+              Add mapping
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
   );
 }
 

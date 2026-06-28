@@ -1,8 +1,8 @@
-import { Badge, Button, Group, Stack, Tabs, Text, TextInput, Textarea } from '@mantine/core';
+import { ActionIcon, Badge, Button, Group, Select, Stack, Tabs, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { Role } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
@@ -11,14 +11,16 @@ import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
 
-/** Group "family:action" permission strings by their resource family. */
-function groupPermissions(permissions: string[]): Array<{ family: string; actions: string[] }> {
-  const byFamily = new Map<string, string[]>();
+type PermissionEntry = { action: string; key: string };
+
+/** Group permission strings by their resource family, keeping the original key. */
+function groupPermissions(permissions: string[]): Array<{ family: string; items: PermissionEntry[] }> {
+  const byFamily = new Map<string, PermissionEntry[]>();
   for (const permission of permissions) {
     const [family, action = '*'] = permission.split(':');
-    byFamily.set(family, [...(byFamily.get(family) ?? []), action]);
+    byFamily.set(family, [...(byFamily.get(family) ?? []), { action, key: permission }]);
   }
-  return [...byFamily.entries()].map(([family, actions]) => ({ family, actions }));
+  return [...byFamily.entries()].map(([family, items]) => ({ family, items }));
 }
 
 export function RoleDetailPage() {
@@ -37,7 +39,6 @@ export function RoleDetailPage() {
   }
 
   const role = roleQuery.data;
-  const families = groupPermissions(role.permissions);
 
   return (
     <div>
@@ -70,30 +71,7 @@ export function RoleDetailPage() {
         </Tabs.List>
 
         <Tabs.Panel value="permissions">
-          <SectionCard title="Platform permissions" description="Console RBAC actions this role grants across the admin domains.">
-            {families.length === 0 ? (
-              <Text c="dimmed" size="sm">
-                This role grants no permissions.
-              </Text>
-            ) : (
-              <Stack gap="md">
-                {families.map((family) => (
-                  <Group key={family.family} align="center" gap="md" wrap="nowrap">
-                    <Text className="mw-mono" fw={600} size="sm" style={{ width: 160, flexShrink: 0 }}>
-                      {family.family}
-                    </Text>
-                    <Group gap={6}>
-                      {family.actions.map((action) => (
-                        <Badge key={action} color="green" size="sm" variant="light" leftSection={<Icon name="check" size={12} />}>
-                          {action}
-                        </Badge>
-                      ))}
-                    </Group>
-                  </Group>
-                ))}
-              </Stack>
-            )}
-          </SectionCard>
+          <RolePermissions role={role} canEdit={canWrite && !role.isSystemRole} />
         </Tabs.Panel>
 
         <Tabs.Panel value="settings">
@@ -101,6 +79,110 @@ export function RoleDetailPage() {
         </Tabs.Panel>
       </Tabs>
     </div>
+  );
+}
+
+function RolePermissions({ role, canEdit }: { role: Role; canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const [permToAdd, setPermToAdd] = useState<string | null>(null);
+  const families = groupPermissions(role.permissions);
+
+  const catalogQuery = useQuery({
+    queryKey: ['permission-catalog'],
+    queryFn: () => api.roles.getPlatformPermissionCatalog(),
+    enabled: canEdit,
+  });
+
+  const save = useMutation({
+    mutationFn: (permissions: string[]) =>
+      api.roles.updateRole(role.id, {
+        displayName: role.displayName,
+        description: role.description ?? null,
+        permissions,
+        acknowledgeWildcardGrant: permissions.some((permission) => permission.endsWith(':*') || permission === '*'),
+      }),
+    onSuccess: () => {
+      notifications.show({ message: 'Permissions updated', color: 'green' });
+      setPermToAdd(null);
+      void queryClient.invalidateQueries({ queryKey: ['role', role.id] });
+      void queryClient.invalidateQueries({ queryKey: ['roles'] });
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  const assignable = (catalogQuery.data?.items ?? [])
+    .filter((item) => item.assignable && !role.permissions.includes(item.permission))
+    .map((item) => ({ value: item.permission, label: `${item.permission} — ${item.displayName}` }));
+
+  return (
+    <SectionCard
+      title="Platform permissions"
+      description="Console RBAC actions this role grants across the admin domains."
+      right={
+        canEdit ? (
+          <Group gap="xs" wrap="nowrap">
+            <Select
+              placeholder="Add a permission"
+              searchable
+              w={260}
+              data={assignable}
+              value={permToAdd}
+              onChange={setPermToAdd}
+              nothingFoundMessage="No assignable permissions"
+            />
+            <Button
+              disabled={!permToAdd}
+              loading={save.isPending}
+              onClick={() => permToAdd && save.mutate([...role.permissions, permToAdd])}
+            >
+              Add
+            </Button>
+          </Group>
+        ) : undefined
+      }
+    >
+      {families.length === 0 ? (
+        <Text c="dimmed" size="sm">
+          This role grants no permissions.
+        </Text>
+      ) : (
+        <Stack gap="md">
+          {families.map((family) => (
+            <Group key={family.family} align="center" gap="md" wrap="nowrap">
+              <Text className="mw-mono" fw={600} size="sm" style={{ width: 160, flexShrink: 0 }}>
+                {family.family}
+              </Text>
+              <Group gap={6}>
+                {family.items.map((item) => (
+                  <Badge
+                    key={item.key}
+                    color="green"
+                    size="sm"
+                    variant="light"
+                    leftSection={<Icon name="check" size={12} />}
+                    rightSection={
+                      canEdit ? (
+                        <ActionIcon
+                          aria-label={`Remove ${item.key}`}
+                          color="green"
+                          size="xs"
+                          variant="transparent"
+                          onClick={() => save.mutate(role.permissions.filter((permission) => permission !== item.key))}
+                        >
+                          <Icon name="x" size={11} />
+                        </ActionIcon>
+                      ) : undefined
+                    }
+                  >
+                    {item.action}
+                  </Badge>
+                ))}
+              </Group>
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </SectionCard>
   );
 }
 

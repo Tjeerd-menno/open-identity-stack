@@ -10,7 +10,7 @@ export function SearchInput({
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  width?: number;
+  width?: number | string;
 }) {
   return (
     <TextInput
