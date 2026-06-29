@@ -14,6 +14,32 @@ public sealed class OverviewSmokeTests : ManagementWebPageTest
     {
     }
 
+    protected override async Task SeedAsync()
+    {
+        // Creating a user is audited; the overview's "Recent activity" feed should surface it.
+        await ApiPostAsync("/api/admin/users", new
+        {
+            email = $"overview.{Unique}@northwind.io",
+            displayName = "Overview User",
+            password = "Password123!@456",
+        });
+    }
+
+    [Fact]
+    public async Task OverviewSurfacesLiveStatsAndRecentActivity()
+    {
+        await GotoAsync("/overview");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Overview", Exact = true }).WaitForAsync();
+
+        // The stat cards render against the live API.
+        await Page.GetByText("Users", new() { Exact = true }).First.WaitForAsync();
+        await Page.GetByText("Applications", new() { Exact = true }).First.WaitForAsync();
+
+        // The seeded user creation is the newest audited action, so it heads the recent feed.
+        await Page.GetByText("Recent activity", new() { Exact = true }).WaitForAsync();
+        await Page.GetByText("User.Created", new() { Exact = true }).First.WaitForAsync();
+    }
+
     [Fact]
     public async Task OperatorCanOpenOverviewAndNavigateViaTheSidebar()
     {
