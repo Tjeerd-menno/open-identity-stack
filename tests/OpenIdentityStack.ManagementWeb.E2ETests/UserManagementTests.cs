@@ -13,6 +13,7 @@ public sealed class UserManagementTests : ManagementWebPageTest
 {
     private Guid _adaId;
     private Guid _disabledId;
+    private Guid _providerId;
     private string _adaName = "";
     private string _graceName = "";
     private string _alanName = "";
@@ -37,7 +38,7 @@ public sealed class UserManagementTests : ManagementWebPageTest
         await SeedRoleAsync($"auditor-{Unique}", "Auditor", "audit-logs:read");
         await Fixture.AssignRoleAsync(_adaId, operatorRoleId);
 
-        await ApiPostAsync("/api/admin/providers", new
+        JsonNode provider = await ApiPostAsync("/api/admin/providers", new
         {
             name = $"google-{Unique}",
             displayName = _providerName,
@@ -46,6 +47,7 @@ public sealed class UserManagementTests : ManagementWebPageTest
             scopes = OpenidScope,
             jitProvisioningEnabled = true,
         });
+        _providerId = Guid.Parse(provider["id"]!.GetValue<string>());
     }
 
     private async Task<Guid> SeedRoleAsync(string name, string displayName, string permission)
@@ -160,6 +162,45 @@ public sealed class UserManagementTests : ManagementWebPageTest
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Create user", Exact = true }).ClickAsync();
 
         await Page.GetByText(new Regex($"Created {Regex.Escape(name)}", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanDeleteAUser()
+    {
+        await GotoAsync("/users");
+        // Search isolates Grace so the kebab menu acts on a single, known row.
+        await Page.GetByLabel("Search users").FillAsync(_graceName);
+        ILocator row = Page.Locator("tbody tr", new() { Has = Page.GetByText(_graceName) }).First;
+        await row.WaitForAsync();
+
+        await row.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).ClickAsync();
+        await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Delete user", Exact = true }).ClickAsync();
+
+        // Confirm in the destructive-action dialog, then the row drops out of the list.
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Delete user", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("User deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText(_graceName).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
+    public async Task OperatorCanUnlinkAnUpstreamIdentity()
+    {
+        // Link an identity through the real API so there is one to unlink through the UI.
+        await ApiPostAsync($"/api/admin/users/{_adaId}/upstream-identities", new
+        {
+            providerId = _providerId,
+            subjectId = "google-subject-to-unlink",
+        });
+
+        await GotoAsync($"/users/{_adaId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Upstream identities", RegexOptions.IgnoreCase) }).ClickAsync();
+
+        // The unlink button is labelled with the provider's stored name; match the single
+        // identity row's button by its "Unlink …" prefix rather than the display name.
+        await Page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^Unlink ", RegexOptions.IgnoreCase) }).First.ClickAsync();
+        await Page.GetByText(new Regex("Identity unlinked", RegexOptions.IgnoreCase)).WaitForAsync();
     }
 
     private static readonly string[] OpenidScope = ["openid"];
