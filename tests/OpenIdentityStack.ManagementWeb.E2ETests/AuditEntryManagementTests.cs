@@ -21,8 +21,8 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
     protected override async Task SeedAsync()
     {
         // Register an application through the REAL API. Application lifecycle commands write an
-        // "Application"-entity audit entry (unlike user CRUD, which is not audited), so the trail
-        // is guaranteed to contain a freshly-created Application row for the assertions below.
+        // "Application"-entity audit entry, so the trail is guaranteed to contain a freshly-created
+        // Application row for the assertions below.
         await ApiPostAsync("/api/admin/applications", new
         {
             clientId = $"audited-web-{Unique}-{Guid.NewGuid():N}",
@@ -36,6 +36,15 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
             postLogoutRedirectUris = Array.Empty<string>(),
             requirePkce = true,
             requireConsent = false,
+        });
+
+        // Create a user through the REAL API. User mutations are now audited ("User.Created"),
+        // so the trail also contains a "User"-entity row attributed to the acting admin.
+        await ApiPostAsync("/api/admin/users", new
+        {
+            email = $"audited.{Unique}@northwind.io",
+            displayName = "Audited User",
+            password = "Password123!@456",
         });
     }
 
@@ -64,5 +73,38 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
         await Page.GetByRole(AriaRole.Button, new() { Name = "Clear Entity", Exact = true }).WaitForAsync();
         // Scope to the table body so the hidden <option>Application</option> in the select isn't matched.
         await Page.Locator("tbody").GetByText(new Regex("^Application$", RegexOptions.IgnoreCase)).First.WaitForAsync();
+    }
+
+    [Fact]
+    public async Task UserMutationsAreAuditedWithTheActingAdmin()
+    {
+        await GotoAsync("/audit-entries");
+        await Page.Locator("tbody tr").First.WaitForAsync();
+
+        // The user SeedAsync created is recorded as a "User.Created" action. Searching narrows the
+        // trail to that row, which proves user mutations now reach the audit log end-to-end.
+        await Page.GetByLabel("Search entries").FillAsync("User.Created");
+        ILocator row = Page.Locator("tbody tr").Filter(new() { HasTextRegex = new Regex("User\\.Created") });
+        await row.First.WaitForAsync();
+
+        // The row is a User-entity action attributed to a real admin actor, not the "system" fallback.
+        await row.First.GetByText(new Regex("^User$", RegexOptions.IgnoreCase)).WaitForAsync();
+        await row.First.GetByText(new Regex("^system$", RegexOptions.IgnoreCase))
+            .WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
+    public async Task SearchDrivesTheAuditQuery()
+    {
+        await GotoAsync("/audit-entries");
+        await Page.Locator("tbody tr").First.WaitForAsync();
+
+        // A matching search keeps the Application.Created row in view.
+        await Page.GetByLabel("Search entries").FillAsync("Application.Created");
+        await Page.Locator("tbody").GetByText(new Regex("Application\\.Created")).First.WaitForAsync();
+
+        // A search that matches nothing collapses the table to the empty state.
+        await Page.GetByLabel("Search entries").FillAsync($"no-such-entry-{Unique}");
+        await Page.GetByText("No audit entries", new() { Exact = true }).WaitForAsync();
     }
 }
