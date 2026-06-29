@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using System.Text.Json.Nodes;
 using Microsoft.Playwright;
@@ -100,6 +101,26 @@ public sealed class GroupManagementTests : ManagementWebPageTest
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Add mapping", Exact = true }).ClickAsync();
 
         await Page.GetByText(new Regex("Mapping added", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanRemoveAMappingFromAGroup()
+    {
+        // Seed a claim mapping through the real API so the Mappings tab has one to remove.
+        // The endpoint returns no body, so POST directly rather than through ApiPostAsync.
+        string mappingValue = $"removable-{Unique}";
+        HttpResponseMessage addMapping = await Api.PostAsJsonAsync(
+            $"/api/admin/groups/{_groupId}/mappings",
+            new { type = "Claim", value = mappingValue });
+        addMapping.EnsureSuccessStatusCode();
+
+        await GotoAsync($"/groups/{_groupId}");
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Mappings", RegexOptions.IgnoreCase) }).ClickAsync();
+        await Page.GetByText(mappingValue, new() { Exact = true }).WaitForAsync();
+
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Remove", Exact = true }).First.ClickAsync();
+        await Page.GetByText(new Regex("Mapping removed", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText(mappingValue, new() { Exact = true }).WaitForAsync(new() { State = WaitForSelectorState.Detached });
     }
 
     [Fact]
