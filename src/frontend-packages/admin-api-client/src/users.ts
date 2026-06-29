@@ -106,10 +106,10 @@ export type UsersContract = {
   unlinkUserUpstreamIdentity: (userId: string, providerId: string) => Promise<void>;
 };
 
-function normalizeUpstreamIdentityLinkPayload(data: LinkUpstreamIdentityRequest): { providerId: string; subject: string; email?: string } {
+function normalizeUpstreamIdentityLinkPayload(data: LinkUpstreamIdentityRequest): { providerId: string; subjectId: string; email?: string } {
   return {
     providerId: data.providerId,
-    subject: data.subjectId ?? data.subject ?? '',
+    subjectId: data.subjectId ?? data.subject ?? '',
     ...(data.email !== undefined ? { email: data.email } : {}),
   };
 }
