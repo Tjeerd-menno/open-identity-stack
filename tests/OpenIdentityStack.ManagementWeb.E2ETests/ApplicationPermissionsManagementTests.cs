@@ -93,6 +93,21 @@ public sealed class ApplicationPermissionsManagementTests : ManagementWebPageTes
     }
 
     [Fact]
+    public async Task OperatorCanDisableAndReEnableARegisteredApplication()
+    {
+        await GotoAsync($"/application-permissions/{_registrationId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _appDisplay, Exact = true }).WaitForAsync();
+
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Disable", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Application updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText("Disabled", new() { Exact = true }).First.WaitForAsync();
+
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Enable", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Application updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText("Active", new() { Exact = true }).First.WaitForAsync();
+    }
+
+    [Fact]
     public async Task OperatorSeesDeclaredMaintainerFallback()
     {
         await GotoAsync($"/application-permissions/{_registrationId}");

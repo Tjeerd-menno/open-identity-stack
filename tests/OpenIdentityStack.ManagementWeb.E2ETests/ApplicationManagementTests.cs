@@ -143,6 +143,18 @@ public sealed class ApplicationManagementTests : ManagementWebPageTest
     }
 
     [Fact]
+    public async Task SearchDrivesTheApplicationsQuery()
+    {
+        await GotoAsync("/applications");
+        await Page.GetByLabel("Search applications").FillAsync(_appName);
+        await Page.GetByText(_appName).WaitForAsync();
+
+        // A term that matches nothing exercises the query round-trip: the row drops out.
+        await Page.GetByLabel("Search applications").FillAsync($"no-such-app-{Unique}");
+        await Page.GetByText(_appName).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
     public async Task OperatorCanDeleteAnApplication()
     {
         Guid disposableId = await SeedConfidentialWebAppAsync($"Disposable App {Unique}");
