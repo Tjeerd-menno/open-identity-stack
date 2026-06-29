@@ -221,7 +221,22 @@ internal static class GroupsApi
         {
             return MapFailure(result.Error);
         }
-        return TypedResults.Ok(result.Value);
+
+        // Project the strongly-typed UserId to its Guid value; serializing the value object
+        // directly would surface member ids as "[object Object]" to the client.
+        var response = new
+        {
+            items = result.Value.Items.Select(member => new
+            {
+                id = member.Id.Value,
+                email = member.Email,
+                displayName = member.DisplayName,
+                status = member.Status.ToString(),
+                createdAt = member.CreatedAt,
+            }),
+            nextPageToken = result.Value.NextPageToken,
+        };
+        return TypedResults.Ok(response);
     }
 
     private static async Task<IResult> AddGroupMember(
