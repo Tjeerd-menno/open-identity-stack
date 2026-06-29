@@ -126,6 +126,23 @@ public sealed class ApplicationManagementTests : ManagementWebPageTest
     }
 
     [Fact]
+    public async Task OperatorCanDisableAndReEnableAnApplication()
+    {
+        await GotoAsync($"/applications/{_appId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _appName, Exact = true }).WaitForAsync();
+
+        // Disable from the header action, then the badge reflects the new status.
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Disable", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Application updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText("Disabled", new() { Exact = true }).First.WaitForAsync();
+
+        // The same control now re-enables the application.
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Enable", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Application updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText("Active", new() { Exact = true }).First.WaitForAsync();
+    }
+
+    [Fact]
     public async Task OperatorCanDeleteAnApplication()
     {
         Guid disposableId = await SeedConfidentialWebAppAsync($"Disposable App {Unique}");

@@ -100,6 +100,19 @@ public sealed class RoleManagementTests : ManagementWebPageTest
     }
 
     [Fact]
+    public async Task OperatorCanRemoveAPermissionFromARole()
+    {
+        await GotoAsync($"/roles/{_roleId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Operator", Exact = true }).WaitForAsync();
+        await Page.GetByText("read", new() { Exact = true }).First.WaitForAsync();
+
+        // The seeded role carries users:read; removing it drops the badge from the family list.
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Remove users:read", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Permissions updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText("read", new() { Exact = true }).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
     public async Task OperatorCanEditRoleSettings()
     {
         await GotoAsync($"/roles/{_roleId}");
