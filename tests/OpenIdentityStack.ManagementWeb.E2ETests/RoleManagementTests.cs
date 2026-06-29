@@ -74,6 +74,9 @@ public sealed class RoleManagementTests : ManagementWebPageTest
 
         await GotoAsync("/roles");
         string display = $"Temp Role {Unique}";
+        // Search to isolate the seeded role: a full-suite run accumulates many roles, so the new
+        // one would otherwise be off the first page of the list.
+        await Page.GetByLabel("Search roles").FillAsync(display);
         await Page.GetByText(display, new() { Exact = true }).First.WaitForAsync();
 
         ILocator row = Page.Locator("tbody tr", new() { Has = Page.GetByText(display, new() { Exact = true }) }).First;
