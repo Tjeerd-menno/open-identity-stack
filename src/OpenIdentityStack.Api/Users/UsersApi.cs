@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using OpenIdentityStack.Api.Common;
 using OpenIddict.Validation.AspNetCore;
@@ -143,6 +144,7 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> CreateUser(
+        HttpContext context,
         [FromServices] ICreateUserUseCase createUserUseCase,
         [FromBody] CreateUserRequest request)
     {
@@ -150,6 +152,7 @@ internal static class UsersApi
             request.Email,
             request.DisplayName,
             request.Password,
+            GetActorId(context),
             request.Profile is null ? null : ToUserProfileData(request.Profile));
         Result<CreateUserResult> result = await createUserUseCase.ExecuteAsync(command);
 
@@ -226,11 +229,12 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> UpdateUser(
+        HttpContext context,
         [FromServices] IUpdateUserUseCase updateUserUseCase,
         Guid id,
         [FromBody] UpdateUserRequest request)
     {
-        var command = new UpdateUserCommand(new UserId(id), request.DisplayName);
+        var command = new UpdateUserCommand(new UserId(id), request.DisplayName, GetActorId(context));
         if (request.Profile is not null)
         {
             command = command with { Profile = ToUserProfileData(request.Profile) };
@@ -246,10 +250,11 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> DeleteUser(
+        HttpContext context,
         [FromServices] IDeleteUserUseCase deleteUserUseCase,
         Guid id)
     {
-        var command = new DeleteUserCommand(new UserId(id));
+        var command = new DeleteUserCommand(new UserId(id), GetActorId(context));
         Result result = await deleteUserUseCase.ExecuteAsync(command);
 
         if (result.IsFailure)
@@ -261,11 +266,12 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> DisableUser(
+        HttpContext context,
         [FromServices] IDisableUserUseCase disableUserUseCase,
         Guid id,
         [FromBody] DisableUserRequest request)
     {
-        var command = new DisableUserCommand(new UserId(id), request.Reason);
+        var command = new DisableUserCommand(new UserId(id), request.Reason, GetActorId(context));
         Result<DisableUserResult> result = await disableUserUseCase.ExecuteAsync(command);
 
         if (result.IsFailure)
@@ -277,10 +283,11 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> EnableUser(
+        HttpContext context,
         [FromServices] IEnableUserUseCase enableUserUseCase,
         Guid id)
     {
-        var command = new EnableUserCommand(new UserId(id));
+        var command = new EnableUserCommand(new UserId(id), GetActorId(context));
         Result<EnableUserResult> result = await enableUserUseCase.ExecuteAsync(command);
 
         if (result.IsFailure)
@@ -292,11 +299,12 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> ResetPassword(
+        HttpContext context,
         [FromServices] IResetPasswordUseCase resetPasswordUseCase,
         Guid id,
         [FromBody] ResetPasswordRequest request)
     {
-        var command = new ResetPasswordCommand(new UserId(id), request.NewPassword);
+        var command = new ResetPasswordCommand(new UserId(id), request.NewPassword, GetActorId(context));
         Result<ResetPasswordResult> result = await resetPasswordUseCase.ExecuteAsync(command);
 
         if (result.IsFailure)
@@ -349,11 +357,12 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> AssignRole(
+        HttpContext context,
         [FromServices] IAssignRoleUseCase assignRoleUseCase,
         Guid userId,
         Guid roleId)
     {
-        var command = new AssignRoleCommand(new UserId(userId), new RoleId(roleId));
+        var command = new AssignRoleCommand(new UserId(userId), new RoleId(roleId), GetActorId(context));
         Result result = await assignRoleUseCase.ExecuteAsync(command);
 
         if (result.IsFailure)
@@ -365,11 +374,12 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> UnassignRole(
+        HttpContext context,
         [FromServices] IUnassignRoleUseCase unassignRoleUseCase,
         Guid userId,
         Guid roleId)
     {
-        var command = new UnassignRoleCommand(new UserId(userId), new RoleId(roleId));
+        var command = new UnassignRoleCommand(new UserId(userId), new RoleId(roleId), GetActorId(context));
         Result result = await unassignRoleUseCase.ExecuteAsync(command);
 
         if (result.IsFailure)
@@ -405,6 +415,7 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> LinkUpstreamIdentity(
+        HttpContext context,
         [FromServices] ILinkUpstreamIdentityUseCase linkUpstreamIdentityUseCase,
         Guid userId,
         [FromBody] LinkUpstreamIdentityRequest request)
@@ -414,7 +425,8 @@ internal static class UsersApi
             ProviderId: new UpstreamProviderId(request.ProviderId),
             ProviderName: string.Empty, // Will be looked up by use case
             SubjectId: request.SubjectId,
-            Email: request.Email);
+            Email: request.Email,
+            ActorId: GetActorId(context));
 
         Result<LinkUpstreamIdentityResult> result = await linkUpstreamIdentityUseCase.ExecuteAsync(command);
 
@@ -433,13 +445,15 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> UnlinkUpstreamIdentity(
+        HttpContext context,
         [FromServices] IUnlinkUpstreamIdentityUseCase unlinkUpstreamIdentityUseCase,
         Guid userId,
         Guid providerId)
     {
         var command = new UnlinkUpstreamIdentityCommand(
             new UserId(userId),
-            new UpstreamProviderId(providerId));
+            new UpstreamProviderId(providerId),
+            GetActorId(context));
 
         Result<UnlinkUpstreamIdentityResult> result = await unlinkUpstreamIdentityUseCase.ExecuteAsync(command);
 
@@ -479,4 +493,9 @@ internal static class UsersApi
         profile.ZoneInfo,
         profile.Locale);
 
+    /// <summary>Resolves the acting admin's id from the authenticated principal for audit logging.</summary>
+    private static string GetActorId(HttpContext context) =>
+        context.User.FindFirstValue("sub")
+            ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? "system";
 }

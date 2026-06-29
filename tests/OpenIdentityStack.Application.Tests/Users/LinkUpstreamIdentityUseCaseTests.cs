@@ -14,6 +14,7 @@ public sealed class LinkUpstreamIdentityUseCaseTests
     private readonly IUserRepository _userRepository;
     private readonly IUpstreamProviderRepository _providerRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IAuditLog _auditLog;
     private readonly LinkUpstreamIdentityUseCase _useCase;
 
     public LinkUpstreamIdentityUseCaseTests()
@@ -21,12 +22,14 @@ public sealed class LinkUpstreamIdentityUseCaseTests
         this._userRepository = Substitute.For<IUserRepository>();
         this._providerRepository = Substitute.For<IUpstreamProviderRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        this._auditLog = Substitute.For<IAuditLog>();
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
 
         this._useCase = new LinkUpstreamIdentityUseCase(
             this._userRepository,
             this._providerRepository,
-            this._dateTimeProvider);
+            this._dateTimeProvider,
+            this._auditLog);
     }
 
     private static User CreateTestUser(string email = "test@example.com")
@@ -59,7 +62,8 @@ public sealed class LinkUpstreamIdentityUseCaseTests
             ProviderId: provider.Id,
             ProviderName: provider.Name,
             SubjectId: "ext-user-123",
-            Email: "external@example.com");
+            Email: "external@example.com",
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -91,7 +95,8 @@ public sealed class LinkUpstreamIdentityUseCaseTests
             ProviderId: provider.Id,
             ProviderName: provider.Name,
             SubjectId: "ext-user-123",
-            Email: null);
+            Email: null,
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -116,7 +121,8 @@ public sealed class LinkUpstreamIdentityUseCaseTests
             ProviderId: providerId,
             ProviderName: "unknown-provider",
             SubjectId: "ext-user-123",
-            Email: null);
+            Email: null,
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -144,7 +150,8 @@ public sealed class LinkUpstreamIdentityUseCaseTests
             ProviderId: provider.Id,
             ProviderName: provider.Name,
             SubjectId: "ext-user-123",
-            Email: null);
+            Email: null,
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -176,7 +183,8 @@ public sealed class LinkUpstreamIdentityUseCaseTests
             ProviderId: provider.Id,
             ProviderName: provider.Name,
             SubjectId: "ext-user-123",
-            Email: "updated@example.com");
+            Email: "updated@example.com",
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -209,7 +217,8 @@ public sealed class LinkUpstreamIdentityUseCaseTests
             ProviderId: provider2.Id,
             ProviderName: provider2.Name,
             SubjectId: "ext-user-456",
-            Email: null);
+            Email: null,
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);

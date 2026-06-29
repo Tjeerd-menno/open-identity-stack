@@ -12,13 +12,15 @@ namespace OpenIdentityStack.Application.Tests.Users;
 public sealed class UnlinkUpstreamIdentityUseCaseTests
 {
     private readonly IUserRepository _userRepository;
+    private readonly IAuditLog _auditLog;
     private readonly UnlinkUpstreamIdentityUseCase _useCase;
 
     public UnlinkUpstreamIdentityUseCaseTests()
     {
         this._userRepository = Substitute.For<IUserRepository>();
+        this._auditLog = Substitute.For<IAuditLog>();
 
-        this._useCase = new UnlinkUpstreamIdentityUseCase(this._userRepository);
+        this._useCase = new UnlinkUpstreamIdentityUseCase(this._userRepository, this._auditLog);
     }
 
     private static User CreateTestUserWithIdentity(
@@ -47,7 +49,8 @@ public sealed class UnlinkUpstreamIdentityUseCaseTests
 
         var command = new UnlinkUpstreamIdentityCommand(
             UserId: user.Id,
-            ProviderId: providerId);
+            ProviderId: providerId,
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -70,7 +73,8 @@ public sealed class UnlinkUpstreamIdentityUseCaseTests
 
         var command = new UnlinkUpstreamIdentityCommand(
             UserId: userId,
-            ProviderId: providerId);
+            ProviderId: providerId,
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -96,7 +100,8 @@ public sealed class UnlinkUpstreamIdentityUseCaseTests
 
         var command = new UnlinkUpstreamIdentityCommand(
             UserId: user.Id,
-            ProviderId: providerId);
+            ProviderId: providerId,
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -126,7 +131,8 @@ public sealed class UnlinkUpstreamIdentityUseCaseTests
 
         var command = new UnlinkUpstreamIdentityCommand(
             UserId: user.Id,
-            ProviderId: provider1Id);
+            ProviderId: provider1Id,
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -150,7 +156,8 @@ public sealed class UnlinkUpstreamIdentityUseCaseTests
 
         var command = new UnlinkUpstreamIdentityCommand(
             UserId: user.Id,
-            ProviderId: providerId);
+            ProviderId: providerId,
+            ActorId: "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);

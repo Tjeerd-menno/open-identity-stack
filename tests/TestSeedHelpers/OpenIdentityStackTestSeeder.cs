@@ -289,7 +289,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
             return existingUser.Id.Value;
         }
 
-        var command = new CreateUserCommand(email, displayName, password, profile);
+        var command = new CreateUserCommand(email, displayName, password, "test-seeder", profile);
         Result<CreateUserResult> result = await createUserUseCase.ExecuteAsync(command, cancellationToken);
         if (result.IsFailure)
         {
@@ -407,7 +407,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         using IServiceScope scope = _serviceProvider.CreateScope();
         IAssignRoleUseCase assignRoleUseCase = scope.ServiceProvider.GetRequiredService<IAssignRoleUseCase>();
 
-        var command = new AssignRoleCommand(new UserId(userId), new RoleId(roleId));
+        var command = new AssignRoleCommand(new UserId(userId), new RoleId(roleId), "test-seeder");
         Result result = await assignRoleUseCase.ExecuteAsync(command, cancellationToken);
         if (result.IsFailure)
         {

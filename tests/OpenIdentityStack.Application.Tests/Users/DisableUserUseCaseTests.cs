@@ -12,15 +12,17 @@ public sealed class DisableUserUseCaseTests
 {
     private readonly IUserRepository _userRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IAuditLog _auditLog;
     private readonly IDisableUserUseCase _sut;
 
     public DisableUserUseCaseTests()
     {
         this._userRepository = Substitute.For<IUserRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        this._auditLog = Substitute.For<IAuditLog>();
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
 
-        this._sut = new DisableUserUseCase(this._userRepository, this._dateTimeProvider);
+        this._sut = new DisableUserUseCase(this._userRepository, this._dateTimeProvider, this._auditLog);
     }
 
     [Fact]
@@ -29,7 +31,7 @@ public sealed class DisableUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateActiveUser(userId);
-        var command = new DisableUserCommand(userId, "Policy violation");
+        var command = new DisableUserCommand(userId, "Policy violation", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -48,7 +50,7 @@ public sealed class DisableUserUseCaseTests
     {
         // Arrange
         var userId = UserId.Create();
-        var command = new DisableUserCommand(userId, "Policy violation");
+        var command = new DisableUserCommand(userId, "Policy violation", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -67,7 +69,7 @@ public sealed class DisableUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateDisabledUser(userId);
-        var command = new DisableUserCommand(userId, "Another reason");
+        var command = new DisableUserCommand(userId, "Another reason", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -86,7 +88,7 @@ public sealed class DisableUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreatePendingUser(userId);
-        var command = new DisableUserCommand(userId, "Policy violation");
+        var command = new DisableUserCommand(userId, "Policy violation", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -105,7 +107,7 @@ public sealed class DisableUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateActiveUser(userId);
-        var command = new DisableUserCommand(userId, string.Empty);
+        var command = new DisableUserCommand(userId, string.Empty, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -124,7 +126,7 @@ public sealed class DisableUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateActiveUser(userId);
-        var command = new DisableUserCommand(userId, "Policy violation");
+        var command = new DisableUserCommand(userId, "Policy violation", "admin-1");
         DateTimeOffset expectedTime = DateTimeOffset.UtcNow;
         this._dateTimeProvider.UtcNow.Returns(expectedTime);
 

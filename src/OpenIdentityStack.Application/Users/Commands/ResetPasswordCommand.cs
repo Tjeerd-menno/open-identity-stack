@@ -6,7 +6,8 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// </summary>
 /// <param name="UserId">The ID of the user.</param>
 /// <param name="NewPassword">The new password (plain text, will be hashed).</param>
-public sealed record ResetPasswordCommand(UserId UserId, string NewPassword);
+/// <param name="ActorId">The ID of the admin performing the action (for auditing).</param>
+public sealed record ResetPasswordCommand(UserId UserId, string NewPassword, string ActorId);
 
 /// <summary>
 /// Result of resetting a password.

@@ -5,4 +5,5 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// </summary>
 /// <param name="UserId">The ID of the user.</param>
 /// <param name="RoleId">The ID of the role to assign.</param>
-public sealed record AssignRoleCommand(UserId UserId, RoleId RoleId);
+/// <param name="ActorId">The ID of the admin performing the action (for auditing).</param>
+public sealed record AssignRoleCommand(UserId UserId, RoleId RoleId, string ActorId);

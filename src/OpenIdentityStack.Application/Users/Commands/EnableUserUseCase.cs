@@ -11,13 +11,16 @@ public sealed class EnableUserUseCase : IEnableUserUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IDateTimeProvider dateTimeProvider;
+    private readonly IAuditLog auditLog;
 
     public EnableUserUseCase(
         IUserRepository userRepository,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        IAuditLog auditLog)
     {
         this.userRepository = userRepository;
         this.dateTimeProvider = dateTimeProvider;
+        this.auditLog = auditLog;
     }
 
     /// <inheritdoc />
@@ -38,6 +41,14 @@ public sealed class EnableUserUseCase : IEnableUserUseCase
         }
 
         await this.userRepository.SaveChangesAsync(cancellationToken);
+
+        await this.auditLog.LogAsync(
+            command.ActorId,
+            "User.Enabled",
+            "User",
+            user.Id.Value.ToString(),
+            $"Email: {user.Email}",
+            cancellationToken);
 
         return new EnableUserResult(user.Id, this.dateTimeProvider.UtcNow);
     }

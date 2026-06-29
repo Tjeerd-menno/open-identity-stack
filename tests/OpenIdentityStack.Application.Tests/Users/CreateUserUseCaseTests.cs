@@ -16,6 +16,7 @@ public sealed class CreateUserUseCaseTests
     private readonly IPasswordHasher _passwordHasher;
     private readonly IPasswordPolicyValidator _passwordPolicyValidator;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IAuditLog _auditLog;
     private readonly ILogger<CreateUserUseCase> _logger;
     private readonly CreateUserUseCase _useCase;
     private readonly DateTimeOffset _now = new(2026, 1, 18, 12, 0, 0, TimeSpan.Zero);
@@ -26,6 +27,7 @@ public sealed class CreateUserUseCaseTests
         this._passwordHasher = Substitute.For<IPasswordHasher>();
         this._passwordPolicyValidator = Substitute.For<IPasswordPolicyValidator>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        this._auditLog = Substitute.For<IAuditLog>();
         this._logger = Substitute.For<ILogger<CreateUserUseCase>>();
         this._dateTimeProvider.UtcNow.Returns(this._now);
         this._passwordHasher.HashPassword(Arg.Any<string>()).Returns(ci => $"hashed_{ci.Arg<string>()}");
@@ -41,7 +43,7 @@ public sealed class CreateUserUseCaseTests
             return Result.Success();
         });
 
-        this._useCase = new CreateUserUseCase(this._userRepository, this._passwordHasher, this._passwordPolicyValidator, this._dateTimeProvider, this._logger);
+        this._useCase = new CreateUserUseCase(this._userRepository, this._passwordHasher, this._passwordPolicyValidator, this._dateTimeProvider, this._auditLog, this._logger);
     }
 
     #region Success Cases
@@ -50,7 +52,7 @@ public sealed class CreateUserUseCaseTests
     public async Task ExecuteAsync_WithValidCommand_ReturnsSuccess()
     {
         // Arrange
-        var command = new CreateUserCommand("test@example.com", "Test User", "Password123!");
+        var command = new CreateUserCommand("test@example.com", "Test User", "Password123!", "admin-1");
         this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
             .Returns(false);
 
@@ -68,7 +70,7 @@ public sealed class CreateUserUseCaseTests
     public async Task ExecuteAsync_HashesPassword()
     {
         // Arrange
-        var command = new CreateUserCommand("test@example.com", "Test User", "MyPassword");
+        var command = new CreateUserCommand("test@example.com", "Test User", "MyPassword", "admin-1");
         this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
             .Returns(false);
 
@@ -83,7 +85,7 @@ public sealed class CreateUserUseCaseTests
     public async Task ExecuteAsync_AddsUserToRepository()
     {
         // Arrange
-        var command = new CreateUserCommand("test@example.com", "Test User", "Password123!");
+        var command = new CreateUserCommand("test@example.com", "Test User", "Password123!", "admin-1");
         this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
             .Returns(false);
 
@@ -100,7 +102,7 @@ public sealed class CreateUserUseCaseTests
     public async Task ExecuteAsync_SavesChanges()
     {
         // Arrange
-        var command = new CreateUserCommand("test@example.com", "Test User", "Password123!");
+        var command = new CreateUserCommand("test@example.com", "Test User", "Password123!", "admin-1");
         this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
             .Returns(false);
 
@@ -119,6 +121,7 @@ public sealed class CreateUserUseCaseTests
             "alice@example.test",
             "Alice Example",
             "Password123!",
+            "admin-1",
             new UserProfileData(
                 GivenName: "Alice",
                 FamilyName: "Example",
@@ -149,7 +152,7 @@ public sealed class CreateUserUseCaseTests
     public async Task ExecuteAsync_WithDuplicateEmail_ReturnsEmailAlreadyExistsError()
     {
         // Arrange
-        var command = new CreateUserCommand("existing@example.com", "Test User", "Password123!");
+        var command = new CreateUserCommand("existing@example.com", "Test User", "Password123!", "admin-1");
         this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
             .Returns(true);
 
@@ -165,7 +168,7 @@ public sealed class CreateUserUseCaseTests
     public async Task ExecuteAsync_WithDuplicateEmail_DoesNotAddUser()
     {
         // Arrange
-        var command = new CreateUserCommand("existing@example.com", "Test User", "Password123!");
+        var command = new CreateUserCommand("existing@example.com", "Test User", "Password123!", "admin-1");
         this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
             .Returns(true);
 
@@ -180,7 +183,7 @@ public sealed class CreateUserUseCaseTests
     public async Task ExecuteAsync_WithInvalidEmail_ReturnsValidationError()
     {
         // Arrange
-        var command = new CreateUserCommand("invalid-email", "Test User", "Password123!");
+        var command = new CreateUserCommand("invalid-email", "Test User", "Password123!", "admin-1");
         this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
             .Returns(false);
 
@@ -196,7 +199,7 @@ public sealed class CreateUserUseCaseTests
     public async Task ExecuteAsync_WithEmptyDisplayName_ReturnsValidationError()
     {
         // Arrange
-        var command = new CreateUserCommand("test@example.com", "", "Password123!");
+        var command = new CreateUserCommand("test@example.com", "", "Password123!", "admin-1");
         this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
             .Returns(false);
 
@@ -213,7 +216,7 @@ public sealed class CreateUserUseCaseTests
     {
         // Arrange
         this._passwordHasher.HashPassword("").Returns("");
-        var command = new CreateUserCommand("test@example.com", "Test User", "");
+        var command = new CreateUserCommand("test@example.com", "Test User", "", "admin-1");
         this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
             .Returns(false);
 
@@ -234,7 +237,7 @@ public sealed class CreateUserUseCaseTests
     {
         // Arrange
         using var cts = new CancellationTokenSource();
-        var command = new CreateUserCommand("test@example.com", "Test User", "Password123!");
+        var command = new CreateUserCommand("test@example.com", "Test User", "Password123!", "admin-1");
         this._userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>())
             .Returns(false);
 

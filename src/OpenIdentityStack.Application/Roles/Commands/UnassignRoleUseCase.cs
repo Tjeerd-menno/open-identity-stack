@@ -25,18 +25,22 @@ public sealed class UnassignRoleUseCase : IUnassignRoleUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IRoleRepository roleRepository;
+    private readonly IAuditLog auditLog;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="UnassignRoleUseCase"/> class.
     /// </summary>
     /// <param name="userRepository">The user repository.</param>
     /// <param name="roleRepository">The role repository.</param>
+    /// <param name="auditLog">The audit log.</param>
     public UnassignRoleUseCase(
         IUserRepository userRepository,
-        IRoleRepository roleRepository)
+        IRoleRepository roleRepository,
+        IAuditLog auditLog)
     {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.auditLog = auditLog;
     }
 
     /// <inheritdoc />
@@ -70,6 +74,14 @@ public sealed class UnassignRoleUseCase : IUnassignRoleUseCase
             command.RoleId,
             cancellationToken);
         await this.roleRepository.SaveChangesAsync(cancellationToken);
+
+        await this.auditLog.LogAsync(
+            command.ActorId,
+            "User.RoleUnassigned",
+            "User",
+            command.UserId.Value.ToString(),
+            $"RoleId: {command.RoleId.Value}",
+            cancellationToken);
 
         return Result.Success();
     }

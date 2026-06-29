@@ -12,6 +12,7 @@ public sealed class UpdateUserUseCaseTests
 {
     private readonly IUserRepository _userRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IAuditLog _auditLog;
     private readonly DateTimeOffset _now = new(2026, 1, 18, 12, 0, 0, TimeSpan.Zero);
     private readonly UpdateUserUseCase _sut;
 
@@ -19,9 +20,10 @@ public sealed class UpdateUserUseCaseTests
     {
         this._userRepository = Substitute.For<IUserRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        this._auditLog = Substitute.For<IAuditLog>();
         this._dateTimeProvider.UtcNow.Returns(this._now);
 
-        this._sut = new UpdateUserUseCase(this._userRepository, this._dateTimeProvider);
+        this._sut = new UpdateUserUseCase(this._userRepository, this._dateTimeProvider, this._auditLog);
     }
 
     [Fact]
@@ -30,7 +32,7 @@ public sealed class UpdateUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateUser(userId, "Old Name");
-        var command = new UpdateUserCommand(userId, "New Name");
+        var command = new UpdateUserCommand(userId, "New Name", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -49,7 +51,7 @@ public sealed class UpdateUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateUser(userId, "Old Name");
-        var command = new UpdateUserCommand(userId, "New Name");
+        var command = new UpdateUserCommand(userId, "New Name", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -67,7 +69,7 @@ public sealed class UpdateUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateUser(userId, "Old Name");
-        var command = new UpdateUserCommand(userId, "New Name");
+        var command = new UpdateUserCommand(userId, "New Name", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -85,7 +87,7 @@ public sealed class UpdateUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateUser(userId, "Old Name");
-        var command = new UpdateUserCommand(userId, "New Name");
+        var command = new UpdateUserCommand(userId, "New Name", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -104,7 +106,7 @@ public sealed class UpdateUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateUser(userId, "Original Name");
-        var command = new UpdateUserCommand(userId, null);
+        var command = new UpdateUserCommand(userId, null, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -123,7 +125,7 @@ public sealed class UpdateUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateUser(userId, "Original Name");
-        var command = new UpdateUserCommand(userId, "   ");
+        var command = new UpdateUserCommand(userId, "   ", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -141,7 +143,7 @@ public sealed class UpdateUserUseCaseTests
     {
         // Arrange
         var userId = UserId.Create();
-        var command = new UpdateUserCommand(userId, "New Name");
+        var command = new UpdateUserCommand(userId, "New Name", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -159,7 +161,7 @@ public sealed class UpdateUserUseCaseTests
     {
         // Arrange
         var userId = UserId.Create();
-        var command = new UpdateUserCommand(userId, "New Name");
+        var command = new UpdateUserCommand(userId, "New Name", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -178,7 +180,7 @@ public sealed class UpdateUserUseCaseTests
         var userId = UserId.Create();
         User user = CreateUser(userId, "Old Name");
         string tooLongName = new string('a', 257);
-        var command = new UpdateUserCommand(userId, tooLongName);
+        var command = new UpdateUserCommand(userId, tooLongName, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);

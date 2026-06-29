@@ -5,7 +5,8 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// Command to delete a user.
 /// </summary>
 /// <param name="UserId">The ID of the user to delete.</param>
-public sealed record DeleteUserCommand(UserId UserId);
+/// <param name="ActorId">The ID of the admin performing the action (for auditing).</param>
+public sealed record DeleteUserCommand(UserId UserId, string ActorId);
 
 /// <summary>
 /// Interface for the delete user use case.

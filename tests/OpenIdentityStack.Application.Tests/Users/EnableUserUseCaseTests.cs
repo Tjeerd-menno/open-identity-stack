@@ -9,6 +9,7 @@ public sealed class EnableUserUseCaseTests
 {
     private readonly IUserRepository _userRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IAuditLog _auditLog;
     private readonly IEnableUserUseCase _sut;
     private readonly DateTimeOffset _now = new(2026, 4, 30, 12, 0, 0, TimeSpan.Zero);
 
@@ -16,8 +17,9 @@ public sealed class EnableUserUseCaseTests
     {
         this._userRepository = Substitute.For<IUserRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        this._auditLog = Substitute.For<IAuditLog>();
         this._dateTimeProvider.UtcNow.Returns(this._now);
-        this._sut = new EnableUserUseCase(this._userRepository, this._dateTimeProvider);
+        this._sut = new EnableUserUseCase(this._userRepository, this._dateTimeProvider, this._auditLog);
     }
 
     [Fact]
@@ -25,7 +27,7 @@ public sealed class EnableUserUseCaseTests
     {
         var userId = UserId.Create();
         User user = CreateDisabledUser(userId);
-        var command = new EnableUserCommand(userId);
+        var command = new EnableUserCommand(userId, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -43,7 +45,7 @@ public sealed class EnableUserUseCaseTests
     public async Task ExecuteAsync_WithMissingUser_ReturnsNotFoundAndDoesNotSave()
     {
         var userId = UserId.Create();
-        var command = new EnableUserCommand(userId);
+        var command = new EnableUserCommand(userId, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -59,7 +61,7 @@ public sealed class EnableUserUseCaseTests
     [MemberData(nameof(NonDisabledUsers))]
     public async Task ExecuteAsync_WithUserThatIsNotDisabled_ReturnsNotDisabledAndDoesNotSave(User user)
     {
-        var command = new EnableUserCommand(user.Id);
+        var command = new EnableUserCommand(user.Id, "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);

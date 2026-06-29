@@ -15,6 +15,7 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
     private readonly IPasswordHasher passwordHasher;
     private readonly IPasswordPolicyValidator passwordPolicyValidator;
     private readonly IDateTimeProvider dateTimeProvider;
+    private readonly IAuditLog auditLog;
     private readonly ILogger<CreateUserUseCase> logger;
 
     public CreateUserUseCase(
@@ -22,12 +23,14 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
         IPasswordHasher passwordHasher,
         IPasswordPolicyValidator passwordPolicyValidator,
         IDateTimeProvider dateTimeProvider,
+        IAuditLog auditLog,
         ILogger<CreateUserUseCase> logger)
     {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.passwordPolicyValidator = passwordPolicyValidator;
         this.dateTimeProvider = dateTimeProvider;
+        this.auditLog = auditLog;
         this.logger = logger;
     }
 
@@ -89,6 +92,14 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
         await this.userRepository.SaveChangesAsync(cancellationToken);
 
         this.logger.LogUserCreated(user.Id.Value, user.Email);
+
+        await this.auditLog.LogAsync(
+            command.ActorId,
+            "User.Created",
+            "User",
+            user.Id.Value.ToString(),
+            $"Email: {user.Email}, DisplayName: {user.DisplayName}",
+            cancellationToken);
 
         return new CreateUserResult(
             user.Id,

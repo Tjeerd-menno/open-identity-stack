@@ -10,10 +10,12 @@ namespace OpenIdentityStack.Application.Users.Commands;
 public sealed class DeleteUserUseCase : IDeleteUserUseCase
 {
     private readonly IUserRepository userRepository;
+    private readonly IAuditLog auditLog;
 
-    public DeleteUserUseCase(IUserRepository userRepository)
+    public DeleteUserUseCase(IUserRepository userRepository, IAuditLog auditLog)
     {
         this.userRepository = userRepository;
+        this.auditLog = auditLog;
     }
 
     /// <inheritdoc />
@@ -29,6 +31,14 @@ public sealed class DeleteUserUseCase : IDeleteUserUseCase
 
         await this.userRepository.DeleteAsync(user, cancellationToken);
         await this.userRepository.SaveChangesAsync(cancellationToken);
+
+        await this.auditLog.LogAsync(
+            command.ActorId,
+            "User.Deleted",
+            "User",
+            user.Id.Value.ToString(),
+            $"Email: {user.Email}",
+            cancellationToken);
 
         return Result.Success();
     }
