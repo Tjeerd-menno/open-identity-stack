@@ -92,10 +92,10 @@ export function GroupDetailPage() {
 
   const group = groupQuery.data;
   const mappings = mappingsQuery.data?.items ?? [];
-  // The members endpoint does not return nextPageToken or a total count.
-  // Use the group entity's tracked memberCount for the headline, and infer a next page
-  // exists when the current page is full (standard offset heuristic).
-  const memberCount = group.memberCount ?? membersQuery.data?.items.length ?? 0;
+  // The group endpoint does not return memberCount, so it is always undefined.
+  // Do not fall back to the current page length — that would misrepresent a paginated
+  // subset as the total. Infer whether a next page exists from whether a full page returned.
+  const memberCount = group.memberCount;
   const hasNextPage = (membersQuery.data?.items.length ?? 0) === pageSize;
 
   const memberColumns: Column<GroupMember>[] = [
@@ -162,7 +162,7 @@ export function GroupDetailPage() {
 
       <MetaStrip
         items={[
-          { label: 'Members', value: memberCount },
+          { label: 'Members', value: memberCount ?? '—' },
           { label: 'Mappings', value: group.mappingCount ?? mappings.length },
           { label: 'Created', value: formatDateTime(group.createdAt) },
         ]}
@@ -170,7 +170,7 @@ export function GroupDetailPage() {
 
       <Tabs defaultValue="members" color="blue" keepMounted={false}>
         <Tabs.List mb="lg">
-          <Tabs.Tab value="members">Members ({memberCount})</Tabs.Tab>
+          <Tabs.Tab value="members">Members{memberCount !== undefined ? ` (${memberCount})` : ''}</Tabs.Tab>
           <Tabs.Tab value="mappings">Mappings ({mappings.length})</Tabs.Tab>
           <Tabs.Tab value="settings">Settings</Tabs.Tab>
         </Tabs.List>

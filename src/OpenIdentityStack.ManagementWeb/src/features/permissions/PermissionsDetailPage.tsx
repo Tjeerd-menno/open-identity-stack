@@ -37,8 +37,10 @@ export function PermissionsDetailPage() {
   });
   const historyQuery = useQuery({
     queryKey: ['application-permission', registrationId, 'history'],
-    queryFn: () => api.applicationPermissions.getApplicationPermissionHistory({ applicationIdentifier: registrationId }),
-    enabled: canAdmin,
+    // applicationIdentifier is the slug (e.g. "patient-api"), not the GUID; the endpoint
+    // filters by RegisteredApplication.ApplicationIdentifier, so pass the loaded value.
+    queryFn: () => api.applicationPermissions.getApplicationPermissionHistory({ applicationIdentifier: query.data?.applicationIdentifier ?? undefined }),
+    enabled: canAdmin && !!query.data,
   });
   const diagnosticsQuery = useQuery({
     queryKey: ['application-permission', 'diagnostics'],
