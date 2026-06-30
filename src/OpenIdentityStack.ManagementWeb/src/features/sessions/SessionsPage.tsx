@@ -2,6 +2,7 @@ import { Box, Group, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import type { Session, SessionStatus } from '@openidentitystack/admin-api-client';
 import { Icon, type IconName } from '@/components/Icon';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -24,6 +25,7 @@ function deriveDevice(userAgent: string): { label: string; icon: IconName } {
 
 export function SessionsPage() {
   const auth = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canRevoke = hasPermission(auth.permissions, 'sessions:revoke');
   const [search, setSearch] = useState('');
@@ -86,6 +88,7 @@ export function SessionsPage() {
       render: (session) => (
         <RowMenu
           items={[
+            { label: 'Open', icon: 'arrow-up-right', onClick: () => navigate(`/sessions/${session.id}`) },
             { label: 'Copy session ID', icon: 'copy', onClick: () => copyId(session.id) },
             { separator: true },
             {
@@ -134,6 +137,7 @@ export function SessionsPage() {
             columns={columns}
             rows={query.data?.items ?? []}
             getRowKey={(session) => session.id}
+            onRowClick={(session) => navigate(`/sessions/${session.id}`)}
             isLoading={query.isLoading}
             emptyIcon="activity"
             emptyTitle="No sessions"

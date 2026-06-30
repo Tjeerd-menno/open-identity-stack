@@ -18,6 +18,7 @@ import { GroupDetailPage } from '@/features/groups/GroupDetailPage';
 import { PermissionsPage } from '@/features/permissions/PermissionsPage';
 import { PermissionsDetailPage } from '@/features/permissions/PermissionsDetailPage';
 import { SessionsPage } from '@/features/sessions/SessionsPage';
+import { SessionDetailPage } from '@/features/sessions/SessionDetailPage';
 import { ProvidersPage } from '@/features/providers/ProvidersPage';
 import { ProviderDetailPage } from '@/features/providers/ProviderDetailPage';
 import { AuthenticationSettingsPage } from '@/features/providers/AuthenticationSettingsPage';
@@ -200,6 +201,14 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="sessions/:sessionId"
+          element={
+            <RequirePermissions permissions={['sessions:read']}>
+              <SessionDetailPage />
+            </RequirePermissions>
+          }
+        />
+        <Route
           path="providers"
           element={
             <RequirePermissions permissions={['providers:read']}>
@@ -231,6 +240,8 @@ export function AppRoutes() {
             </RequirePermissions>
           }
         />
+        {/* Preserve the AdminWeb /settings entry point — it now lives under the providers area. */}
+        <Route path="settings" element={<Navigate replace to="/providers/settings" />} />
         <Route path="*" element={<Navigate replace to="/" />} />
       </Route>
     </Routes>

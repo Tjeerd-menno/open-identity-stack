@@ -36,4 +36,5 @@ startup and writes them into `runtime-config.js`.
 npm run build
 npm run lint
 npm run type-check
+npm test
 ```

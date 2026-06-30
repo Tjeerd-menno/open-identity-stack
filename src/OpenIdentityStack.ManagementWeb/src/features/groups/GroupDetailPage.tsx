@@ -21,7 +21,7 @@ import { useNavigate, useParams } from 'react-router';
 import type { Group as GroupModel, GroupMapping, GroupMember } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
 import { DataTable, type Column } from '@/components/DataTable';
-import { Pager, SearchInput } from '@/components/ListControls';
+import { SearchInput } from '@/components/ListControls';
 import { RowMenu } from '@/components/RowMenu';
 import { BackLink, CenteredState, DetailHeader, ErrorState, MetaStrip, SectionCard } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
@@ -35,8 +35,13 @@ export function GroupDetailPage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const canWrite = hasPermission(auth.permissions, 'groups:write');
+  // Membership endpoints require groups:manage-members; deletion requires groups:delete —
+  // both are authorized independently of groups:write.
+  const canManageMembers = hasPermission(auth.permissions, 'groups:manage-members');
+  const canDelete = hasPermission(auth.permissions, 'groups:delete');
+  const canReadRoles = hasPermission(auth.permissions, 'roles:read');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const pageSize = 25;
   const [addMemberOpened, addMemberControls] = useDisclosure(false);
   const [addMappingOpened, addMappingControls] = useDisclosure(false);
 
@@ -86,8 +91,10 @@ export function GroupDetailPage() {
 
   const group = groupQuery.data;
   const mappings = mappingsQuery.data?.items ?? [];
-  const memberCount =
-    membersQuery.data?.totalCount || membersQuery.data?.items.length || group.memberCount || 0;
+  // The members endpoint is token-paginated and returns no total, so fall back to the count
+  // tracked on the group entity for the headline figure.
+  const memberCount = group.memberCount ?? membersQuery.data?.items.length ?? 0;
+  const hasNextPage = Boolean(membersQuery.data?.nextPageToken);
 
   const memberColumns: Column<GroupMember>[] = [
     {
@@ -128,7 +135,7 @@ export function GroupDetailPage() {
           items={[
             { label: 'Open user', icon: 'arrow-up-right', onClick: () => navigate(`/users/${member.userId}`) },
             { separator: true },
-            { label: 'Remove from group', icon: 'user-minus', danger: true, disabled: !canWrite, onClick: () => removeMember.mutate(member) },
+            { label: 'Remove from group', icon: 'user-minus', danger: true, disabled: !canManageMembers, onClick: () => removeMember.mutate(member) },
           ]}
         />
       ),
@@ -143,7 +150,7 @@ export function GroupDetailPage() {
         title={group.name}
         description={group.description ?? undefined}
         actions={
-          canWrite ? (
+          canManageMembers ? (
             <Button variant="default" leftSection={<Icon name="user-plus" size={16} />} onClick={addMemberControls.open}>
               Add members
             </Button>
@@ -176,17 +183,33 @@ export function GroupDetailPage() {
             emptyTitle="No members"
             emptyText="Add users to this group to grant them its delegated access."
           />
-          <Pager
-            page={page}
-            pageSize={pageSize}
-            totalCount={membersQuery.data?.totalCount ?? 0}
-            totalPages={membersQuery.data?.totalPages ?? 0}
-            onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-          />
+          {(page > 1 || hasNextPage) && (
+            <Group justify="space-between" mt="md">
+              <Text c="dimmed" size="sm">
+                Page {page}
+              </Text>
+              <Group gap="sm">
+                <Button
+                  variant="default"
+                  size="xs"
+                  leftSection={<Icon name="arrow-left" size={14} />}
+                  disabled={page <= 1 || membersQuery.isFetching}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="default"
+                  size="xs"
+                  rightSection={<Icon name="arrow-right" size={14} />}
+                  disabled={!hasNextPage || membersQuery.isFetching}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  Next
+                </Button>
+              </Group>
+            </Group>
+          )}
         </Tabs.Panel>
 
         <Tabs.Panel value="mappings">
@@ -230,7 +253,7 @@ export function GroupDetailPage() {
         </Tabs.Panel>
 
         <Tabs.Panel value="settings">
-          <GroupSettings group={group} canWrite={canWrite} onDeleted={() => navigate('/groups')} />
+          <GroupSettings group={group} canWrite={canWrite} canDelete={canDelete} onDeleted={() => navigate('/groups')} />
         </Tabs.Panel>
       </Tabs>
 
@@ -238,7 +261,12 @@ export function GroupDetailPage() {
         <AddMembersModal groupId={groupId} onAdded={invalidateMembers} onClose={addMemberControls.close} />
       )}
       {addMappingOpened && (
-        <AddMappingModal groupId={groupId} onAdded={invalidateMappings} onClose={addMappingControls.close} />
+        <AddMappingModal
+          groupId={groupId}
+          canReadRoles={canReadRoles}
+          onAdded={invalidateMappings}
+          onClose={addMappingControls.close}
+        />
       )}
     </div>
   );
@@ -314,10 +342,28 @@ function AddMembersModal({ groupId, onAdded, onClose }: { groupId: string; onAdd
   );
 }
 
-function AddMappingModal({ groupId, onAdded, onClose }: { groupId: string; onAdded: () => void; onClose: () => void }) {
+function AddMappingModal({
+  groupId,
+  canReadRoles,
+  onAdded,
+  onClose,
+}: {
+  groupId: string;
+  canReadRoles: boolean;
+  onAdded: () => void;
+  onClose: () => void;
+}) {
   const form = useForm({
     initialValues: { type: 'Role' as 'Role' | 'Claim', value: '' },
     validate: { value: (value) => (value.trim() ? null : 'Required') },
+  });
+
+  // Role mappings are persisted by role ID (AddGroupMapping treats the value as the target
+  // role identifier), so offer a role picker rather than a free-text name field.
+  const rolesQuery = useQuery({
+    queryKey: ['roles', 'all'],
+    queryFn: () => api.roles.getRoles({ page: 1, pageSize: 100 }),
+    enabled: canReadRoles,
   });
 
   const mutation = useMutation({
@@ -339,15 +385,34 @@ function AddMappingModal({ groupId, onAdded, onClose }: { groupId: string; onAdd
             data={['Role', 'Claim']}
             allowDeselect={false}
             value={form.values.type}
-            onChange={(value) => value && form.setFieldValue('type', value as 'Role' | 'Claim')}
+            onChange={(value) => {
+              if (!value) return;
+              form.setFieldValue('type', value as 'Role' | 'Claim');
+              form.setFieldValue('value', '');
+            }}
           />
-          <TextInput
-            label="Value"
-            description={form.values.type === 'Role' ? 'The role name granted to members.' : 'The upstream claim value to match.'}
-            placeholder={form.values.type === 'Role' ? 'platform-admin' : 'group:engineering'}
-            required
-            {...form.getInputProps('value')}
-          />
+          {form.values.type === 'Role' ? (
+            <Select
+              label="Role"
+              description="The platform role granted to members of this group."
+              placeholder={canReadRoles ? 'Select a role' : 'Requires roles:read'}
+              searchable
+              required
+              disabled={!canReadRoles}
+              data={(rolesQuery.data?.items ?? []).map((role) => ({ value: role.id, label: role.displayName }))}
+              value={form.values.value || null}
+              error={form.errors.value}
+              onChange={(value) => form.setFieldValue('value', value ?? '')}
+            />
+          ) : (
+            <TextInput
+              label="Claim"
+              description="The upstream claim to match, as claimType or claimType:claimValue."
+              placeholder="group:engineering"
+              required
+              {...form.getInputProps('value')}
+            />
+          )}
           <Group justify="flex-end" gap="sm" mt="xs">
             <Button variant="default" onClick={onClose}>
               Cancel
@@ -362,7 +427,7 @@ function AddMappingModal({ groupId, onAdded, onClose }: { groupId: string; onAdd
   );
 }
 
-function GroupSettings({ group, canWrite, onDeleted }: { group: GroupModel; canWrite: boolean; onDeleted: () => void }) {
+function GroupSettings({ group, canWrite, canDelete, onDeleted }: { group: GroupModel; canWrite: boolean; canDelete: boolean; onDeleted: () => void }) {
   const queryClient = useQueryClient();
   const form = useForm({
     initialValues: { name: group.name, description: group.description ?? '' },
@@ -414,7 +479,7 @@ function GroupSettings({ group, canWrite, onDeleted }: { group: GroupModel; canW
         </form>
       </SectionCard>
 
-      {canWrite && (
+      {canDelete && (
         <SectionCard title="Danger zone" description="Deleting a group removes its delegated access. Members keep their individual roles." danger>
           <Button color="red" variant="light" leftSection={<Icon name="trash-2" size={16} />} loading={remove.isPending} onClick={() => remove.mutate()}>
             Delete group

@@ -1,7 +1,6 @@
-import { Card, Center, Skeleton, Stack, Table, Text } from '@mantine/core';
+import { Card, Center, Skeleton, Stack, Table, Text, ThemeIcon } from '@mantine/core';
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
-import { ThemeIcon } from '@mantine/core';
 
 export type Column<T> = {
   key: string;

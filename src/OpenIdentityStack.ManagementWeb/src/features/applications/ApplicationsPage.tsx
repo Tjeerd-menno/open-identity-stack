@@ -45,6 +45,8 @@ export function ApplicationsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canWrite = hasPermission(auth.permissions, 'applications:write');
+  // Deletion is authorized with applications:delete, independent of applications:write.
+  const canDelete = hasPermission(auth.permissions, 'applications:delete');
   const [search, setSearch] = useState('');
   const [profile, setProfile] = useState('All');
   const [status, setStatus] = useState('All');
@@ -139,7 +141,7 @@ export function ApplicationsPage() {
               onClick: () => toggle.mutate(app),
             },
             { separator: true },
-            { label: 'Delete application', icon: 'trash-2', danger: true, disabled: !canWrite, onClick: () => setPendingDelete(app) },
+            { label: 'Delete application', icon: 'trash-2', danger: true, disabled: !canDelete, onClick: () => setPendingDelete(app) },
           ]}
         />
       ),

@@ -54,11 +54,19 @@ describe('UserDetailPage', () => {
     expect(screen.getByRole('tab', { name: /upstream identities/i })).toBeInTheDocument();
   });
 
-  it('offers reset and disable actions for write operators', async () => {
-    renderDetail(makeAuth({ permissions: ['users:read', 'users:write'] }));
+  it('offers reset and disable actions gated on their granular permissions', async () => {
+    renderDetail(makeAuth({ permissions: ['users:read', 'users:reset-password', 'users:disable'] }));
 
     expect(await screen.findByRole('button', { name: /reset password/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /disable user/i })).toBeInTheDocument();
+  });
+
+  it('does not show reset/disable to a write-only operator lacking the granular grants', async () => {
+    renderDetail(makeAuth({ permissions: ['users:read', 'users:write'] }));
+
+    expect(await screen.findByRole('heading', { name: 'Ada Lovelace' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reset password/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /disable user/i })).not.toBeInTheDocument();
   });
 
   it('hides write actions for read-only operators', async () => {

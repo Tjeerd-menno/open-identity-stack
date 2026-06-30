@@ -129,7 +129,7 @@ export function RegisterManifestModal({ onClose }: { onClose: () => void }) {
             label="Manifest endpoint"
             description="A well-known permissions manifest URL the server will fetch and import."
             placeholder="https://api.example.com/.well-known/permissions"
-            leftSection={<Icon name="cloud-download" size={15} />}
+            leftSection={<Icon name="download" size={15} />}
             value={endpoint}
             onChange={(event) => setEndpoint(event.currentTarget.value)}
           />

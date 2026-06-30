@@ -92,12 +92,25 @@ public sealed class GroupManagementTests : ManagementWebPageTest
     [Fact]
     public async Task OperatorCanAddAMappingToAGroup()
     {
+        // Role mappings are persisted by role id, so the modal offers a role picker rather than a
+        // free-text field. Seed a role with a unique display name to select unambiguously.
+        string roleName = $"Mapping Role {Unique}";
+        await ApiPostAsync("/api/admin/roles", new
+        {
+            name = $"mapping-role-{Unique}",
+            displayName = roleName,
+            description = roleName,
+            permissions = MappingRolePermissions,
+            acknowledgeWildcardGrant = false,
+        });
+
         await GotoAsync($"/groups/{_groupId}");
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Mappings", RegexOptions.IgnoreCase) }).ClickAsync();
         await Page.GetByRole(AriaRole.Button, new() { Name = "Add mapping", Exact = true }).ClickAsync();
 
         ILocator dialog = Page.GetByRole(AriaRole.Dialog);
-        await dialog.GetByLabel("Value").FillAsync("platform-admin");
+        await dialog.GetByPlaceholder("Select a role").ClickAsync();
+        await Page.GetByRole(AriaRole.Option, new() { Name = roleName, Exact = true }).ClickAsync();
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Add mapping", Exact = true }).ClickAsync();
 
         await Page.GetByText(new Regex("Mapping added", RegexOptions.IgnoreCase)).WaitForAsync();
@@ -153,4 +166,6 @@ public sealed class GroupManagementTests : ManagementWebPageTest
         await Page.GetByText(new Regex("Group deleted", RegexOptions.IgnoreCase)).WaitForAsync();
         await Page.WaitForURLAsync(new Regex(@"/groups/?$"));
     }
+
+    private static readonly string[] MappingRolePermissions = ["users:read"];
 }

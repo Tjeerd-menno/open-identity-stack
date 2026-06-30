@@ -72,7 +72,9 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
     {
         await GotoAsync("/audit-entries");
         await Page.GetByRole(AriaRole.Heading, new() { Name = "Audit", Exact = true }).WaitForAsync();
-        await Page.GetByLabel("Entity").WaitForAsync();
+        // Exact match: the advanced filters also expose an "Entity ID" field whose label would
+        // otherwise be a substring match for the entity-type select.
+        await Page.GetByLabel("Entity", new() { Exact = true }).WaitForAsync();
 
         // The real trail has the Application row written by SeedAsync. Scope to the table body:
         // the entity-type filter renders a hidden <option>Application</option> that would otherwise
@@ -88,7 +90,7 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
         await Page.Locator("tbody tr").First.WaitForAsync();
 
         // Selecting an entity sends entityType=Application and surfaces the applied-filter chip.
-        await Page.GetByLabel("Entity").SelectOptionAsync("Application");
+        await Page.GetByLabel("Entity", new() { Exact = true }).SelectOptionAsync("Application");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Clear Entity", Exact = true }).WaitForAsync();
         // Scope to the table body so the hidden <option>Application</option> in the select isn't matched.
         await Page.Locator("tbody").GetByText(new Regex("^Application$", RegexOptions.IgnoreCase)).First.WaitForAsync();

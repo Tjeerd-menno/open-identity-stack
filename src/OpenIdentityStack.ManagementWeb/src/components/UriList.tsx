@@ -32,7 +32,8 @@ export function UriList({
         {values.map((value, index) => (
           <Group key={index} gap="xs" wrap="nowrap">
             <TextInput
-              style={{ flex: 1, fontFamily: 'var(--mw-mono)' }}
+              style={{ flex: 1 }}
+              styles={{ input: { fontFamily: 'var(--mw-mono)' } }}
               leftSection={<Icon name="link" size={15} />}
               placeholder={placeholder}
               value={value}

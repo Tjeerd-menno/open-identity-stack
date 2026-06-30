@@ -1,6 +1,8 @@
-import { Badge, Button, Group, Stack, Switch, Tabs, Text } from '@mantine/core';
+import { Badge, Button, Group, PasswordInput, Stack, Switch, Tabs, Text, TextInput } from '@mantine/core';
+import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { Provider } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
@@ -16,6 +18,8 @@ export function ProviderDetailPage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const canWrite = hasPermission(auth.permissions, 'providers:write');
+  // Deletion is authorized with providers:delete, independent of providers:write.
+  const canDelete = hasPermission(auth.permissions, 'providers:delete');
 
   const providerQuery = useQuery({ queryKey: ['provider', providerId], queryFn: () => api.providers.getProvider(providerId) });
 
@@ -127,6 +131,8 @@ export function ProviderDetailPage() {
 
         <Tabs.Panel value="settings">
           <Stack gap="lg">
+            <ProviderConfigForm provider={provider} canWrite={canWrite} onSaved={invalidate} />
+
             <SectionCard title="Provisioning">
               <Group justify="space-between" wrap="nowrap">
                 <div>
@@ -146,7 +152,7 @@ export function ProviderDetailPage() {
               </Group>
             </SectionCard>
 
-            {canWrite && (
+            {canDelete && (
               <SectionCard title="Danger zone" description="Deleting a provider prevents its users from signing in with it." danger>
                 <Button color="red" variant="light" leftSection={<Icon name="trash-2" size={16} />} loading={remove.isPending} onClick={() => remove.mutate()}>
                   Delete provider
@@ -157,5 +163,72 @@ export function ProviderDetailPage() {
         </Tabs.Panel>
       </Tabs>
     </div>
+  );
+}
+
+function ProviderConfigForm({ provider, canWrite, onSaved }: { provider: Provider; canWrite: boolean; onSaved: () => void }) {
+  const form = useForm({
+    initialValues: {
+      displayName: provider.displayName ?? '',
+      clientId: provider.clientId ?? '',
+      clientSecret: '',
+      scopes: provider.scopes.join(', '),
+    },
+    validate: { clientId: (value) => (value.trim() ? null : 'Required') },
+  });
+
+  useEffect(() => {
+    const next = {
+      displayName: provider.displayName ?? '',
+      clientId: provider.clientId ?? '',
+      clientSecret: '',
+      scopes: provider.scopes.join(', '),
+    };
+    form.setValues(next);
+    form.resetDirty(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider.id, provider.displayName, provider.clientId, provider.scopes]);
+
+  const save = useMutation({
+    mutationFn: (values: typeof form.values) =>
+      api.providers.updateProvider(provider.id, {
+        displayName: values.displayName,
+        clientId: values.clientId,
+        // Only send a secret when the operator typed one — leaving it blank keeps the stored value.
+        clientSecret: values.clientSecret ? values.clientSecret : undefined,
+        scopes: values.scopes.split(',').map((scope) => scope.trim()).filter(Boolean),
+      }),
+    onSuccess: () => {
+      notifications.show({ message: 'Provider updated', color: 'green' });
+      form.setFieldValue('clientSecret', '');
+      onSaved();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  return (
+    <SectionCard title="Configuration" description="Connection details used when signing users in with this provider.">
+      <form onSubmit={form.onSubmit((values) => save.mutate(values))}>
+        <Stack gap="md">
+          <TextInput label="Display name" disabled={!canWrite} {...form.getInputProps('displayName')} />
+          <TextInput label="Client ID" disabled={!canWrite} {...form.getInputProps('clientId')} />
+          <PasswordInput
+            label="Client secret"
+            description="Leave blank to keep the current secret."
+            placeholder="••••••••"
+            disabled={!canWrite}
+            {...form.getInputProps('clientSecret')}
+          />
+          <TextInput label="Scopes" description="Comma-separated" disabled={!canWrite} {...form.getInputProps('scopes')} />
+          {canWrite && (
+            <Group justify="flex-end">
+              <Button type="submit" loading={save.isPending} disabled={!form.isDirty()}>
+                Save changes
+              </Button>
+            </Group>
+          )}
+        </Stack>
+      </form>
+    </SectionCard>
   );
 }

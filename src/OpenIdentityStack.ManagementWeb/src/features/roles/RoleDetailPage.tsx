@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { Role } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, MetaStrip, SectionCard } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -82,9 +83,14 @@ export function RoleDetailPage() {
   );
 }
 
+const isWildcardPermission = (permission: string) => permission === '*' || permission.endsWith(':*');
+
 function RolePermissions({ role, canEdit }: { role: Role; canEdit: boolean }) {
   const queryClient = useQueryClient();
   const [permToAdd, setPermToAdd] = useState<string | null>(null);
+  // A wildcard grant is broad and irreversible at a click; hold it for explicit confirmation
+  // before saving (which is what acknowledges the wildcard to the API).
+  const [pendingWildcard, setPendingWildcard] = useState<string | null>(null);
   const families = groupPermissions(role.permissions);
 
   const catalogQuery = useQuery({
@@ -104,11 +110,20 @@ function RolePermissions({ role, canEdit }: { role: Role; canEdit: boolean }) {
     onSuccess: () => {
       notifications.show({ message: 'Permissions updated', color: 'green' });
       setPermToAdd(null);
+      setPendingWildcard(null);
       void queryClient.invalidateQueries({ queryKey: ['role', role.id] });
       void queryClient.invalidateQueries({ queryKey: ['roles'] });
     },
     onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
+
+  const addPermission = (permission: string) => {
+    if (isWildcardPermission(permission)) {
+      setPendingWildcard(permission);
+      return;
+    }
+    save.mutate([...role.permissions, permission]);
+  };
 
   const assignable = (catalogQuery.data?.items ?? [])
     .filter((item) => item.assignable && !role.permissions.includes(item.permission))
@@ -133,7 +148,7 @@ function RolePermissions({ role, canEdit }: { role: Role; canEdit: boolean }) {
             <Button
               disabled={!permToAdd}
               loading={save.isPending}
-              onClick={() => permToAdd && save.mutate([...role.permissions, permToAdd])}
+              onClick={() => permToAdd && addPermission(permToAdd)}
             >
               Add
             </Button>
@@ -182,6 +197,17 @@ function RolePermissions({ role, canEdit }: { role: Role; canEdit: boolean }) {
           ))}
         </Stack>
       )}
+
+      <ConfirmModal
+        opened={pendingWildcard !== null}
+        title="Grant a wildcard permission?"
+        message={`"${pendingWildcard ?? ''}" grants every action in its scope. This is a broad, high-impact grant — confirm you intend to acknowledge it for this role.`}
+        confirmLabel="Grant wildcard"
+        danger={false}
+        loading={save.isPending}
+        onConfirm={() => pendingWildcard && save.mutate([...role.permissions, pendingWildcard])}
+        onClose={() => setPendingWildcard(null)}
+      />
     </SectionCard>
   );
 }

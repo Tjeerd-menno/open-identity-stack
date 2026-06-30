@@ -22,6 +22,8 @@ export function GroupsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canWrite = hasPermission(auth.permissions, 'groups:write');
+  // Deletion is authorized with groups:delete, independent of groups:write.
+  const canDelete = hasPermission(auth.permissions, 'groups:delete');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -81,7 +83,7 @@ export function GroupsPage() {
           items={[
             { label: 'Open', icon: 'arrow-up-right', onClick: () => navigate(`/groups/${group.id}`) },
             { separator: true },
-            { label: 'Delete group', icon: 'trash-2', danger: true, disabled: !canWrite, onClick: () => setPendingDelete(group) },
+            { label: 'Delete group', icon: 'trash-2', danger: true, disabled: !canDelete, onClick: () => setPendingDelete(group) },
           ]}
         />
       ),

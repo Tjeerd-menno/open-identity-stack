@@ -3,8 +3,9 @@ import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
+import type { User } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
 import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
@@ -16,14 +17,30 @@ export function UserDetailPage() {
   const { userId = '' } = useParams();
   const auth = useAuth();
   const queryClient = useQueryClient();
+  // Gate each action on the granular permission its backend endpoint actually requires,
+  // rather than treating users:write as an umbrella (UsersApi authorizes disable, reset,
+  // role assignment and group/role reads independently).
   const canWrite = hasPermission(auth.permissions, 'users:write');
-  const canAssignRoles = canWrite && hasPermission(auth.permissions, 'roles:read');
+  const canResetPassword = hasPermission(auth.permissions, 'users:reset-password');
+  const canDisableUser = hasPermission(auth.permissions, 'users:disable');
+  const canReadRoles = hasPermission(auth.permissions, 'roles:read');
+  const canReadGroups = hasPermission(auth.permissions, 'groups:read');
+  // Assignment is authorized with roles:assign; listing the roles to pick from needs roles:read.
+  const canAssignRoles = hasPermission(auth.permissions, 'roles:assign');
   const [roleToAssign, setRoleToAssign] = useState<string | null>(null);
   const [resetOpened, resetControls] = useDisclosure(false);
 
   const userQuery = useQuery({ queryKey: ['user', userId], queryFn: () => api.users.getUser(userId) });
-  const rolesQuery = useQuery({ queryKey: ['user', userId, 'roles'], queryFn: () => api.users.getUserRoles(userId) });
-  const groupsQuery = useQuery({ queryKey: ['user', userId, 'groups'], queryFn: () => api.users.getUserGroups(userId) });
+  const rolesQuery = useQuery({
+    queryKey: ['user', userId, 'roles'],
+    queryFn: () => api.users.getUserRoles(userId),
+    enabled: canReadRoles,
+  });
+  const groupsQuery = useQuery({
+    queryKey: ['user', userId, 'groups'],
+    queryFn: () => api.users.getUserGroups(userId),
+    enabled: canReadGroups,
+  });
   const identitiesQuery = useQuery({
     queryKey: ['user', userId, 'identities'],
     queryFn: () => api.users.getUserUpstreamIdentities(userId),
@@ -31,7 +48,7 @@ export function UserDetailPage() {
   const allRolesQuery = useQuery({
     queryKey: ['roles', 'all'],
     queryFn: () => api.roles.getRoles({ page: 1, pageSize: 100 }),
-    enabled: canAssignRoles,
+    enabled: canAssignRoles && canReadRoles,
   });
 
   const invalidateRoles = () => void queryClient.invalidateQueries({ queryKey: ['user', userId, 'roles'] });
@@ -112,6 +129,29 @@ export function UserDetailPage() {
   const groups = groupsQuery.data ?? [];
   const identities = identitiesQuery.data ?? [];
 
+  // Enabling a disabled account is authorized with users:write; disabling needs users:disable.
+  const canToggleStatus = user.status === 'Disabled' ? canWrite : canDisableUser;
+  const headerActions =
+    canResetPassword || canToggleStatus ? (
+      <>
+        {canResetPassword && (
+          <Button variant="default" leftSection={<Icon name="key-round" size={16} />} onClick={resetControls.open}>
+            Reset password
+          </Button>
+        )}
+        {canToggleStatus && (
+          <Button
+            variant="default"
+            loading={toggleStatus.isPending}
+            leftSection={<Icon name={user.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
+            onClick={() => toggleStatus.mutate()}
+          >
+            {user.status === 'Disabled' ? 'Enable user' : 'Disable user'}
+          </Button>
+        )}
+      </>
+    ) : undefined;
+
   return (
     <div>
       <BackLink label="Back to users" to="/users" />
@@ -120,29 +160,13 @@ export function UserDetailPage() {
         title={user.displayName}
         description={user.email}
         badge={<StatusBadge status={user.status} />}
-        actions={
-          canWrite ? (
-            <>
-              <Button variant="default" leftSection={<Icon name="key-round" size={16} />} onClick={resetControls.open}>
-                Reset password
-              </Button>
-              <Button
-                variant="default"
-                loading={toggleStatus.isPending}
-                leftSection={<Icon name={user.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
-                onClick={() => toggleStatus.mutate()}
-              >
-                {user.status === 'Disabled' ? 'Enable user' : 'Disable user'}
-              </Button>
-            </>
-          ) : undefined
-        }
+        actions={headerActions}
       />
 
       <MetaStrip
         items={[
-          { label: 'Roles', value: roles.length },
-          { label: 'Groups', value: groups.length },
+          ...(canReadRoles ? [{ label: 'Roles', value: roles.length }] : []),
+          ...(canReadGroups ? [{ label: 'Groups', value: groups.length }] : []),
           { label: 'MFA', value: user.mfaEnabled ? 'On' : 'Off' },
           { label: 'Created', value: formatDateTime(user.createdAt) },
         ]}
@@ -151,21 +175,16 @@ export function UserDetailPage() {
       <Tabs defaultValue="profile" color="blue" keepMounted={false}>
         <Tabs.List mb="lg">
           <Tabs.Tab value="profile">Profile</Tabs.Tab>
-          <Tabs.Tab value="roles">Roles ({roles.length})</Tabs.Tab>
-          <Tabs.Tab value="groups">Groups ({groups.length})</Tabs.Tab>
+          {canReadRoles && <Tabs.Tab value="roles">Roles ({roles.length})</Tabs.Tab>}
+          {canReadGroups && <Tabs.Tab value="groups">Groups ({groups.length})</Tabs.Tab>}
           <Tabs.Tab value="identities">Upstream identities ({identities.length})</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="profile">
-          <SectionCard title="Profile">
-            <FieldRow label="User ID" value={user.id} mono />
-            <FieldRow label="Email" value={user.email} />
-            <FieldRow label="MFA" value={user.mfaEnabled ? 'Enabled' : 'Not enabled'} />
-            <FieldRow label="Last sign-in" value={formatRelativeTime(user.lastLoginAt)} />
-            <FieldRow label="Created" value={formatDateTime(user.createdAt)} last />
-          </SectionCard>
+          <ProfileCard user={user} canWrite={canWrite} />
         </Tabs.Panel>
 
+        {canReadRoles && (
         <Tabs.Panel value="roles">
           <SectionCard
             title="Assigned roles"
@@ -235,7 +254,9 @@ export function UserDetailPage() {
             )}
           </SectionCard>
         </Tabs.Panel>
+        )}
 
+        {canReadGroups && (
         <Tabs.Panel value="groups">
           <SectionCard title="Group membership">
             {groups.length === 0 ? (
@@ -251,6 +272,7 @@ export function UserDetailPage() {
             )}
           </SectionCard>
         </Tabs.Panel>
+        )}
 
         <Tabs.Panel value="identities">
           <SectionCard title="Upstream identities" description="Federated accounts linked to this user.">
@@ -270,7 +292,8 @@ export function UserDetailPage() {
                 <TextInput
                   label="Subject"
                   placeholder="upstream-subject-id"
-                  style={{ flex: 1, fontFamily: 'var(--mw-mono)' }}
+                  style={{ flex: 1 }}
+                  styles={{ input: { fontFamily: 'var(--mw-mono)' } }}
                   value={linkSubject}
                   onChange={(event) => setLinkSubject(event.currentTarget.value)}
                 />
@@ -327,6 +350,54 @@ export function UserDetailPage() {
 
       {resetOpened && <ResetPasswordModal userId={userId} userName={user.displayName} onClose={resetControls.close} />}
     </div>
+  );
+}
+
+function ProfileCard({ user, canWrite }: { user: User; canWrite: boolean }) {
+  const queryClient = useQueryClient();
+  const form = useForm({
+    initialValues: { displayName: user.displayName },
+    validate: { displayName: (value) => (value.trim() ? null : 'Required') },
+  });
+
+  useEffect(() => {
+    form.setValues({ displayName: user.displayName });
+    form.resetDirty({ displayName: user.displayName });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id, user.displayName]);
+
+  const save = useMutation({
+    mutationFn: (values: typeof form.values) => api.users.updateUser(user.id, { displayName: values.displayName }),
+    onSuccess: () => {
+      notifications.show({ message: 'User updated', color: 'green' });
+      void queryClient.invalidateQueries({ queryKey: ['user', user.id] });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  return (
+    <SectionCard title="Profile">
+      <form onSubmit={form.onSubmit((values) => save.mutate(values))}>
+        <Stack gap="md">
+          <TextInput label="Display name" disabled={!canWrite} {...form.getInputProps('displayName')} />
+          {canWrite && (
+            <Group justify="flex-end">
+              <Button type="submit" loading={save.isPending} disabled={!form.isDirty()}>
+                Save changes
+              </Button>
+            </Group>
+          )}
+        </Stack>
+      </form>
+      <Stack gap={0} mt="md">
+        <FieldRow label="User ID" value={user.id} mono />
+        <FieldRow label="Email" value={user.email} />
+        <FieldRow label="MFA" value={user.mfaEnabled ? 'Enabled' : 'Not enabled'} />
+        <FieldRow label="Last sign-in" value={formatRelativeTime(user.lastLoginAt)} />
+        <FieldRow label="Created" value={formatDateTime(user.createdAt)} last />
+      </Stack>
+    </SectionCard>
   );
 }
 

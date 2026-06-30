@@ -18,6 +18,7 @@ public sealed class UserManagementTests : ManagementWebPageTest
     private string _graceName = "";
     private string _alanName = "";
     private string _providerName = "";
+    private string _auditorRoleName = "";
 
     public UserManagementTests(ManagementWebAppHostFixture fixture) : base(fixture)
     {
@@ -35,7 +36,11 @@ public sealed class UserManagementTests : ManagementWebPageTest
         _disabledId = await Fixture.SeedUserAsync($"alan.{Unique}@northwind.io", _alanName, "Password123!@456", disabled: true);
 
         Guid operatorRoleId = await SeedRoleAsync($"operator-{Unique}", "Operator", "users:read");
-        await SeedRoleAsync($"auditor-{Unique}", "Auditor", "audit-logs:read");
+        // Display name must be unique: the AppHost database is shared across every test in this
+        // class, so a constant "Auditor" name would surface one option per seeded test run and
+        // make the role Select's exact-name lookup ambiguous (strict-mode violation).
+        _auditorRoleName = $"Auditor {Unique}";
+        await SeedRoleAsync($"auditor-{Unique}", _auditorRoleName, "audit-logs:read");
         await Fixture.AssignRoleAsync(_adaId, operatorRoleId);
 
         JsonNode provider = await ApiPostAsync("/api/admin/providers", new
@@ -82,7 +87,7 @@ public sealed class UserManagementTests : ManagementWebPageTest
 
         // Assign another role.
         await Page.GetByPlaceholder("Select a role").ClickAsync();
-        await Page.GetByRole(AriaRole.Option, new() { Name = "Auditor", Exact = true }).ClickAsync();
+        await Page.GetByRole(AriaRole.Option, new() { Name = _auditorRoleName, Exact = true }).ClickAsync();
         await Page.GetByRole(AriaRole.Button, new() { Name = "Assign", Exact = true }).ClickAsync();
         await Page.GetByText(new Regex("Role assigned", RegexOptions.IgnoreCase)).WaitForAsync();
 

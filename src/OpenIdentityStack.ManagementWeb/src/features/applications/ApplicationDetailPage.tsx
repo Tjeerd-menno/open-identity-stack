@@ -37,6 +37,10 @@ export function ApplicationDetailPage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const canWrite = hasPermission(auth.permissions, 'applications:write');
+  // Secret add/revoke is authorized with applications:manage-credentials and deletion with
+  // applications:delete — both independent of applications:write.
+  const canManageCredentials = hasPermission(auth.permissions, 'applications:manage-credentials');
+  const canDelete = hasPermission(auth.permissions, 'applications:delete');
 
   const appQuery = useQuery({
     queryKey: ['application', applicationId],
@@ -133,7 +137,7 @@ export function ApplicationDetailPage() {
       align: 'right',
       width: 110,
       render: (credential) =>
-        canWrite && !credential.revokedAt ? (
+        canManageCredentials && !credential.revokedAt ? (
           <Button color="red" size="xs" variant="subtle" onClick={() => setPendingRevoke(credential)}>
             Revoke
           </Button>
@@ -260,7 +264,7 @@ export function ApplicationDetailPage() {
             title="Credentials"
             description="Client secrets and certificates registered to this application."
             right={
-              canWrite && app.clientType === 'Confidential' ? (
+              canManageCredentials && app.clientType === 'Confidential' ? (
                 <Button size="xs" leftSection={<Icon name="plus" size={14} />} onClick={addSecretControls.open}>
                   Add secret
                 </Button>
@@ -287,7 +291,7 @@ export function ApplicationDetailPage() {
         </Tabs.Panel>
 
         <Tabs.Panel value="settings">
-          <AppSettings app={app} canWrite={canWrite} onEdited={invalidateApp} onDelete={deleteControls.open} />
+          <AppSettings app={app} canWrite={canWrite} canDelete={canDelete} onEdited={invalidateApp} onDelete={deleteControls.open} />
         </Tabs.Panel>
       </Tabs>
 
@@ -324,11 +328,13 @@ export function ApplicationDetailPage() {
 function AppSettings({
   app,
   canWrite,
+  canDelete,
   onEdited,
   onDelete,
 }: {
   app: Application;
   canWrite: boolean;
+  canDelete: boolean;
   onEdited: () => void;
   onDelete: () => void;
 }) {
@@ -376,7 +382,7 @@ function AppSettings({
         </form>
       </SectionCard>
 
-      {canWrite && (
+      {canDelete && (
         <SectionCard title="Danger zone" description="Deleting an application invalidates its credentials and any tokens it has issued." danger>
           <Button color="red" variant="light" leftSection={<Icon name="trash-2" size={16} />} onClick={onDelete}>
             Delete application
