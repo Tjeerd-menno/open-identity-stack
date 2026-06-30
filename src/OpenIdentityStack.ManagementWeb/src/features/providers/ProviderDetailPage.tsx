@@ -1,11 +1,13 @@
 import { Badge, Button, Group, PasswordInput, Stack, Switch, Tabs, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { Provider } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -20,6 +22,7 @@ export function ProviderDetailPage() {
   const canWrite = hasPermission(auth.permissions, 'providers:write');
   // Deletion is authorized with providers:delete, independent of providers:write.
   const canDelete = hasPermission(auth.permissions, 'providers:delete');
+  const [confirmDeleteOpened, confirmDeleteControls] = useDisclosure(false);
 
   const providerQuery = useQuery({ queryKey: ['provider', providerId], queryFn: () => api.providers.getProvider(providerId) });
 
@@ -154,7 +157,7 @@ export function ProviderDetailPage() {
 
             {canDelete && (
               <SectionCard title="Danger zone" description="Deleting a provider prevents its users from signing in with it." danger>
-                <Button color="red" variant="light" leftSection={<Icon name="trash-2" size={16} />} loading={remove.isPending} onClick={() => remove.mutate()}>
+                <Button color="red" variant="light" leftSection={<Icon name="trash-2" size={16} />} onClick={confirmDeleteControls.open}>
                   Delete provider
                 </Button>
               </SectionCard>
@@ -162,6 +165,16 @@ export function ProviderDetailPage() {
           </Stack>
         </Tabs.Panel>
       </Tabs>
+
+      <ConfirmModal
+        opened={confirmDeleteOpened}
+        title="Delete provider"
+        message={`Permanently delete ${provider.displayName || provider.name}? Users linked to this provider will no longer be able to sign in with it.`}
+        confirmLabel="Delete provider"
+        loading={remove.isPending}
+        onConfirm={() => remove.mutate()}
+        onClose={confirmDeleteControls.close}
+      />
     </div>
   );
 }

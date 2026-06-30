@@ -23,6 +23,7 @@ import { Icon } from '@/components/Icon';
 import { DataTable, type Column } from '@/components/DataTable';
 import { SearchInput } from '@/components/ListControls';
 import { RowMenu } from '@/components/RowMenu';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, MetaStrip, SectionCard } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -91,10 +92,11 @@ export function GroupDetailPage() {
 
   const group = groupQuery.data;
   const mappings = mappingsQuery.data?.items ?? [];
-  // The members endpoint is token-paginated and returns no total, so fall back to the count
-  // tracked on the group entity for the headline figure.
+  // The members endpoint does not return nextPageToken or a total count.
+  // Use the group entity's tracked memberCount for the headline, and infer a next page
+  // exists when the current page is full (standard offset heuristic).
   const memberCount = group.memberCount ?? membersQuery.data?.items.length ?? 0;
-  const hasNextPage = Boolean(membersQuery.data?.nextPageToken);
+  const hasNextPage = (membersQuery.data?.items.length ?? 0) === pageSize;
 
   const memberColumns: Column<GroupMember>[] = [
     {
@@ -429,6 +431,7 @@ function AddMappingModal({
 
 function GroupSettings({ group, canWrite, canDelete, onDeleted }: { group: GroupModel; canWrite: boolean; canDelete: boolean; onDeleted: () => void }) {
   const queryClient = useQueryClient();
+  const [confirmDeleteOpened, confirmDeleteControls] = useDisclosure(false);
   const form = useForm({
     initialValues: { name: group.name, description: group.description ?? '' },
     validate: { name: (value) => (value.trim() ? null : 'Required') },
@@ -481,11 +484,21 @@ function GroupSettings({ group, canWrite, canDelete, onDeleted }: { group: Group
 
       {canDelete && (
         <SectionCard title="Danger zone" description="Deleting a group removes its delegated access. Members keep their individual roles." danger>
-          <Button color="red" variant="light" leftSection={<Icon name="trash-2" size={16} />} loading={remove.isPending} onClick={() => remove.mutate()}>
+          <Button color="red" variant="light" leftSection={<Icon name="trash-2" size={16} />} onClick={confirmDeleteControls.open}>
             Delete group
           </Button>
         </SectionCard>
       )}
+
+      <ConfirmModal
+        opened={confirmDeleteOpened}
+        title="Delete group"
+        message={`Permanently delete ${group.name}? This cannot be undone.`}
+        confirmLabel="Delete group"
+        loading={remove.isPending}
+        onConfirm={() => remove.mutate()}
+        onClose={confirmDeleteControls.close}
+      />
     </Stack>
   );
 }

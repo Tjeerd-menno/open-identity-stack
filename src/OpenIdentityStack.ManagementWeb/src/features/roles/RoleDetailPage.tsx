@@ -1,5 +1,6 @@
 import { ActionIcon, Badge, Button, Group, Select, Stack, Tabs, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -214,6 +215,7 @@ function RolePermissions({ role, canEdit }: { role: Role; canEdit: boolean }) {
 
 function RoleSettings({ role, canWrite, onDeleted }: { role: Role; canWrite: boolean; onDeleted: () => void }) {
   const queryClient = useQueryClient();
+  const [confirmDeleteOpened, confirmDeleteControls] = useDisclosure(false);
   const form = useForm({
     initialValues: { displayName: role.displayName, description: role.description ?? '' },
     validate: { displayName: (value) => (value.trim() ? null : 'Required') },
@@ -275,13 +277,22 @@ function RoleSettings({ role, canWrite, onDeleted }: { role: Role; canWrite: boo
             color="red"
             variant="light"
             leftSection={<Icon name="trash-2" size={16} />}
-            loading={remove.isPending}
-            onClick={() => remove.mutate()}
+            onClick={confirmDeleteControls.open}
           >
             Delete role
           </Button>
         </SectionCard>
       )}
+
+      <ConfirmModal
+        opened={confirmDeleteOpened}
+        title="Delete role"
+        message={`Permanently delete ${role.displayName}? This cannot be undone.`}
+        confirmLabel="Delete role"
+        loading={remove.isPending}
+        onConfirm={() => remove.mutate()}
+        onClose={confirmDeleteControls.close}
+      />
     </Stack>
   );
 }

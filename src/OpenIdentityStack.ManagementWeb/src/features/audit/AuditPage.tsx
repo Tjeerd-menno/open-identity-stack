@@ -32,7 +32,9 @@ export function AuditPage() {
         search: search || undefined,
         entityType: entity === 'All' ? undefined : entity,
         from: applied.from || undefined,
-        to: applied.to || undefined,
+        // Append end-of-day time so that selecting 2026-06-30 includes all entries on that
+        // date, not just those before midnight.
+        to: applied.to ? `${applied.to}T23:59:59` : undefined,
         userId: applied.userId || undefined,
         action: applied.action || undefined,
         entityId: applied.entityId || undefined,
