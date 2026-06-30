@@ -7,10 +7,12 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// </summary>
 /// <param name="UserId">The ID of the user to update.</param>
 /// <param name="DisplayName">The new display name (optional).</param>
+/// <param name="ActorId">The ID of the admin performing the action (for auditing).</param>
 /// <param name="Profile">Optional profile fields to update.</param>
 public sealed record UpdateUserCommand(
     UserId UserId,
     string? DisplayName,
+    string ActorId,
     UserProfileData? Profile = null);
 
 /// <summary>

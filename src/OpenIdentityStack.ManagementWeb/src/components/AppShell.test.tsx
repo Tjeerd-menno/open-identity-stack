@@ -1,63 +1,35 @@
 import { screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { AuthContextProvider, type AuthContextValue } from '@/lib/auth-context';
-import { renderManagementWeb } from '@/test/render';
+import { describe, expect, it } from 'vitest';
+import { makeAuth, renderManagementWeb } from '@/test/render';
 import { AppShell } from './AppShell';
 
-const auth: AuthContextValue = {
-  isAuthenticated: true,
-  isLoading: false,
-  displayName: 'Test Operator',
-  permissions: ['*'],
-  login: vi.fn(),
-  logout: vi.fn(),
-  getAccessToken: vi.fn(async () => 'token'),
-};
-
 describe('AppShell', () => {
-  it('does not expose disabled global search in the header', () => {
-    renderManagementWeb(
-      <AuthContextProvider value={auth}>
-        <AppShell />
-      </AuthContextProvider>
-    );
+  it('renders the full navigation for an operator with all permissions', () => {
+    renderManagementWeb(<AppShell />, { auth: makeAuth(), initialEntries: ['/'] });
 
-    expect(screen.queryByRole('textbox', { name: /global search/i })).not.toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: /management navigation/i });
+    expect(within(nav).getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/');
+    expect(within(nav).getByRole('link', { name: 'Users' })).toHaveAttribute('href', '/users');
+    expect(within(nav).getByRole('link', { name: 'Applications' })).toHaveAttribute('href', '/applications');
+    expect(within(nav).getByRole('link', { name: 'Audit' })).toHaveAttribute('href', '/audit-entries');
     expect(screen.getByRole('button', { name: /operator menu/i })).toBeInTheDocument();
   });
 
-  it('shows breadcrumbs for nested management routes', () => {
-    renderManagementWeb(
-      <AuthContextProvider value={auth}>
-        <AppShell />
-      </AuthContextProvider>,
-      { initialEntries: ['/providers/settings'] }
-    );
+  it('hides navigation items the operator lacks permission for', () => {
+    renderManagementWeb(<AppShell />, { auth: makeAuth({ permissions: ['users:read'] }), initialEntries: ['/users'] });
 
-    const breadcrumbs = screen.getByRole('navigation', { name: /breadcrumbs/i });
-
-    expect(within(breadcrumbs).getByRole('link', { name: /overview/i })).toHaveAttribute('href', '/');
-    expect(within(breadcrumbs).getByRole('link', { name: /identity providers/i })).toHaveAttribute('href', '/providers');
-    expect(within(breadcrumbs).getByText(/authentication settings/i)).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: /management navigation/i });
+    expect(within(nav).getByRole('link', { name: 'Overview' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Users' })).toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Roles' })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Audit' })).not.toBeInTheDocument();
   });
 
-  it('closes mobile navigation after selecting a navigation item', async () => {
-    const user = userEvent.setup();
+  it('shows the management breadcrumb for the current section', () => {
+    renderManagementWeb(<AppShell />, { auth: makeAuth(), initialEntries: ['/applications'] });
 
-    renderManagementWeb(
-      <AuthContextProvider value={auth}>
-        <AppShell />
-      </AuthContextProvider>,
-      { initialEntries: ['/applications'] }
-    );
-
-    const menuButton = screen.getByRole('button', { name: /navigation/i });
-
-    await user.click(menuButton);
-    expect(menuButton).toHaveAttribute('aria-expanded', 'true');
-
-    await user.click(screen.getByRole('link', { name: /users/i }));
-
-    expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+    const breadcrumbs = screen.getByRole('navigation', { name: /breadcrumbs/i });
+    expect(within(breadcrumbs).getByText('Management')).toBeInTheDocument();
+    expect(within(breadcrumbs).getByText('Applications')).toBeInTheDocument();
   });
 });

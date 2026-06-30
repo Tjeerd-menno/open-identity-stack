@@ -11,12 +11,14 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// <param name="ProviderName">The upstream provider name.</param>
 /// <param name="SubjectId">The subject ID from the upstream provider.</param>
 /// <param name="Email">The email from the upstream claims (optional).</param>
+/// <param name="ActorId">The ID of the admin performing the action (for auditing).</param>
 public sealed record LinkUpstreamIdentityCommand(
     UserId UserId,
     UpstreamProviderId ProviderId,
     string ProviderName,
     string SubjectId,
-    string? Email);
+    string? Email,
+    string ActorId);
 
 /// <summary>
 /// Result of linking an upstream identity.

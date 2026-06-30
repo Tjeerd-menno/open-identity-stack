@@ -10,6 +10,7 @@ public sealed class UnassignRoleUseCaseTests
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IAuditLog _auditLog;
     private readonly UnassignRoleUseCase _useCase;
 
     public UnassignRoleUseCaseTests()
@@ -17,15 +18,16 @@ public sealed class UnassignRoleUseCaseTests
         this._userRepository = Substitute.For<IUserRepository>();
         this._roleRepository = Substitute.For<IRoleRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        this._auditLog = Substitute.For<IAuditLog>();
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
-        this._useCase = new UnassignRoleUseCase(this._userRepository, this._roleRepository);
+        this._useCase = new UnassignRoleUseCase(this._userRepository, this._roleRepository, this._auditLog);
     }
 
     [Fact]
     public async Task ExecuteAsync_ShouldReturnNotFound_WhenUserMissing()
     {
         // Arrange
-        var command = new UnassignRoleCommand(UserId.Create(), RoleId.Create());
+        var command = new UnassignRoleCommand(UserId.Create(), RoleId.Create(), "admin-1");
         this._userRepository.GetByIdAsync(command.UserId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
 
@@ -42,7 +44,7 @@ public sealed class UnassignRoleUseCaseTests
     {
         // Arrange
         User user = User.CreateLocal("user@test.com", "User", "hash", this._dateTimeProvider).Value;
-        var command = new UnassignRoleCommand(user.Id, RoleId.Create());
+        var command = new UnassignRoleCommand(user.Id, RoleId.Create(), "admin-1");
 
         this._userRepository.GetByIdAsync(command.UserId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -62,7 +64,7 @@ public sealed class UnassignRoleUseCaseTests
     {
         // Arrange
         User user = User.CreateLocal("user@test.com", "User", "hash", this._dateTimeProvider).Value;
-        var command = new UnassignRoleCommand(user.Id, RoleId.Create());
+        var command = new UnassignRoleCommand(user.Id, RoleId.Create(), "admin-1");
 
         this._userRepository.GetByIdAsync(command.UserId, Arg.Any<CancellationToken>())
             .Returns(user);

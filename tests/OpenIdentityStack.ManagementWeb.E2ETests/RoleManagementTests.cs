@@ -1,235 +1,154 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
 namespace OpenIdentityStack.ManagementWeb.E2ETests;
 
-/// <summary>
-/// E2E coverage for the ManagementWeb Roles slice.
-/// API responses are route-mocked so this verifies the frontend contract and routing surface.
-/// </summary>
-public class RoleManagementTests : IAsyncLifetime
+/// <summary>E2E coverage for the ManagementWeb Roles list and role detail (real admin API).</summary>
+public sealed class RoleManagementTests : ManagementWebPageTest
 {
-    private readonly ManagementWebAppHostFixture fixture;
-    private readonly List<string> adminRequestUrls = [];
-    private IBrowserContext? context;
-    private IPage? page;
-    private string customDisplayName = "Support Operator";
-    private string[] customPermissions = ["users:read"];
-    private bool customRoleDeleted;
+    private static readonly string[] UsersReadPermission = ["users:read"];
 
-    public RoleManagementTests(ManagementWebAppHostFixture fixture)
+    private Guid _roleId;
+
+    public RoleManagementTests(ManagementWebAppHostFixture fixture) : base(fixture)
     {
-        this.fixture = fixture;
     }
 
-    public async ValueTask InitializeAsync()
+    protected override async Task SeedAsync()
     {
-        context = await fixture.CreateBrowserContextAsync();
-        page = await context.NewPageAsync();
-        page.SetDefaultTimeout(60_000);
-        page.SetDefaultNavigationTimeout(60_000);
-        page.Request += (_, request) =>
+        JsonNode role = await ApiPostAsync("/api/admin/roles", new
         {
-            if (request.Url.Contains("/api/admin/", StringComparison.OrdinalIgnoreCase))
-            {
-                adminRequestUrls.Add(request.Url);
-            }
-        };
-
-        await SetupRolesApiMocksAsync(page);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (page is not null) await page.CloseAsync();
-        if (context is not null) await context.CloseAsync();
+            name = $"platform-operator-{Unique}",
+            displayName = "Operator",
+            description = "System operator",
+            permissions = UsersReadPermission,
+            acknowledgeWildcardGrant = false,
+        });
+        _roleId = Guid.Parse(role["id"]!.GetValue<string>());
     }
 
     [Fact]
-    public async Task OperatorCanManageCustomRolesAndInspectSystemRoles()
+    public async Task OperatorCanBrowseRolesAndOpenDetail()
     {
-        string baseUrl = fixture.ManagementWebUrl ?? throw new InvalidOperationException("ManagementWeb URL was not initialized.");
+        await GotoAsync("/roles");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Roles", Exact = true }).WaitForAsync();
+        await Page.GetByText("Operator", new() { Exact = true }).First.WaitForAsync();
 
-        await page!.GotoAsync(new Uri(new Uri(baseUrl), "/roles").ToString());
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Roles", Exact = true }).WaitForAsync();
-        await page.GetByRole(AriaRole.Cell, new() { Name = "Support Operator", Exact = true }).WaitForAsync();
-
-        await page.GetByLabel(new Regex("Search roles", RegexOptions.IgnoreCase)).FillAsync("support");
-        await page.WaitForRequestAsync(new Regex(@"/api/admin/roles\?.*search=support", RegexOptions.IgnoreCase));
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("view support operator", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Support Operator", Exact = true }).WaitForAsync();
-        await page.GetByText("users:read").WaitForAsync();
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("edit role", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByLabel("Display name").FillAsync("Support Lead");
-        await page.GetByRole(AriaRole.Checkbox, new() { NameRegex = new Regex("assign roles", RegexOptions.IgnoreCase) }).CheckAsync();
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("save role", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Support Lead", Exact = true }).WaitForAsync();
-        await page.GetByText("roles:assign").WaitForAsync();
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^delete role$", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("delete support lead", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.WaitForURLAsync(new Regex(@"/roles/?$"));
-        customRoleDeleted.ShouldBeTrue();
-
-        await page.GotoAsync(new Uri(new Uri(baseUrl), "/roles/role-system").ToString());
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Administrator", Exact = true }).WaitForAsync();
-        await page.GetByText(new Regex("system role and cannot be deleted", RegexOptions.IgnoreCase)).WaitForAsync();
-        (await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^delete role$", RegexOptions.IgnoreCase) }).CountAsync())
-            .ShouldBe(0);
-
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/roles", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/permissions/platform", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/service-accounts", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/clients", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
+        await GotoAsync($"/roles/{_roleId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Operator", Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Permissions", RegexOptions.IgnoreCase) }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).WaitForAsync();
+        await Page.GetByText("users", new() { Exact = true }).First.WaitForAsync();
+        await Page.GetByText("read", new() { Exact = true }).First.WaitForAsync();
     }
 
-    private async Task SetupRolesApiMocksAsync(IPage testPage)
+    [Fact]
+    public async Task OperatorCanCreateARole()
     {
-        await testPage.RouteAsync("**/api/admin/**", async route =>
+        await GotoAsync("/roles");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Create role", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByLabel("Role name").FillAsync($"ops-viewer-{Guid.NewGuid():N}");
+        await dialog.GetByLabel("Display name").FillAsync("Ops viewer");
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Create role", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Created Ops viewer", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanDeleteARole()
+    {
+        // Seed a dedicated, deletable role so the shared 'Operator' role stays intact.
+        JsonNode role = await ApiPostAsync("/api/admin/roles", new
         {
-            Uri uri = new(route.Request.Url);
-            string path = uri.AbsolutePath;
-            string method = route.Request.Method;
-
-            if (method == "GET" && path.Equals("/api/admin/permissions/platform", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, PlatformPermissionCatalog());
-                return;
-            }
-
-            if (method == "GET" && path.Equals("/api/admin/roles", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, RolesList());
-                return;
-            }
-
-            if (method == "GET" && path.Equals("/api/admin/roles/role-custom", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, CustomRole());
-                return;
-            }
-
-            if (method == "GET" && path.Equals("/api/admin/roles/role-system", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, SystemRole());
-                return;
-            }
-
-            if (method == "PUT" && path.Equals("/api/admin/roles/role-custom", StringComparison.OrdinalIgnoreCase))
-            {
-                RoleUpdateRequest? request = JsonSerializer.Deserialize<RoleUpdateRequest>(
-                    route.Request.PostData ?? "{}",
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                customDisplayName = request?.DisplayName ?? customDisplayName;
-                customPermissions = request?.Permissions ?? customPermissions;
-                await FulfillJsonAsync(route, CustomRole());
-                return;
-            }
-
-            if (method == "DELETE" && path.Equals("/api/admin/roles/role-custom", StringComparison.OrdinalIgnoreCase))
-            {
-                customRoleDeleted = true;
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            await route.FulfillAsync(new() { Status = 404, Body = $"Unexpected E2E route: {method} {path}" });
+            name = $"temp-role-{Unique}",
+            displayName = $"Temp Role {Unique}",
+            description = "Disposable",
+            permissions = Array.Empty<string>(),
+            acknowledgeWildcardGrant = false,
         });
+        _ = role;
+
+        await GotoAsync("/roles");
+        string display = $"Temp Role {Unique}";
+        // Search to isolate the seeded role: a full-suite run accumulates many roles, so the new
+        // one would otherwise be off the first page of the list.
+        await Page.GetByLabel("Search roles").FillAsync(display);
+        await Page.GetByText(display, new() { Exact = true }).First.WaitForAsync();
+
+        ILocator row = Page.Locator("tbody tr", new() { Has = Page.GetByText(display, new() { Exact = true }) }).First;
+        await row.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).ClickAsync();
+        await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Delete role", Exact = true }).ClickAsync();
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Delete role", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Role deleted", RegexOptions.IgnoreCase)).WaitForAsync();
     }
 
-    private object RolesList()
+    [Fact]
+    public async Task OperatorCanDeleteARoleFromTheDetailPage()
     {
-        object[] items = customRoleDeleted ? [SystemRole()] : [SystemRole(), CustomRole()];
-
-        return new
+        // Seed a dedicated, deletable role; the detail-page "Danger zone" delete is a different
+        // path than the list-row kebab covered by OperatorCanDeleteARole.
+        JsonNode role = await ApiPostAsync("/api/admin/roles", new
         {
-            items,
-            totalCount = items.Length,
-            page = 1,
-            pageSize = 20,
-            totalPages = 1
-        };
-    }
-
-    private object CustomRole()
-    {
-        return new
-        {
-            id = "role-custom",
-            name = "support",
-            displayName = customDisplayName,
-            description = "Support desk",
-            isSystemRole = false,
-            isActive = true,
-            permissions = customPermissions
-        };
-    }
-
-    private static object SystemRole()
-    {
-        return new
-        {
-            id = "role-system",
-            name = "admin",
-            displayName = "Administrator",
-            description = "System administrator",
-            isSystemRole = true,
-            isActive = true,
-            permissions = new[] { "*" }
-        };
-    }
-
-    private static object PlatformPermissionCatalog()
-    {
-        return new
-        {
-            items = new[]
-            {
-                new
-                {
-                    permission = "users:read",
-                    resource = "users",
-                    action = "read",
-                    kind = "concrete",
-                    displayName = "Read Users",
-                    assignable = true
-                },
-                new
-                {
-                    permission = "roles:assign",
-                    resource = "roles",
-                    action = "assign",
-                    kind = "concrete",
-                    displayName = "Assign Roles",
-                    assignable = true
-                },
-                new
-                {
-                    permission = "users:*",
-                    resource = "users",
-                    action = "*",
-                    kind = "wildcard",
-                    displayName = "Users All",
-                    assignable = true
-                }
-            }
-        };
-    }
-
-    private static Task FulfillJsonAsync(IRoute route, object body, int statusCode = 200)
-    {
-        return route.FulfillAsync(new()
-        {
-            Status = statusCode,
-            ContentType = "application/json",
-            Body = JsonSerializer.Serialize(body)
+            name = $"detail-temp-role-{Unique}",
+            displayName = $"Detail Temp Role {Unique}",
+            description = "Disposable",
+            permissions = Array.Empty<string>(),
+            acknowledgeWildcardGrant = false,
         });
+        var disposableId = Guid.Parse(role["id"]!.GetValue<string>());
+
+        await GotoAsync($"/roles/{disposableId}");
+        await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Delete role", Exact = true }).ClickAsync();
+        ILocator deleteDialog = Page.GetByRole(AriaRole.Dialog);
+        await deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Delete role", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Role deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.WaitForURLAsync(new Regex(@"/roles/?$"));
     }
 
-    private sealed record RoleUpdateRequest(string DisplayName, string? Description, string[] Permissions, bool AcknowledgeWildcardGrant);
+    [Fact]
+    public async Task OperatorCanAddAPermissionToARole()
+    {
+        await GotoAsync($"/roles/{_roleId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Operator", Exact = true }).WaitForAsync();
+        await Page.GetByText("users", new() { Exact = true }).First.WaitForAsync();
+
+        await Page.GetByPlaceholder("Add a permission").ClickAsync();
+        await Page.GetByRole(AriaRole.Option, new() { NameRegex = new Regex("users:write", RegexOptions.IgnoreCase) }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Permissions updated", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanRemoveAPermissionFromARole()
+    {
+        await GotoAsync($"/roles/{_roleId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Operator", Exact = true }).WaitForAsync();
+        await Page.GetByText("read", new() { Exact = true }).First.WaitForAsync();
+
+        // The seeded role carries users:read; removing it drops the badge from the family list.
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Remove users:read", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Permissions updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText("read", new() { Exact = true }).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
+    public async Task OperatorCanEditRoleSettings()
+    {
+        await GotoAsync($"/roles/{_roleId}");
+        await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
+
+        await Page.GetByLabel("Display name").FillAsync("Senior Operator");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Save changes", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Role updated", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
 }

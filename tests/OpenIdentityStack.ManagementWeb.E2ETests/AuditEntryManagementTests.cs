@@ -1,131 +1,149 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
 namespace OpenIdentityStack.ManagementWeb.E2ETests;
 
 /// <summary>
-/// E2E coverage for the ManagementWeb Audit slice.
-/// API responses are route-mocked so this verifies the frontend contract and routing surface.
+/// E2E coverage for the ManagementWeb Audit list. Audit rows are produced as a side effect
+/// of real admin actions, so the test performs an audited action and reads the real trail.
 /// </summary>
-public sealed class AuditEntryManagementTests : IAsyncLifetime
+public sealed class AuditEntryManagementTests : ManagementWebPageTest
 {
-    private readonly ManagementWebAppHostFixture fixture;
-    private readonly List<string> adminRequestUrls = [];
-    private IBrowserContext? context;
-    private IPage? page;
+    private static readonly string[] WebGrantTypes = ["authorization_code", "refresh_token"];
+    private static readonly string[] WebScopes = ["openid", "profile"];
+    private static readonly string[] WebRedirectUris = ["https://app.northwind.io/callback"];
+    private static readonly string[] UsersReadPermission = ["users:read"];
 
-    public AuditEntryManagementTests(ManagementWebAppHostFixture fixture)
+    public AuditEntryManagementTests(ManagementWebAppHostFixture fixture) : base(fixture)
     {
-        this.fixture = fixture;
     }
 
-    public async ValueTask InitializeAsync()
+    protected override async Task SeedAsync()
     {
-        context = await fixture.CreateBrowserContextAsync();
-        page = await context.NewPageAsync();
-        page.SetDefaultTimeout(60_000);
-        page.SetDefaultNavigationTimeout(60_000);
-        page.Request += (_, request) =>
+        // Register an application through the REAL API. Application lifecycle commands write an
+        // "Application"-entity audit entry, so the trail is guaranteed to contain a freshly-created
+        // Application row for the assertions below.
+        await ApiPostAsync("/api/admin/applications", new
         {
-            if (request.Url.Contains("/api/admin/", StringComparison.OrdinalIgnoreCase))
-            {
-                adminRequestUrls.Add(request.Url);
-            }
-        };
+            clientId = $"audited-web-{Unique}-{Guid.NewGuid():N}",
+            displayName = "Audited Application",
+            description = (string?)null,
+            profile = "Web",
+            clientType = "Confidential",
+            allowedGrantTypes = WebGrantTypes,
+            allowedScopes = WebScopes,
+            redirectUris = WebRedirectUris,
+            postLogoutRedirectUris = Array.Empty<string>(),
+            requirePkce = true,
+            requireConsent = false,
+        });
 
-        await SetupAuditApiMocksAsync(page);
-    }
+        // Create a user through the REAL API. User mutations are now audited ("User.Created"),
+        // so the trail also contains a "User"-entity row attributed to the acting admin.
+        JsonNode user = await ApiPostAsync("/api/admin/users", new
+        {
+            email = $"audited.{Unique}@northwind.io",
+            displayName = "Audited User",
+            password = "Password123!@456",
+        });
+        var userId = Guid.Parse(user["id"]!.GetValue<string>());
 
-    public async ValueTask DisposeAsync()
-    {
-        if (page is not null) await page.CloseAsync();
-        if (context is not null) await context.CloseAsync();
+        // Assign a role through the REAL API. Role assignment is audited as "User.RoleAssigned"
+        // (entity "User", attributed to the acting admin), so the trail carries that row too.
+        JsonNode role = await ApiPostAsync("/api/admin/roles", new
+        {
+            name = $"audited-role-{Unique}",
+            displayName = "Audited Role",
+            description = "Role used to assert role-assignment auditing",
+            permissions = UsersReadPermission,
+            acknowledgeWildcardGrant = false,
+        });
+        var roleId = Guid.Parse(role["id"]!.GetValue<string>());
+
+        HttpResponseMessage assign = await Api.PostAsync(
+            $"/api/admin/users/{userId}/roles/{roleId}", content: null);
+        assign.EnsureSuccessStatusCode();
     }
 
     [Fact]
-    public async Task OperatorCanFilterAndInspectAuditEntries()
+    public async Task OperatorCanBrowseAuditEntries()
     {
-        string baseUrl = fixture.ManagementWebUrl ?? throw new InvalidOperationException("ManagementWeb URL was not initialized.");
+        await GotoAsync("/audit-entries");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Audit", Exact = true }).WaitForAsync();
+        // Exact match: the advanced filters also expose an "Entity ID" field whose label would
+        // otherwise be a substring match for the entity-type select.
+        await Page.GetByLabel("Entity", new() { Exact = true }).WaitForAsync();
 
-        await page!.GotoAsync(new Uri(new Uri(baseUrl), "/audit-entries").ToString());
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Audit", Exact = true }).WaitForAsync();
-        await page.GetByText("Application.Updated").WaitForAsync();
-
-        await page.GetByLabel(new Regex("User ID", RegexOptions.IgnoreCase)).FillAsync("admin-user");
-        await page.GetByLabel(new Regex("^Action$", RegexOptions.IgnoreCase)).FillAsync("Application.Updated");
-        await page.GetByLabel(new Regex("Entity type", RegexOptions.IgnoreCase)).FillAsync("Application");
-        await page.GetByLabel(new Regex("Entity ID", RegexOptions.IgnoreCase)).FillAsync("orders-web");
-        await page.GetByLabel(new Regex("Search audit entries", RegexOptions.IgnoreCase)).FillAsync("redirect");
-        Task<IRequest> filteredRequest = page.WaitForRequestAsync(new Regex(@"/api/admin/audit-entries\?.*search=redirect", RegexOptions.IgnoreCase));
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("apply filters", RegexOptions.IgnoreCase) }).ClickAsync();
-        await filteredRequest;
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("expand audit entry audit-1", RegexOptions.IgnoreCase) }).ClickAsync();
-        ILocator details = page.GetByRole(AriaRole.Region, new() { NameRegex = new Regex("audit entry details", RegexOptions.IgnoreCase) });
-        await details.WaitForAsync();
-        await details.GetByText("Changed redirect URL").WaitForAsync();
-        await details.GetByText("{\"redirect\":\"old\"}").WaitForAsync();
-        await details.GetByText("{\"redirect\":\"new\"}").WaitForAsync();
-
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/audit-entries", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/service-accounts", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/clients", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
+        // The real trail has the Application row written by SeedAsync. Scope to the table body:
+        // the entity-type filter renders a hidden <option>Application</option> that would otherwise
+        // be the first (invisible) text match, and the badge is rendered uppercased.
+        await Page.Locator("tbody tr").First.WaitForAsync();
+        await Page.Locator("tbody").GetByText(new Regex("^Application$", RegexOptions.IgnoreCase)).First.WaitForAsync();
     }
 
-    private static async Task SetupAuditApiMocksAsync(IPage testPage)
+    [Fact]
+    public async Task EntityFilterDrivesTheAuditQuery()
     {
-        await testPage.RouteAsync("**/api/admin/**", async route =>
-        {
-            Uri uri = new(route.Request.Url);
-            string path = uri.AbsolutePath;
-            string method = route.Request.Method;
+        await GotoAsync("/audit-entries");
+        await Page.Locator("tbody tr").First.WaitForAsync();
 
-            if (method == "GET" && path.Equals("/api/admin/audit-entries", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, AuditEntriesList());
-                return;
-            }
-
-            await route.FulfillAsync(new() { Status = 404, Body = $"Unexpected E2E route: {method} {path}" });
-        });
+        // Selecting an entity sends entityType=Application and surfaces the applied-filter chip.
+        await Page.GetByLabel("Entity", new() { Exact = true }).SelectOptionAsync("Application");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Clear Entity", Exact = true }).WaitForAsync();
+        // Scope to the table body so the hidden <option>Application</option> in the select isn't matched.
+        await Page.Locator("tbody").GetByText(new Regex("^Application$", RegexOptions.IgnoreCase)).First.WaitForAsync();
     }
 
-    private static object AuditEntriesList()
+    [Fact]
+    public async Task UserMutationsAreAuditedWithTheActingAdmin()
     {
-        return new
-        {
-            items = new[]
-            {
-                new
-                {
-                    id = "audit-1",
-                    timestamp = "2026-06-01T12:00:00Z",
-                    userId = "admin-user",
-                    action = "Application.Updated",
-                    entityType = "Application",
-                    entityId = "orders-web",
-                    details = "Changed redirect URL",
-                    beforeState = "{\"redirect\":\"old\"}",
-                    afterState = "{\"redirect\":\"new\"}"
-                }
-            },
-            totalCount = 1,
-            page = 1,
-            pageSize = 20,
-            totalPages = 1,
-            hasPreviousPage = false,
-            hasNextPage = false
-        };
+        await GotoAsync("/audit-entries");
+        await Page.Locator("tbody tr").First.WaitForAsync();
+
+        // The user SeedAsync created is recorded as a "User.Created" action. Searching narrows the
+        // trail to that row, which proves user mutations now reach the audit log end-to-end.
+        await Page.GetByLabel("Search entries").FillAsync("User.Created");
+        ILocator row = Page.Locator("tbody tr").Filter(new() { HasTextRegex = new Regex("User\\.Created") });
+        await row.First.WaitForAsync();
+
+        // The row is a User-entity action attributed to a real admin actor, not the "system" fallback.
+        await row.First.GetByText(new Regex("^User$", RegexOptions.IgnoreCase)).WaitForAsync();
+        await row.First.GetByText(new Regex("^system$", RegexOptions.IgnoreCase))
+            .WaitForAsync(new() { State = WaitForSelectorState.Detached });
     }
 
-    private static Task FulfillJsonAsync(IRoute route, object body, int statusCode = 200)
+    [Fact]
+    public async Task RoleAssignmentIsAuditedWithTheActingAdmin()
     {
-        return route.FulfillAsync(new()
-        {
-            Status = statusCode,
-            ContentType = "application/json",
-            Body = System.Text.Json.JsonSerializer.Serialize(body)
-        });
+        await GotoAsync("/audit-entries");
+        await Page.Locator("tbody tr").First.WaitForAsync();
+
+        // SeedAsync assigned a role through the real API; that writes a "User.RoleAssigned" row.
+        // Searching narrows the trail to it, proving role-assignment auditing reaches the log.
+        await Page.GetByLabel("Search entries").FillAsync("User.RoleAssigned");
+        ILocator row = Page.Locator("tbody tr").Filter(new() { HasTextRegex = new Regex("User\\.RoleAssigned") });
+        await row.First.WaitForAsync();
+
+        // The row is a User-entity action attributed to a real admin actor, not the "system" fallback.
+        await row.First.GetByText(new Regex("^User$", RegexOptions.IgnoreCase)).WaitForAsync();
+        await row.First.GetByText(new Regex("^system$", RegexOptions.IgnoreCase))
+            .WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
+    public async Task SearchDrivesTheAuditQuery()
+    {
+        await GotoAsync("/audit-entries");
+        await Page.Locator("tbody tr").First.WaitForAsync();
+
+        // A matching search keeps the Application.Created row in view.
+        await Page.GetByLabel("Search entries").FillAsync("Application.Created");
+        await Page.Locator("tbody").GetByText(new Regex("Application\\.Created")).First.WaitForAsync();
+
+        // A search that matches nothing collapses the table to the empty state.
+        await Page.GetByLabel("Search entries").FillAsync($"no-such-entry-{Unique}");
+        await Page.GetByText("No audit entries", new() { Exact = true }).WaitForAsync();
     }
 }

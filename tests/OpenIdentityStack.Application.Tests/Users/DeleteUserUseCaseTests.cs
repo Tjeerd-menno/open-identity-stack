@@ -11,13 +11,15 @@ namespace OpenIdentityStack.Application.Tests.Users;
 public sealed class DeleteUserUseCaseTests
 {
     private readonly IUserRepository _userRepository;
+    private readonly IAuditLog _auditLog;
     private readonly DeleteUserUseCase _sut;
 
     public DeleteUserUseCaseTests()
     {
         this._userRepository = Substitute.For<IUserRepository>();
+        this._auditLog = Substitute.For<IAuditLog>();
 
-        this._sut = new DeleteUserUseCase(this._userRepository);
+        this._sut = new DeleteUserUseCase(this._userRepository, this._auditLog);
     }
 
     [Fact]
@@ -26,7 +28,7 @@ public sealed class DeleteUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateUser(userId);
-        var command = new DeleteUserCommand(userId);
+        var command = new DeleteUserCommand(userId, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -44,7 +46,7 @@ public sealed class DeleteUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateUser(userId);
-        var command = new DeleteUserCommand(userId);
+        var command = new DeleteUserCommand(userId, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -62,7 +64,7 @@ public sealed class DeleteUserUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateUser(userId);
-        var command = new DeleteUserCommand(userId);
+        var command = new DeleteUserCommand(userId, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -79,7 +81,7 @@ public sealed class DeleteUserUseCaseTests
     {
         // Arrange
         var userId = UserId.Create();
-        var command = new DeleteUserCommand(userId);
+        var command = new DeleteUserCommand(userId, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -97,7 +99,7 @@ public sealed class DeleteUserUseCaseTests
     {
         // Arrange
         var userId = UserId.Create();
-        var command = new DeleteUserCommand(userId);
+        var command = new DeleteUserCommand(userId, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -114,7 +116,7 @@ public sealed class DeleteUserUseCaseTests
     {
         // Arrange
         var userId = UserId.Create();
-        var command = new DeleteUserCommand(userId);
+        var command = new DeleteUserCommand(userId, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);

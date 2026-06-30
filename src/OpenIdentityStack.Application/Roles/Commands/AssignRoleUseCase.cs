@@ -29,6 +29,7 @@ public sealed class AssignRoleUseCase : IAssignRoleUseCase
     private readonly IUserRepository userRepository;
     private readonly IRoleRepository roleRepository;
     private readonly IDateTimeProvider dateTimeProvider;
+    private readonly IAuditLog auditLog;
     private readonly ILogger<AssignRoleUseCase> logger;
 
     /// <summary>
@@ -37,16 +38,19 @@ public sealed class AssignRoleUseCase : IAssignRoleUseCase
     /// <param name="userRepository">The user repository.</param>
     /// <param name="roleRepository">The role repository.</param>
     /// <param name="dateTimeProvider">The date/time provider.</param>
+    /// <param name="auditLog">The audit log.</param>
     /// <param name="logger">The logger.</param>
     public AssignRoleUseCase(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IDateTimeProvider dateTimeProvider,
+        IAuditLog auditLog,
         ILogger<AssignRoleUseCase> logger)
     {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.dateTimeProvider = dateTimeProvider;
+        this.auditLog = auditLog;
         this.logger = logger;
     }
 
@@ -114,6 +118,14 @@ public sealed class AssignRoleUseCase : IAssignRoleUseCase
         await this.roleRepository.SaveChangesAsync(cancellationToken);
 
         this.logger.LogRoleAssigned(command.RoleId.Value, command.UserId.Value);
+
+        await this.auditLog.LogAsync(
+            command.ActorId,
+            "User.RoleAssigned",
+            "User",
+            command.UserId.Value.ToString(),
+            $"RoleId: {command.RoleId.Value}, Role: {role.Name}",
+            cancellationToken);
 
         return Result.Success();
     }

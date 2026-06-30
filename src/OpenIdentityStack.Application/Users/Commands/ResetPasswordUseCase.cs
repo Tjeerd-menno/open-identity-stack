@@ -13,17 +13,20 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
     private readonly IPasswordHasher passwordHasher;
     private readonly IPasswordPolicyValidator passwordPolicyValidator;
     private readonly IDateTimeProvider dateTimeProvider;
+    private readonly IAuditLog auditLog;
 
     public ResetPasswordUseCase(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         IPasswordPolicyValidator passwordPolicyValidator,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        IAuditLog auditLog)
     {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.passwordPolicyValidator = passwordPolicyValidator;
         this.dateTimeProvider = dateTimeProvider;
+        this.auditLog = auditLog;
     }
 
     /// <inheritdoc />
@@ -53,6 +56,15 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
         }
 
         await this.userRepository.SaveChangesAsync(cancellationToken);
+
+        // Never include the password (plain or hashed) in the audit detail.
+        await this.auditLog.LogAsync(
+            command.ActorId,
+            "User.PasswordReset",
+            "User",
+            user.Id.Value.ToString(),
+            $"Email: {user.Email}",
+            cancellationToken);
 
         return new ResetPasswordResult(user.Id, this.dateTimeProvider.UtcNow);
     }

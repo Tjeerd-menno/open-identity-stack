@@ -1,10 +1,23 @@
 # OpenIdentityStack Management Web
 
-Mantine-based management UI for OpenIdentityStack. It is the only supported browser frontend for operator workflows.
+Operator console for OpenIdentityStack, rebuilt from the **OpenIdentityStack design
+system** (Mantine foundation). It is the supported browser frontend for operator
+workflows: Overview, Users, Roles, Groups, Permissions, Applications, Sessions, Identity
+providers, Authentication settings and Audit.
 
-## Scope
+> The previous implementation is preserved at `../OpenIdentityStack.ManagementWeb.Legacy`.
 
-Management Web exposes Overview, Users, Roles, Groups, Applications, Permissions, Sessions, Identity providers, Settings, and Audit. It intentionally does not expose Clients or Service Accounts. Applications uses the consolidated `/api/admin/applications` API only.
+## Tech stack
+
+React 19 · Mantine 8 · TanStack Query · React Router 7 · Vite · oidc-client-ts. The Admin
+API is consumed through the shared `@openidentitystack/admin-api-client` workspace package.
+
+## Design
+
+The UI follows the OpenIdentityStack design system: native system font, blue primary
+(light shade 6 / dark shade 8), 8px radius, flat surfaces with 1px hairline borders, pill
+badges, Lucide icons, a fixed 264px sidebar + 61px topbar and a 1080px content column.
+Scheme-aware `--mw-*` tokens live in `src/styles.css`; the Mantine theme in `src/theme.ts`.
 
 ## Local development
 
@@ -13,16 +26,15 @@ npm install
 npm run dev
 ```
 
-The Aspire AppHost configures `VITE_API_BASE_URL`, `VITE_OIDC_AUTHORITY`, and `VITE_OIDC_CLIENT_ID` for local runs.
-The published container also reads those same variables at startup and writes them into `runtime-config.js`, so operators can point the image at the deployed API/OIDC host without rebuilding it.
+The Aspire AppHost configures `VITE_API_BASE_URL`, `VITE_OIDC_AUTHORITY`, and
+`VITE_OIDC_CLIENT_ID` for local runs. The published container reads those same variables at
+startup and writes them into `runtime-config.js`.
 
 ## Validation
 
 ```powershell
 npm run build
 npm run lint
-npm test
 npm run type-check
+npm test
 ```
-
-Management Web E2E coverage is in `tests/OpenIdentityStack.ManagementWeb.E2ETests` and uses .NET/xUnit Playwright tests.

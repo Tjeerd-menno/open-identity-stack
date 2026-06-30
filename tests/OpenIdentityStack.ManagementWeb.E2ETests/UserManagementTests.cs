@@ -1,232 +1,212 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
 namespace OpenIdentityStack.ManagementWeb.E2ETests;
 
-public class UserManagementTests : IAsyncLifetime
+/// <summary>
+/// E2E coverage for the ManagementWeb Users list and user detail against the REAL admin
+/// API. Data is seeded through the real endpoints / seeder; no network stubbing.
+/// </summary>
+public sealed class UserManagementTests : ManagementWebPageTest
 {
-    private const string TestUserId = "user-test-1";
-    private const string TestRoleId = "role-test-1";
-    private readonly ManagementWebAppHostFixture fixture;
-    private IBrowserContext? context;
-    private IPage? page;
+    private Guid _adaId;
+    private Guid _disabledId;
+    private Guid _providerId;
+    private string _adaName = "";
+    private string _graceName = "";
+    private string _alanName = "";
+    private string _providerName = "";
+    private string _auditorRoleName = "";
 
-    public UserManagementTests(ManagementWebAppHostFixture fixture)
+    public UserManagementTests(ManagementWebAppHostFixture fixture) : base(fixture)
     {
-        this.fixture = fixture;
     }
 
-    public async ValueTask InitializeAsync()
+    protected override async Task SeedAsync()
     {
-        context = await fixture.CreateBrowserContextAsync();
-        page = await context.NewPageAsync();
-        page.SetDefaultTimeout(60_000);
-        page.SetDefaultNavigationTimeout(60_000);
-        await SetupApiMocksAsync(page);
+        _adaName = $"Ada Lovelace {Unique}";
+        _graceName = $"Grace Hopper {Unique}";
+        _alanName = $"Alan Turing {Unique}";
+        _providerName = $"Google {Unique}";
+
+        _adaId = await Fixture.SeedUserAsync($"ada.{Unique}@northwind.io", _adaName, "Password123!@456");
+        await Fixture.SeedUserAsync($"grace.{Unique}@northwind.io", _graceName, "Password123!@456");
+        _disabledId = await Fixture.SeedUserAsync($"alan.{Unique}@northwind.io", _alanName, "Password123!@456", disabled: true);
+
+        Guid operatorRoleId = await SeedRoleAsync($"operator-{Unique}", "Operator", "users:read");
+        // Display name must be unique: the AppHost database is shared across every test in this
+        // class, so a constant "Auditor" name would surface one option per seeded test run and
+        // make the role Select's exact-name lookup ambiguous (strict-mode violation).
+        _auditorRoleName = $"Auditor {Unique}";
+        await SeedRoleAsync($"auditor-{Unique}", _auditorRoleName, "audit-logs:read");
+        await Fixture.AssignRoleAsync(_adaId, operatorRoleId);
+
+        JsonNode provider = await ApiPostAsync("/api/admin/providers", new
+        {
+            name = $"google-{Unique}",
+            displayName = _providerName,
+            authority = "https://accounts.google.com",
+            clientId = "northwind.apps.googleusercontent.com",
+            scopes = OpenidScope,
+            jitProvisioningEnabled = true,
+        });
+        _providerId = Guid.Parse(provider["id"]!.GetValue<string>());
     }
 
-    public async ValueTask DisposeAsync()
+    private async Task<Guid> SeedRoleAsync(string name, string displayName, string permission)
     {
-        if (page is not null) await page.CloseAsync();
-        if (context is not null) await context.CloseAsync();
+        JsonNode role = await ApiPostAsync("/api/admin/roles", new
+        {
+            name,
+            displayName,
+            description = displayName,
+            permissions = new[] { permission },
+            acknowledgeWildcardGrant = false,
+        });
+        return Guid.Parse(role["id"]!.GetValue<string>());
     }
 
     [Fact]
-    public async Task OperatorCanCompleteUsersWorkflow()
+    public async Task OperatorCanBrowseUsersAndManageAUser()
     {
-        string baseUrl = fixture.ManagementWebUrl ?? throw new InvalidOperationException("ManagementWeb URL was not initialized.");
+        await GotoAsync("/users");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Users", Exact = true }).WaitForAsync();
+        await Page.GetByText(new Regex("Accounts, status, roles", RegexOptions.IgnoreCase)).WaitForAsync();
 
-        await page!.GotoAsync(new Uri(new Uri(baseUrl), "/users").ToString());
+        // Search to isolate the seeded user, then open the detail page.
+        await Page.GetByLabel("Search users").FillAsync(_adaName);
+        await Page.GetByText(_adaName).ClickAsync();
+        await Page.WaitForURLAsync(new Regex($"/users/{_adaId}$"));
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
 
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Users", Exact = true }).WaitForAsync();
-        await page.GetByRole(AriaRole.Navigation, new() { Name = "Management navigation", Exact = true }).WaitForAsync();
-        await page.GetByText(new Regex("Operate user accounts", RegexOptions.IgnoreCase)).WaitForAsync();
+        // Roles tab shows the assigned role.
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Roles", RegexOptions.IgnoreCase) }).ClickAsync();
+        await Page.GetByText("Operator", new() { Exact = true }).First.WaitForAsync();
 
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Ada Lovelace", RegexOptions.IgnoreCase) }).First.ClickAsync();
-        await page.GetByRole(AriaRole.Region, new() { NameRegex = new Regex("User details", RegexOptions.IgnoreCase) }).WaitForAsync();
-        await page.GetByText(new Regex("Engineering", RegexOptions.IgnoreCase)).WaitForAsync();
-        await page.GetByText(new Regex("Google: ada-google", RegexOptions.IgnoreCase)).WaitForAsync();
-        await page.GetByLabel(new Regex("Display name", RegexOptions.IgnoreCase)).FillAsync("Updated operator");
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Save changes", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Disable user", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByLabel(new Regex("New password", RegexOptions.IgnoreCase)).FillAsync("Temp1234!");
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Reset password", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Unassign Operator", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByLabel(new Regex("Assign role", RegexOptions.IgnoreCase)).SelectOptionAsync([new SelectOptionValue { Index = 1 }]);
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Assign selected role", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByLabel(new Regex("Provider id", RegexOptions.IgnoreCase)).FillAsync("oidc");
-        await page.GetByLabel(new Regex("Subject", RegexOptions.IgnoreCase)).FillAsync("ada-oidc");
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Link upstream identity", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Unlink Google", RegexOptions.IgnoreCase) }).ClickAsync();
+        // Assign another role.
+        await Page.GetByPlaceholder("Select a role").ClickAsync();
+        await Page.GetByRole(AriaRole.Option, new() { Name = _auditorRoleName, Exact = true }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Assign", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Role assigned", RegexOptions.IgnoreCase)).WaitForAsync();
+
+        // Reset password.
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Reset password", Exact = true }).ClickAsync();
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByLabel(new Regex("New temporary password", RegexOptions.IgnoreCase)).FillAsync("Temp1234!Temp");
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Reset password", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Password reset", RegexOptions.IgnoreCase)).WaitForAsync();
+
+        // Disable the user.
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Disable user", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("User status updated", RegexOptions.IgnoreCase)).WaitForAsync();
     }
 
-    private static async Task SetupApiMocksAsync(IPage testPage)
+    [Fact]
+    public async Task OperatorCanUnassignARole()
     {
-        await testPage.RouteAsync("**/api/admin/**", async route =>
+        await GotoAsync($"/users/{_adaId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Roles", RegexOptions.IgnoreCase) }).ClickAsync();
+        await Page.GetByText("Operator", new() { Exact = true }).First.WaitForAsync();
+
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Remove Operator", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("Role removed", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanLinkAnUpstreamIdentity()
+    {
+        await GotoAsync($"/users/{_adaId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Upstream identities", RegexOptions.IgnoreCase) }).ClickAsync();
+
+        await Page.GetByPlaceholder("Select a provider").ClickAsync();
+        await Page.GetByRole(AriaRole.Option, new() { Name = _providerName, Exact = true }).ClickAsync();
+        await Page.GetByLabel("Subject").FillAsync("google-subject-12345");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Link", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Identity linked", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanEnableADisabledUser()
+    {
+        await GotoAsync($"/users/{_disabledId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _alanName, Exact = true }).WaitForAsync();
+
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Enable user", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("User status updated", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task SearchDrivesTheUsersQuery()
+    {
+        await GotoAsync("/users");
+        await Page.GetByLabel("Search users").FillAsync(_adaName);
+        await Page.GetByText(_adaName).WaitForAsync();
+
+        // Narrow to Grace; Ada no longer matches and drops out.
+        await Page.GetByLabel("Search users").FillAsync(_graceName);
+        await Page.GetByText(_graceName).WaitForAsync();
+        await Page.GetByText(_adaName).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
+    public async Task OperatorCanCreateAUser()
+    {
+        await GotoAsync("/users");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add user", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        string name = $"Katherine Johnson {Unique}";
+        await dialog.GetByLabel("Full name").FillAsync(name);
+        await dialog.GetByLabel("Email").FillAsync($"katherine.{Unique}@northwind.io");
+        await dialog.GetByLabel(new Regex("Temporary password", RegexOptions.IgnoreCase)).FillAsync("Temp1234!Temp");
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Create user", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex($"Created {Regex.Escape(name)}", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanDeleteAUser()
+    {
+        await GotoAsync("/users");
+        // Search isolates Grace so the kebab menu acts on a single, known row.
+        await Page.GetByLabel("Search users").FillAsync(_graceName);
+        ILocator row = Page.Locator("tbody tr", new() { Has = Page.GetByText(_graceName) }).First;
+        await row.WaitForAsync();
+
+        await row.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).ClickAsync();
+        await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Delete user", Exact = true }).ClickAsync();
+
+        // Confirm in the destructive-action dialog, then the row drops out of the list.
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Delete user", Exact = true }).ClickAsync();
+        await Page.GetByText(new Regex("User deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText(_graceName).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
+    public async Task OperatorCanUnlinkAnUpstreamIdentity()
+    {
+        // Link an identity through the real API so there is one to unlink through the UI.
+        await ApiPostAsync($"/api/admin/users/{_adaId}/upstream-identities", new
         {
-            Uri uri = new(route.Request.Url);
-            string path = uri.AbsolutePath;
-            string method = route.Request.Method;
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/roles/[^/]+$", RegexOptions.IgnoreCase) && method == "POST")
-            {
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/roles/[^/]+$", RegexOptions.IgnoreCase) && method == "DELETE")
-            {
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/roles$", RegexOptions.IgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, new { userId = TestUserId, roles = new[] { MockRole() } });
-                return;
-            }
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/groups$", RegexOptions.IgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, new[]
-                {
-                    new
-                    {
-                        id = "group-test-1",
-                        name = "engineering",
-                        displayName = "Engineering",
-                        memberCount = 3
-                    }
-                });
-                return;
-            }
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/upstream-identities$", RegexOptions.IgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, new
-                {
-                    items = new[]
-                    {
-                        new
-                        {
-                            providerId = "google",
-                            providerName = "Google",
-                            subject = "ada-google",
-                            displayName = "Ada Google",
-                            linkedAt = "2024-01-02T00:00:00Z"
-                        }
-                    }
-                });
-                return;
-            }
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/upstream-identities$", RegexOptions.IgnoreCase) && method == "POST")
-            {
-                await FulfillJsonAsync(route, new
-                {
-                    providerId = "oidc",
-                    subject = "ada-oidc"
-                });
-                return;
-            }
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/upstream-identities/[^/]+$", RegexOptions.IgnoreCase) && method == "DELETE")
-            {
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/reset-password$", RegexOptions.IgnoreCase) && method == "POST")
-            {
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+/disable$", RegexOptions.IgnoreCase) && method == "POST")
-            {
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+$", RegexOptions.IgnoreCase) && method == "PUT")
-            {
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            if (Regex.IsMatch(path, @"/api/admin/users/[^/]+$", RegexOptions.IgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, MockUser());
-                return;
-            }
-
-            if (path.StartsWith("/api/admin/roles", StringComparison.OrdinalIgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, new
-                {
-                    items = new[] { MockRole() },
-                    totalCount = 1,
-                    page = 1,
-                    pageSize = 100,
-                    totalPages = 1
-                });
-                return;
-            }
-
-            if (path.StartsWith("/api/admin/users", StringComparison.OrdinalIgnoreCase) && method == "GET")
-            {
-                await FulfillJsonAsync(route, new
-                {
-                    items = new[] { MockUser() },
-                    totalCount = 1,
-                    page = 1,
-                    pageSize = 20,
-                    totalPages = 1
-                });
-                return;
-            }
-
-            await route.ContinueAsync();
+            providerId = _providerId,
+            subjectId = "google-subject-to-unlink",
         });
+
+        await GotoAsync($"/users/{_adaId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Upstream identities", RegexOptions.IgnoreCase) }).ClickAsync();
+
+        // The unlink button is labelled with the provider's stored name; match the single
+        // identity row's button by its "Unlink …" prefix rather than the display name.
+        await Page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^Unlink ", RegexOptions.IgnoreCase) }).First.ClickAsync();
+        await Page.GetByText(new Regex("Identity unlinked", RegexOptions.IgnoreCase)).WaitForAsync();
     }
 
-    private static object MockUser()
-    {
-        return new
-        {
-            id = TestUserId,
-            email = "admin@test.com",
-            displayName = "Ada Lovelace",
-            status = "Active",
-            createdAt = "2024-01-01T00:00:00Z",
-            mfaEnabled = false,
-            lastLoginAt = (string?)null,
-            modifiedAt = (string?)null,
-            profile = new { }
-        };
-    }
-
-    private static object MockRole()
-    {
-        return new
-        {
-            id = TestRoleId,
-            name = "operator",
-            displayName = "Operator",
-            isSystemRole = false,
-            isActive = true
-        };
-    }
-
-    private static Task FulfillJsonAsync(IRoute route, object body)
-    {
-        return route.FulfillAsync(new()
-        {
-            Status = 200,
-            ContentType = "application/json",
-            Body = JsonSerializer.Serialize(body)
-        });
-    }
+    private static readonly string[] OpenidScope = ["openid"];
 }

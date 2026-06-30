@@ -13,15 +13,18 @@ public sealed class LinkUpstreamIdentityUseCase : ILinkUpstreamIdentityUseCase
     private readonly IUserRepository userRepository;
     private readonly IUpstreamProviderRepository providerRepository;
     private readonly IDateTimeProvider dateTimeProvider;
+    private readonly IAuditLog auditLog;
 
     public LinkUpstreamIdentityUseCase(
         IUserRepository userRepository,
         IUpstreamProviderRepository providerRepository,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        IAuditLog auditLog)
     {
         this.userRepository = userRepository;
         this.providerRepository = providerRepository;
         this.dateTimeProvider = dateTimeProvider;
+        this.auditLog = auditLog;
     }
 
     /// <inheritdoc />
@@ -66,6 +69,14 @@ public sealed class LinkUpstreamIdentityUseCase : ILinkUpstreamIdentityUseCase
         }
 
         await this.userRepository.SaveChangesAsync(cancellationToken);
+
+        await this.auditLog.LogAsync(
+            command.ActorId,
+            "User.UpstreamIdentityLinked",
+            "User",
+            user.Id.Value.ToString(),
+            $"Provider: {provider.Name}, Subject: {command.SubjectId}",
+            cancellationToken);
 
         return new LinkUpstreamIdentityResult(
             user.Id,

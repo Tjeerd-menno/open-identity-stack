@@ -11,13 +11,16 @@ public sealed class UpdateUserUseCase : IUpdateUserUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IDateTimeProvider dateTimeProvider;
+    private readonly IAuditLog auditLog;
 
     public UpdateUserUseCase(
         IUserRepository userRepository,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        IAuditLog auditLog)
     {
         this.userRepository = userRepository;
         this.dateTimeProvider = dateTimeProvider;
+        this.auditLog = auditLog;
     }
 
     /// <inheritdoc />
@@ -79,6 +82,14 @@ public sealed class UpdateUserUseCase : IUpdateUserUseCase
         }
 
         await this.userRepository.SaveChangesAsync(cancellationToken);
+
+        await this.auditLog.LogAsync(
+            command.ActorId,
+            "User.Updated",
+            "User",
+            user.Id.Value.ToString(),
+            $"Email: {user.Email}",
+            cancellationToken);
 
         return new UpdateUserResult(user.Id, this.dateTimeProvider.UtcNow);
     }

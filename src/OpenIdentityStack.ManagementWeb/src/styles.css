@@ -1,15 +1,45 @@
-.foundation-table-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-4)) transparent;
+/* ============================================================
+   OpenIdentityStack Management Web — global tokens + baseline.
+   Built on the OpenIdentityStack design system (Mantine foundation):
+   flat surfaces, 1px hairline borders, blue primary, scheme-aware
+   semantic aliases layered over the Mantine palette.
+   ============================================================ */
+
+:root {
+  --mw-surface-body: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+  --mw-surface-card: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+  --mw-surface-raised: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
+  --mw-surface-sunken: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8));
+  --mw-surface-hover: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  --mw-border: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  --mw-primary: light-dark(var(--mantine-color-blue-6), var(--mantine-color-blue-8));
+  --mw-primary-light: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.15));
+  --mw-text-strong: light-dark(var(--mantine-color-black), var(--mantine-color-white));
+  --mw-text-muted: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+  --mw-text-link: light-dark(var(--mantine-color-blue-6), var(--mantine-color-blue-4));
+  --mw-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
-.foundation-table-scroll table {
-  white-space: nowrap;
+body {
+  background-color: var(--mw-surface-sunken);
 }
 
-.foundation-table-scroll thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: light-dark(var(--mantine-color-white), var(--mantine-color-dark-8));
+/* Monospace for IDs, scopes, grants and code, per the design voice. */
+code,
+kbd,
+samp,
+pre,
+.mw-mono {
+  font-family: var(--mw-mono);
+}
+
+@keyframes mw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mw-spin {
+  animation: mw-spin 0.7s linear infinite;
+  display: inline-flex;
 }

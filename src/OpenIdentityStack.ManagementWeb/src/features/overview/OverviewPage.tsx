@@ -1,195 +1,159 @@
-import { Badge, Button, Card, Group, Progress, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { Card, Group, SimpleGrid, Stack, Text, ThemeIcon, UnstyledButton } from '@mantine/core';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { PageHeader } from '@/components/PagePrimitives';
+import { Icon, type IconName } from '@/components/Icon';
+import { PageHeader, SectionCard, StatCard } from '@/components/primitives';
+import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
+import { formatRelativeTime } from '@/lib/format';
 
-type OverviewPageProps = {
-  permissions?: string[];
-};
+type DomainLink = { label: string; to: string; icon: IconName; permission: string; description: string };
 
-type OverviewSection = {
-  label: string;
-  path: string;
-  permission: string;
-  description: string;
-};
-
-const overviewSections: OverviewSection[] = [
-  {
-    label: 'Users',
-    path: '/users',
-    permission: 'users:read',
-    description: 'Accounts, status, roles, groups, and upstream identities.',
-  },
-  {
-    label: 'Roles',
-    path: '/roles',
-    permission: 'roles:read',
-    description: 'Role catalog, platform permissions, and assignment rules.',
-  },
-  {
-    label: 'Groups',
-    path: '/groups',
-    permission: 'groups:read',
-    description: 'Group membership and external mapping management.',
-  },
-  {
-    label: 'Applications',
-    path: '/applications',
-    permission: 'applications:read',
-    description: 'Consolidated OAuth and OIDC applications.',
-  },
-  {
-    label: 'Permissions',
-    path: '/application-permissions',
-    permission: 'application-permissions:read',
-    description: 'Application permission registry, manifests, and diagnostics.',
-  },
-  {
-    label: 'Sessions',
-    path: '/sessions',
-    permission: 'sessions:read',
-    description: 'Active, expired, revoked, and logged-out user sessions.',
-  },
-  {
-    label: 'Identity providers',
-    path: '/providers',
-    permission: 'providers:read',
-    description: 'OIDC provider configuration and lifecycle management.',
-  },
-  {
-    label: 'Authentication settings',
-    path: '/providers/settings',
-    permission: 'system:settings',
-    description: 'Authentication defaults and sign-in policy controls.',
-  },
-  {
-    label: 'Audit',
-    path: '/audit-entries',
-    permission: 'audit-logs:read',
-    description: 'Read-only administrative audit trail.',
-  },
+const DOMAINS: DomainLink[] = [
+  { label: 'Users', to: '/users', icon: 'users', permission: 'users:read', description: 'Accounts, status, roles and upstream identities.' },
+  { label: 'Roles', to: '/roles', icon: 'shield', permission: 'roles:read', description: 'Role catalog and platform permission grants.' },
+  { label: 'Groups', to: '/groups', icon: 'users-round', permission: 'groups:read', description: 'Membership and external mappings.' },
+  { label: 'Applications', to: '/applications', icon: 'app-window', permission: 'applications:read', description: 'OAuth/OIDC client registrations.' },
+  { label: 'Sessions', to: '/sessions', icon: 'activity', permission: 'sessions:read', description: 'Active, expired and revoked sessions.' },
+  { label: 'Identity providers', to: '/providers', icon: 'globe', permission: 'providers:read', description: 'Upstream provider configuration.' },
 ];
 
-export function OverviewPage({ permissions }: OverviewPageProps) {
-  if (permissions) {
-    return <OverviewContent permissions={permissions} />;
-  }
-
-  return <OverviewFromAuth />;
-}
-
-function OverviewFromAuth() {
+export function OverviewPage() {
   const auth = useAuth();
-  return <OverviewContent permissions={auth.permissions} />;
-}
+  const can = (permission: string) => hasPermission(auth.permissions, permission);
 
-function OverviewContent({ permissions }: { permissions: string[] }) {
-  const effectivePermissions = permissions;
-  const availableSections = overviewSections.filter((section) => hasPermission(effectivePermissions, section.permission));
-  const unavailableCount = overviewSections.length - availableSections.length;
+  const usersQuery = useQuery({
+    queryKey: ['overview', 'users'],
+    queryFn: () => api.users.getUsers({ page: 1, pageSize: 1 }),
+    enabled: can('users:read'),
+  });
+  const appsQuery = useQuery({
+    queryKey: ['overview', 'applications'],
+    queryFn: () => api.applications.getApplications({ page: 1, pageSize: 1 }),
+    enabled: can('applications:read'),
+  });
+  const sessionsQuery = useQuery({
+    queryKey: ['overview', 'sessions'],
+    queryFn: () => api.sessions.getSessions({ page: 1, pageSize: 1, status: 'Active' }),
+    enabled: can('sessions:read'),
+  });
+  const providersQuery = useQuery({
+    queryKey: ['overview', 'providers'],
+    queryFn: () => api.providers.getProviders(true),
+    enabled: can('providers:read'),
+  });
+  const auditQuery = useQuery({
+    queryKey: ['overview', 'audit'],
+    queryFn: () => api.audit.getAuditEntries({ page: 1, pageSize: 6 }),
+    enabled: can('audit-logs:read'),
+  });
+
+  const stat = (value: number | undefined, can: boolean) => (can ? (value ?? '—') : '—');
+  const visibleDomains = DOMAINS.filter((domain) => can(domain.permission));
 
   return (
-    <Stack gap="lg">
+    <div>
       <PageHeader
         title="Overview"
-        description="Operational IAM console for identity, access, application, federation, and audit workflows."
-        badges={[
-          { label: `${availableSections.length} available`, color: 'green' },
-          { label: `${unavailableCount} unavailable`, color: unavailableCount === 0 ? 'gray' : 'yellow' },
-        ]}
+        description="A summary of your identity tenant and quick access to the domains you administer."
       />
 
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-        <MetricCard label="Accessible surfaces" value={`${availableSections.length}/${overviewSections.length}`} tone="green" />
-        <MetricCard label="Access coverage" value={`${Math.round((availableSections.length / overviewSections.length) * 100)}%`} tone="blue" />
-        <MetricCard label="Security signals" value={hasPermission(effectivePermissions, 'audit-logs:read') ? 'Audit ready' : 'Limited'} tone="teal" />
-        <MetricCard label="Operator scope" value={hasPermission(effectivePermissions, '*') ? 'Full' : 'Scoped'} tone="gray" />
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} mb="lg">
+        <StatCard label="Users" value={stat(usersQuery.data?.totalCount, can('users:read'))} icon="users" color="blue" />
+        <StatCard label="Applications" value={stat(appsQuery.data?.totalCount, can('applications:read'))} icon="app-window" color="teal" />
+        <StatCard
+          label="Active sessions"
+          value={stat(sessionsQuery.data?.totalCount, can('sessions:read'))}
+          icon="activity"
+          color="violet"
+        />
+        <StatCard
+          label="Identity providers"
+          value={stat(providersQuery.data?.length, can('providers:read'))}
+          icon="globe"
+          color="green"
+        />
       </SimpleGrid>
 
-      <nav aria-label="Overview quick links">
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-          {overviewSections.map((section) => (
-            <OverviewSectionCard
-              key={section.path}
-              section={section}
-              isAvailable={hasPermission(effectivePermissions, section.permission)}
-            />
-          ))}
-        </SimpleGrid>
-      </nav>
-
-      <SimpleGrid cols={{ base: 1, lg: 3 }}>
-        <Card withBorder radius="sm" padding="md">
-          <Stack gap="xs">
-            <Title order={2} size="h4">Access Summary</Title>
-            <Progress value={(availableSections.length / overviewSections.length) * 100} color="blue" />
-            <Text size="sm" c="dimmed">
-              Route visibility is based on effective permissions in the current operator token.
-            </Text>
-          </Stack>
-        </Card>
-        <Card withBorder radius="sm" padding="md">
-          <Stack gap="xs">
-            <Title order={2} size="h4">Recent Signals</Title>
-            <Text size="sm">Audit trail: {hasPermission(effectivePermissions, 'audit-logs:read') ? 'Available' : 'No access'}</Text>
-            <Text size="sm">Session controls: {hasPermission(effectivePermissions, 'sessions:read') ? 'Available' : 'No access'}</Text>
-            <Text size="sm">Provider lifecycle: {hasPermission(effectivePermissions, 'providers:read') ? 'Available' : 'No access'}</Text>
-            <Text size="sm">Authentication settings: {hasPermission(effectivePermissions, 'system:settings') ? 'Available' : 'No access'}</Text>
-          </Stack>
-        </Card>
-        <Card withBorder radius="sm" padding="md">
-          <Stack gap="xs">
-            <Title order={2} size="h4">Quick Actions</Title>
-            {availableSections.slice(0, 3).map((section) => (
-              <Button key={section.path} component={Link} to={section.path} variant="subtle">
-                {section.label}
-              </Button>
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" style={{ alignItems: 'start' }}>
+        <SectionCard title="Domains" description="Jump to the areas your permissions grant.">
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+            {visibleDomains.map((domain) => (
+              <UnstyledButton
+                key={domain.to}
+                component={Link}
+                to={domain.to}
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  padding: 12,
+                  borderRadius: 'var(--mantine-radius-md)',
+                  border: '1px solid var(--mw-border)',
+                }}
+              >
+                <ThemeIcon color="blue" radius="md" size={36} variant="light">
+                  <Icon name={domain.icon} size={18} />
+                </ThemeIcon>
+                <div style={{ minWidth: 0 }}>
+                  <Text fw={600} size="sm">
+                    {domain.label}
+                  </Text>
+                  <Text c="dimmed" size="xs" lineClamp={2}>
+                    {domain.description}
+                  </Text>
+                </div>
+              </UnstyledButton>
             ))}
-          </Stack>
-        </Card>
+          </SimpleGrid>
+        </SectionCard>
+
+        <SectionCard title="Recent activity" description="The latest entries from the administrative audit trail.">
+          {can('audit-logs:read') ? (
+              <Stack gap={0}>
+                {(auditQuery.data?.items ?? []).map((entry, index, array) => (
+                  <Group
+                    key={entry.id}
+                    align="flex-start"
+                    gap="sm"
+                    py="sm"
+                    wrap="nowrap"
+                    style={{ borderBottom: index === array.length - 1 ? undefined : '1px solid var(--mw-border)' }}
+                  >
+                    <ThemeIcon color="gray" radius="md" size={32} variant="light">
+                      <Icon name="scroll-text" size={16} />
+                    </ThemeIcon>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <Text className="mw-mono" size="sm" truncate>
+                        {entry.action}
+                      </Text>
+                      <Text c="dimmed" size="xs">
+                        {entry.entityType} · {formatRelativeTime(entry.timestamp)}
+                      </Text>
+                    </div>
+                  </Group>
+                ))}
+                {(auditQuery.data?.items.length ?? 0) === 0 && (
+                  <Text c="dimmed" py="sm" size="sm">
+                    No recent activity.
+                  </Text>
+                )}
+              </Stack>
+            ) : (
+              <Text c="dimmed" size="sm">
+                Requires audit-logs:read.
+              </Text>
+            )}
+          </SectionCard>
       </SimpleGrid>
-    </Stack>
-  );
-}
 
-function MetricCard({ label, value, tone }: { label: string; value: string; tone: string }) {
-  return (
-    <Card withBorder radius="sm" padding="md" style={{ borderTop: `3px solid var(--mantine-color-${tone}-5)` }}>
-      <Stack gap={4}>
-        <Text size="xs" c="dimmed" fw={650} tt="uppercase">{label}</Text>
-        <Title order={2} size="h3">{value}</Title>
-      </Stack>
-    </Card>
-  );
-}
-
-function OverviewSectionCard({
-  section,
-  isAvailable,
-}: {
-  section: OverviewSection;
-  isAvailable: boolean;
-}) {
-  return (
-    <Card aria-label={section.label} component="article" withBorder radius="sm" padding="md">
-      <Stack gap="sm">
-        <Group justify="space-between" align="flex-start">
-          <Title order={2} size="h4">{section.label}</Title>
-          <Badge color={isAvailable ? 'green' : 'gray'} variant="light">
-            {isAvailable ? 'Available' : 'No access'}
-          </Badge>
-        </Group>
-        <Text size="sm" c="dimmed">{section.description}</Text>
-        {isAvailable ? (
-          <Button component={Link} to={section.path} variant="light" size="sm">
-            Open {section.label}
-          </Button>
-        ) : (
-          <Text size="sm">Requires {section.permission}</Text>
-        )}
-      </Stack>
-    </Card>
+      {can('audit-logs:read') === false && providersQuery.data === undefined && (
+        <Card mt="lg" padding="lg">
+          <Text c="dimmed" size="sm">
+            Your operator scope is limited. Areas you can access appear in the sidebar.
+          </Text>
+        </Card>
+      )}
+    </div>
   );
 }

@@ -17,6 +17,7 @@ public sealed class AssignRoleUseCaseTests
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IAuditLog _auditLog;
     private readonly ILogger<AssignRoleUseCase> _logger;
     private readonly IAssignRoleUseCase _sut;
 
@@ -25,6 +26,7 @@ public sealed class AssignRoleUseCaseTests
         this._userRepository = Substitute.For<IUserRepository>();
         this._roleRepository = Substitute.For<IRoleRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        this._auditLog = Substitute.For<IAuditLog>();
         this._logger = Substitute.For<ILogger<AssignRoleUseCase>>();
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
 
@@ -32,6 +34,7 @@ public sealed class AssignRoleUseCaseTests
             this._userRepository,
             this._roleRepository,
             this._dateTimeProvider,
+            this._auditLog,
             this._logger);
     }
 
@@ -41,7 +44,7 @@ public sealed class AssignRoleUseCaseTests
         // Arrange
         User user = CreateUser();
         Role role = CreateRole();
-        var command = new AssignRoleCommand(user.Id, role.Id);
+        var command = new AssignRoleCommand(user.Id, role.Id, "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -67,7 +70,7 @@ public sealed class AssignRoleUseCaseTests
         // Arrange
         var userId = UserId.Create();
         Role role = CreateRole();
-        var command = new AssignRoleCommand(userId, role.Id);
+        var command = new AssignRoleCommand(userId, role.Id, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -88,7 +91,7 @@ public sealed class AssignRoleUseCaseTests
         // Arrange
         User user = CreateUser();
         var roleId = RoleId.Create();
-        var command = new AssignRoleCommand(user.Id, roleId);
+        var command = new AssignRoleCommand(user.Id, roleId, "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -109,7 +112,7 @@ public sealed class AssignRoleUseCaseTests
         // Arrange
         User user = CreateUser();
         Role role = CreateDisabledRole();
-        var command = new AssignRoleCommand(user.Id, role.Id);
+        var command = new AssignRoleCommand(user.Id, role.Id, "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -130,7 +133,7 @@ public sealed class AssignRoleUseCaseTests
         // Arrange
         User user = CreateUser();
         Role role = CreateRole();
-        var command = new AssignRoleCommand(user.Id, role.Id);
+        var command = new AssignRoleCommand(user.Id, role.Id, "admin-1");
 
         this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -158,7 +161,7 @@ public sealed class AssignRoleUseCaseTests
         }
 
         Role role = CreateRole();
-        var command = new AssignRoleCommand(user.Id, role.Id);
+        var command = new AssignRoleCommand(user.Id, role.Id, "admin-1");
 
         this._userRepository.GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns(user);

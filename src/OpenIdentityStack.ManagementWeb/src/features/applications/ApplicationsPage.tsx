@@ -1,203 +1,227 @@
-import { Button, Stack } from '@mantine/core';
-import { useEffect, useState } from 'react';
+import { Badge, Box, Button, Group, Text, ThemeIcon } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { EntityActionGroup } from '@/components/EntityActionMenu';
-import { FoundationTable, type FoundationColumn } from '@/components/FoundationTable';
-import { PageHeader, PageToolbar, type AppliedFilter } from '@/components/PagePrimitives';
-import { getApiErrorMessage } from '@/lib/admin-api';
-import {
-  ApplicationClientType,
+import type {
+  ApplicationListItem,
   ApplicationProfile,
-  type ApplicationListItem,
-} from './applications-api';
-import { ApplicationStatusBadge } from './ApplicationStatusBadge';
-import { useApplications, useDeleteApplication } from './applications-hooks';
+  ApplicationStatus,
+} from '@openidentitystack/admin-api-client';
+import { Icon } from '@/components/Icon';
+import { DataTable, type Column } from '@/components/DataTable';
+import { FilterToolbar } from '@/components/FilterToolbar';
+import { Pager } from '@/components/ListControls';
+import { RowMenu } from '@/components/RowMenu';
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { ErrorState, PageHeader, StatusBadge } from '@/components/primitives';
+import { CreateApplicationModal } from './CreateApplicationModal';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
+import { hasPermission } from '@/lib/permissions';
+import { formatRelativeTime } from '@/lib/format';
 
-const pageSize = 20;
-
-const applicationProfileLabels: Record<ApplicationProfile, string> = {
-  [ApplicationProfile.Web]: 'Web',
-  [ApplicationProfile.SinglePage]: 'Single Page',
-  [ApplicationProfile.Native]: 'Native',
-  [ApplicationProfile.MachineToMachine]: 'Machine-to-machine',
-  [ApplicationProfile.Device]: 'Device',
-  [ApplicationProfile.Custom]: 'Custom',
+const PROFILE_LABELS: Record<string, string> = {
+  Web: 'Web',
+  SinglePage: 'Single page',
+  Native: 'Native',
+  MachineToMachine: 'Machine-to-machine',
+  Device: 'Device',
+  Custom: 'Custom',
 };
 
-const clientTypeLabels: Record<ApplicationClientType, string> = {
-  [ApplicationClientType.Confidential]: 'Confidential',
-  [ApplicationClientType.Public]: 'Public',
+const PROFILE_COLORS: Record<string, string> = {
+  Web: 'blue',
+  SinglePage: 'teal',
+  Native: 'cyan',
+  MachineToMachine: 'orange',
+  Device: 'grape',
+  Custom: 'gray',
 };
 
 export function ApplicationsPage() {
+  const auth = useAuth();
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
+  const queryClient = useQueryClient();
+  const canWrite = hasPermission(auth.permissions, 'applications:write');
+  // Deletion is authorized with applications:delete, independent of applications:write.
+  const canDelete = hasPermission(auth.permissions, 'applications:delete');
   const [search, setSearch] = useState('');
-  const [submittedSearch, setSubmittedSearch] = useState('');
-  const [profile, setProfile] = useState<ApplicationProfile | ''>('');
-  const [status, setStatus] = useState<'Active' | 'Disabled' | ''>('');
-  const [clientType, setClientType] = useState<ApplicationClientType | ''>('');
-  const [applicationToDelete, setApplicationToDelete] = useState<ApplicationListItem | null>(null);
-  const applications = useApplications({
-    page,
-    pageSize,
-    search: submittedSearch || undefined,
-    profile: profile || undefined,
-    status: status || undefined,
-    clientType: clientType || undefined,
+  const [profile, setProfile] = useState('All');
+  const [status, setStatus] = useState('All');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [pendingDelete, setPendingDelete] = useState<ApplicationListItem | null>(null);
+  const [createOpened, createControls] = useDisclosure(false);
+
+  const query = useQuery({
+    queryKey: ['applications', { page, pageSize, search, profile, status }],
+    queryFn: () =>
+      api.applications.getApplications({
+        page,
+        pageSize,
+        search: search || undefined,
+        profile: profile === 'All' ? undefined : (profile as ApplicationProfile),
+        status: status === 'All' ? undefined : (status as ApplicationStatus),
+      }),
   });
-  const deleteApplication = useDeleteApplication(applicationToDelete?.id ?? '');
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setSubmittedSearch(search);
-      setPage(1);
-    }, 300);
+  const toggle = useMutation({
+    mutationFn: (app: ApplicationListItem) =>
+      app.status === 'Disabled' ? api.applications.enableApplication(app.id) : api.applications.disableApplication(app.id),
+    onSuccess: () => {
+      notifications.show({ message: 'Application updated', color: 'green' });
+      void queryClient.invalidateQueries({ queryKey: ['applications'] });
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
 
-    return () => window.clearTimeout(timer);
-  }, [search]);
+  const remove = useMutation({
+    mutationFn: (app: ApplicationListItem) => api.applications.deleteApplication(app.id),
+    onSuccess: () => {
+      notifications.show({ message: 'Application deleted', color: 'green' });
+      void queryClient.invalidateQueries({ queryKey: ['applications'] });
+      setPendingDelete(null);
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
 
-  const columns: FoundationColumn<ApplicationListItem>[] = [
-    { header: 'Client ID', accessorKey: 'clientId' },
-    { header: 'Display Name', accessorKey: 'displayName' },
+  const resetPage = () => setPage(1);
+
+  const columns: Column<ApplicationListItem>[] = [
     {
+      key: 'app',
+      header: 'Application',
+      render: (app) => (
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon color={PROFILE_COLORS[app.profile] ?? 'blue'} radius="md" size={36} variant="light">
+            <Icon name={app.allowedGrantTypes.includes('client_credentials') ? 'server' : 'app-window'} size={18} />
+          </ThemeIcon>
+          <Box style={{ minWidth: 0 }}>
+            <Text fw={600} size="sm" truncate>
+              {app.displayName}
+            </Text>
+            <Text c="dimmed" className="mw-mono" size="xs" truncate>
+              {app.clientId}
+            </Text>
+          </Box>
+        </Group>
+      ),
+    },
+    {
+      key: 'profile',
       header: 'Profile',
-      cell: (application) => applicationProfileLabels[application.profile],
+      render: (app) => (
+        <Badge color={PROFILE_COLORS[app.profile] ?? 'blue'} variant="dot">
+          {PROFILE_LABELS[app.profile] ?? app.profile}
+        </Badge>
+      ),
     },
+    { key: 'type', header: 'Client type', render: (app) => <Text c="dimmed" size="sm">{app.clientType}</Text> },
+    { key: 'status', header: 'Status', render: (app) => <StatusBadge status={app.status} /> },
     {
-      header: 'Client Type',
-      cell: (application) => clientTypeLabels[application.clientType],
-    },
-    {
-      header: 'Status',
-      cell: (application) => <ApplicationStatusBadge status={application.status} />,
-    },
-    {
-      header: 'Grant Types',
-      cell: (application) => application.allowedGrantTypes.join(', '),
-    },
-    {
+      key: 'created',
       header: 'Created',
-      cell: (application) => new Date(application.createdAt).toLocaleDateString(),
+      render: (app) => <Text c="dimmed" size="sm">{formatRelativeTime(app.createdAt)}</Text>,
     },
     {
-      header: 'Actions',
+      key: 'actions',
+      header: '',
       align: 'right',
-      cell: (application) => (
-        <EntityActionGroup
-          actions={[
-            { label: `View ${application.displayName}`, onClick: () => navigate(`/applications/${application.id}`) },
-            { label: `Edit ${application.displayName}`, onClick: () => navigate(`/applications/${application.id}/edit`) },
-            { label: `Delete ${application.displayName}`, color: 'red', onClick: () => setApplicationToDelete(application) },
+      width: 48,
+      render: (app) => (
+        <RowMenu
+          items={[
+            { label: 'Open', icon: 'arrow-up-right', onClick: () => navigate(`/applications/${app.id}`) },
+            {
+              label: app.status === 'Disabled' ? 'Enable' : 'Disable',
+              icon: 'ban',
+              disabled: !canWrite,
+              onClick: () => toggle.mutate(app),
+            },
+            { separator: true },
+            { label: 'Delete application', icon: 'trash-2', danger: true, disabled: !canDelete, onClick: () => setPendingDelete(app) },
           ]}
         />
       ),
     },
   ];
-  const appliedFilters: AppliedFilter[] = [
-    ...(profile ? [{ key: 'profile', label: 'Profile', value: applicationProfileLabels[profile], onRemove: () => setProfile('') }] : []),
-    ...(status ? [{ key: 'status', label: 'Status', value: status, onRemove: () => setStatus('') }] : []),
-    ...(clientType ? [{ key: 'clientType', label: 'Client type', value: clientTypeLabels[clientType], onRemove: () => setClientType('') }] : []),
-  ];
 
   return (
-    <Stack gap="lg">
+    <div>
       <PageHeader
         title="Applications"
-        description="Manage OAuth 2.0 and OpenID Connect applications."
-        actions={<Button onClick={() => navigate('/applications/new')}>New application</Button>}
+        description="OAuth/OIDC software registrations that can sign users in or request tokens."
+        actions={
+          canWrite ? (
+            <Button leftSection={<Icon name="plus" size={16} />} onClick={createControls.open}>
+              Create application
+            </Button>
+          ) : undefined
+        }
       />
 
-      <PageToolbar
-        searchLabel="Search applications"
-        searchPlaceholder="Search by client ID or display name..."
-        searchValue={search}
-        resultCount={applications.data?.totalCount}
-        onSearchChange={setSearch}
+      <FilterToolbar
+        noun="applications"
+        search={search}
+        onSearch={(value) => { setSearch(value); resetPage(); }}
         filters={[
           {
             key: 'profile',
             label: 'Profile',
             value: profile,
-            onChange: (value) => {
-              setProfile((value ?? '') as ApplicationProfile | '');
-              setPage(1);
-            },
-            data: [
-              { value: ApplicationProfile.Web, label: 'Web' },
-              { value: ApplicationProfile.SinglePage, label: 'Single Page' },
-              { value: ApplicationProfile.Native, label: 'Native' },
-              { value: ApplicationProfile.MachineToMachine, label: 'Machine-to-machine' },
-              { value: ApplicationProfile.Device, label: 'Device' },
-              { value: ApplicationProfile.Custom, label: 'Custom' },
-            ],
+            options: ['All', 'Web', 'SinglePage', 'Native', 'MachineToMachine', 'Device', 'Custom'],
+            onChange: (value) => { setProfile(value); resetPage(); },
           },
           {
             key: 'status',
             label: 'Status',
             value: status,
-            onChange: (value) => {
-              setStatus((value ?? '') as 'Active' | 'Disabled' | '');
-              setPage(1);
-            },
-            data: [
-              { value: 'Active', label: 'Active' },
-              { value: 'Disabled', label: 'Disabled' },
-            ],
-          },
-          {
-            key: 'clientType',
-            label: 'Client type',
-            value: clientType,
-            onChange: (value) => {
-              setClientType((value ?? '') as ApplicationClientType | '');
-              setPage(1);
-            },
-            data: [
-              { value: ApplicationClientType.Confidential, label: 'Confidential' },
-              { value: ApplicationClientType.Public, label: 'Public' },
-            ],
+            options: ['All', 'Active', 'Disabled'],
+            onChange: (value) => { setStatus(value); resetPage(); },
           },
         ]}
-        appliedFilters={appliedFilters}
-        onClear={() => {
-          setSearch('');
-          setSubmittedSearch('');
-          setProfile('');
-          setStatus('');
-          setClientType('');
-          setPage(1);
-        }}
+        rows={pageSize}
+        onRows={(size) => { setPageSize(size); resetPage(); }}
+        count={query.data?.totalCount}
       />
 
-      <FoundationTable
-        columns={columns}
-        data={applications.data?.items ?? []}
-        isLoading={applications.isLoading}
-        error={applications.isError ? getApiErrorMessage(applications.error) : null}
-        emptyMessage="No applications found"
-        pagination={{
-          page,
-          pageSize,
-          totalCount: applications.data?.totalCount ?? 0,
-          totalPages: applications.data?.totalPages ?? 0,
-          onPageChange: setPage,
-        }}
-      />
+      {query.isError ? (
+        <ErrorState message={getApiErrorMessage(query.error)} />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={query.data?.items ?? []}
+            getRowKey={(app) => app.id}
+            onRowClick={(app) => navigate(`/applications/${app.id}`)}
+            isLoading={query.isLoading}
+            emptyIcon="app-window"
+            emptyTitle="No applications"
+            emptyText="Adjust your filters or register an application."
+          />
+          <Pager
+            page={page}
+            pageSize={pageSize}
+            totalCount={query.data?.totalCount ?? 0}
+            totalPages={query.data?.totalPages ?? 0}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); resetPage(); }}
+          />
+        </>
+      )}
 
-      <ConfirmDialog
-        opened={applicationToDelete !== null}
-        onOpenChange={(opened) => !opened && setApplicationToDelete(null)}
-        onConfirm={async () => {
-          await deleteApplication.mutateAsync();
-          setApplicationToDelete(null);
-        }}
+      {createOpened && <CreateApplicationModal onClose={createControls.close} />}
+      <ConfirmModal
+        opened={pendingDelete !== null}
         title="Delete application"
-        message="Are you sure you want to delete this application? This action cannot be undone."
-        confirmLabel="Delete"
-        loading={deleteApplication.isPending}
+        message={`Permanently delete ${pendingDelete?.displayName ?? 'this application'}? Tokens issued to it will stop working.`}
+        confirmLabel="Delete application"
+        loading={remove.isPending}
+        onConfirm={() => pendingDelete && remove.mutate(pendingDelete)}
+        onClose={() => setPendingDelete(null)}
       />
-    </Stack>
+    </div>
   );
 }

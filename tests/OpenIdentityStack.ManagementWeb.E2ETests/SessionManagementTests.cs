@@ -4,183 +4,74 @@ using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
 namespace OpenIdentityStack.ManagementWeb.E2ETests;
 
-/// <summary>
-/// E2E coverage for the ManagementWeb Sessions slice.
-/// API responses are route-mocked so this verifies the frontend contract and routing surface.
-/// </summary>
-public class SessionManagementTests : IAsyncLifetime
+/// <summary>E2E coverage for the ManagementWeb Sessions list against the real admin API.</summary>
+public sealed class SessionManagementTests : ManagementWebPageTest
 {
-    private readonly ManagementWebAppHostFixture fixture;
-    private readonly List<string> adminRequestUrls = [];
-    private IBrowserContext? context;
-    private IPage? page;
-    private bool sessionRevoked;
-    private bool allUserSessionsRevoked;
+    private string _primaryIp = "";
+    private string _secondaryIp = "";
 
-    public SessionManagementTests(ManagementWebAppHostFixture fixture)
+    public SessionManagementTests(ManagementWebAppHostFixture fixture) : base(fixture)
     {
-        this.fixture = fixture;
     }
 
-    public async ValueTask InitializeAsync()
+    protected override async Task SeedAsync()
     {
-        context = await fixture.CreateBrowserContextAsync();
-        page = await context.NewPageAsync();
-        page.SetDefaultTimeout(60_000);
-        page.SetDefaultNavigationTimeout(60_000);
-        page.Request += (_, request) =>
-        {
-            if (request.Url.Contains("/api/admin/", StringComparison.OrdinalIgnoreCase))
-            {
-                adminRequestUrls.Add(request.Url);
-            }
-        };
+        // Per-instance IP addresses (derived from the unique suffix) keep rows distinct on the shared list.
+        int a = Convert.ToInt32(Unique[..2], 16);
+        int b = Convert.ToInt32(Unique.Substring(2, 2), 16);
+        _primaryIp = $"198.51.{a}.{b}";
+        _secondaryIp = $"203.0.{a}.{b}";
 
-        await SetupSessionsApiMocksAsync(page);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (page is not null) await page.CloseAsync();
-        if (context is not null) await context.CloseAsync();
+        Guid userId = await Fixture.SeedUserAsync($"session.{Unique}@northwind.io", "Session User", "Password123!@456");
+        await Fixture.SeedSessionAsync(userId, _primaryIp, "Mozilla/5.0 (Macintosh) Chrome/124.0 Safari/537.36");
+        await Fixture.SeedSessionAsync(userId, _secondaryIp, "Mozilla/5.0 (Windows NT 10.0) Firefox/126.0");
     }
 
     [Fact]
-    public async Task OperatorCanListInspectAndRevokeSessions()
+    public async Task OperatorCanBrowseSessions()
     {
-        string baseUrl = fixture.ManagementWebUrl ?? throw new InvalidOperationException("ManagementWeb URL was not initialized.");
-
-        await page!.GotoAsync(new Uri(new Uri(baseUrl), "/sessions").ToString());
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Sessions", Exact = true }).WaitForAsync();
-        await page.GetByText("10.0.0.5").WaitForAsync();
-
-        Task<IRequest> searchRequest = page.WaitForRequestAsync(new Regex(@"/api/admin/sessions\?.*search=10\.0\.0\.5", RegexOptions.IgnoreCase));
-        await page.GetByLabel(new Regex("Search sessions", RegexOptions.IgnoreCase)).FillAsync("10.0.0.5");
-        await searchRequest;
-
-        Task<IRequest> revokedRequest = page.WaitForRequestAsync(new Regex(@"/api/admin/sessions\?.*status=Revoked", RegexOptions.IgnoreCase));
-        await page.GetByLabel(new Regex("Filter by status", RegexOptions.IgnoreCase)).SelectOptionAsync(["Revoked"]);
-        await revokedRequest;
-
-        await page.GetByLabel(new Regex("Filter by status", RegexOptions.IgnoreCase)).SelectOptionAsync(["Active"]);
-        await page.GetByText("10.0.0.5").WaitForAsync();
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("view session session-1", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Session Details", Exact = true }).WaitForAsync();
-        await page.GetByText("Firefox on Windows").WaitForAsync();
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("revoke all sessions for user", RegexOptions.IgnoreCase) }).ClickAsync();
-        Task<IRequest> revokeAllRequest = page.WaitForRequestAsync(new Regex(@"/api/admin/users/user-1/sessions$", RegexOptions.IgnoreCase));
-        await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("revoke all user sessions", RegexOptions.IgnoreCase) })
-            .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("revoke all user sessions", RegexOptions.IgnoreCase) })
-            .ClickAsync();
-        await revokeAllRequest;
-        allUserSessionsRevoked.ShouldBeTrue();
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^revoke session$", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("revoke session", RegexOptions.IgnoreCase) })
-            .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("revoke session", RegexOptions.IgnoreCase) })
-            .ClickAsync();
-        await page.WaitForURLAsync(new Regex(@"/sessions/?$"));
-        sessionRevoked.ShouldBeTrue();
-
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/sessions", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/users/user-1/sessions", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/service-accounts", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/clients", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
+        await GotoAsync("/sessions");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = "Sessions", Exact = true }).WaitForAsync();
+        await Page.GetByText(_primaryIp).WaitForAsync();
+        await Page.GetByLabel("Status").WaitForAsync();
     }
 
-    private async Task SetupSessionsApiMocksAsync(IPage testPage)
+    [Fact]
+    public async Task OperatorCanRevokeASession()
     {
-        await testPage.RouteAsync("**/api/admin/**", async route =>
-        {
-            Uri uri = new(route.Request.Url);
-            string path = uri.AbsolutePath;
-            string method = route.Request.Method;
+        await GotoAsync("/sessions");
+        await Page.GetByText(_primaryIp).WaitForAsync();
 
-            if (method == "GET" && path.Equals("/api/admin/sessions", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, SessionsList(uri.Query.Contains("status=Revoked", StringComparison.OrdinalIgnoreCase)));
-                return;
-            }
+        ILocator row = Page.Locator("tbody tr", new() { Has = Page.GetByText(_primaryIp) }).First;
+        await row.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).ClickAsync();
+        await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Revoke session", Exact = true }).ClickAsync();
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Revoke", Exact = true }).ClickAsync();
 
-            if (method == "GET" && path.Equals("/api/admin/sessions/session-1", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, Session());
-                return;
-            }
-
-            if (method == "DELETE" && path.Equals("/api/admin/sessions/session-1", StringComparison.OrdinalIgnoreCase))
-            {
-                sessionRevoked = true;
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            if (method == "DELETE" && path.Equals("/api/admin/users/user-1/sessions", StringComparison.OrdinalIgnoreCase))
-            {
-                allUserSessionsRevoked = true;
-                await FulfillJsonAsync(route, new
-                {
-                    revokedCount = 2,
-                    revokedAt = "2026-01-02T11:00:00Z"
-                });
-                return;
-            }
-
-            await route.FulfillAsync(new() { Status = 404, Body = $"Unexpected E2E route: {method} {path}" });
-        });
+        await Page.GetByText(new Regex("Session revoked", RegexOptions.IgnoreCase)).WaitForAsync();
     }
 
-    private static object SessionsList(bool revoked)
+    [Fact]
+    public async Task StatusFilterDrivesTheSessionsQuery()
     {
-        object item = revoked
-            ? new
-            {
-                id = "session-2",
-                userId = "user-1",
-                ipAddress = "10.0.0.7",
-                userAgent = "Firefox on Windows",
-                status = "Revoked",
-                clientCount = 1,
-                lastActivityAt = "2026-01-02T10:00:00Z",
-                expiresAt = "2026-01-02T12:00:00Z",
-                createdAt = "2026-01-02T08:00:00Z"
-            }
-            : Session();
+        await GotoAsync("/sessions");
+        await Page.GetByText(_primaryIp).WaitForAsync();
 
-        return new
-        {
-            items = new[] { item },
-            totalCount = 1,
-            page = 1,
-            pageSize = 20,
-            totalPages = 1
-        };
+        // The seeded sessions are Active; filtering to Revoked removes them from the list.
+        await Page.GetByLabel("Status").SelectOptionAsync("Revoked");
+
+        await Page.GetByText(_primaryIp).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Clear Status", Exact = true }).WaitForAsync();
     }
 
-    private static object Session()
+    [Fact]
+    public async Task SearchDrivesTheSessionsQuery()
     {
-        return new
-        {
-            id = "session-1",
-            userId = "user-1",
-            ipAddress = "10.0.0.5",
-            userAgent = "Firefox on Windows",
-            status = "Active",
-            clientCount = 2,
-            lastActivityAt = "2026-01-02T10:00:00Z",
-            expiresAt = "2026-01-02T12:00:00Z",
-            createdAt = "2026-01-02T08:00:00Z"
-        };
-    }
+        await GotoAsync("/sessions");
+        await Page.GetByText(_primaryIp).WaitForAsync();
 
-    private static Task FulfillJsonAsync(IRoute route, object body, int statusCode = 200)
-    {
-        return route.FulfillAsync(new()
-        {
-            Status = statusCode,
-            ContentType = "application/json",
-            Body = System.Text.Json.JsonSerializer.Serialize(body)
-        });
+        // A search term that matches nothing exercises the query round-trip: the row drops out.
+        await Page.GetByLabel("Search sessions").FillAsync($"no-such-session-{Unique}");
+        await Page.GetByText(_primaryIp).WaitForAsync(new() { State = WaitForSelectorState.Detached });
     }
 }

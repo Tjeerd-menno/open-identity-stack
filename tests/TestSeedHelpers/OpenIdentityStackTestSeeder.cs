@@ -289,7 +289,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
             return existingUser.Id.Value;
         }
 
-        var command = new CreateUserCommand(email, displayName, password, profile);
+        var command = new CreateUserCommand(email, displayName, password, "test-seeder", profile);
         Result<CreateUserResult> result = await createUserUseCase.ExecuteAsync(command, cancellationToken);
         if (result.IsFailure)
         {
@@ -407,7 +407,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         using IServiceScope scope = _serviceProvider.CreateScope();
         IAssignRoleUseCase assignRoleUseCase = scope.ServiceProvider.GetRequiredService<IAssignRoleUseCase>();
 
-        var command = new AssignRoleCommand(new UserId(userId), new RoleId(roleId));
+        var command = new AssignRoleCommand(new UserId(userId), new RoleId(roleId), "test-seeder");
         Result result = await assignRoleUseCase.ExecuteAsync(command, cancellationToken);
         if (result.IsFailure)
         {
@@ -457,6 +457,89 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         }
 
         return result.Value.SessionId.Value;
+    }
+
+    /// <summary>
+    /// Registers a confidential <c>client_credentials</c> client as a unified Application domain
+    /// entity (with a hashed secret) plus its OpenIddict registration — but no <c>ServiceAccount</c>
+    /// row (that table is not part of the migrated Postgres schema). The custom client-credentials
+    /// authentication handler validates the secret against the Application entity, so this is
+    /// sufficient to obtain a token at <c>/connect/token</c>; in the Testing environment a token
+    /// requesting scope <c>api</c> is granted permission '*'.
+    /// </summary>
+    public async Task CreateConfidentialClientAsync(
+        string clientId,
+        string clientSecret,
+        IReadOnlyList<string>? allowedScopes = null,
+        CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        IOpenIddictApplicationManager applicationManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+        IOpenIddictScopeManager scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
+        IApplicationRepository applicationRepository = scope.ServiceProvider.GetRequiredService<IApplicationRepository>();
+        IPasswordHasher passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+        IDateTimeProvider dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+
+        IReadOnlyList<string> resolvedScopes = allowedScopes is { Count: > 0 } ? allowedScopes : ["api"];
+        IReadOnlyList<string> resolvedGrantTypes = ["client_credentials"];
+
+        await EnsureScopesAsync(scopeManager, resolvedScopes, cancellationToken);
+
+        DomainApplication? existingApplication = await applicationRepository.GetByClientIdAsync(clientId, cancellationToken);
+        if (existingApplication is null)
+        {
+            Result<DomainApplication> createResult = DomainApplication.Create(
+                clientId,
+                $"Confidential Client - {clientId}",
+                null,
+                ApplicationProfile.MachineToMachine,
+                OAuthClientType.Confidential,
+                resolvedGrantTypes,
+                resolvedScopes,
+                [],
+                [],
+                requirePkce: false,
+                requireConsent: false,
+                dateTimeProvider);
+
+            if (createResult.IsFailure)
+            {
+                throw new InvalidOperationException(createResult.Error.Description);
+            }
+
+            DomainApplication application = createResult.Value;
+            application.AddSecret(passwordHasher.HashPassword(clientSecret), "Initial test credential", null, dateTimeProvider);
+            await applicationRepository.AddAsync(application, cancellationToken);
+            await applicationRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        object? existingApp = await applicationManager.FindByClientIdAsync(clientId, cancellationToken);
+        if (existingApp is not null)
+        {
+            return;
+        }
+
+        var descriptor = new OpenIddictApplicationDescriptor
+        {
+            ClientId = clientId,
+            ClientSecret = clientSecret,
+            DisplayName = $"Confidential Client - {clientId}",
+            ClientType = OpenIddictConstants.ClientTypes.Confidential,
+            Permissions =
+            {
+                OpenIddictConstants.Permissions.Endpoints.Token,
+                OpenIddictConstants.Permissions.Endpoints.Introspection,
+                OpenIddictConstants.Permissions.Endpoints.Revocation,
+                OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
+            },
+        };
+
+        foreach (string scopeName in resolvedScopes)
+        {
+            descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + scopeName);
+        }
+
+        await applicationManager.CreateAsync(descriptor, cancellationToken);
     }
 
     public async Task CreatePublicClientAsync(

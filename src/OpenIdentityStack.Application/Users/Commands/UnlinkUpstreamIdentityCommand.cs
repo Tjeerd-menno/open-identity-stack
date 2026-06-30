@@ -10,9 +10,11 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// </summary>
 /// <param name="UserId">The user ID to unlink the identity from.</param>
 /// <param name="ProviderId">The upstream provider ID to unlink.</param>
+/// <param name="ActorId">The ID of the admin performing the action (for auditing).</param>
 public sealed record UnlinkUpstreamIdentityCommand(
     UserId UserId,
-    UpstreamProviderId ProviderId);
+    UpstreamProviderId ProviderId,
+    string ActorId);
 
 /// <summary>
 /// Result of unlinking an upstream identity.
@@ -42,10 +44,12 @@ public interface IUnlinkUpstreamIdentityUseCase
 public sealed class UnlinkUpstreamIdentityUseCase : IUnlinkUpstreamIdentityUseCase
 {
     private readonly IUserRepository userRepository;
+    private readonly IAuditLog auditLog;
 
-    public UnlinkUpstreamIdentityUseCase(IUserRepository userRepository)
+    public UnlinkUpstreamIdentityUseCase(IUserRepository userRepository, IAuditLog auditLog)
     {
         this.userRepository = userRepository;
+        this.auditLog = auditLog;
     }
 
     /// <inheritdoc />
@@ -70,6 +74,14 @@ public sealed class UnlinkUpstreamIdentityUseCase : IUnlinkUpstreamIdentityUseCa
         }
 
         await this.userRepository.SaveChangesAsync(cancellationToken);
+
+        await this.auditLog.LogAsync(
+            command.ActorId,
+            "User.UpstreamIdentityUnlinked",
+            "User",
+            user.Id.Value.ToString(),
+            $"ProviderId: {command.ProviderId.Value}",
+            cancellationToken);
 
         return new UnlinkUpstreamIdentityResult(command.UserId, command.ProviderId);
     }

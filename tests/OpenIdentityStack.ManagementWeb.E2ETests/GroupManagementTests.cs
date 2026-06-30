@@ -1,351 +1,173 @@
-using System.Text.Json;
+using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
 namespace OpenIdentityStack.ManagementWeb.E2ETests;
 
-/// <summary>
-/// E2E coverage for the ManagementWeb Groups slice.
-/// API responses are route-mocked so this verifies the frontend contract and routing surface.
-/// </summary>
-public class GroupManagementTests : IAsyncLifetime
+/// <summary>E2E coverage for the ManagementWeb Groups list and group detail (real admin API).</summary>
+public sealed class GroupManagementTests : ManagementWebPageTest
 {
-    private readonly ManagementWebAppHostFixture fixture;
-    private readonly List<string> adminRequestUrls = [];
-    private IBrowserContext? context;
-    private IPage? page;
-    private string groupName = "Engineering";
-    private string groupDescription = "Engineering team";
-    private bool groupDeleted;
+    private Guid _groupId;
+    private string _groupName = "";
+    private string _memberName = "";
+    private string _candidateName = "";
 
-    public GroupManagementTests(ManagementWebAppHostFixture fixture)
+    public GroupManagementTests(ManagementWebAppHostFixture fixture) : base(fixture)
     {
-        this.fixture = fixture;
     }
 
-    public async ValueTask InitializeAsync()
+    protected override async Task SeedAsync()
     {
-        context = await fixture.CreateBrowserContextAsync();
-        page = await context.NewPageAsync();
-        page.SetDefaultTimeout(60_000);
-        page.SetDefaultNavigationTimeout(60_000);
-        page.Request += (_, request) =>
+        _groupName = $"Engineering {Unique}";
+        _memberName = $"Ada Lovelace {Unique}";
+        _candidateName = $"Grace Hopper {Unique}";
+
+        JsonNode group = await ApiPostAsync("/api/admin/groups", new
         {
-            if (request.Url.Contains("/api/admin/", StringComparison.OrdinalIgnoreCase))
-            {
-                adminRequestUrls.Add(request.Url);
-            }
-        };
+            name = _groupName,
+            description = "Platform engineering",
+        });
+        _groupId = Guid.Parse(group["id"]!.GetValue<string>());
 
-        await SetupGroupsApiMocksAsync(page);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (page is not null) await page.CloseAsync();
-        if (context is not null) await context.CloseAsync();
+        Guid adaId = await Fixture.SeedUserAsync($"ada.member.{Unique}@northwind.io", _memberName, "Password123!@456");
+        await Fixture.SeedUserAsync($"grace.candidate.{Unique}@northwind.io", _candidateName, "Password123!@456");
+        HttpResponseMessage addMember = await Api.PostAsync($"/api/admin/groups/{_groupId}/members/{adaId}", content: null);
+        addMember.EnsureSuccessStatusCode();
     }
 
     [Fact]
-    public async Task OperatorCanManageGroupsMembersAndMappings()
+    public async Task OperatorCanBrowseGroupsAndOpenDetail()
     {
-        string baseUrl = fixture.ManagementWebUrl ?? throw new InvalidOperationException("ManagementWeb URL was not initialized.");
-
-        await page!.GotoAsync(new Uri(new Uri(baseUrl), "/groups").ToString());
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Groups", Exact = true }).WaitForAsync();
-        await page.GetByRole(AriaRole.Cell, new() { Name = "Engineering", Exact = true }).WaitForAsync();
-
-        await page.GetByLabel(new Regex("Search groups", RegexOptions.IgnoreCase)).FillAsync("eng");
-        await page.WaitForRequestAsync(new Regex(@"/api/admin/groups\?.*search=eng", RegexOptions.IgnoreCase));
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("view engineering", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Engineering", Exact = true }).WaitForAsync();
-        await page.GetByText("Ada Lovelace").WaitForAsync();
-        await page.GetByText("department:engineering").WaitForAsync();
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("add member", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByLabel(new Regex("Select user", RegexOptions.IgnoreCase)).SelectOptionAsync(["user-2"]);
-        await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("add member", RegexOptions.IgnoreCase) })
-            .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^add member$", RegexOptions.IgnoreCase) })
-            .ClickAsync();
-        await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("add member", RegexOptions.IgnoreCase) })
-            .WaitForAsync(new() { State = WaitForSelectorState.Hidden });
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("remove member ada lovelace", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("remove member", RegexOptions.IgnoreCase) })
-            .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("remove member", RegexOptions.IgnoreCase) })
-            .ClickAsync();
-
-        await page.GetByRole(AriaRole.Region, new() { NameRegex = new Regex("group mappings", RegexOptions.IgnoreCase) })
-            .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("add mapping", RegexOptions.IgnoreCase) })
-            .ClickAsync();
-        await page.GetByLabel(new Regex("Mapping type", RegexOptions.IgnoreCase)).SelectOptionAsync(["Claim"]);
-        await page.GetByLabel(new Regex("Mapping value", RegexOptions.IgnoreCase)).FillAsync("tier:gold");
-        await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("add mapping", RegexOptions.IgnoreCase) })
-            .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^add mapping$", RegexOptions.IgnoreCase) })
-            .ClickAsync();
-        await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("add mapping", RegexOptions.IgnoreCase) })
-            .WaitForAsync(new() { State = WaitForSelectorState.Hidden });
-
-        await page.GetByRole(AriaRole.Region, new() { NameRegex = new Regex("group mappings", RegexOptions.IgnoreCase) })
-            .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("add mapping", RegexOptions.IgnoreCase) })
-            .ClickAsync();
-        await page.GetByLabel(new Regex("Mapping type", RegexOptions.IgnoreCase)).SelectOptionAsync(["Role"]);
-        await page.GetByLabel(new Regex("Select role", RegexOptions.IgnoreCase)).SelectOptionAsync(["role-1"]);
-        await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("add mapping", RegexOptions.IgnoreCase) })
-            .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^add mapping$", RegexOptions.IgnoreCase) })
-            .ClickAsync();
-        await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("add mapping", RegexOptions.IgnoreCase) })
-            .WaitForAsync(new() { State = WaitForSelectorState.Hidden });
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("remove mapping department:engineering", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Dialog, new() { NameRegex = new Regex("remove mapping", RegexOptions.IgnoreCase) })
-            .GetByRole(AriaRole.Button, new() { NameRegex = new Regex("remove mapping", RegexOptions.IgnoreCase) })
-            .ClickAsync();
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("edit group", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByLabel(new Regex("Group name", RegexOptions.IgnoreCase)).FillAsync("Platform Engineering");
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("save group", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Platform Engineering", Exact = true }).WaitForAsync();
-
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^delete group$", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("delete platform engineering", RegexOptions.IgnoreCase) }).ClickAsync();
-        await page.WaitForURLAsync(new Regex(@"/groups/?$"));
-        groupDeleted.ShouldBeTrue();
-
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/groups", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/users", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/roles", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/service-accounts", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
-        adminRequestUrls.Any((url) => url.Contains("/api/admin/clients", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
+        await GotoAsync($"/groups/{_groupId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _groupName, Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Members", RegexOptions.IgnoreCase) }).WaitForAsync();
+        await Page.GetByText(_memberName).WaitForAsync();
     }
 
-    private async Task SetupGroupsApiMocksAsync(IPage testPage)
+    [Fact]
+    public async Task OperatorCanCreateAGroup()
     {
-        await testPage.RouteAsync("**/api/admin/**", async route =>
+        await GotoAsync("/groups");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Create group", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        string name = $"Design {Unique}";
+        await dialog.GetByLabel("Group name").FillAsync(name);
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Create group", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex($"Created {Regex.Escape(name)}", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanAddAMemberToAGroup()
+    {
+        await GotoAsync($"/groups/{_groupId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _groupName, Exact = true }).WaitForAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add members", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByPlaceholder("Search users…").FillAsync(_candidateName);
+        await dialog.GetByText(_candidateName).WaitForAsync();
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Add", Exact = true }).First.ClickAsync();
+
+        await Page.GetByText(new Regex("Member added", RegexOptions.IgnoreCase)).WaitForAsync();
+    }
+
+    [Fact]
+    public async Task OperatorCanRemoveAMemberFromAGroup()
+    {
+        await GotoAsync($"/groups/{_groupId}");
+        await Page.GetByRole(AriaRole.Heading, new() { Name = _groupName, Exact = true }).WaitForAsync();
+        await Page.GetByText(_memberName).WaitForAsync();
+
+        ILocator row = Page.Locator("tbody tr", new() { Has = Page.GetByText(_memberName) }).First;
+        await row.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).ClickAsync();
+        await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Remove from group", Exact = true }).ClickAsync();
+
+        await ExpectTextAsync("Member removed");
+    }
+
+    [Fact]
+    public async Task OperatorCanAddAMappingToAGroup()
+    {
+        // Role mappings are persisted by role id, so the modal offers a role picker rather than a
+        // free-text field. Seed a role with a unique display name to select unambiguously.
+        string roleName = $"Mapping Role {Unique}";
+        await ApiPostAsync("/api/admin/roles", new
         {
-            Uri uri = new(route.Request.Url);
-            string path = uri.AbsolutePath;
-            string method = route.Request.Method;
-
-            if (method == "GET" && path.Equals("/api/admin/groups", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, GroupsList());
-                return;
-            }
-
-            if (method == "POST" && path.Equals("/api/admin/groups", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, Group(), 201);
-                return;
-            }
-
-            if (method == "GET" && path.Equals("/api/admin/groups/group-1", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, Group());
-                return;
-            }
-
-            if (method == "PATCH" && path.Equals("/api/admin/groups/group-1", StringComparison.OrdinalIgnoreCase))
-            {
-                GroupUpdateRequest? request = JsonSerializer.Deserialize<GroupUpdateRequest>(
-                    route.Request.PostData ?? "{}",
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                groupName = request?.Name ?? groupName;
-                groupDescription = request?.Description ?? groupDescription;
-                await FulfillJsonAsync(route, Group());
-                return;
-            }
-
-            if (method == "DELETE" && path.Equals("/api/admin/groups/group-1", StringComparison.OrdinalIgnoreCase))
-            {
-                groupDeleted = true;
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            if (method == "GET" && path.Equals("/api/admin/groups/group-1/members", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, GroupMembers());
-                return;
-            }
-
-            if (method == "POST" && path.Equals("/api/admin/groups/group-1/members/user-2", StringComparison.OrdinalIgnoreCase))
-            {
-                await route.FulfillAsync(new() { Status = 201 });
-                return;
-            }
-
-            if (method == "DELETE" && path.Equals("/api/admin/groups/group-1/members/user-1", StringComparison.OrdinalIgnoreCase))
-            {
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            if (method == "GET" && path.Equals("/api/admin/groups/group-1/mappings", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, GroupMappings());
-                return;
-            }
-
-            if (method == "POST" && path.Equals("/api/admin/groups/group-1/mappings", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, new
-                {
-                    id = "mapping-added",
-                    type = "Claim",
-                    value = "tier:gold",
-                    createdAt = "2026-01-02T00:00:00Z"
-                }, 201);
-                return;
-            }
-
-            if (method == "DELETE" && path.Equals("/api/admin/groups/group-1/mappings/mapping-1", StringComparison.OrdinalIgnoreCase))
-            {
-                await route.FulfillAsync(new() { Status = 204 });
-                return;
-            }
-
-            if (method == "GET" && path.Equals("/api/admin/users", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, UsersList());
-                return;
-            }
-
-            if (method == "GET" && path.Equals("/api/admin/roles", StringComparison.OrdinalIgnoreCase))
-            {
-                await FulfillJsonAsync(route, RolesList());
-                return;
-            }
-
-            await route.FulfillAsync(new() { Status = 404, Body = $"Unexpected E2E route: {method} {path}" });
+            name = $"mapping-role-{Unique}",
+            displayName = roleName,
+            description = roleName,
+            permissions = MappingRolePermissions,
+            acknowledgeWildcardGrant = false,
         });
+
+        await GotoAsync($"/groups/{_groupId}");
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Mappings", RegexOptions.IgnoreCase) }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add mapping", Exact = true }).ClickAsync();
+
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByPlaceholder("Select a role").ClickAsync();
+        await Page.GetByRole(AriaRole.Option, new() { Name = roleName, Exact = true }).ClickAsync();
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Add mapping", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Mapping added", RegexOptions.IgnoreCase)).WaitForAsync();
     }
 
-    private object GroupsList()
+    [Fact]
+    public async Task OperatorCanRemoveAMappingFromAGroup()
     {
-        object[] items = groupDeleted ? [] : [Group()];
+        // Seed a claim mapping through the real API so the Mappings tab has one to remove.
+        // The endpoint returns no body, so POST directly rather than through ApiPostAsync.
+        string mappingValue = $"removable-{Unique}";
+        HttpResponseMessage addMapping = await Api.PostAsJsonAsync(
+            $"/api/admin/groups/{_groupId}/mappings",
+            new { type = "Claim", value = mappingValue });
+        addMapping.EnsureSuccessStatusCode();
 
-        return new
-        {
-            items,
-            totalCount = items.Length,
-            page = 1,
-            pageSize = 20,
-            totalPages = 1
-        };
+        await GotoAsync($"/groups/{_groupId}");
+        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Mappings", RegexOptions.IgnoreCase) }).ClickAsync();
+        await Page.GetByText(mappingValue, new() { Exact = true }).WaitForAsync();
+
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Remove", Exact = true }).First.ClickAsync();
+        await Page.GetByText(new Regex("Mapping removed", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.GetByText(mappingValue, new() { Exact = true }).WaitForAsync(new() { State = WaitForSelectorState.Detached });
     }
 
-    private object Group()
+    [Fact]
+    public async Task OperatorCanEditGroupSettings()
     {
-        return new
-        {
-            id = "group-1",
-            name = groupName,
-            description = groupDescription,
-            parentGroupId = (string?)null,
-            memberCount = 1,
-            mappingCount = 1,
-            createdAt = "2026-01-01T00:00:00Z",
-            modifiedAt = (string?)null
-        };
+        await GotoAsync($"/groups/{_groupId}");
+        await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
+
+        await Page.GetByLabel("Description").FillAsync("Platform engineering and tooling");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Save changes", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Group updated", RegexOptions.IgnoreCase)).WaitForAsync();
     }
 
-    private static object GroupMembers()
+    [Fact]
+    public async Task OperatorCanDeleteAGroup()
     {
-        return new
+        // Seed a throwaway group so the shared group survives for other tests.
+        JsonNode group = await ApiPostAsync("/api/admin/groups", new
         {
-            items = new[]
-            {
-                new
-                {
-                    id = "member-1",
-                    userId = "user-1",
-                    email = "ada@example.com",
-                    displayName = "Ada Lovelace"
-                }
-            },
-            totalCount = 1,
-            page = 1,
-            pageSize = 20,
-            totalPages = 1
-        };
-    }
-
-    private static object GroupMappings()
-    {
-        return new
-        {
-            items = new[]
-            {
-                new
-                {
-                    id = "mapping-1",
-                    type = "Claim",
-                    value = "department:engineering",
-                    createdAt = "2026-01-01T00:00:00Z"
-                }
-            }
-        };
-    }
-
-    private static object UsersList()
-    {
-        return new
-        {
-            items = new[]
-            {
-                new
-                {
-                    id = "user-2",
-                    email = "grace@example.com",
-                    displayName = "Grace Hopper",
-                    status = "Active",
-                    createdAt = "2026-01-02T00:00:00Z"
-                }
-            },
-            totalCount = 1,
-            page = 1,
-            pageSize = 100,
-            totalPages = 1
-        };
-    }
-
-    private static object RolesList()
-    {
-        return new
-        {
-            items = new[]
-            {
-                new
-                {
-                    id = "role-1",
-                    name = "operator",
-                    displayName = "Operator",
-                    description = (string?)null,
-                    isSystemRole = false,
-                    isActive = true,
-                    permissions = new[] { "users:read" }
-                }
-            },
-            totalCount = 1,
-            page = 1,
-            pageSize = 100,
-            totalPages = 1
-        };
-    }
-
-    private static Task FulfillJsonAsync(IRoute route, object body, int statusCode = 200)
-    {
-        return route.FulfillAsync(new()
-        {
-            Status = statusCode,
-            ContentType = "application/json",
-            Body = JsonSerializer.Serialize(body)
+            name = $"Disposable {Unique}",
+            description = (string?)null,
         });
+        var disposableId = Guid.Parse(group["id"]!.GetValue<string>());
+
+        await GotoAsync($"/groups/{disposableId}");
+        await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Delete group", Exact = true }).ClickAsync();
+        ILocator deleteDialog = Page.GetByRole(AriaRole.Dialog);
+        await deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Delete group", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Group deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.WaitForURLAsync(new Regex(@"/groups/?$"));
     }
 
-    private sealed record GroupUpdateRequest(string Name, string? Description);
+    private static readonly string[] MappingRolePermissions = ["users:read"];
 }

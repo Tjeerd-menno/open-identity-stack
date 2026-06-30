@@ -8,11 +8,13 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// <param name="Email">The user's email address.</param>
 /// <param name="DisplayName">The user's display name.</param>
 /// <param name="Password">The user's password (plain text).</param>
+/// <param name="ActorId">The ID of the admin performing the action (for auditing).</param>
 /// <param name="Profile">Optional profile attributes.</param>
 public sealed record CreateUserCommand(
     string Email,
     string DisplayName,
     string Password,
+    string ActorId,
     UserProfileData? Profile = null);
 
 /// <summary>

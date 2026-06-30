@@ -5,7 +5,8 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// Command to enable a disabled user account.
 /// </summary>
 /// <param name="UserId">The ID of the user to enable.</param>
-public sealed record EnableUserCommand(UserId UserId);
+/// <param name="ActorId">The ID of the admin performing the action (for auditing).</param>
+public sealed record EnableUserCommand(UserId UserId, string ActorId);
 
 /// <summary>
 /// Result of enabling a user.

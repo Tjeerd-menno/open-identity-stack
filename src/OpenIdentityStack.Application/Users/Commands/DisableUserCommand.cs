@@ -6,7 +6,8 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// </summary>
 /// <param name="UserId">The ID of the user to disable.</param>
 /// <param name="Reason">The reason for disabling the user.</param>
-public sealed record DisableUserCommand(UserId UserId, string Reason);
+/// <param name="ActorId">The ID of the admin performing the action (for auditing).</param>
+public sealed record DisableUserCommand(UserId UserId, string Reason, string ActorId);
 
 /// <summary>
 /// Result of disabling a user.

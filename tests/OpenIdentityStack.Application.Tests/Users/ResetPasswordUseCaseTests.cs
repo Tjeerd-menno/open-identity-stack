@@ -14,6 +14,7 @@ public sealed class ResetPasswordUseCaseTests
     private readonly IPasswordHasher _passwordHasher;
     private readonly IPasswordPolicyValidator _passwordPolicyValidator;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IAuditLog _auditLog;
     private readonly IResetPasswordUseCase _sut;
 
     public ResetPasswordUseCaseTests()
@@ -22,6 +23,7 @@ public sealed class ResetPasswordUseCaseTests
         this._passwordHasher = Substitute.For<IPasswordHasher>();
         this._passwordPolicyValidator = Substitute.For<IPasswordPolicyValidator>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        this._auditLog = Substitute.For<IAuditLog>();
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
         this._passwordHasher.HashPassword(Arg.Any<string>()).Returns(callInfo => $"hashed_{callInfo.Arg<string>()}");
 
@@ -36,7 +38,7 @@ public sealed class ResetPasswordUseCaseTests
             return Result.Success();
         });
 
-        this._sut = new ResetPasswordUseCase(this._userRepository, this._passwordHasher, this._passwordPolicyValidator, this._dateTimeProvider);
+        this._sut = new ResetPasswordUseCase(this._userRepository, this._passwordHasher, this._passwordPolicyValidator, this._dateTimeProvider, this._auditLog);
     }
 
     [Fact]
@@ -46,7 +48,7 @@ public sealed class ResetPasswordUseCaseTests
         var userId = UserId.Create();
         User user = CreateActiveUser(userId);
         string newPassword = "NewSecurePassword123!";
-        var command = new ResetPasswordCommand(userId, newPassword);
+        var command = new ResetPasswordCommand(userId, newPassword, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -65,7 +67,7 @@ public sealed class ResetPasswordUseCaseTests
     {
         // Arrange
         var userId = UserId.Create();
-        var command = new ResetPasswordCommand(userId, "NewPassword");
+        var command = new ResetPasswordCommand(userId, "NewPassword", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -84,7 +86,7 @@ public sealed class ResetPasswordUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateActiveUser(userId);
-        var command = new ResetPasswordCommand(userId, string.Empty);
+        var command = new ResetPasswordCommand(userId, string.Empty, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -103,7 +105,7 @@ public sealed class ResetPasswordUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateActiveUser(userId);
-        var command = new ResetPasswordCommand(userId, "   ");
+        var command = new ResetPasswordCommand(userId, "   ", "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -123,7 +125,7 @@ public sealed class ResetPasswordUseCaseTests
         var userId = UserId.Create();
         User user = CreateDisabledUser(userId);
         string newPassword = "NewSecurePassword123!";
-        var command = new ResetPasswordCommand(userId, newPassword);
+        var command = new ResetPasswordCommand(userId, newPassword, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -142,7 +144,7 @@ public sealed class ResetPasswordUseCaseTests
         // Arrange
         var userId = UserId.Create();
         User user = CreateActiveUser(userId);
-        var command = new ResetPasswordCommand(userId, "NewPassword");
+        var command = new ResetPasswordCommand(userId, "NewPassword", "admin-1");
         DateTimeOffset expectedTime = DateTimeOffset.UtcNow;
         this._dateTimeProvider.UtcNow.Returns(expectedTime);
 
@@ -164,7 +166,7 @@ public sealed class ResetPasswordUseCaseTests
         var userId = UserId.Create();
         User user = CreateActiveUser(userId);
         string newPassword = "NewPassword123!";
-        var command = new ResetPasswordCommand(userId, newPassword);
+        var command = new ResetPasswordCommand(userId, newPassword, "admin-1");
 
         this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);

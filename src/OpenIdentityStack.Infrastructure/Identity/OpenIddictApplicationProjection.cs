@@ -85,7 +85,17 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
     {
         try
         {
+            // Buffer the streamed results before issuing further commands: ListAsync keeps a
+            // data reader open for the lifetime of the enumeration, so calling GetSettingsAsync
+            // or DeleteAsync inside the await foreach reuses the same connection mid-stream and
+            // throws NpgsqlOperationInProgressException ("A command is already in progress").
+            var applications = new List<object>();
             await foreach (object application in this.applicationManager.ListAsync(count: null, offset: null, cancellationToken))
+            {
+                applications.Add(application);
+            }
+
+            foreach (object application in applications)
             {
                 System.Collections.Immutable.ImmutableDictionary<string, string> settings = await this.applicationManager.GetSettingsAsync(application, cancellationToken);
                 if (settings.TryGetValue(applicationIdSetting, out string? projectedApplicationId) &&
