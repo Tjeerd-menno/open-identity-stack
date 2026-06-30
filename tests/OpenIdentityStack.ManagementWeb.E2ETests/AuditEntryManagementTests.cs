@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
@@ -13,6 +14,7 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
     private static readonly string[] WebGrantTypes = ["authorization_code", "refresh_token"];
     private static readonly string[] WebScopes = ["openid", "profile"];
     private static readonly string[] WebRedirectUris = ["https://app.northwind.io/callback"];
+    private static readonly string[] UsersReadPermission = ["users:read"];
 
     public AuditEntryManagementTests(ManagementWebAppHostFixture fixture) : base(fixture)
     {
@@ -40,12 +42,29 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
 
         // Create a user through the REAL API. User mutations are now audited ("User.Created"),
         // so the trail also contains a "User"-entity row attributed to the acting admin.
-        await ApiPostAsync("/api/admin/users", new
+        JsonNode user = await ApiPostAsync("/api/admin/users", new
         {
             email = $"audited.{Unique}@northwind.io",
             displayName = "Audited User",
             password = "Password123!@456",
         });
+        var userId = Guid.Parse(user["id"]!.GetValue<string>());
+
+        // Assign a role through the REAL API. Role assignment is audited as "User.RoleAssigned"
+        // (entity "User", attributed to the acting admin), so the trail carries that row too.
+        JsonNode role = await ApiPostAsync("/api/admin/roles", new
+        {
+            name = $"audited-role-{Unique}",
+            displayName = "Audited Role",
+            description = "Role used to assert role-assignment auditing",
+            permissions = UsersReadPermission,
+            acknowledgeWildcardGrant = false,
+        });
+        var roleId = Guid.Parse(role["id"]!.GetValue<string>());
+
+        HttpResponseMessage assign = await Api.PostAsync(
+            $"/api/admin/users/{userId}/roles/{roleId}", content: null);
+        assign.EnsureSuccessStatusCode();
     }
 
     [Fact]
@@ -85,6 +104,24 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
         // trail to that row, which proves user mutations now reach the audit log end-to-end.
         await Page.GetByLabel("Search entries").FillAsync("User.Created");
         ILocator row = Page.Locator("tbody tr").Filter(new() { HasTextRegex = new Regex("User\\.Created") });
+        await row.First.WaitForAsync();
+
+        // The row is a User-entity action attributed to a real admin actor, not the "system" fallback.
+        await row.First.GetByText(new Regex("^User$", RegexOptions.IgnoreCase)).WaitForAsync();
+        await row.First.GetByText(new Regex("^system$", RegexOptions.IgnoreCase))
+            .WaitForAsync(new() { State = WaitForSelectorState.Detached });
+    }
+
+    [Fact]
+    public async Task RoleAssignmentIsAuditedWithTheActingAdmin()
+    {
+        await GotoAsync("/audit-entries");
+        await Page.Locator("tbody tr").First.WaitForAsync();
+
+        // SeedAsync assigned a role through the real API; that writes a "User.RoleAssigned" row.
+        // Searching narrows the trail to it, proving role-assignment auditing reaches the log.
+        await Page.GetByLabel("Search entries").FillAsync("User.RoleAssigned");
+        ILocator row = Page.Locator("tbody tr").Filter(new() { HasTextRegex = new Regex("User\\.RoleAssigned") });
         await row.First.WaitForAsync();
 
         // The row is a User-entity action attributed to a real admin actor, not the "system" fallback.

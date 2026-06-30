@@ -89,6 +89,30 @@ public sealed class RoleManagementTests : ManagementWebPageTest
     }
 
     [Fact]
+    public async Task OperatorCanDeleteARoleFromTheDetailPage()
+    {
+        // Seed a dedicated, deletable role; the detail-page "Danger zone" delete is a different
+        // path than the list-row kebab covered by OperatorCanDeleteARole.
+        JsonNode role = await ApiPostAsync("/api/admin/roles", new
+        {
+            name = $"detail-temp-role-{Unique}",
+            displayName = $"Detail Temp Role {Unique}",
+            description = "Disposable",
+            permissions = Array.Empty<string>(),
+            acknowledgeWildcardGrant = false,
+        });
+        var disposableId = Guid.Parse(role["id"]!.GetValue<string>());
+
+        await GotoAsync($"/roles/{disposableId}");
+        await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
+        // The danger-zone button deletes immediately (no confirm dialog) and navigates back.
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Delete role", Exact = true }).ClickAsync();
+
+        await Page.GetByText(new Regex("Role deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Page.WaitForURLAsync(new Regex(@"/roles/?$"));
+    }
+
+    [Fact]
     public async Task OperatorCanAddAPermissionToARole()
     {
         await GotoAsync($"/roles/{_roleId}");
