@@ -162,6 +162,8 @@ public sealed class GroupManagementTests : ManagementWebPageTest
         await GotoAsync($"/groups/{disposableId}");
         await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
         await Page.GetByRole(AriaRole.Button, new() { Name = "Delete group", Exact = true }).ClickAsync();
+        ILocator deleteDialog = Page.GetByRole(AriaRole.Dialog);
+        await deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Delete group", Exact = true }).ClickAsync();
 
         await Page.GetByText(new Regex("Group deleted", RegexOptions.IgnoreCase)).WaitForAsync();
         await Page.WaitForURLAsync(new Regex(@"/groups/?$"));

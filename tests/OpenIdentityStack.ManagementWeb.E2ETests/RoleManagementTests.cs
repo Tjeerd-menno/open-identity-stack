@@ -105,8 +105,9 @@ public sealed class RoleManagementTests : ManagementWebPageTest
 
         await GotoAsync($"/roles/{disposableId}");
         await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
-        // The danger-zone button deletes immediately (no confirm dialog) and navigates back.
         await Page.GetByRole(AriaRole.Button, new() { Name = "Delete role", Exact = true }).ClickAsync();
+        ILocator deleteDialog = Page.GetByRole(AriaRole.Dialog);
+        await deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Delete role", Exact = true }).ClickAsync();
 
         await Page.GetByText(new Regex("Role deleted", RegexOptions.IgnoreCase)).WaitForAsync();
         await Page.WaitForURLAsync(new Regex(@"/roles/?$"));

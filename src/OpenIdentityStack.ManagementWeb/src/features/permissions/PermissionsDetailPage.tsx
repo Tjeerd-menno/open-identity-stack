@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Group, Modal, Select, Stack, Tabs, Text, TextInput, Textarea } from '@mantine/core';
+import { Badge, Box, Button, Code, Group, Modal, Select, Stack, Tabs, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -6,7 +6,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useParams } from 'react-router';
 import type {
+  ApplicationPermissionHistory,
   DelegatedMaintainer,
+  PermissionDiagnostics,
   PrincipalType,
   RegisteredApplication,
   RegisteredApplicationPermission,
@@ -32,6 +34,16 @@ export function PermissionsDetailPage() {
   const query = useQuery({
     queryKey: ['application-permission', registrationId],
     queryFn: () => api.applicationPermissions.getRegisteredApplication(registrationId),
+  });
+  const historyQuery = useQuery({
+    queryKey: ['application-permission', registrationId, 'history'],
+    queryFn: () => api.applicationPermissions.getApplicationPermissionHistory({ applicationIdentifier: registrationId }),
+    enabled: canAdmin,
+  });
+  const diagnosticsQuery = useQuery({
+    queryKey: ['application-permission', 'diagnostics'],
+    queryFn: () => api.applicationPermissions.getApplicationPermissionDiagnostics(),
+    enabled: canAdmin,
   });
 
   const invalidate = () => {
@@ -181,6 +193,8 @@ export function PermissionsDetailPage() {
           <Tabs.Tab value="permissions">Permissions ({app.permissions.length})</Tabs.Tab>
           <Tabs.Tab value="maintainers">Maintainers ({app.maintainers.length})</Tabs.Tab>
           <Tabs.Tab value="settings">Settings</Tabs.Tab>
+          {canAdmin && <Tabs.Tab value="history">History</Tabs.Tab>}
+          {canAdmin && <Tabs.Tab value="diagnostics">Diagnostics</Tabs.Tab>}
         </Tabs.List>
 
         <Tabs.Panel value="permissions">
@@ -244,6 +258,18 @@ export function PermissionsDetailPage() {
             {canAdmin && <TransferOwnershipCard app={app} onChanged={invalidate} />}
           </Stack>
         </Tabs.Panel>
+
+        {canAdmin && (
+          <Tabs.Panel value="history">
+            <PermissionHistoryPanel data={historyQuery.data} isLoading={historyQuery.isLoading} />
+          </Tabs.Panel>
+        )}
+
+        {canAdmin && (
+          <Tabs.Panel value="diagnostics">
+            <PermissionDiagnosticsPanel data={diagnosticsQuery.data} isLoading={diagnosticsQuery.isLoading} />
+          </Tabs.Panel>
+        )}
       </Tabs>
 
       {addPermissionOpened && (
@@ -450,5 +476,59 @@ function AddPermissionModal({ app, onAdded, onClose }: { app: RegisteredApplicat
         </Stack>
       </form>
     </Modal>
+  );
+}
+
+function PermissionHistoryPanel({ data, isLoading }: { data: ApplicationPermissionHistory | undefined; isLoading: boolean }) {
+  if (isLoading) return <Text c="dimmed" size="sm">Loading…</Text>;
+
+  const removed = data?.removedPermissions ?? [];
+
+  return (
+    <SectionCard title="Removed permissions" description="Permissions that were once declared but have since been removed.">
+      {removed.length === 0 ? (
+        <Text c="dimmed" size="sm">No removed permissions on record.</Text>
+      ) : (
+        <Stack gap="xs">
+          {removed.map((entry) => (
+            <Group key={entry.id ?? entry.fullPermissionKey} justify="space-between" wrap="nowrap" gap="md">
+              <Text className="mw-mono" size="sm">{entry.fullPermissionKey}</Text>
+              {entry.removedAt && (
+                <Text c="dimmed" size="xs" style={{ whiteSpace: 'nowrap' }}>
+                  Removed {new Date(entry.removedAt).toLocaleDateString()}
+                </Text>
+              )}
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </SectionCard>
+  );
+}
+
+function PermissionDiagnosticsPanel({ data, isLoading }: { data: PermissionDiagnostics | undefined; isLoading: boolean }) {
+  if (isLoading) return <Text c="dimmed" size="sm">Loading…</Text>;
+
+  const issues = data?.issues ?? [];
+
+  return (
+    <SectionCard
+      title="Diagnostics"
+      description="Role assignments that reference permissions no longer declared by any registered application."
+    >
+      {issues.length === 0 ? (
+        <Text c="dimmed" size="sm">No diagnostic issues found.</Text>
+      ) : (
+        <Stack gap="xs">
+          {issues.map((issue, index) => (
+            <Group key={index} gap="sm" wrap="nowrap">
+              <Badge color="red" variant="light">{issue.issueType ?? 'Unknown'}</Badge>
+              <Code>{issue.fullPermissionKey}</Code>
+              {issue.roleName && <Text c="dimmed" size="sm">in {issue.roleName}</Text>}
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </SectionCard>
   );
 }

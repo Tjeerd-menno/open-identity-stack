@@ -20,7 +20,7 @@ import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import type { Application, ApplicationCredential } from '@openidentitystack/admin-api-client';
+import type { Application, ApplicationCredential, AddApplicationCertificateRequest } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
 import { DataTable, type Column } from '@/components/DataTable';
 import { ConfirmModal } from '@/components/ConfirmModal';
@@ -37,9 +37,9 @@ export function ApplicationDetailPage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const canWrite = hasPermission(auth.permissions, 'applications:write');
-  // Secret add/revoke is authorized with applications:manage-credentials and deletion with
-  // applications:delete — both independent of applications:write.
+  // Secret/certificate add/revoke requires specific permissions independent of applications:write.
   const canManageCredentials = hasPermission(auth.permissions, 'applications:manage-credentials');
+  const canManageCertificates = hasPermission(auth.permissions, 'applications:manage-certificates');
   const canDelete = hasPermission(auth.permissions, 'applications:delete');
 
   const appQuery = useQuery({
@@ -52,6 +52,7 @@ export function ApplicationDetailPage() {
   });
 
   const [addSecretOpened, addSecretControls] = useDisclosure(false);
+  const [addCertOpened, addCertControls] = useDisclosure(false);
   const [editOAuthOpened, editOAuthControls] = useDisclosure(false);
   const [pendingRevoke, setPendingRevoke] = useState<ApplicationCredential | null>(null);
   const [confirmDelete, deleteControls] = useDisclosure(false);
@@ -264,10 +265,19 @@ export function ApplicationDetailPage() {
             title="Credentials"
             description="Client secrets and certificates registered to this application."
             right={
-              canManageCredentials && app.clientType === 'Confidential' ? (
-                <Button size="xs" leftSection={<Icon name="plus" size={14} />} onClick={addSecretControls.open}>
-                  Add secret
-                </Button>
+              app.clientType === 'Confidential' && (canManageCredentials || canManageCertificates) ? (
+                <Group gap="xs">
+                  {canManageCredentials && (
+                    <Button size="xs" leftSection={<Icon name="plus" size={14} />} onClick={addSecretControls.open}>
+                      Add secret
+                    </Button>
+                  )}
+                  {canManageCertificates && (
+                    <Button size="xs" variant="default" leftSection={<Icon name="plus" size={14} />} onClick={addCertControls.open}>
+                      Add certificate
+                    </Button>
+                  )}
+                </Group>
               ) : undefined
             }
           >
@@ -300,6 +310,13 @@ export function ApplicationDetailPage() {
           applicationId={applicationId}
           onAdded={() => void queryClient.invalidateQueries({ queryKey: ['application', applicationId, 'credentials'] })}
           onClose={addSecretControls.close}
+        />
+      )}
+      {addCertOpened && (
+        <AddCertificateModal
+          applicationId={applicationId}
+          onAdded={() => void queryClient.invalidateQueries({ queryKey: ['application', applicationId, 'credentials'] })}
+          onClose={addCertControls.close}
         />
       )}
       {editOAuthOpened && <EditOAuthModal app={app} onSaved={invalidateApp} onClose={editOAuthControls.close} />}
@@ -460,6 +477,57 @@ function AddSecretModal({ applicationId, onAdded, onClose }: { applicationId: st
             </Button>
             <Button type="submit" loading={mutation.isPending}>
               Generate secret
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
+  );
+}
+
+function AddCertificateModal({ applicationId, onAdded, onClose }: { applicationId: string; onAdded: () => void; onClose: () => void }) {
+  const form = useForm<AddApplicationCertificateRequest>({
+    initialValues: { thumbprint: '', subject: '', description: '', expiresAt: '' },
+    validate: { thumbprint: (value) => (value.trim() ? null : 'Required') },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (values: AddApplicationCertificateRequest) =>
+      api.applications.addApplicationCertificate(applicationId, {
+        thumbprint: values.thumbprint.trim(),
+        subject: values.subject?.trim() || null,
+        description: values.description?.trim() || null,
+        expiresAt: values.expiresAt?.trim() || null,
+      }),
+    onSuccess: () => {
+      notifications.show({ message: 'Certificate registered', color: 'green' });
+      onAdded();
+      onClose();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  return (
+    <Modal opened onClose={onClose} title="Add certificate" centered>
+      <form onSubmit={form.onSubmit((values) => mutation.mutate(values))}>
+        <Stack gap="md">
+          <TextInput
+            label="Thumbprint"
+            description="SHA-1 or SHA-256 hex thumbprint of the certificate."
+            placeholder="a1b2c3d4…"
+            styles={{ input: { fontFamily: 'var(--mw-mono)' } }}
+            required
+            {...form.getInputProps('thumbprint')}
+          />
+          <TextInput label="Subject" placeholder="CN=my-service" {...form.getInputProps('subject')} />
+          <TextInput label="Description" placeholder="Production signing cert" {...form.getInputProps('description')} />
+          <TextInput label="Expires at" type="date" {...form.getInputProps('expiresAt')} />
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button variant="default" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={mutation.isPending}>
+              Register certificate
             </Button>
           </Group>
         </Stack>

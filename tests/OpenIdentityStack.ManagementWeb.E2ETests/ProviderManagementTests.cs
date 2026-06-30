@@ -98,6 +98,8 @@ public sealed class ProviderManagementTests : ManagementWebPageTest
         await GotoAsync($"/providers/{disposableId}");
         await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
         await Page.GetByRole(AriaRole.Button, new() { Name = "Delete provider", Exact = true }).ClickAsync();
+        ILocator deleteDialog = Page.GetByRole(AriaRole.Dialog);
+        await deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Delete provider", Exact = true }).ClickAsync();
 
         await Page.GetByText(new Regex("Provider deleted", RegexOptions.IgnoreCase)).WaitForAsync();
     }
