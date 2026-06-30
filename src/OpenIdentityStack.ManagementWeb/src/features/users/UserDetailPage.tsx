@@ -72,8 +72,10 @@ export function UserDetailPage() {
     onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
 
-  const canManageProviders = canWrite && hasPermission(auth.permissions, 'providers:read');
+  const canReadProviders = hasPermission(auth.permissions, 'providers:read');
+  const canManageProviders = canWrite && canReadProviders;
   const [linkProviderId, setLinkProviderId] = useState<string | null>(null);
+  const [linkProviderIdText, setLinkProviderIdText] = useState('');
   const [linkSubject, setLinkSubject] = useState('');
 
   const providersQuery = useQuery({
@@ -86,10 +88,14 @@ export function UserDetailPage() {
 
   const linkIdentity = useMutation({
     mutationFn: () =>
-      api.users.linkUserUpstreamIdentity(userId, { providerId: linkProviderId ?? '', subject: linkSubject.trim() }),
+      api.users.linkUserUpstreamIdentity(userId, {
+        providerId: canReadProviders ? (linkProviderId ?? '') : linkProviderIdText.trim(),
+        subject: linkSubject.trim(),
+      }),
     onSuccess: () => {
       notifications.show({ message: 'Identity linked', color: 'green' });
       setLinkProviderId(null);
+      setLinkProviderIdText('');
       setLinkSubject('');
       invalidateIdentities();
     },
@@ -276,19 +282,30 @@ export function UserDetailPage() {
 
         <Tabs.Panel value="identities">
           <SectionCard title="Upstream identities" description="Federated accounts linked to this user.">
-            {canManageProviders && (providersQuery.data?.length ?? 0) > 0 && (
+            {canWrite && (
               <Group align="flex-end" gap="sm" mb="md" wrap="nowrap">
-                <Select
-                  label="Provider"
-                  placeholder="Select a provider"
-                  w={200}
-                  data={(providersQuery.data ?? []).map((provider) => ({
-                    value: provider.id,
-                    label: provider.displayName || provider.name,
-                  }))}
-                  value={linkProviderId}
-                  onChange={setLinkProviderId}
-                />
+                {canReadProviders ? (
+                  <Select
+                    label="Provider"
+                    placeholder="Select a provider"
+                    w={200}
+                    data={(providersQuery.data ?? []).map((provider) => ({
+                      value: provider.id,
+                      label: provider.displayName || provider.name,
+                    }))}
+                    value={linkProviderId}
+                    onChange={setLinkProviderId}
+                  />
+                ) : (
+                  <TextInput
+                    label="Provider ID"
+                    placeholder="provider-id"
+                    w={200}
+                    styles={{ input: { fontFamily: 'var(--mw-mono)' } }}
+                    value={linkProviderIdText}
+                    onChange={(event) => setLinkProviderIdText(event.currentTarget.value)}
+                  />
+                )}
                 <TextInput
                   label="Subject"
                   placeholder="upstream-subject-id"
@@ -299,7 +316,7 @@ export function UserDetailPage() {
                 />
                 <Button
                   leftSection={<Icon name="link" size={15} />}
-                  disabled={!linkProviderId || !linkSubject.trim()}
+                  disabled={!(canReadProviders ? linkProviderId : linkProviderIdText.trim()) || !linkSubject.trim()}
                   loading={linkIdentity.isPending}
                   onClick={() => linkIdentity.mutate()}
                 >
@@ -315,7 +332,7 @@ export function UserDetailPage() {
               <Stack gap={0}>
                 {identities.map((identity, index) => (
                   <Group
-                    key={`${identity.providerId}-${identity.subject}`}
+                    key={`${identity.providerId}-${identity.subjectId ?? identity.subject}`}
                     justify="space-between"
                     wrap="nowrap"
                     py="sm"
@@ -326,7 +343,7 @@ export function UserDetailPage() {
                         {identity.providerName ?? identity.providerId}
                       </Text>
                       <Text c="dimmed" className="mw-mono" size="xs" truncate>
-                        {identity.subject}
+                        {identity.subjectId ?? identity.subject}
                       </Text>
                     </Box>
                     {canWrite && (

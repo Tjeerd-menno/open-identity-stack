@@ -23,6 +23,8 @@ export function UsersPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canWrite = hasPermission(auth.permissions, 'users:write');
+  const canDisable = hasPermission(auth.permissions, 'users:disable');
+  const canDelete = hasPermission(auth.permissions, 'users:delete');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -98,11 +100,11 @@ export function UsersPage() {
             {
               label: user.status === 'Disabled' ? 'Enable user' : 'Disable user',
               icon: 'ban',
-              disabled: !canWrite,
+              disabled: user.status === 'Disabled' ? !canWrite : !canDisable,
               onClick: () => setStatus.mutate(user),
             },
             { separator: true },
-            { label: 'Delete user', icon: 'trash-2', danger: true, disabled: !canWrite, onClick: () => setPendingDelete(user) },
+            { label: 'Delete user', icon: 'trash-2', danger: true, disabled: !canDelete, onClick: () => setPendingDelete(user) },
           ]}
         />
       ),
