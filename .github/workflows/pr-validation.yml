@@ -38,19 +38,19 @@ jobs:
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN bash scripts/ci/compare-openapi-breaking-changes.sh --base-ref "origin/${{ github.base_ref }}"
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: "10.0.x"
 
       - name: Set up JDK 17
-        uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
         with:
           java-version: "17"
           distribution: zulu
 
       - name: Cache SonarQube packages
         if: ${{ env.SONAR_TOKEN != '' }}
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -59,7 +59,7 @@ jobs:
       - name: Cache SonarQube scanner
         if: ${{ env.SONAR_TOKEN != '' }}
         id: cache-sonar-scanner
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ${{ runner.temp }}/scanner
           key: ${{ runner.os }}-sonar-scanner
