@@ -10,7 +10,6 @@ using OpenIdentityStack.Infrastructure.Persistence;
 using OpenIdentityStack.Infrastructure.Persistence.Federation;
 using OpenIdentityStack.Infrastructure.Persistence.Groups;
 using OpenIdentityStack.Infrastructure.Persistence.Roles;
-using OpenIdentityStack.Infrastructure.Persistence.ServiceAccounts;
 using OpenIdentityStack.Infrastructure.Persistence.Sessions;
 using OpenIdentityStack.Infrastructure.Persistence.Users;
 
@@ -79,19 +78,6 @@ public sealed class ServiceCollectionExtensionsTests
         IUserRepository repository = provider.GetRequiredService<IUserRepository>();
         repository.ShouldNotBeNull();
         repository.ShouldBeOfType<UserRepository>();
-    }
-
-    [Fact]
-    public void AddInfrastructure_RegistersServiceAccountRepository()
-    {
-        var services = new ServiceCollection();
-
-        services.AddInfrastructure("Host=localhost;Database=test;Username=test;Password=test", BuildTestConfiguration(), "Testing");
-        ServiceProvider provider = services.BuildServiceProvider();
-
-        IServiceAccountRepository repository = provider.GetRequiredService<IServiceAccountRepository>();
-        repository.ShouldNotBeNull();
-        repository.ShouldBeOfType<ServiceAccountRepository>();
     }
 
     [Fact]

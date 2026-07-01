@@ -15,8 +15,6 @@ using OpenIdentityStack.Application.Groups.Commands;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
-using OpenIdentityStack.Application.ServiceAccounts.Commands;
-using OpenIdentityStack.Application.ServiceAccounts.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
 using OpenIdentityStack.Application.Users.Commands;
@@ -37,7 +35,6 @@ public static class DependencyInjection
         AddFederationUseCases(services);
         AddRoleUseCases(services);
         AddGroupUseCases(services);
-        AddServiceAccountUseCases(services);
         AddApplicationUseCases(services);
         AddApplicationPermissionUseCases(services);
         AddSessionAndLogoutUseCases(services);
@@ -52,8 +49,6 @@ public static class DependencyInjection
     {
         services.AddScoped<ICreateUserUseCase, CreateUserUseCase>();
         services.AddScoped<IValidateUserCredentialsUseCase, ValidateUserCredentialsUseCase>();
-        services.AddScoped<IValidateClientCredentialsUseCase, ValidateClientCredentialsUseCase>();
-        services.AddScoped<IValidateCertificateUseCase, ValidateCertificateUseCase>();
         services.AddScoped<IDisableUserUseCase, DisableUserUseCase>();
         services.AddScoped<IEnableUserUseCase, EnableUserUseCase>();
         services.AddScoped<IUpdateUserUseCase, UpdateUserUseCase>();
@@ -106,19 +101,6 @@ public static class DependencyInjection
         services.AddScoped<IListGroupMappingsQueryHandler, ListGroupMappingsQueryHandler>();
         services.AddScoped<IGetUserGroupsQueryHandler, GetUserGroupsQueryHandler>();
         services.AddScoped<IGetGroupClaimsForUserQueryHandler, GetGroupClaimsForUserQueryHandler>();
-    }
-
-    private static void AddServiceAccountUseCases(IServiceCollection services)
-    {
-        services.AddScoped<ICreateServiceAccountUseCase, CreateServiceAccountUseCase>();
-        services.AddScoped<IUpdateServiceAccountUseCase, UpdateServiceAccountUseCase>();
-        services.AddScoped<IDeleteServiceAccountUseCase, DeleteServiceAccountUseCase>();
-        services.AddScoped<IListServiceAccountsQueryHandler, ListServiceAccountsQueryHandler>();
-        services.AddScoped<IGetServiceAccountQueryHandler, GetServiceAccountQueryHandler>();
-        services.AddScoped<IRotateSecretUseCase, RotateSecretUseCase>();
-        services.AddScoped<IAddCertificateUseCase, AddCertificateUseCase>();
-        services.AddScoped<IDisableServiceAccountUseCase, DisableServiceAccountUseCase>();
-        services.AddScoped<IEnableServiceAccountUseCase, EnableServiceAccountUseCase>();
     }
 
     private static void AddApplicationUseCases(IServiceCollection services)

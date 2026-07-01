@@ -8,9 +8,6 @@ using OpenIdentityStack.Application.Applications;
 using OpenIdentityStack.Application.Applications.Commands;
 using OpenIdentityStack.Application.Applications.Queries;
 using OpenIdentityStack.Application.Authorization;
-using OpenIdentityStack.Application.Clients;
-using OpenIdentityStack.Application.Clients.Commands;
-using OpenIdentityStack.Application.Clients.Queries;
 using OpenIdentityStack.Application.Federation.Commands;
 using OpenIdentityStack.Application.Federation.Queries;
 using OpenIdentityStack.Application.Groups.Commands;
@@ -22,8 +19,6 @@ using OpenIdentityStack.Application.Settings.Queries;
 using OpenIdentityStack.Infrastructure.Persistence.Groups;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
-using OpenIdentityStack.Application.ServiceAccounts.Commands;
-using OpenIdentityStack.Application.ServiceAccounts.Queries;
 using OpenIdentityStack.Application.ApplicationPermissions;
 using OpenIdentityStack.Application.ApplicationPermissions.Commands;
 using OpenIdentityStack.Application.ApplicationPermissions.Queries;
@@ -31,13 +26,11 @@ using OpenIdentityStack.Application.Users.Commands;
 using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Infrastructure.Audit;
-using OpenIdentityStack.Infrastructure.Clients;
 using OpenIdentityStack.Infrastructure.Common;
 using OpenIdentityStack.Infrastructure.Identity;
 using OpenIdentityStack.Infrastructure.Persistence;
 using OpenIdentityStack.Infrastructure.Persistence.Federation;
 using OpenIdentityStack.Infrastructure.Persistence.Roles;
-using OpenIdentityStack.Infrastructure.Persistence.ServiceAccounts;
 using OpenIdentityStack.Infrastructure.Persistence.ApplicationPermissions;
 using OpenIdentityStack.Infrastructure.Persistence.Sessions;
 using OpenIdentityStack.Infrastructure.Persistence.Settings;
@@ -189,7 +182,6 @@ public static class ServiceCollectionExtensions
     private static void AddRepositories(IServiceCollection services)
     {
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IServiceAccountRepository, ServiceAccountRepository>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IApplicationPermissionRegistryRepository, ApplicationPermissionRegistryRepository>();
         services.AddScoped<IPermissionAssignmentStore, RolePermissionAssignmentStore>();
@@ -201,7 +193,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();
-        services.AddScoped<IClientRepository, ClientRepository>();
         services.AddScoped<IAuthenticationSettingsRepository, AuthenticationSettingsRepository>();
         services.AddScoped<IAuditEntryReader, AuditEntryReader>();
     }
@@ -218,13 +209,6 @@ public static class ServiceCollectionExtensions
 
     private static void AddInfrastructureUseCases(IServiceCollection services)
     {
-        // Client management use cases (implemented in Infrastructure).
-        services.AddScoped<ICreateClientUseCase, CreateClientUseCase>();
-        services.AddScoped<IUpdateClientUseCase, UpdateClientUseCase>();
-        services.AddScoped<IDeleteClientUseCase, DeleteClientUseCase>();
-        services.AddScoped<IListClientsQueryHandler, ListClientsQueryHandler>();
-        services.AddScoped<IGetClientQueryHandler, GetClientQueryHandler>();
-
         // Authentication settings use cases (implemented in Infrastructure).
         services.AddScoped<IGetAuthenticationSettingsQueryHandler, GetAuthenticationSettingsQueryHandler>();
         services.AddScoped<ISetDefaultProviderUseCase, SetDefaultProviderUseCase>();

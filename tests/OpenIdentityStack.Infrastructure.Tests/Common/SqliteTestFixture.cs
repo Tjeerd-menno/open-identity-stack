@@ -59,12 +59,10 @@ public sealed class SqliteTestFixture : IAsyncLifetime
         context.RegisteredApplications.RemoveRange(await context.RegisteredApplications.ToListAsync());
         context.RoleAssignments.RemoveRange(await context.RoleAssignments.ToListAsync());
         context.UserSessions.RemoveRange(await context.UserSessions.ToListAsync());
-        context.ServiceAccounts.RemoveRange(await context.ServiceAccounts.ToListAsync());
         context.Groups.RemoveRange(await context.Groups.ToListAsync());
         context.Roles.RemoveRange(await context.Roles.ToListAsync());
         context.Users.RemoveRange(await context.Users.ToListAsync());
         context.UpstreamProviders.RemoveRange(await context.UpstreamProviders.ToListAsync());
-        context.Clients.RemoveRange(await context.Clients.ToListAsync());
         context.AuthenticationSettings.RemoveRange(await context.AuthenticationSettings.ToListAsync());
         context.AuditLogEntries.RemoveRange(await context.AuditLogEntries.ToListAsync());
 

@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using OpenIdentityStack.Domain.Clients;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Federation;
 using OpenIdentityStack.Domain.ApplicationPermissions;
@@ -34,14 +33,6 @@ public class GroupIdConverter : ValueConverter<GroupId, Guid>
 }
 
 /// <summary>
-/// EF Core value converter for ServiceAccountId.
-/// </summary>
-public class ServiceAccountIdConverter : ValueConverter<ServiceAccountId, Guid>
-{
-    public ServiceAccountIdConverter() : base(id => id.Value, guid => new ServiceAccountId(guid)) { }
-}
-
-/// <summary>
 /// EF Core value converter for SessionId.
 /// </summary>
 public class SessionIdConverter : ValueConverter<SessionId, Guid>
@@ -63,14 +54,6 @@ public class ProviderIdConverter : ValueConverter<ProviderId, Guid>
 public class UpstreamProviderIdConverter : ValueConverter<UpstreamProviderId, Guid>
 {
     public UpstreamProviderIdConverter() : base(id => id.Value, guid => new UpstreamProviderId(guid)) { }
-}
-
-/// <summary>
-/// EF Core value converter for ClientId.
-/// </summary>
-public class ClientIdConverter : ValueConverter<ClientId, Guid>
-{
-    public ClientIdConverter() : base(id => id.Value, guid => new ClientId(guid)) { }
 }
 
 /// <summary>

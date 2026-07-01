@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Roles;
-using OpenIdentityStack.Domain.ServiceAccounts;
 using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Domain.Federation;
@@ -46,13 +45,6 @@ public sealed class OpenIdentityStackDbContextTests : IClassFixture<SqliteTestFi
     {
         DbSet<User> users = this._context.Users;
         users.ShouldNotBeNull();
-    }
-
-    [Fact]
-    public void ServiceAccounts_DbSet_ShouldBeAccessible()
-    {
-        DbSet<ServiceAccount> serviceAccounts = this._context.ServiceAccounts;
-        serviceAccounts.ShouldNotBeNull();
     }
 
     [Fact]
@@ -120,24 +112,6 @@ public sealed class OpenIdentityStackDbContextTests : IClassFixture<SqliteTestFi
         Group? retrieved = await this._context.Groups.FirstOrDefaultAsync(g => g.Id == group.Id);
         retrieved.ShouldNotBeNull();
         retrieved!.Name.ShouldBe("test-group");
-    }
-
-    [Fact]
-    public async Task CanSaveAndRetrieve_ServiceAccount()
-    {
-        ServiceAccount account = ServiceAccount.Create(
-            "test-client",
-            "Test Client",
-            new List<string> { "api" },
-            new List<string> { "client_credentials" },
-            this._dateTimeProvider).Value;
-
-        this._context.ServiceAccounts.Add(account);
-        await this._context.SaveChangesAsync();
-
-        ServiceAccount? retrieved = await this._context.ServiceAccounts.FirstOrDefaultAsync(s => s.Id == account.Id);
-        retrieved.ShouldNotBeNull();
-        retrieved!.ClientId.ShouldBe("test-client");
     }
 
     [Fact]
