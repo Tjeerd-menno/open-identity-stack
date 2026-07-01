@@ -59,10 +59,6 @@ Domain `Application` aggregates are projected into OpenIddict's store. Two recur
 
 ## Developer Workflow
 
-### Agent workflow
-
-For Spec Kit feature work, prefer the `speckit-phase-implementer` project agent. It should split large phases into subagents or fleet/background sessions when tasks are independent, while keeping final integration and verification in one coordinating session.
-
 ### Running the Application
 ```bash
 # Start with Aspire (recommended) - manages PostgreSQL and service discovery
