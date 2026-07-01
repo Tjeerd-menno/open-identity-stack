@@ -129,47 +129,6 @@ public sealed class StronglyTypedIdTests
     }
 
     [Fact]
-    public void ServiceAccountId_Create_ReturnsNonEmpty()
-    {
-        var id = ServiceAccountId.Create();
-
-        id.ShouldNotBe(ServiceAccountId.Empty);
-        id.Value.ShouldNotBe(Guid.Empty);
-    }
-
-    [Fact]
-    public void ServiceAccountId_TryParse_ValidString_ReturnsTrue()
-    {
-        var guid = Guid.NewGuid();
-
-        ServiceAccountId.TryParse(guid.ToString(), out ServiceAccountId result).ShouldBeTrue();
-        result.ShouldBe(new ServiceAccountId(guid));
-    }
-
-    [Fact]
-    public void ServiceAccountId_TryParse_InvalidString_ReturnsFalse()
-    {
-        ServiceAccountId.TryParse("not-a-guid", out ServiceAccountId result).ShouldBeFalse();
-        result.ShouldBe(ServiceAccountId.Empty);
-    }
-
-    [Fact]
-    public void ServiceAccountId_TryParse_Null_ReturnsFalse()
-    {
-        ServiceAccountId.TryParse(null, out ServiceAccountId result).ShouldBeFalse();
-        result.ShouldBe(ServiceAccountId.Empty);
-    }
-
-    [Fact]
-    public void ServiceAccountId_ToString_ReturnsGuidString()
-    {
-        var guid = Guid.NewGuid();
-        var id = new ServiceAccountId(guid);
-
-        id.ToString().ShouldBe(guid.ToString());
-    }
-
-    [Fact]
     public void SessionId_Create_ReturnsNonEmpty()
     {
         var id = SessionId.Create();

@@ -49,28 +49,6 @@ public readonly record struct GroupId(Guid Value) : IStronglyTypedId<GroupId>
 }
 
 /// <summary>
-/// Strongly-typed ID for ServiceAccount entities.
-/// </summary>
-public readonly record struct ServiceAccountId(Guid Value) : IStronglyTypedId<ServiceAccountId>
-{
-    public static ServiceAccountId Empty => new(Guid.Empty);
-    public static ServiceAccountId Create() => new(Guid.NewGuid());
-
-    public static bool TryParse(string? value, [NotNullWhen(true)] out ServiceAccountId result)
-    {
-        if (Guid.TryParse(value, out Guid guid))
-        {
-            result = new ServiceAccountId(guid);
-            return true;
-        }
-        result = Empty;
-        return false;
-    }
-
-    public override string ToString() => this.Value.ToString();
-}
-
-/// <summary>
 /// Strongly-typed ID for UserSession entities.
 /// </summary>
 public readonly record struct SessionId(Guid Value) : IStronglyTypedId<SessionId>

@@ -6,7 +6,6 @@ using OpenIddict.Abstractions;
 using OpenIdentityStack.Application;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Applications;
-using OpenIdentityStack.Application.Clients.Commands;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Users.Queries;
@@ -15,7 +14,6 @@ using OpenIdentityStack.Application.Users.Commands;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Domain.Roles;
-using OpenIdentityStack.Domain.ServiceAccounts;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure;
 using OpenIdentityStack.Infrastructure.Persistence;
@@ -145,7 +143,6 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         using IServiceScope scope = _serviceProvider.CreateScope();
         IOpenIddictApplicationManager applicationManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
         IOpenIddictScopeManager scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
-        IServiceAccountRepository serviceAccountRepository = scope.ServiceProvider.GetRequiredService<IServiceAccountRepository>();
         IApplicationRepository applicationRepository = scope.ServiceProvider.GetRequiredService<IApplicationRepository>();
         IPasswordHasher passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
         IDateTimeProvider dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
@@ -159,27 +156,6 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
             : ["client_credentials"];
 
         await EnsureScopesAsync(scopeManager, resolvedScopes, cancellationToken);
-
-        ServiceAccount? existingAccount = await serviceAccountRepository.GetByClientIdAsync(clientId, cancellationToken);
-        if (existingAccount is null)
-        {
-            Result<ServiceAccount> createResult = ServiceAccount.Create(
-                clientId,
-                $"Test Service Account - {clientId}",
-                resolvedScopes,
-                resolvedGrantTypes,
-                dateTimeProvider);
-
-            if (createResult.IsSuccess)
-            {
-                ServiceAccount account = createResult.Value;
-                string hashedSecret = passwordHasher.HashPassword(clientSecret);
-                account.AddCredential(hashedSecret, "Initial test credential", null, dateTimeProvider);
-
-                await serviceAccountRepository.AddAsync(account, cancellationToken);
-                await serviceAccountRepository.SaveChangesAsync(cancellationToken);
-            }
-        }
 
         DomainApplication? existingApplication = await applicationRepository.GetByClientIdAsync(clientId, cancellationToken);
         if (existingApplication is null)
@@ -635,23 +611,6 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         }
 
         await applicationManager.CreateAsync(descriptor, cancellationToken);
-    }
-
-    public async Task<CreateClientResult> CreateClientAsync(CreateClientCommand command, CancellationToken cancellationToken = default)
-    {
-        using IServiceScope scope = _serviceProvider.CreateScope();
-        ICreateClientUseCase createClientUseCase = scope.ServiceProvider.GetRequiredService<ICreateClientUseCase>();
-        IOpenIddictScopeManager scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
-
-        await EnsureScopesAsync(scopeManager, command.AllowedScopes, cancellationToken);
-
-        Result<CreateClientResult> result = await createClientUseCase.ExecuteAsync(command, cancellationToken);
-        if (result.IsFailure)
-        {
-            throw new InvalidOperationException(result.Error.Description);
-        }
-
-        return result.Value;
     }
 
     public ValueTask DisposeAsync()

@@ -3,12 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System;
 using System.Globalization;
-using OpenIdentityStack.Domain.Clients;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Federation;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Groups; // Added
-using OpenIdentityStack.Domain.ServiceAccounts;
 using OpenIdentityStack.Domain.ApplicationPermissions;
 using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Settings;
@@ -44,21 +42,6 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<User> Users => this.Set<User>();
 
     /// <summary>
-    /// Gets or sets the ServiceAccounts DbSet.
-    /// </summary>
-    public DbSet<ServiceAccount> ServiceAccounts => this.Set<ServiceAccount>();
-
-    /// <summary>
-    /// Gets or sets the ClientCredentials DbSet.
-    /// </summary>
-    public DbSet<ClientCredential> ClientCredentials => this.Set<ClientCredential>();
-
-    /// <summary>
-    /// Gets or sets the ClientCertificates DbSet.
-    /// </summary>
-    public DbSet<ClientCertificate> ClientCertificates => this.Set<ClientCertificate>();
-
-    /// <summary>
     /// Gets or sets the UpstreamProviders DbSet.
     /// </summary>
     public DbSet<UpstreamProvider> UpstreamProviders => this.Set<UpstreamProvider>();
@@ -82,11 +65,6 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
     /// Gets or sets the UserSessions DbSet.
     /// </summary>
     public DbSet<UserSession> UserSessions => this.Set<UserSession>();
-
-    /// <summary>
-    /// Gets or sets the Clients DbSet.
-    /// </summary>
-    public DbSet<Client> Clients => this.Set<Client>();
 
     /// <summary>
     /// Gets or sets the Applications DbSet.
@@ -177,10 +155,6 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
             .HaveConversion<GroupIdConverter>();
 
         configurationBuilder
-            .Properties<ServiceAccountId>()
-            .HaveConversion<ServiceAccountIdConverter>();
-
-        configurationBuilder
             .Properties<SessionId>()
             .HaveConversion<SessionIdConverter>();
 
@@ -191,10 +165,6 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
         configurationBuilder
             .Properties<UpstreamProviderId>()
             .HaveConversion<UpstreamProviderIdConverter>();
-
-        configurationBuilder
-            .Properties<ClientId>()
-            .HaveConversion<ClientIdConverter>();
 
         configurationBuilder
             .Properties<DomainApplicationId>()
