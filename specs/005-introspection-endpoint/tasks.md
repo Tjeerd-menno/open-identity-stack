@@ -134,6 +134,7 @@
 
 ### Notes
 
-- No new NuGet packages, database tables, migrations, deployment assets, or AdminWeb changes are expected.
+- No new NuGet packages, database tables, migrations, deployment assets, or Management Web changes are expected.
 - Keep OpenIddict responsible for caller authentication and token activity semantics.
 - Keep permission enrichment in Infrastructure and HTTP route/controller tests in Api test projects.
+

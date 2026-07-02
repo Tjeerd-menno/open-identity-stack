@@ -139,43 +139,7 @@ public static class Permissions
     /// <param name="grantedPermission">The permission granted to the user.</param>
     /// <param name="requiredPermission">The permission required for the action.</param>
     /// <returns>True if the granted permission covers the required permission.</returns>
-    public static bool Matches(string grantedPermission, string requiredPermission)
-    {
-        if (string.IsNullOrEmpty(grantedPermission) || string.IsNullOrEmpty(requiredPermission))
-        {
-            return false;
-        }
-
-        string[] requiredParts = requiredPermission.Split(':');
-
-        // Full wildcard only applies to platform permissions.
-        if (grantedPermission == All)
-        {
-            return requiredParts.Length == 2;
-        }
-
-        // Exact match
-        if (string.Equals(grantedPermission, requiredPermission, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        // Terminal prefix wildcard matches exactly one trailing permission segment.
-        if (grantedPermission.EndsWith(":*", StringComparison.OrdinalIgnoreCase) &&
-            grantedPermission.IndexOf('*', StringComparison.OrdinalIgnoreCase) == grantedPermission.Length - 1)
-        {
-            string grantedResource = grantedPermission[..^2]; // Remove ":*"
-            string[] grantedParts = grantedResource.Split(':');
-            if (requiredParts.Length == grantedParts.Length + 1 &&
-                string.Equals(
-                    grantedResource,
-                    string.Join(':', requiredParts[..grantedParts.Length]),
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public static bool Matches(string grantedPermission, string requiredPermission) =>
+        PermissionSemantics.Matches(grantedPermission, requiredPermission);
 }
+

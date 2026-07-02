@@ -2,12 +2,12 @@
 
 ## Goal
 
-Validate the unified Applications implementation from domain rules through admin API, migration, OpenIddict token behavior, AdminWeb, and docs.
+Validate the unified Applications implementation from domain rules through admin API, migration, OpenIddict token behavior, Management Web, and docs.
 
 ## Prerequisites
 
 - .NET 10 SDK from `global.json`.
-- Node/npm for AdminWeb validation.
+- Node/npm for Management Web validation.
 - Python with mkdocs dependencies available for docs validation when docs are changed.
 - PostgreSQL/Aspire available for integration-style runs.
 
@@ -63,10 +63,10 @@ After implementation, verify through the admin API:
 9. List applications with `type`, `status`, `clientType`, and `search` filters.
 10. Call `/api/admin/clients` and `/api/admin/service-accounts`; confirm removed legacy routes return `404 Not Found`.
 
-## AdminWeb validation
+## Management Web validation
 
 ```powershell
-Set-Location src\OpenIdentityStack.AdminWeb
+Set-Location src\OpenIdentityStack.ManagementWeb
 npm install
 npm run build
 npm run lint
@@ -85,7 +85,7 @@ Add these focused UI smoke checks while validating the policy-driven form:
 Run E2E coverage when application management UI flows are implemented:
 
 ```powershell
-dotnet test --project tests\OpenIdentityStack.AdminWeb.E2ETests\OpenIdentityStack.AdminWeb.E2ETests.csproj
+dotnet test --project tests\OpenIdentityStack.ManagementWeb.E2ETests\OpenIdentityStack.ManagementWeb.E2ETests.csproj
 ```
 
 ## Local Aspire validation
@@ -94,7 +94,7 @@ dotnet test --project tests\OpenIdentityStack.AdminWeb.E2ETests\OpenIdentityStac
 dotnet run --project src\OpenIdentityStack.AppHost
 ```
 
-Use the Aspire dashboard to verify the API, database, migration behavior, logs, and AdminWeb resources start cleanly.
+Use the Aspire dashboard to verify the API, database, migration behavior, logs, and Management Web resources start cleanly.
 
 ## Documentation validation
 
@@ -106,7 +106,8 @@ python -m mkdocs build --strict
 
 1. Run migration preflight in strict mode and remediate all conflicts before production migration.
 2. Deploy application code with only the new application endpoints enabled.
-3. Update AdminWeb to use `/api/admin/applications`.
+3. Update Management Web to use `/api/admin/applications`.
 4. Monitor audit logs and token endpoint validation failures for disabled/revoked/expired credential behavior.
 5. Announce that `/api/admin/clients` and `/api/admin/service-accounts` were removed and `/api/admin/applications` is the supported replacement.
 6. Remove old tables after verification that Applications and OpenIddict projection are authoritative.
+

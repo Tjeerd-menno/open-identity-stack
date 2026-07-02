@@ -122,7 +122,7 @@ Status: captured from grill-me session for future spec creation.
 - Suggested top-level code: `RolePermissions.BroadGrantAcknowledgementRequired`.
 - Items include `{ permission, kind, code, warning }`.
 - Broad-grant acknowledgement is audited only when broad grants are newly added.
-- AdminWeb should visually distinguish `*` more strongly, with text that it grants every current and future permission in the system.
+- Management Web should visually distinguish `*` more strongly, with text that it grants every current and future permission in the system.
 
 ## Role Assignment Validation
 
@@ -174,7 +174,7 @@ Status: captured from grill-me session for future spec creation.
 - Application delete auto-tombstones current permissions and removes exact concrete and derived wildcard role assignments belonging to the application.
 - Application delete is transactional and reports all assignment changes.
 - Application delete preview endpoint: `GET /api/admin/application-permissions/applications/{id}/deletion-impact`.
-- Direct `DELETE /applications/{id}` is allowed; AdminWeb should preview first.
+- Direct `DELETE /applications/{id}` is allowed; Management Web should preview first.
 - Re-registering a deleted application with the same identifier requires `acknowledgeRedeclare=true`, admin rights, and a strictly newer manifest version than the last accepted version for that identifier.
 - Re-registration does not restore previously removed role assignments.
 - Disabled applications appear in list/detail endpoints by default.
@@ -285,7 +285,7 @@ Status: captured from grill-me session for future spec creation.
 - Role names/details require both `application-permissions:read` and `roles:read`; otherwise return counts and indicate details are omitted.
 - Preview endpoints require `application-permissions:read`.
 - Apply endpoints require write/admin depending on destructiveness.
-- AdminWeb must require preview in its own flow before enabling destructive import/delete.
+- Management Web must require preview in its own flow before enabling destructive import/delete.
 - The API does not require prior preview; final apply calls recalculate impact.
 
 ## Remote Manifest Trust And Fetching
@@ -327,10 +327,10 @@ Status: captured from grill-me session for future spec creation.
 - Application detail includes owner and delegated maintainers.
 - Application detail includes `manifestBaseUrl` for callers who can manage/read application permissions.
 
-## AdminWeb Requirements
+## Management Web Requirements
 
-- Include minimal AdminWeb application-permission management workflows in `006`.
-- `006` must ship backend and AdminWeb workflows together.
+- Include minimal Management Web application-permission management workflows in `006`.
+- `006` must ship backend and Management Web workflows together.
 - Build `006` as vertical slices rather than all backend first and UI later.
 - First vertical slice is application registration and manifest management.
 - Slice 1 includes inline manifest create, list, detail, and target-specific inline manifest update.
@@ -359,16 +359,16 @@ Status: captured from grill-me session for future spec creation.
 - Slice 1 enforces strictly newer SemVer.
 - Slice 1 uses current manifest version plus audit events; no manifest import history table yet.
 - Slice 1 includes contract tests for all new/changed application endpoints.
-- Slice 1 includes focused AdminWeb E2E for create from inline manifest, view detail, update with newer non-destructive manifest, and same/older version validation.
+- Slice 1 includes focused Management Web E2E for create from inline manifest, view detail, update with newer non-destructive manifest, and same/older version validation.
 - Slice 1 includes API integration tests for owner, maintainer, admin, and unrelated writer authorization boundaries.
 - Slice 1 includes group-owner/group-maintainer authorization integration tests.
-- Slice 1 AdminWeb can initially accept raw principal IDs/types for owner/maintainer selection.
-- Slice 1 AdminWeb should provide both structured manifest editor and raw JSON editor.
+- Slice 1 Management Web can initially accept raw principal IDs/types for owner/maintainer selection.
+- Slice 1 Management Web should provide both structured manifest editor and raw JSON editor.
 - For create, the structured editor supports adding/removing permissions.
 - For update, the structured editor allows adding/editing metadata and blocks/reminds that removing existing permissions is not available until the destructive-change slice.
 - Raw JSON update omissions may still be submitted; API returns `409 DestructiveManifestChangeNotSupportedYet` and UI shows it.
 - No visible explanatory feature text about permission lifecycle/removal internals.
-- AdminWeb nav label is `Application Permissions`.
+- Management Web nav label is `Application Permissions`.
 - Do not use `Applications` as the nav label because OAuth 2.0 client applications already use that concept.
 - In OAuth terms, application permissions target resource APIs/resources.
 - Keep the API path `/api/admin/application-permissions/applications`.
@@ -388,25 +388,25 @@ Status: captured from grill-me session for future spec creation.
 - Platform permissions endpoint and UI wait for the role picker slice.
 - `Permissions.Matches` multi-segment wildcard change waits for the role/wildcard slice.
 - Slice 2 is role picker and assignment validation.
-- Slice 2 includes `GET /api/admin/permissions/platform` and AdminWeb unified role picker.
+- Slice 2 includes `GET /api/admin/permissions/platform` and Management Web unified role picker.
 - Slice 2 includes strict role assignment validation for dynamic concrete permissions and platform permissions.
 - Slice 2 includes derived aggregate wildcard catalog entries and assignment acknowledgement.
 - Slice 2 changes `Permissions.Matches` to support multi-segment wildcard matching.
 - Slice 2 includes token/introspection concrete-only expansion and dynamic permission validation, but not a full audience/resource redesign.
 - Slice 2 includes introspection tests proving assigned aggregate wildcards are expanded to concrete permissions and relevant to the requesting application client.
 - Introspection must keep platform permissions and `*` out of application-client filtered responses.
-- Slice 2 AdminWeb E2E covers wildcard shown above aggregate, acknowledgement required, assignment succeeds, and role detail shows stored wildcard grant.
-- Slice 2 AdminWeb E2E includes one platform broad-grant acknowledgement flow.
+- Slice 2 Management Web E2E covers wildcard shown above aggregate, acknowledgement required, assignment succeeds, and role detail shows stored wildcard grant.
+- Slice 2 Management Web E2E includes one platform broad-grant acknowledgement flow.
 - Runtime token/introspection emission tests stay API-only.
 - Disabled-application preservation behavior is API/integration tested, not E2E.
 - Slice 3 is destructive manifest/delete workflows.
 - Slice 3 includes destructive manifest omissions, manual permission delete, and application delete.
-- Slice 3 AdminWeb must preview before destructive manifest apply, permission delete, and application delete.
+- Slice 3 Management Web must preview before destructive manifest apply, permission delete, and application delete.
 - Slice 3 E2E uses one representative destructive flow, preferably destructive manifest omission; API/integration tests cover all destructive flows.
 - Slice 3 shows operation results after destructive actions but does not add full tombstone history UI.
 - Slice 4 is remote import and trust flow.
 - Slice 4 includes target-specific remote import preview/apply and remote fetch security constraints.
-- Slice 4 includes AdminWeb remote import UI.
+- Slice 4 includes Management Web remote import UI.
 - Slice 4 E2E covers successful remote import from a controlled local fixture endpoint.
 - Slice 5 is tombstone history, replacement guidance, and diagnostics.
 - Slice 5 is the final planned slice for `006`.
@@ -416,8 +416,8 @@ Status: captured from grill-me session for future spec creation.
   3. Destructive manifest/delete workflows with previews, tombstones, auto-unassignment, and audit.
   4. Remote import and trust flow.
   5. Tombstone history, replacement guidance, and diagnostics.
-- AdminWeb should require preview before destructive import/delete actions.
-- AdminWeb should show destructive impact and automatic unassignment before confirmation.
+- Management Web should require preview before destructive import/delete actions.
+- Management Web should show destructive impact and automatic unassignment before confirmation.
 - Destructive actions should be hidden or disabled with explanation for non-admin owners/maintainers when discoverability matters.
 - Wildcard grants appear above each aggregate, visually distinct.
 - Use human wording such as “All current and future order permissions,” not just “Wildcard.”
@@ -425,3 +425,4 @@ Status: captured from grill-me session for future spec creation.
 - `*` should have stronger visual treatment and acknowledgement text explaining it grants every current and future permission in the system.
 - Disabled-application assignments may be shown as from a disabled application.
 - Integrity issues should be diagnostics/remediation, not normalized as ordinary categories.
+

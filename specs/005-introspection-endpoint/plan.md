@@ -22,7 +22,7 @@ Expose OAuth 2.0 token introspection at `/connect/introspect` so authenticated A
 
 **Target Platform**: Existing API backend for Linux/container and Windows service deployments
 
-**Project Type**: Identity/API backend feature; no AdminWeb UI
+**Project Type**: Identity/API backend feature; no Management Web UI
 
 **Performance Goals**: Introspection performs one token validation through OpenIddict plus bounded permission lookup/filtering; caller-side caching remains suitable for 30-120 seconds
 
@@ -49,7 +49,7 @@ Expose OAuth 2.0 token introspection at `/connect/introspect` so authenticated A
 | III. Layered Architecture with Vertical Feature Slices | PASS | OpenIddict pipeline extension stays in Infrastructure; HTTP/controller surface stays in Api; role lookup uses Application query interface; Domain remains adapter-free. |
 | IV. Simplicity and Dependency Discipline | PASS | Uses existing OpenIddict, ASP.NET Core, direct query injection, explicit mapping/filtering, and System.Text.Json-compatible response shapes. No new packages. |
 | V. Operational Reliability and Observability | PASS | Adds bounded rate limiting; relies on existing OpenIddict token storage/validation and existing logging/monitoring paths. No migration or deployment change. |
-| VI. User-Facing and API Consistency | PASS | Endpoint follows OAuth 2.0 introspection conventions and existing `/connect/*` route style. No AdminWeb UI impact. |
+| VI. User-Facing and API Consistency | PASS | Endpoint follows OAuth 2.0 introspection conventions and existing `/connect/*` route style. No Management Web UI impact. |
 | Technology and Package Constraints | PASS | .NET 10, OpenIddict 7.5.0, central packages, analyzers, and warnings-as-errors are preserved. |
 | Documentation Impact | PASS | Feature docs live under `specs/005-introspection-endpoint`; no docs/deploy update required by scope. |
 | Validation Commands | PASS | Plan lists focused test commands and full solution build. |
@@ -96,7 +96,7 @@ tests/
     └── OpenIdentityStackTestSeeder.cs
 ```
 
-**Structure Decision**: Keep introspection metadata enrichment in the existing OpenIddict Infrastructure slice while preserving the existing `/connect/*` API route tests and controller test coverage. No Domain, AdminWeb, migration, deployment, or package structure changes are required.
+**Structure Decision**: Keep introspection metadata enrichment in the existing OpenIddict Infrastructure slice while preserving the existing `/connect/*` API route tests and controller test coverage. No Domain, Management Web, migration, deployment, or package structure changes are required.
 
 ## Complexity Tracking
 
@@ -123,3 +123,4 @@ See [data-model.md](data-model.md), [quickstart.md](quickstart.md), and [contrac
 | Technology and Package Constraints | PASS | No banned package or stack changes. |
 | Documentation Impact | PASS | Spec Kit docs created; no docs/deploy changes required. |
 | Validation Commands | PASS | Focused tests and full solution build are defined in quickstart. |
+

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-OpenIdentityStack is an OpenIddict-based Identity & Access Management (IAM) product built with .NET 10, .NET Aspire, PostgreSQL, and React. It provides OAuth 2.0/OIDC authentication, RBAC, federation, admin APIs, a DbMigrator, an admin web UI, Linux container images, and Windows service packaging.
+OpenIdentityStack is an OpenIddict-based Identity & Access Management (IAM) product built with .NET 10, .NET Aspire, PostgreSQL, and React. It provides OAuth 2.0/OIDC authentication, RBAC, federation, admin APIs, a DbMigrator, Management Web, Linux container images, and Windows service packaging.
 
 ## Architecture
 
@@ -54,7 +54,7 @@ Registration happens in `ServiceCollectionExtensions.AddCommonServices()`.
 
 #### OpenIddict Projection
 Domain `Application` aggregates are projected into OpenIddict's store. Two recurring gotchas:
-- **Product naming vs protocol naming:** use `ApplicationProfile`/`profile` everywhere product-facing (Domain, Application, API, contracts, persistence, AdminWeb, docs). The name `ApplicationType` is retained **only** at the OpenIddict adapter/protocol boundary. Do not reintroduce `ApplicationType`/`type` into product-facing code.
+- **Product naming vs protocol naming:** use `ApplicationProfile`/`profile` everywhere product-facing (Domain, Application, API, contracts, persistence, Management Web, docs). The name `ApplicationType` is retained **only** at the OpenIddict adapter/protocol boundary. Do not reintroduce `ApplicationType`/`type` into product-facing code.
 - **Confidential apps need a secret:** OpenIddict rejects confidential applications that have no `ClientSecret`, surfacing as `Application.ProjectionFailed`. Ensure a credential exists (or the app is public/disabled) before projecting.
 
 ## Developer Workflow
@@ -69,7 +69,7 @@ Aspire Dashboard opens automatically. Database migrations apply on startup in De
 
 ### Running Tests
 
-> ⚠️ **Do not run the whole solution at once.** `dotnet test` over the full solution (and the full AdminWeb Vitest run) has repeatedly *hung* and had to be killed. Always scope test runs to a single project/module.
+> ⚠️ **Do not run the whole solution at once.** `dotnet test` over the full solution (and the full Management Web Vitest run) has repeatedly *hung* and had to be killed. Always scope test runs to a single project/module.
 
 ```bash
 # A single focused project (preferred for the dev loop)
@@ -127,3 +127,4 @@ Do not add Traceable Isotopes sample projects to this product repository. Sample
 - **Nullable**: Enabled globally, `TreatWarningsAsErrors` is on
 - **Testing**: Shouldly for assertions, NSubstitute for mocks
 - **Test seeding**: Use `/api/test-seed/*` endpoints in integration tests (closed-box testing)
+

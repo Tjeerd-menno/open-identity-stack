@@ -105,7 +105,7 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
     {
         await this.SeedApplicationAsync("orders-web", "Orders Web", ApplicationProfile.Web);
         await this.SeedApplicationAsync("billing-m2m", "Billing M2M", ApplicationProfile.MachineToMachine);
-        await this.SeedApplicationAsync("admin-web", "Admin Web", ApplicationProfile.Web);
+        await this.SeedApplicationAsync("management-web", "Management Web", ApplicationProfile.Web);
 
         (List<DomainApplication> items, int totalCount) = await this.repository.ListAsync(
             1,
@@ -274,3 +274,4 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
             requireConsent: profile != ApplicationProfile.MachineToMachine,
             this.dateTimeProvider).Value;
 }
+

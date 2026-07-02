@@ -1,0 +1,56 @@
+[
+  {
+    "name": "exact platform permission matches case-insensitively",
+    "granted": "Users:Read",
+    "required": "users:read",
+    "matches": true
+  },
+  {
+    "name": "terminal wildcard covers exactly one trailing platform segment",
+    "granted": "users:*",
+    "required": "users:disable",
+    "matches": true
+  },
+  {
+    "name": "terminal wildcard covers exactly one trailing dynamic segment",
+    "granted": "orders-api:patient:*",
+    "required": "orders-api:patient:read",
+    "matches": true
+  },
+  {
+    "name": "terminal wildcard does not cover multiple trailing segments",
+    "granted": "orders-api:patient:*",
+    "required": "orders-api:patient:medical-record:read",
+    "matches": false
+  },
+  {
+    "name": "non-terminal wildcard never matches",
+    "granted": "orders-api:*:read",
+    "required": "orders-api:patient:read",
+    "matches": false
+  },
+  {
+    "name": "platform wildcard covers platform permissions",
+    "granted": "*",
+    "required": "users:read",
+    "matches": true
+  },
+  {
+    "name": "platform wildcard does not cover dynamic application permissions",
+    "granted": "*",
+    "required": "orders-api:patient:read",
+    "matches": false
+  },
+  {
+    "name": "blank granted permission never matches",
+    "granted": "",
+    "required": "users:read",
+    "matches": false
+  },
+  {
+    "name": "blank required permission never matches",
+    "granted": "users:read",
+    "required": "",
+    "matches": false
+  }
+]

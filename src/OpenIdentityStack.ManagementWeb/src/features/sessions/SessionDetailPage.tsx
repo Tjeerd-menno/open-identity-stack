@@ -13,7 +13,7 @@ import { formatDateTime, formatRelativeTime } from '@/lib/format';
 
 /**
  * Detail view for a single session. Beyond inspecting metadata, it exposes both per-session
- * revocation and revoke-all-for-this-user — the workflow the AdminWeb session detail provided.
+ * revocation and revoke-all-for-this-user from the supported Management Web workflow.
  */
 export function SessionDetailPage() {
   const { sessionId = '' } = useParams();
@@ -133,3 +133,5 @@ export function SessionDetailPage() {
     </div>
   );
 }
+
+

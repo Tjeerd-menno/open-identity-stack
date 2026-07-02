@@ -1,4 +1,5 @@
 using OpenIdentityStack.Application.Authorization;
+using System.Text.Json;
 
 namespace OpenIdentityStack.Application.Tests.Authorization;
 
@@ -48,4 +49,50 @@ public sealed class PermissionsMatchingTests
     {
         Permissions.Matches(Permissions.All, requiredPermission).ShouldBeFalse();
     }
+
+    [Theory]
+    [MemberData(nameof(PermissionSemanticsCases))]
+    public void Matches_FollowsSharedPermissionSemanticsCases(PermissionSemanticsCase testCase)
+    {
+        Permissions.Matches(testCase.Granted, testCase.Required).ShouldBe(testCase.Matches, testCase.Name);
+    }
+
+    public static TheoryData<PermissionSemanticsCase> PermissionSemanticsCases()
+    {
+        string path = Path.Combine(FindRepositoryRoot(), "tests", "PermissionSemantics", "permission-semantics-cases.json");
+        string json = File.ReadAllText(path);
+        PermissionSemanticsCase[] cases =
+            JsonSerializer.Deserialize<PermissionSemanticsCase[]>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ??
+            [];
+
+        TheoryData<PermissionSemanticsCase> data = [];
+        foreach (PermissionSemanticsCase testCase in cases)
+        {
+            data.Add(testCase);
+        }
+
+        return data;
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "OpenIdentityStack.slnx")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Could not find repository root.");
+    }
+
+    public sealed record PermissionSemanticsCase(
+        string Name,
+        string Granted,
+        string Required,
+        bool Matches);
 }

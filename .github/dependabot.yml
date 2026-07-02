@@ -26,17 +26,17 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
-  # npm (Admin Web frontend)
+  # npm (Management Web frontend)
   - package-ecosystem: "npm"
-    directory: "/src/OpenIdentityStack.AdminWeb"
+    directory: "/src/OpenIdentityStack.ManagementWeb"
     schedule:
       interval: "daily"
     groups:
-      npm-radix-ui-major:
-        patterns: ["@radix-ui/*"]
+      npm-mantine-major:
+        patterns: ["@mantine/*"]
         update-types: ["major"]
-      npm-radix-ui-minor-patch:
-        patterns: ["@radix-ui/*"]
+      npm-mantine-minor-patch:
+        patterns: ["@mantine/*"]
         update-types: ["minor", "patch"]
       npm-tanstack-major:
         patterns: ["@tanstack/*"]
@@ -89,3 +89,4 @@ updates:
       npm-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+

@@ -5,7 +5,7 @@
 **Status**: Implemented and code-aligned  
 **Input**: User description: "Currently permissions are hard coded. But the Open Id module should be usable within various service based systems. We need a way to register services/API's and the permissions they expose. The spec should cover registering services/APIs, declaring and updating exposed permissions, validation/ownership/security expectations, how registered permissions relate to RBAC/admin APIs, and key user scenarios/acceptance criteria."
 
-**Implementation Note**: The codebase now implements the registry as Minimal APIs under `/api/admin/service-permissions`, EF Core aggregate persistence, role dependency reads, role-assignment validation against assignable registered permissions, audit logging through the existing audit log abstraction, and AdminWeb registry screens. Built-in platform permissions remain code-defined; service-owned permissions are registered dynamically and exposed through the assignable catalog.
+**Implementation Note**: The codebase now implements the registry as Minimal APIs under `/api/admin/service-permissions`, EF Core aggregate persistence, role dependency reads, role-assignment validation against assignable registered permissions, audit logging through the existing audit log abstraction, and Management Web registry screens. Built-in platform permissions remain code-defined; service-owned permissions are registered dynamically and exposed through the assignable catalog.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -148,3 +148,4 @@ An administrator uses registered service permissions when defining roles, assign
 - **SC-006**: Existing RBAC assignments remain visible and attributable for 100% of permissions that have been removed from the registry.
 - **SC-007**: At least 95% of service owners in user acceptance testing can complete common permission maintenance tasks without support after reviewing standard guidance.
 - **SC-008**: Support or developer requests to add or update hard-coded service permissions are reduced by at least 80% within two release cycles after adoption.
+

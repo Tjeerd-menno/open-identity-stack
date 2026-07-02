@@ -1,4 +1,4 @@
-# Data Model: Management Web AdminWeb Parity
+# Data Model: Management Web Management Web Parity
 
 ## ManagementWebApp
 
@@ -15,8 +15,8 @@
   - Relies on an identity-provider session for cross-UI sign-in continuity.
 - **Validation rules**:
   - Must have a unique hostname per environment.
-  - Must not share deployment identity with AdminWeb.
-  - Must remain operable when AdminWeb is unavailable.
+  - Must not share deployment identity with Management Web.
+  - Must remain operable when Management Web is unavailable.
 
 ## SharedFoundation
 
@@ -34,7 +34,7 @@
   - `themeProvider`
 - **Relationships**:
   - Used by all ManagementWeb features.
-  - Mirrors AdminWeb behavior contracts while using Mantine UI components.
+  - Mirrors Management Web behavior contracts while using Mantine UI components.
 - **Validation rules**:
   - Backend authorization is authoritative.
   - Frontend permission checks must support exact permissions, `*`, and resource wildcards.
@@ -56,11 +56,11 @@
   - Must include Overview, Users, Roles, Groups, Applications, Permissions, Sessions, Identity providers, Settings, and Audit.
   - Must not include Clients.
   - Must not include Service Accounts.
-  - Routes should match AdminWeb where the domain still exists.
+  - Routes should match Management Web where the domain still exists.
 
 ## VerticalSlice
 
-- **Purpose**: A domain workflow ported from AdminWeb into ManagementWeb.
+- **Purpose**: A domain workflow ported from Management Web into ManagementWeb.
 - **Fields**:
   - `domain`
   - `routes`
@@ -71,9 +71,9 @@
   - `completionStatus`
 - **Relationships**:
   - Uses SharedFoundation.
-  - Maps to one AdminWeb domain except Audit, which is ManagementWeb-only.
+  - Maps to one Management Web domain except Audit, which is ManagementWeb-only.
 - **Validation rules**:
-  - Must match AdminWeb behavior before redesign.
+  - Must match Management Web behavior before redesign.
   - Must have targeted tests and meaningful E2E coverage before completion.
 
 ## ApplicationWorkspaceState
@@ -128,3 +128,4 @@
 - **Validation rules**:
   - If no saved value exists, the UI uses system appearance.
   - Saved preference overrides the system choice on later visits.
+

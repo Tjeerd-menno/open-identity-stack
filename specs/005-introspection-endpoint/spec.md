@@ -90,8 +90,8 @@ IAM resolves user permissions at introspection time so role changes or removals 
 
 - **Unit Tests**: Cover permission filtering, fresh role resolution, fallback token permission claims, and route mapping.
 - **API/Integration Tests**: Validate introspection request handling and authenticated caller rejection behavior.
-- **Contract Tests**: Not required for AdminWeb; this is an OAuth/OIDC endpoint.
-- **AdminWeb Tests**: N/A; no AdminWeb UI changes.
+- **Contract Tests**: Not required for Management Web; this is an OAuth/OIDC endpoint.
+- **Management Web Tests**: N/A; no Management Web UI changes.
 - **Validation Commands**: `dotnet test --project tests/OpenIdentityStack.Api.UnitTests/OpenIdentityStack.Api.UnitTests.csproj --filter-class OpenIdentityStack.Api.UnitTests.Endpoints.OidcControllerRouteTests --no-restore`; `dotnet test --project tests/OpenIdentityStack.Api.Tests/OpenIdentityStack.Api.Tests.csproj --filter-method OpenIdentityStack.Api.Tests.Authentication.AuthorizationControllerTests.Introspect_WhenAuthFails_ReturnsChallenge --filter-method OpenIdentityStack.Api.Tests.Authentication.AuthorizationControllerTests.Introspect_ReturnsActiveSubjectAndCallerFilteredFreshPermissions --no-restore`; `dotnet test --project tests/OpenIdentityStack.Infrastructure.Tests/OpenIdentityStack.Infrastructure.Tests.csproj --filter-class OpenIdentityStack.Infrastructure.Tests.Identity.IntrospectionPermissionsHandlerTests --no-restore`.
 
 ## Documentation & Deployment Impact *(mandatory)*
@@ -114,3 +114,4 @@ IAM resolves user permissions at introspection time so role changes or removals 
 - API callers use confidential client authentication or another OpenID Connect-supported client authentication method.
 - Service-specific permissions use a service identifier prefix matching the requesting API client identifier.
 - Caller-side caching, when used, remains short-lived.
+

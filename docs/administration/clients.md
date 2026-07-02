@@ -17,6 +17,8 @@ Client records represent the applications that trust OpenIdentityStack for sign-
 - production and non-production clients are kept separate
 - secret rotation is scheduled and documented
 
-## Admin web bootstrap
+## Management Web bootstrap
 
 The current Kubernetes migrator example seeds redirect URIs for the management web client. Use the same discipline for your own application clients so deployments and client records stay in sync.
+
+
