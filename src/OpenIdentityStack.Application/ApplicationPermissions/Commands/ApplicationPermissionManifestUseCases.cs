@@ -377,7 +377,7 @@ public sealed class ApplicationPermissionManifestUseCases
         Result<RegisteredApplication> preconditions = await this.ValidateManifestUpdatePreconditionsAsync(
             command,
             allowEmptyPermissions: false,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         if (preconditions.IsFailure)
         {
             return preconditions.Error;
@@ -398,7 +398,7 @@ public sealed class ApplicationPermissionManifestUseCases
         Result<RegisteredApplication> preconditions = await this.ValidateManifestUpdatePreconditionsAsync(
             command,
             allowEmptyPermissions: true,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         if (preconditions.IsFailure)
         {
             return preconditions.Error;
