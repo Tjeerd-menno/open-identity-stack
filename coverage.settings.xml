@@ -26,6 +26,8 @@
         <!-- Source generators output -->
         <Source>.*\.g\.cs$</Source>
         <Source>.*\.generated\.cs$</Source>
+        <!-- Hidden repository directories such as .agents, .config, and .github -->
+        <Source>.*[\\/]\.[^\\/]+[\\/].*</Source>
       </Exclude>
     </Sources>
     
