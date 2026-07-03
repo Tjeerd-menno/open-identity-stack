@@ -220,6 +220,25 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData("1.0.0")]
+    [InlineData("0.9.9")]
+    public async Task PreviewChangesAsync_WithSameOrOlderManifestVersion_ReturnsConflict(string version)
+    {
+        RegisteredApplication application = CreateApplication("1.0.0");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+
+        Result<ManifestPreviewDto> result = await this.useCases.PreviewChangesAsync(new ApplyApplicationPermissionManifestCommand(
+            application.Id.Value,
+            ValidManifest(version),
+            "actor-1",
+            application.ConcurrencyToken));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.PermissionManifest.VersionNotNewer");
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task ApplyAsync_WithOmittedExistingPermission_TombstonesPermissionRemovesAssignmentsAndAdvancesVersion()
     {
@@ -352,6 +371,23 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
 
         Result<ManifestApplyDto> result = await this.useCases.ApplyChangesAsync(new ApplyApplicationPermissionManifestCommand(
+            application.Id.Value,
+            ValidManifest("1.0.0"),
+            "actor-1",
+            application.ConcurrencyToken));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.PermissionManifest.ManifestBaseUrlRequired");
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PreviewChangesAsync_WithManualApplication_ReturnsValidationError()
+    {
+        RegisteredApplication application = CreateApplication("0.0.0", manifestBaseUrl: null);
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+
+        Result<ManifestPreviewDto> result = await this.useCases.PreviewChangesAsync(new ApplyApplicationPermissionManifestCommand(
             application.Id.Value,
             ValidManifest("1.0.0"),
             "actor-1",

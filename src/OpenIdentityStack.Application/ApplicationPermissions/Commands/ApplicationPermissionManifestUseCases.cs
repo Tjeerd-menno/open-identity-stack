@@ -374,39 +374,16 @@ public sealed class ApplicationPermissionManifestUseCases
 
     private async Task<Result<RegisteredApplication>> ValidateManifestUpdateAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken)
     {
-        Result validation = ApplicationPermissionManifestValidator.Validate(command.Manifest, null);
-        if (validation.IsFailure)
+        Result<RegisteredApplication> preconditions = await this.ValidateManifestUpdatePreconditionsAsync(
+            command,
+            allowEmptyPermissions: false,
+            cancellationToken).ConfigureAwait(false);
+        if (preconditions.IsFailure)
         {
-            return validation.Error;
+            return preconditions.Error;
         }
 
-        RegisteredApplication? application = await this.repository.GetByIdAsync(new RegisteredApplicationId(command.ApplicationId), cancellationToken).ConfigureAwait(false);
-        if (application is null)
-        {
-            return DomainError.NotFound("RegisteredApplication.NotFound", $"Application '{command.ApplicationId}' not found.");
-        }
-
-        if (!await this.authorizationService.CanManageApplicationAsync(command.ActorId, application, cancellationToken).ConfigureAwait(false))
-        {
-            await this.auditWriter.WriteAsync("ApplyApplicationPermissionManifest", command.ActorId, application.Id.Value.ToString(), "Denied", cancellationToken).ConfigureAwait(false);
-            return DomainError.Forbidden("PermissionManifest.Forbidden", "Actor cannot manage this registered application.");
-        }
-
-        if (command.ExpectedConcurrencyToken.HasValue && application.ConcurrencyToken != command.ExpectedConcurrencyToken.Value)
-        {
-            return DomainError.Conflict("PermissionManifest.ConcurrencyConflict", "The registered application was modified by another request.");
-        }
-
-        if (string.IsNullOrWhiteSpace(application.ManifestBaseUrl))
-        {
-            return DomainError.Validation("PermissionManifest.ManifestBaseUrlRequired", "A trusted manifest base URL is required for manifest updates.");
-        }
-
-        if (CompareSemVer(command.Manifest.Application.Version, application.ManifestVersion) <= 0)
-        {
-            return VersionNotNewer;
-        }
-
+        RegisteredApplication application = preconditions.Value;
         var requestedKeys = command.Manifest.Permissions.Select(permission => permission.Key).ToHashSet(StringComparer.Ordinal);
         if (application.Permissions.Any(permission => !permission.IsRemoved && !requestedKeys.Contains(permission.PermissionKey)))
         {
@@ -418,39 +395,16 @@ public sealed class ApplicationPermissionManifestUseCases
 
     private async Task<Result<ManifestChangePlan>> CreateManifestChangePlanAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken)
     {
-        Result validation = ApplicationPermissionManifestValidator.Validate(command.Manifest, null, allowEmptyPermissions: true);
-        if (validation.IsFailure)
+        Result<RegisteredApplication> preconditions = await this.ValidateManifestUpdatePreconditionsAsync(
+            command,
+            allowEmptyPermissions: true,
+            cancellationToken).ConfigureAwait(false);
+        if (preconditions.IsFailure)
         {
-            return validation.Error;
+            return preconditions.Error;
         }
 
-        RegisteredApplication? application = await this.repository.GetByIdAsync(new RegisteredApplicationId(command.ApplicationId), cancellationToken).ConfigureAwait(false);
-        if (application is null)
-        {
-            return DomainError.NotFound("RegisteredApplication.NotFound", $"Application '{command.ApplicationId}' not found.");
-        }
-
-        if (!await this.authorizationService.CanManageApplicationAsync(command.ActorId, application, cancellationToken).ConfigureAwait(false))
-        {
-            await this.auditWriter.WriteAsync("ApplyApplicationPermissionManifest", command.ActorId, application.Id.Value.ToString(), "Denied", cancellationToken).ConfigureAwait(false);
-            return DomainError.Forbidden("PermissionManifest.Forbidden", "Actor cannot manage this registered application.");
-        }
-
-        if (command.ExpectedConcurrencyToken.HasValue && application.ConcurrencyToken != command.ExpectedConcurrencyToken.Value)
-        {
-            return DomainError.Conflict("PermissionManifest.ConcurrencyConflict", "The registered application was modified by another request.");
-        }
-
-        if (string.IsNullOrWhiteSpace(application.ManifestBaseUrl))
-        {
-            return DomainError.Validation("PermissionManifest.ManifestBaseUrlRequired", "A trusted manifest base URL is required for manifest updates.");
-        }
-
-        if (CompareSemVer(command.Manifest.Application.Version, application.ManifestVersion) <= 0)
-        {
-            return VersionNotNewer;
-        }
-
+        RegisteredApplication application = preconditions.Value;
         var requestedKeys = command.Manifest.Permissions.Select(permission => permission.Key).ToHashSet(StringComparer.Ordinal);
         var activePermissions = application.Permissions.Where(static permission => !permission.IsRemoved).ToList();
         var removals = activePermissions.Where(permission => !requestedKeys.Contains(permission.PermissionKey)).ToList();
@@ -495,6 +449,47 @@ public sealed class ApplicationPermissionManifestUseCases
             collapsedWildcards);
 
         return new ManifestChangePlan(application, additions, metadataUpdates, removals, removalPlan);
+    }
+
+    private async Task<Result<RegisteredApplication>> ValidateManifestUpdatePreconditionsAsync(
+        ApplyApplicationPermissionManifestCommand command,
+        bool allowEmptyPermissions,
+        CancellationToken cancellationToken)
+    {
+        Result validation = ApplicationPermissionManifestValidator.Validate(command.Manifest, null, allowEmptyPermissions);
+        if (validation.IsFailure)
+        {
+            return validation.Error;
+        }
+
+        RegisteredApplication? application = await this.repository.GetByIdAsync(new RegisteredApplicationId(command.ApplicationId), cancellationToken).ConfigureAwait(false);
+        if (application is null)
+        {
+            return DomainError.NotFound("RegisteredApplication.NotFound", $"Application '{command.ApplicationId}' not found.");
+        }
+
+        if (!await this.authorizationService.CanManageApplicationAsync(command.ActorId, application, cancellationToken).ConfigureAwait(false))
+        {
+            await this.auditWriter.WriteAsync("ApplyApplicationPermissionManifest", command.ActorId, application.Id.Value.ToString(), "Denied", cancellationToken).ConfigureAwait(false);
+            return DomainError.Forbidden("PermissionManifest.Forbidden", "Actor cannot manage this registered application.");
+        }
+
+        if (command.ExpectedConcurrencyToken.HasValue && application.ConcurrencyToken != command.ExpectedConcurrencyToken.Value)
+        {
+            return DomainError.Conflict("PermissionManifest.ConcurrencyConflict", "The registered application was modified by another request.");
+        }
+
+        if (string.IsNullOrWhiteSpace(application.ManifestBaseUrl))
+        {
+            return DomainError.Validation("PermissionManifest.ManifestBaseUrlRequired", "A trusted manifest base URL is required for manifest updates.");
+        }
+
+        if (CompareSemVer(command.Manifest.Application.Version, application.ManifestVersion) <= 0)
+        {
+            return VersionNotNewer;
+        }
+
+        return application;
     }
 
     private static int CompareSemVer(string left, string right)
