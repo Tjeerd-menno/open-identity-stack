@@ -81,8 +81,8 @@ jobs:
             /d:sonar.token="$env:SONAR_TOKEN" `
             /d:sonar.cs.cobertura.reportsPaths="tests/**/coverage.cobertura.xml" `
             /d:sonar.javascript.lcov.reportPaths="src/OpenIdentityStack.ManagementWeb/coverage/lcov.info" `
-            /d:sonar.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.ManagementWeb/coverage/**,src/OpenIdentityStack.ManagementWeb/dist/**" `
-            /d:sonar.coverage.exclusions="src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.DbMigrator/**,src/OpenIdentityStack.AppHost/**,src/OpenIdentityStack.ServiceDefaults/**,src/OpenIdentityStack.ManagementWeb/src/main.tsx"
+            /d:sonar.exclusions="**/.*/**,src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.ManagementWeb/coverage/**,src/OpenIdentityStack.ManagementWeb/dist/**" `
+            /d:sonar.coverage.exclusions="**/.*/**,src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.DbMigrator/**,src/OpenIdentityStack.AppHost/**,src/OpenIdentityStack.ServiceDefaults/**,src/OpenIdentityStack.ManagementWeb/src/main.tsx"
 
       - name: Restore
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet restore OpenIdentityStack.slnx
