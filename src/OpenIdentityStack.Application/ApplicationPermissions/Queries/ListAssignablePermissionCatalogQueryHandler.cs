@@ -19,6 +19,9 @@ public sealed class ListAssignablePermissionCatalogQueryHandler : IListAssignabl
 
     public async Task<PagedResult<ApplicationPermissionDto>> HandleAsync(ListAssignablePermissionCatalogQuery query, CancellationToken cancellationToken = default)
     {
-        return await this.repository.ListAssignablePermissionCatalogAsync(query, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<ApplicationPermissionDto> concreteItems = await this.repository
+            .ListAssignablePermissionCatalogAsync(query, cancellationToken)
+            .ConfigureAwait(false);
+        return AssignablePermissionCatalogComposer.Compose(concreteItems, query);
     }
 }
