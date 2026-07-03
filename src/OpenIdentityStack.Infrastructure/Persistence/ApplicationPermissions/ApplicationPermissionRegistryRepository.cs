@@ -190,8 +190,6 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
         }
 
         return await catalog
-            .OrderBy(item => item.Application.DisplayName)
-            .ThenBy(item => item.Permission.FullPermissionKey)
             .Select(item => new ApplicationPermissionDto(
                 item.Permission.Id.Value,
                 item.Permission.PermissionKey,
