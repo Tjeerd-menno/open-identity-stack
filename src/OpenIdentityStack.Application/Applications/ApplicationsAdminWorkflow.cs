@@ -10,43 +10,14 @@ public sealed class ApplicationsAdminWorkflow : IApplicationsAdminWorkflow
 {
     private readonly ApplicationLifecycleUseCases lifecycleUseCases;
     private readonly ApplicationCredentialUseCases credentialUseCases;
-    private readonly ListApplicationsQueryHandler listApplicationsQueryHandler;
-    private readonly GetApplicationQueryHandler getApplicationQueryHandler;
-    private readonly ListApplicationCredentialsQueryHandler listApplicationCredentialsQueryHandler;
-    private readonly ListApplicationProfilePoliciesQueryHandler listApplicationProfilePoliciesQueryHandler;
 
     public ApplicationsAdminWorkflow(
         ApplicationLifecycleUseCases lifecycleUseCases,
-        ApplicationCredentialUseCases credentialUseCases,
-        ListApplicationsQueryHandler listApplicationsQueryHandler,
-        GetApplicationQueryHandler getApplicationQueryHandler,
-        ListApplicationCredentialsQueryHandler listApplicationCredentialsQueryHandler,
-        ListApplicationProfilePoliciesQueryHandler listApplicationProfilePoliciesQueryHandler)
+        ApplicationCredentialUseCases credentialUseCases)
     {
         this.lifecycleUseCases = lifecycleUseCases;
         this.credentialUseCases = credentialUseCases;
-        this.listApplicationsQueryHandler = listApplicationsQueryHandler;
-        this.getApplicationQueryHandler = getApplicationQueryHandler;
-        this.listApplicationCredentialsQueryHandler = listApplicationCredentialsQueryHandler;
-        this.listApplicationProfilePoliciesQueryHandler = listApplicationProfilePoliciesQueryHandler;
     }
-
-    public Task<Result<PagedResult<ApplicationSummary>>> ListAsync(
-        ListApplicationsAdminWorkflowRequest request,
-        CancellationToken cancellationToken = default) =>
-        this.listApplicationsQueryHandler.HandleAsync(
-            request.Page,
-            request.PageSize,
-            request.Profile,
-            request.Status,
-            request.ClientType,
-            request.SearchTerm,
-            cancellationToken);
-
-    public Task<Result<ApplicationDetails>> GetDetailsAsync(
-        GetApplicationAdminWorkflowRequest request,
-        CancellationToken cancellationToken = default) =>
-        this.getApplicationQueryHandler.HandleAsync(request.ApplicationId, cancellationToken);
 
     public async Task<Result<ApplicationCreateOperationResult>> CreateAsync(
         CreateApplicationAdminWorkflowRequest request,
@@ -164,13 +135,6 @@ public sealed class ApplicationsAdminWorkflow : IApplicationsAdminWorkflow
         CancellationToken cancellationToken = default) =>
         this.lifecycleUseCases.ExecuteAsync(new DeleteApplicationCommand(request.ApplicationId), cancellationToken);
 
-    public Task<Result<IReadOnlyList<ApplicationCredentialDetails>>> ListCredentialsAsync(
-        ListApplicationCredentialsAdminWorkflowRequest request,
-        CancellationToken cancellationToken = default) =>
-        this.listApplicationCredentialsQueryHandler.HandleAsync(
-            new ListApplicationCredentialsQuery(request.ApplicationId),
-            cancellationToken);
-
     public async Task<Result<ApplicationSecretOperationResult>> AddSecretAsync(
         AddApplicationSecretAdminWorkflowRequest request,
         CancellationToken cancellationToken = default)
@@ -217,11 +181,6 @@ public sealed class ApplicationsAdminWorkflow : IApplicationsAdminWorkflow
         this.credentialUseCases.ExecuteAsync(
             new RevokeApplicationCredentialCommand(request.ApplicationId, request.CredentialId),
             cancellationToken);
-
-    public Task<Result<IReadOnlyList<ApplicationProfilePolicyDetails>>> ListProfilePoliciesAsync(
-        ListApplicationProfilePoliciesAdminWorkflowRequest request,
-        CancellationToken cancellationToken = default) =>
-        this.listApplicationProfilePoliciesQueryHandler.HandleAsync(cancellationToken);
 
     private static Result<ApplicationCredentialType?> ValidateInitialCredential(
         CreateApplicationAdminWorkflowRequest request)
