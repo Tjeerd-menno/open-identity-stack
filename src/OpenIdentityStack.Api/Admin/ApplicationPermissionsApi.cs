@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using OpenIdentityStack.Application.ApplicationPermissions;
+using OpenIdentityStack.Application.ApplicationPermissions.Commands;
 using OpenIdentityStack.Api.Admin.Requests.ApplicationPermissions;
 using OpenIdentityStack.Api.Admin.Responses.ApplicationPermissions;
 using OpenIdentityStack.Application.Authorization;
@@ -565,26 +566,26 @@ internal static class ApplicationPermissionsApi
     }
 
     private static async Task<IResult> ListApplicationPermissionHistory(
-        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
+        [FromServices] ApplicationPermissionMaintenanceUseCases maintenanceUseCases,
         HttpContext context,
         [FromQuery] string? applicationIdentifier = null,
         [FromQuery] bool includeApplications = true,
         [FromQuery] bool includePermissions = true,
         CancellationToken cancellationToken = default)
     {
-        Result<ApplicationPermissionHistoryDto> result = await workflow.ListHistoryAsync(
-            new ListHistoryRequest(applicationIdentifier, includeApplications, includePermissions, GetActorId(context)),
+        Result<ApplicationPermissionHistoryDto> result = await maintenanceUseCases.HandleAsync(
+            new ListApplicationPermissionHistoryQuery(applicationIdentifier, includeApplications, includePermissions, GetActorId(context)),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> ListApplicationPermissionDiagnostics(
-        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
+        [FromServices] ApplicationPermissionMaintenanceUseCases maintenanceUseCases,
         HttpContext context,
         CancellationToken cancellationToken)
     {
-        Result<PermissionDiagnosticsDto> result = await workflow.ListDiagnosticsAsync(
-            new ListDiagnosticsRequest(GetActorId(context)),
+        Result<PermissionDiagnosticsDto> result = await maintenanceUseCases.HandleAsync(
+            new ListApplicationPermissionDiagnosticsQuery(GetActorId(context)),
             cancellationToken);
         return ToResult(result);
     }

@@ -3,11 +3,12 @@ namespace OpenIdentityStack.Api.Tests.Admin.ApplicationPermissions;
 public sealed class ApplicationPermissionsApiArchitectureTests
 {
     [Fact]
-    public void RegistryCommandEndpointsDependOnWorkflowInsteadOfShallowUseCaseInterfaces()
+    public void RegistryCommandEndpointsDependOnWorkflowWhileReadEndpointsDependOnDirectHandlers()
     {
         string source = ReadApplicationPermissionsApiSource();
 
         source.ShouldContain("[FromServices] IApplicationPermissionRegistryWorkflow workflow");
+        source.ShouldContain("[FromServices] ApplicationPermissionMaintenanceUseCases maintenanceUseCases");
         source.ShouldNotContain("[FromServices] ApplicationPermissionManifestUseCases");
         source.ShouldNotContain("[FromServices] IUpdateRegisteredApplicationUseCase");
         source.ShouldNotContain("[FromServices] IAddApplicationPermissionUseCase");
@@ -21,8 +22,8 @@ public sealed class ApplicationPermissionsApiArchitectureTests
         source.ShouldNotContain("[FromServices] IAddDelegatedMaintainerUseCase");
         source.ShouldNotContain("[FromServices] IRemoveDelegatedMaintainerUseCase");
         source.ShouldNotContain("[FromServices] IUpdateRemovedPermissionReplacementUseCase");
-        source.ShouldNotContain("[FromServices] IListApplicationPermissionHistoryQueryHandler");
-        source.ShouldNotContain("[FromServices] IListApplicationPermissionDiagnosticsQueryHandler");
+        source.ShouldNotContain("[FromServices] IApplicationPermissionRegistryWorkflow workflow,\n        HttpContext context,\n        [FromQuery] string? applicationIdentifier = null,\n        [FromQuery] bool includeApplications = true,\n        [FromQuery] bool includePermissions = true,\n        CancellationToken cancellationToken = default)\n    {\n        Result<ApplicationPermissionHistoryDto> result = await workflow.ListHistoryAsync");
+        source.ShouldNotContain("[FromServices] IApplicationPermissionRegistryWorkflow workflow,\n        HttpContext context,\n        CancellationToken cancellationToken)\n    {\n        Result<PermissionDiagnosticsDto> result = await workflow.ListDiagnosticsAsync");
     }
 
     private static string ReadApplicationPermissionsApiSource()

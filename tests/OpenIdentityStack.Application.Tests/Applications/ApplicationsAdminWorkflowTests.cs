@@ -55,11 +55,7 @@ public sealed class ApplicationsAdminWorkflowTests
 
         this.workflow = new ApplicationsAdminWorkflow(
             lifecycleUseCases,
-            credentialUseCases,
-            new ListApplicationsQueryHandler(this.repository),
-            new GetApplicationQueryHandler(this.repository),
-            new ListApplicationCredentialsQueryHandler(this.repository),
-            new ListApplicationProfilePoliciesQueryHandler());
+            credentialUseCases);
     }
 
     [Fact]
@@ -158,8 +154,9 @@ public sealed class ApplicationsAdminWorkflowTests
                 ExpiresAt: this.now.AddDays(30)));
 
         Result<ApplicationCreateOperationResult> createResult = await this.workflow.CreateAsync(request);
-        Result<IReadOnlyList<ApplicationCredentialDetails>> credentialsResult = await this.workflow.ListCredentialsAsync(
-            new ListApplicationCredentialsAdminWorkflowRequest(createResult.Value.Details.Id));
+        ListApplicationCredentialsQueryHandler listCredentialsQueryHandler = new(this.repository);
+        Result<IReadOnlyList<ApplicationCredentialDetails>> credentialsResult = await listCredentialsQueryHandler.HandleAsync(
+            new ListApplicationCredentialsQuery(createResult.Value.Details.Id));
 
         createResult.IsSuccess.ShouldBeTrue();
         createResult.Value.InitialSecret.ShouldNotBeNullOrWhiteSpace();
@@ -359,83 +356,6 @@ public sealed class ApplicationsAdminWorkflowTests
         revokeResult.IsSuccess.ShouldBeTrue();
         application.Credentials.Single().RevokedAt.ShouldBe(this.now);
         await this.projection.Received(1).UpsertAsync(application, Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task QueryMethods_DelegateHandlersAndPreserveResultShapes()
-    {
-        DomainApplication application = this.CreateApplication();
-        ApplicationCredential credential = application.AddSecret("hashed-secret", "Primary", null, this.dateTimeProvider).Value;
-        this.repository.ListAsync(2, 10, ApplicationProfile.Web, ApplicationStatus.Active, OAuthClientType.Confidential, "orders", Arg.Any<CancellationToken>())
-            .Returns((new List<DomainApplication> { application }, 1));
-        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>())
-            .Returns(application);
-
-        Result<PagedResult<ApplicationSummary>> listResult = await this.workflow.ListAsync(
-            new ListApplicationsAdminWorkflowRequest(
-                Page: 2,
-                PageSize: 10,
-                Profile: ApplicationProfile.Web,
-                Status: ApplicationStatus.Active,
-                ClientType: OAuthClientType.Confidential,
-                SearchTerm: "orders"));
-        Result<ApplicationDetails> detailsResult = await this.workflow.GetDetailsAsync(
-            new GetApplicationAdminWorkflowRequest(application.Id));
-        Result<IReadOnlyList<ApplicationCredentialDetails>> credentialsResult = await this.workflow.ListCredentialsAsync(
-            new ListApplicationCredentialsAdminWorkflowRequest(application.Id));
-        Result<IReadOnlyList<ApplicationProfilePolicyDetails>> policiesResult = await this.workflow.ListProfilePoliciesAsync(
-            new ListApplicationProfilePoliciesAdminWorkflowRequest());
-
-        listResult.IsSuccess.ShouldBeTrue();
-        listResult.Value.Page.ShouldBe(2);
-        listResult.Value.PageSize.ShouldBe(10);
-        listResult.Value.Items.Single().ClientId.ShouldBe("orders-web");
-        detailsResult.Value.Id.ShouldBe(application.Id);
-        detailsResult.Value.AllowedGrantTypes.ShouldBe(["authorization_code"]);
-        credentialsResult.Value.Single().Id.ShouldBe(credential.Id);
-        credentialsResult.Value.Single().Description.ShouldBe("Primary");
-        credentialsResult.Value.Single().GetType().GetProperties()
-            .Select(property => property.Name)
-            .ShouldNotContain(name => ContainsSecretMaterialName(name));
-        policiesResult.IsSuccess.ShouldBeTrue();
-        policiesResult.Value.ShouldContain(policy => policy.ApplicationProfile == ApplicationProfile.Web);
-    }
-
-    [Fact]
-    public async Task ListCredentialsAsync_AfterSecretRotation_ReturnsMetadataOnly()
-    {
-        DomainApplication application = this.CreateMachineToMachineApplication();
-        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>())
-            .Returns(application);
-
-        Result<ApplicationSecretOperationResult> firstSecret = await this.workflow.AddSecretAsync(
-            new AddApplicationSecretAdminWorkflowRequest(
-                application.Id,
-                Description: "Initial secret",
-                ExpiresAt: this.now.AddDays(30),
-                RevokeExisting: false));
-        Result<ApplicationSecretOperationResult> rotatedSecret = await this.workflow.AddSecretAsync(
-            new AddApplicationSecretAdminWorkflowRequest(
-                application.Id,
-                Description: "Rotated secret",
-                ExpiresAt: this.now.AddDays(60),
-                RevokeExisting: true));
-        Result<IReadOnlyList<ApplicationCredentialDetails>> credentialsResult = await this.workflow.ListCredentialsAsync(
-            new ListApplicationCredentialsAdminWorkflowRequest(application.Id));
-
-        firstSecret.Value.OneTimeSecret.ShouldNotBeNullOrWhiteSpace();
-        rotatedSecret.Value.OneTimeSecret.ShouldNotBeNullOrWhiteSpace();
-        credentialsResult.IsSuccess.ShouldBeTrue();
-        credentialsResult.Value.Count.ShouldBe(2);
-        foreach (ApplicationCredentialDetails credential in credentialsResult.Value)
-        {
-            credential.GetType().GetProperties()
-                .Select(property => property.Name)
-                .ShouldNotContain(name => ContainsSecretMaterialName(name));
-            credential.Description.ShouldNotBe(firstSecret.Value.OneTimeSecret);
-            credential.Description.ShouldNotBe(rotatedSecret.Value.OneTimeSecret);
-            credential.Description.ShouldNotBe("hashed-secret");
-        }
     }
 
     [Fact]

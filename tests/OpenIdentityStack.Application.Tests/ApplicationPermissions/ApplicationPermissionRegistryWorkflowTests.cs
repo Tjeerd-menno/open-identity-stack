@@ -165,19 +165,6 @@ public sealed class ApplicationPermissionRegistryWorkflowTests
     }
 
     [Fact]
-    public async Task ListDiagnosticsAsync_DelegatesToMaintenanceUseCase()
-    {
-        var diagnostic = new PermissionDiagnosticIssueDto("missing", "role", "role-1", "Role 1", "orders-api:orders:read", "Missing registry entry.");
-        this.diagnosticsReader.ListIssuesAsync(Arg.Any<CancellationToken>()).Returns(new PermissionDiagnosticsDto([diagnostic]));
-
-        Result<PermissionDiagnosticsDto> result = await this.workflow.ListDiagnosticsAsync(new ListDiagnosticsRequest("actor-1"));
-
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.Issues.ShouldBe([diagnostic]);
-        await this.diagnosticsReader.Received(1).ListIssuesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
     public void AddApplication_RegistersWorkflowDependency()
     {
         var services = new ServiceCollection();

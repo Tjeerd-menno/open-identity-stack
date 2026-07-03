@@ -271,25 +271,4 @@ public sealed class ApplicationPermissionRegistryWorkflow : IApplicationPermissi
             cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<Result<ApplicationPermissionHistoryDto>> ListHistoryAsync(
-        ListHistoryRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        return await this.maintenanceUseCases.ListHistoryAsync(
-            new ListApplicationPermissionHistoryQuery(
-                request.ApplicationIdentifier,
-                request.IncludeApplications,
-                request.IncludePermissions,
-                request.ActorId),
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task<Result<PermissionDiagnosticsDto>> ListDiagnosticsAsync(
-        ListDiagnosticsRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        return await this.maintenanceUseCases.HandleAsync(
-            new ListApplicationPermissionDiagnosticsQuery(request.ActorId),
-            cancellationToken).ConfigureAwait(false);
-    }
 }

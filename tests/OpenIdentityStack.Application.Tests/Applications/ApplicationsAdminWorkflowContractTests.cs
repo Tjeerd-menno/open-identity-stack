@@ -79,10 +79,6 @@ public sealed class ApplicationsAdminWorkflowContractTests
             DefaultRequireConsent: false,
             RequiresRedirectUris: true);
 
-        workflow.ListAsync(Arg.Any<ListApplicationsAdminWorkflowRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Success(PagedResult<ApplicationSummary>.Create([summary], 1, 20, 1)));
-        workflow.GetDetailsAsync(Arg.Any<GetApplicationAdminWorkflowRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Success(details));
         workflow.CreateAsync(Arg.Any<CreateApplicationAdminWorkflowRequest>(), Arg.Any<CancellationToken>())
             .Returns(Success(new ApplicationCreateOperationResult(details, InitialSecret: "initial-secret")));
         workflow.UpdateMetadataAsync(Arg.Any<UpdateApplicationMetadataAdminWorkflowRequest>(), Arg.Any<CancellationToken>())
@@ -95,25 +91,12 @@ public sealed class ApplicationsAdminWorkflowContractTests
             .Returns(Success(details));
         workflow.DeleteAsync(Arg.Any<DeleteApplicationAdminWorkflowRequest>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success());
-        workflow.ListCredentialsAsync(Arg.Any<ListApplicationCredentialsAdminWorkflowRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Success<IReadOnlyList<ApplicationCredentialDetails>>([credentialDetails]));
         workflow.AddSecretAsync(Arg.Any<AddApplicationSecretAdminWorkflowRequest>(), Arg.Any<CancellationToken>())
             .Returns(Success(credentialCommandResult));
         workflow.AddCertificateAsync(Arg.Any<AddApplicationCertificateAdminWorkflowRequest>(), Arg.Any<CancellationToken>())
             .Returns(Success(certificateCredentialCommandResult));
         workflow.RevokeCredentialAsync(Arg.Any<RevokeApplicationCredentialAdminWorkflowRequest>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success());
-        workflow.ListProfilePoliciesAsync(Arg.Any<ListApplicationProfilePoliciesAdminWorkflowRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Success<IReadOnlyList<ApplicationProfilePolicyDetails>>([profilePolicy]));
-
-        ListApplicationsAdminWorkflowRequest listRequest = new(
-            Page: 1,
-            PageSize: 20,
-            Profile: ApplicationProfile.Web,
-            Status: ApplicationStatus.Active,
-            ClientType: OAuthClientType.Confidential,
-            SearchTerm: "portal");
-        GetApplicationAdminWorkflowRequest detailRequest = new(applicationId);
         CreateApplicationAdminWorkflowRequest createRequest = new(
             ClientId: "portal",
             DisplayName: "Portal",
@@ -147,7 +130,6 @@ public sealed class ApplicationsAdminWorkflowContractTests
         EnableApplicationAdminWorkflowRequest enableRequest = new(applicationId);
         DisableApplicationAdminWorkflowRequest disableRequest = new(applicationId);
         DeleteApplicationAdminWorkflowRequest deleteRequest = new(applicationId);
-        ListApplicationCredentialsAdminWorkflowRequest listCredentialsRequest = new(applicationId);
         AddApplicationSecretAdminWorkflowRequest addSecretRequest = new(
             applicationId,
             Description: "Current secret",
@@ -160,24 +142,15 @@ public sealed class ApplicationsAdminWorkflowContractTests
             Description: "Portal certificate",
             ExpiresAt: now.AddYears(1));
         RevokeApplicationCredentialAdminWorkflowRequest revokeCredentialRequest = new(applicationId, credentialId);
-        ListApplicationProfilePoliciesAdminWorkflowRequest profilePoliciesRequest = new();
-
-        Result<PagedResult<ApplicationSummary>> listResult = await workflow.ListAsync(listRequest);
-        Result<ApplicationDetails> detailResult = await workflow.GetDetailsAsync(detailRequest);
         Result<ApplicationCreateOperationResult> createResult = await workflow.CreateAsync(createRequest);
         Result<ApplicationDetails> updateMetadataResult = await workflow.UpdateMetadataAsync(updateMetadataRequest);
         Result<ApplicationDetails> configureOAuthResult = await workflow.ConfigureOAuthAsync(configureOAuthRequest);
         Result<ApplicationDetails> enableResult = await workflow.EnableAsync(enableRequest);
         Result<ApplicationDetails> disableResult = await workflow.DisableAsync(disableRequest);
         Result deleteResult = await workflow.DeleteAsync(deleteRequest);
-        Result<IReadOnlyList<ApplicationCredentialDetails>> credentialsResult = await workflow.ListCredentialsAsync(listCredentialsRequest);
         Result<ApplicationSecretOperationResult> addSecretResult = await workflow.AddSecretAsync(addSecretRequest);
         Result<ApplicationCredentialCommandResult> addCertificateResult = await workflow.AddCertificateAsync(addCertificateRequest);
         Result revokeCredentialResult = await workflow.RevokeCredentialAsync(revokeCredentialRequest);
-        Result<IReadOnlyList<ApplicationProfilePolicyDetails>> profilePoliciesResult = await workflow.ListProfilePoliciesAsync(profilePoliciesRequest);
-
-        listResult.Value.Items.ShouldBe([summary]);
-        detailResult.Value.ShouldBe(details);
         createResult.Value.Details.ShouldBe(details);
         createResult.Value.InitialSecret.ShouldBe("initial-secret");
         updateMetadataResult.Value.ShouldBe(details);
@@ -185,11 +158,9 @@ public sealed class ApplicationsAdminWorkflowContractTests
         enableResult.Value.ShouldBe(details);
         disableResult.Value.ShouldBe(details);
         deleteResult.IsSuccess.ShouldBeTrue();
-        credentialsResult.Value.ShouldBe([credentialDetails]);
         addSecretResult.Value.ShouldBe(credentialCommandResult);
         addCertificateResult.Value.ShouldBe(certificateCredentialCommandResult);
         revokeCredentialResult.IsSuccess.ShouldBeTrue();
-        profilePoliciesResult.Value.ShouldBe([profilePolicy]);
     }
 
     private static Result<T> Success<T>(T value) => value;

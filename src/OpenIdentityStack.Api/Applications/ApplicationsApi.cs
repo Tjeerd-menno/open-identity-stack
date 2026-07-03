@@ -165,7 +165,7 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> ListApplications(
-        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
+        [FromServices] IListApplicationsQueryHandler listApplicationsQueryHandler,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] ApplicationProfile? profile = null,
@@ -174,14 +174,13 @@ internal static class ApplicationsApi
         [FromQuery] string? search = null,
         CancellationToken cancellationToken = default)
     {
-        Result<PagedResult<ApplicationSummary>> result = await applicationsAdminWorkflow.ListAsync(
-            new ListApplicationsAdminWorkflowRequest(
-                page,
-                pageSize,
-                profile,
-                status,
-                clientType,
-                search),
+        Result<PagedResult<ApplicationSummary>> result = await listApplicationsQueryHandler.HandleAsync(
+            page,
+            pageSize,
+            profile,
+            status,
+            clientType,
+            search,
             cancellationToken);
         if (result.IsFailure)
         {
@@ -212,11 +211,11 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> ListApplicationProfilePolicies(
-        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
+        [FromServices] IListApplicationProfilePoliciesQueryHandler listApplicationProfilePoliciesQueryHandler,
         CancellationToken cancellationToken)
     {
         Result<IReadOnlyList<ApplicationProfilePolicyDetails>> result =
-            await applicationsAdminWorkflow.ListProfilePoliciesAsync(new ListApplicationProfilePoliciesAdminWorkflowRequest(), cancellationToken);
+            await listApplicationProfilePoliciesQueryHandler.HandleAsync(cancellationToken);
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
@@ -242,11 +241,11 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> GetApplication(
-        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
+        [FromServices] IGetApplicationQueryHandler getApplicationQueryHandler,
         Guid id,
         CancellationToken cancellationToken)
     {
-        return await GetApplicationResponseAsync(applicationsAdminWorkflow, id, cancellationToken);
+        return await GetApplicationResponseAsync(getApplicationQueryHandler, id, cancellationToken);
     }
 
     private static async Task<IResult> UpdateApplicationMetadata(
@@ -343,13 +342,13 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> ListApplicationCredentials(
-        [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
+        [FromServices] IListApplicationCredentialsQueryHandler listApplicationCredentialsQueryHandler,
         Guid id,
         CancellationToken cancellationToken)
     {
         Result<IReadOnlyList<ApplicationCredentialDetails>> result =
-            await applicationsAdminWorkflow.ListCredentialsAsync(
-                new ListApplicationCredentialsAdminWorkflowRequest(new DomainApplicationId(id)),
+            await listApplicationCredentialsQueryHandler.HandleAsync(
+                new ListApplicationCredentialsQuery(new DomainApplicationId(id)),
                 cancellationToken);
         if (result.IsFailure)
         {
@@ -424,12 +423,12 @@ internal static class ApplicationsApi
     }
 
     private static async Task<IResult> GetApplicationResponseAsync(
-        IApplicationsAdminWorkflow applicationsAdminWorkflow,
+        IGetApplicationQueryHandler getApplicationQueryHandler,
         Guid id,
         CancellationToken cancellationToken)
     {
-        Result<ApplicationDetails> result = await applicationsAdminWorkflow.GetDetailsAsync(
-            new GetApplicationAdminWorkflowRequest(new DomainApplicationId(id)),
+        Result<ApplicationDetails> result = await getApplicationQueryHandler.HandleAsync(
+            new DomainApplicationId(id),
             cancellationToken);
         if (result.IsFailure)
         {
