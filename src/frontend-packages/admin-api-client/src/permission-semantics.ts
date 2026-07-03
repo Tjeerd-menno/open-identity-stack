@@ -22,37 +22,38 @@ export function extractGrantedPermissions(source: PermissionClaimsSource): strin
   return [...permissions.values()];
 }
 
-export function hasPermission(grantedPermissions: string[], requiredPermission: string): boolean {
+export function matchesPermission(grantedPermission: string, requiredPermission: string): boolean {
+  const normalizedGranted = grantedPermission.trim();
   const normalizedRequired = requiredPermission.trim();
-  if (!normalizedRequired) {
+  if (!normalizedGranted || !normalizedRequired) {
     return false;
   }
 
   const requiredParts = normalizedRequired.split(':');
 
-  return grantedPermissions.some((grantedPermission) => {
-    const normalizedGranted = grantedPermission.trim();
+  if (normalizedGranted === allPermissions) {
+    return requiredParts.length === 2;
+  }
 
-    if (normalizedGranted === allPermissions) {
-      return true;
-    }
+  if (normalizedGranted.toLowerCase() === normalizedRequired.toLowerCase()) {
+    return true;
+  }
 
-    if (normalizedGranted.toLowerCase() === normalizedRequired.toLowerCase()) {
-      return true;
-    }
+  if (!isTerminalWildcard(normalizedGranted)) {
+    return false;
+  }
 
-    if (!normalizedGranted.endsWith(':*')) {
-      return false;
-    }
+  const grantedResource = normalizedGranted.slice(0, -2);
+  const grantedParts = grantedResource.split(':');
 
-    const grantedResource = normalizedGranted.slice(0, -2);
-    const grantedParts = grantedResource.split(':');
+  return (
+    requiredParts.length === grantedParts.length + 1 &&
+    grantedResource.toLowerCase() === requiredParts.slice(0, grantedParts.length).join(':').toLowerCase()
+  );
+}
 
-    return (
-      requiredParts.length === grantedParts.length + 1 &&
-      grantedResource.toLowerCase() === requiredParts.slice(0, grantedParts.length).join(':').toLowerCase()
-    );
-  });
+export function hasPermission(grantedPermissions: string[], requiredPermission: string): boolean {
+  return grantedPermissions.some((grantedPermission) => matchesPermission(grantedPermission, requiredPermission));
 }
 
 export function hasAnyPermission(grantedPermissions: string[], requiredPermissions: string[]): boolean {
@@ -61,6 +62,10 @@ export function hasAnyPermission(grantedPermissions: string[], requiredPermissio
 
 export function hasEveryPermission(grantedPermissions: string[], requiredPermissions: string[]): boolean {
   return requiredPermissions.every((requiredPermission) => hasPermission(grantedPermissions, requiredPermission));
+}
+
+function isTerminalWildcard(permission: string): boolean {
+  return permission.endsWith(':*') && permission.indexOf('*') === permission.length - 1;
 }
 
 function addClaims(target: Map<string, string>, value: unknown): void {

@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   extractGrantedPermissions,
   hasAnyPermission,
   hasEveryPermission,
   hasPermission,
 } from './permission-semantics';
+
+type PermissionSemanticsCase = {
+  name: string;
+  granted: string;
+  required: string;
+  matches: boolean;
+};
+
+const permissionSemanticsCases = JSON.parse(
+  readFileSync(new URL('../../../../tests/PermissionSemantics/permission-semantics-cases.json', import.meta.url), 'utf8')
+) as PermissionSemanticsCase[];
 
 function jwtWithPayload(payload: unknown): string {
   return `header.${btoa(JSON.stringify(payload))}.signature`;
@@ -82,6 +94,12 @@ describe('permission semantics', () => {
     expect(hasEveryPermission(['users:read'], ['users:read', 'users:update'])).toBe(false);
   });
 
+  describe.each(permissionSemanticsCases)('shared permission semantics: $name', (testCase) => {
+    it('matches the shared result', () => {
+      expect(hasPermission([testCase.granted], testCase.required)).toBe(testCase.matches);
+    });
+  });
+
   it('does not grant permissions from role claims or role names', () => {
     expect(
       extractGrantedPermissions({
@@ -100,3 +118,4 @@ describe('permission semantics', () => {
     ).toEqual([]);
   });
 });
+

@@ -5,7 +5,7 @@ system** (Mantine foundation). It is the supported browser frontend for operator
 workflows: Overview, Users, Roles, Groups, Permissions, Applications, Sessions, Identity
 providers, Authentication settings and Audit.
 
-> The previous implementation is preserved at `../OpenIdentityStack.ManagementWeb.Legacy`.
+> The previous implementation is preserved at `../OpenIdentityStack.ManagementWeb`.
 
 ## Tech stack
 
@@ -38,3 +38,5 @@ npm run lint
 npm run type-check
 npm test
 ```
+
+

@@ -1,8 +1,8 @@
-# Quickstart: Management Web AdminWeb Parity
+# Quickstart: Management Web Management Web Parity
 
 ## Goal
 
-Validate the ManagementWeb shared foundation, AdminWeb parity slices, consolidated Applications workflows, the ManagementWeb Audit slice, and cross-UI sign-in continuity.
+Validate the ManagementWeb shared foundation, Management Web parity slices, consolidated Applications workflows, the ManagementWeb Audit slice, and cross-UI sign-in continuity.
 
 ## Prerequisites
 
@@ -30,10 +30,10 @@ dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Contract.Tests.dll" --ma
 
 For Audit endpoint work, also run the focused API/contract suites that include `Audit` tests after they are added.
 
-## AdminWeb regression validation
+## Management Web regression validation
 
 ```powershell
-Set-Location src\OpenIdentityStack.AdminWeb
+Set-Location src\OpenIdentityStack.ManagementWeb
 npm install
 npm run build
 npm run lint
@@ -78,7 +78,7 @@ Run focused E2E specs for each completed slice during development:
 dotnet run --project src\OpenIdentityStack.AppHost
 ```
 
-Use the Aspire dashboard to verify that backend services, AdminWeb, and ManagementWeb resources start cleanly.
+Use the Aspire dashboard to verify that backend services, Management Web, and ManagementWeb resources start cleanly.
 
 ## Manual smoke checks
 
@@ -86,10 +86,11 @@ Use the Aspire dashboard to verify that backend services, AdminWeb, and Manageme
 - ManagementWeb navigation does not include Clients or Service Accounts.
 - Applications uses one list and consolidated `/api/admin/applications` behavior.
 - Audit lists paged records from `/api/admin/audit-entries` and can expand details.
-- AdminWeb remains independently reachable during rollout.
+- Management Web remains independently reachable during rollout.
 
 ## Documentation check
 
 ```powershell
 python -m mkdocs build --strict
 ```
+

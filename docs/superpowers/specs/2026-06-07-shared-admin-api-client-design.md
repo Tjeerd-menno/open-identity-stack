@@ -2,9 +2,9 @@
 
 ## Context
 
-`CONTEXT.md` defines a Shared Admin API Client at `src/frontend-packages/admin-api-client`, but the module does not exist yet. Management Web currently uses `src/OpenIdentityStack.ManagementWeb/src/lib/admin-api.ts`, a `fetch`-based request module. AdminWeb currently uses `src/OpenIdentityStack.AdminWeb/src/lib/api/client.ts`, an Axios-backed `ApiClient`.
+`CONTEXT.md` defines a Shared Admin API Client at `src/frontend-packages/admin-api-client`, but the module does not exist yet. Management Web currently uses `src/OpenIdentityStack.ManagementWeb/src/lib/admin-api.ts`, a `fetch`-based request module. Management Web currently uses `src/OpenIdentityStack.ManagementWeb/src/lib/api/client.ts`, an Axios-backed `ApiClient`.
 
-This creates two interfaces over the same Admin API seam. Error normalization, token injection, unauthorized handling, query parameter serialization, base URL handling, and empty-response behavior can drift between AdminWeb and Management Web. ADR-0003 accepts a unified release train for breaking Admin API changes, so the client seam should concentrate cross-UI Admin API behavior in one module.
+This creates two interfaces over the same Admin API seam. Error normalization, token injection, unauthorized handling, query parameter serialization, base URL handling, and empty-response behavior can drift between Management Web and Management Web. ADR-0003 accepts a unified release train for breaking Admin API changes, so the client seam should concentrate cross-UI Admin API behavior in one module.
 
 ## Goal
 
@@ -14,10 +14,10 @@ The first slice deepens the low-level Admin API seam while preserving the existi
 
 ## Non-Goals
 
-- Do not migrate every Management Web or AdminWeb feature endpoint function.
+- Do not migrate every Management Web or Management Web feature endpoint function.
 - Do not introduce UI-specific auth behavior into the shared implementation.
 - Do not change backend Admin API routes or response contracts.
-- Do not unify AdminWeb and Management Web visual systems, navigation, or deployment topology.
+- Do not unify Management Web and Management Web visual systems, navigation, or deployment topology.
 - Do not introduce a broad frontend framework package beyond the Admin API client seam.
 
 ## Architecture
@@ -74,13 +74,13 @@ The package also exports:
 - `isApiError`
 - `PaginatedResponse<T>`
 
-The shared implementation uses `fetch`. This avoids moving AdminWeb's Axios dependency into the shared module and keeps the interface based on browser platform behavior.
+The shared implementation uses `fetch`. This avoids moving Management Web's Axios dependency into the shared module and keeps the interface based on browser platform behavior.
 
 ## UI Adapters
 
 Management Web keeps `src/OpenIdentityStack.ManagementWeb/src/lib/admin-api.ts` as a compatibility adapter. It delegates to the shared package and preserves current exports such as `request`, `setAccessTokenProvider`, `setUnauthorizedHandler`, `getApiErrorMessage`, `isApiError`, `PaginatedResponse`, and `listRoles`.
 
-AdminWeb keeps `src/OpenIdentityStack.AdminWeb/src/lib/api/client.ts` as a compatibility adapter. It preserves the current `apiClient.get/post/put/patch/delete`, `setTokenProvider`, and `setLogoutHandler` interface while delegating behavior to the shared package.
+Management Web keeps `src/OpenIdentityStack.ManagementWeb/src/lib/api/client.ts` as a compatibility adapter. It preserves the current `apiClient.get/post/put/patch/delete`, `setTokenProvider`, and `setLogoutHandler` interface while delegating behavior to the shared package.
 
 This keeps feature slices stable while moving the actual Admin API seam into one module.
 
@@ -106,7 +106,7 @@ It should support current backend shapes:
 - network failures where no HTTP response is available
 - unknown failures with a useful fallback message
 
-Management Web and AdminWeb adapters format these errors through the shared `formatApiError` helper.
+Management Web and Management Web adapters format these errors through the shared `formatApiError` helper.
 
 ## Testing
 
@@ -128,7 +128,7 @@ Shared package tests cover:
 UI adapter tests cover:
 
 - Management Web keeps its existing exported functions and behavior
-- AdminWeb keeps its existing `apiClient` interface
+- Management Web keeps its existing `apiClient` interface
 - both adapters wire token providers and unauthorized handlers into the shared module
 
 Existing feature endpoint tests should not need large rewrites in this slice.
@@ -138,12 +138,13 @@ Existing feature endpoint tests should not need large rewrites in this slice.
 1. Add shared package tests and verify they fail because the package does not exist.
 2. Implement the shared package.
 3. Migrate Management Web's low-level `admin-api.ts` adapter.
-4. Migrate AdminWeb's low-level `api/client.ts` adapter.
+4. Migrate Management Web's low-level `api/client.ts` adapter.
 5. Run focused package/client tests.
 6. Run both UI type checks if package wiring changes TypeScript resolution.
 
 ## Risks
 
-The main risk is package wiring. The repo currently has separate npm projects for AdminWeb and Management Web and no repo-root npm workspace. Keep wiring minimal in this slice so the architecture improves without forcing a broad dependency-management migration.
+The main risk is package wiring. The repo currently has separate npm projects for Management Web and Management Web and no repo-root npm workspace. Keep wiring minimal in this slice so the architecture improves without forcing a broad dependency-management migration.
 
 The second risk is behavior drift during adapter migration. Preserve the existing adapter interfaces first, then move feature endpoint functions in later slices only after tests prove both UIs agree on request/error semantics.
+

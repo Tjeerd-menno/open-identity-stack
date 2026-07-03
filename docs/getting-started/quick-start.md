@@ -20,7 +20,7 @@ When AppHost starts, it provisions or connects:
 - PostgreSQL
 - DbMigrator
 - API
-- Admin web UI
+- Management Web UI
 
 ## Use a disposable local database when needed
 
@@ -49,3 +49,5 @@ After the stack is running:
 2. verify that users, roles, clients, or service accounts can be listed
 3. register the first client you want to test
 4. use [Web app OIDC integration](../integrations/web-app-oidc.md) or [Machine-to-machine access](../integrations/machine-to-machine.md) for the first consumer
+
+

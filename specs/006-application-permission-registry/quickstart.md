@@ -6,8 +6,8 @@ This quickstart defines expected validation flow for `006`. Exact commands shoul
 
 - Clean database/destructive reset. `006` does not preserve arbitrary pre-existing role permission strings.
 - .NET 10 SDK.
-- AdminWeb dependencies installed.
-- Aspire/container runtime available for AdminWeb E2E.
+- Management Web dependencies installed.
+- Aspire/container runtime available for Management Web E2E.
 
 ## Deployment Note
 
@@ -25,10 +25,10 @@ dotnet test --project tests/OpenIdentityStack.Api.Tests/OpenIdentityStack.Api.Te
 dotnet test --project tests/OpenIdentityStack.Contract.Tests/OpenIdentityStack.Contract.Tests.csproj --filter-class ApplicationPermissionsContractTests --no-restore
 ```
 
-AdminWeb validation:
+Management Web validation:
 
 ```powershell
-cd src/OpenIdentityStack.AdminWeb
+cd src/OpenIdentityStack.ManagementWeb
 npm run build
 npm run lint
 npm test
@@ -38,12 +38,12 @@ E2E validation:
 
 ```powershell
 dotnet run --project src/OpenIdentityStack.AppHost
-dotnet test --project tests/OpenIdentityStack.AdminWeb.E2ETests/OpenIdentityStack.AdminWeb.E2ETests.csproj --filter-class ApplicationPermissionsManifestE2ETests --no-restore
+dotnet test --project tests/OpenIdentityStack.ManagementWeb.E2ETests/OpenIdentityStack.ManagementWeb.E2ETests.csproj --filter-class ApplicationPermissionsManifestE2ETests --no-restore
 ```
 
 Manual smoke:
 
-1. Open AdminWeb.
+1. Open Management Web.
 2. Navigate to `Application Permissions`.
 3. Create a permission application from inline JSON manifest.
 4. View list/detail with owner, maintainers, status, manifest version, and permissions.
@@ -104,3 +104,4 @@ Manual smoke:
 1. Open removed permission history.
 2. Add replacement guidance.
 3. Run diagnostics and verify integrity issues are shown only as remediation data.
+

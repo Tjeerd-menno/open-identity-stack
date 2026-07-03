@@ -1058,8 +1058,8 @@ public sealed record ListApplicationsResponse(
 
 ```json
 {
-  "clientId": "admin-web",
-  "displayName": "Open Identity Stack Admin Web",
+  "clientId": "management-web",
+  "displayName": "OpenIdentityStack Management Web",
   "description": "Server-backed admin portal.",
   "type": "Web",
   "clientType": "Confidential",
@@ -1071,7 +1071,7 @@ public sealed record ListApplicationsResponse(
   "requireConsent": false,
   "initialCredential": {
     "type": "ClientSecret",
-    "description": "Initial admin web secret",
+    "description": "Initial management web secret",
     "expiresAt": "2026-11-23T00:00:00Z",
     "certificateThumbprint": null,
     "certificateSubject": null
@@ -1554,14 +1554,14 @@ Given the unified Applications API is deployed, when a consumer calls `GET /api/
 - [ ] T062 Migrate role permissions from `clients:*` and `service-accounts:*` to `applications:*`.
 - [ ] T063 Update seed data and tests.
 
-## Phase 8: Admin web
+## Phase 8: Management Web
 
 - [ ] T070 Replace clients and service-account routes with applications routes.
 - [ ] T071 Create application list page with filters.
 - [ ] T072 Create application creation wizard.
 - [ ] T073 Create application detail tabs.
 - [ ] T074 Add credential management UI.
-- [ ] T075 Remove legacy Clients and Service Accounts screens/routes from AdminWeb navigation.
+- [ ] T075 Remove legacy Clients and Service Accounts screens/routes from Management Web navigation.
 
 ## Phase 9: Cleanup
 
@@ -1656,7 +1656,7 @@ OpenIdentityStack.Infrastructure.Persistence.Applications
 OpenIdentityStack.Infrastructure.Identity.OpenIddictApplicationProjection
 OpenIdentityStack.Infrastructure.Identity.ApplicationClientAuthenticationHandler
 OpenIdentityStack.Api.Applications
-OpenIdentityStack.AdminWeb/src/features/applications
+OpenIdentityStack.ManagementWeb/src/features/applications
 ```
 
 The old top-level domain namespaces should eventually disappear:
@@ -1703,3 +1703,6 @@ OpenIddictConstants.Permissions.GrantTypes.ClientCredentials
 - Microsoft Entra application and service principal objects: <https://learn.microsoft.com/en-us/entra/identity-platform/app-objects-and-service-principals>
 - Keycloak Server Administration Guide, service accounts: <https://www.keycloak.org/docs/latest/server_admin/>
 - OpenIddict application permissions: <https://documentation.openiddict.com/configuration/application-permissions.html>
+
+
+

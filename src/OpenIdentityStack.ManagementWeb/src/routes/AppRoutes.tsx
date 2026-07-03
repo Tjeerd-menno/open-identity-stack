@@ -240,10 +240,12 @@ export function AppRoutes() {
             </RequirePermissions>
           }
         />
-        {/* Preserve the AdminWeb /settings entry point — it now lives under the providers area. */}
+        {/* Preserve the /settings entry point; authentication settings live under providers. */}
         <Route path="settings" element={<Navigate replace to="/providers/settings" />} />
         <Route path="*" element={<Navigate replace to="/" />} />
       </Route>
     </Routes>
   );
 }
+
+

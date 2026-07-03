@@ -3,7 +3,7 @@
 **Feature:** Unified Applications Model  
 **PR:** `#120` — Unify applications model  
 **Addendum status:** Proposed  
-**Decision:** Rename the product/domain concept `ApplicationProfile` to `ApplicationProfile`, and expose it as `profile` in API contracts and AdminWeb forms.
+**Decision:** Rename the product/domain concept `ApplicationProfile` to `ApplicationProfile`, and expose it as `profile` in API contracts and Management Web forms.
 
 ---
 
@@ -22,7 +22,7 @@ API JSON: type   -> profile
 UI dropdown: Application Profile -> Profile
 ```
 
-The AdminWeb dropdown should be labelled **Profile** and should select the product profile that controls the allowed OAuth/OIDC configuration surface.
+The Management Web dropdown should be labelled **Profile** and should select the product profile that controls the allowed OAuth/OIDC configuration surface.
 
 ---
 
@@ -57,7 +57,7 @@ An **Application Profile** is a product-level configuration profile that determi
 - whether secrets/certificates are allowed;
 - whether PKCE is required;
 - whether consent is relevant;
-- which fields are shown or hidden in AdminWeb.
+- which fields are shown or hidden in Management Web.
 
 It is not a protocol identifier and it is not projected directly as-is to OpenIddict’s `ApplicationProfile`.
 
@@ -118,8 +118,8 @@ ApplicationCreatedResponse.Type
 ApplicationResponse.Type
 ApplicationListItemResponse.Type
 ListApplications type query parameter
-AdminWeb ApplicationProfile profile
-AdminWeb form field type
+Management Web ApplicationProfile profile
+Management Web form field type
 OpenAPI type schema/property
 Contract test payloads
 Documentation and Spec Kit artifacts
@@ -607,7 +607,7 @@ If a developer already applied the PR migration locally, they should recreate th
 
 ---
 
-## 10. AdminWeb Changes
+## 10. Management Web Changes
 
 ### 10.1 TypeScript Types
 
@@ -903,7 +903,7 @@ Use this as the implementation checklist.
 - [ ] Update model snapshot.
 - [ ] Update persistence tests.
 
-### 13.3 AdminWeb
+### 13.3 Management Web
 
 - [ ] Rename TypeScript `ApplicationProfile` constant/type to `ApplicationProfile`.
 - [ ] Rename DTO fields from `type` to `profile`.
@@ -960,7 +960,7 @@ then the query parameter is `profile`, for example:
 GET /api/admin/applications?profile=MachineToMachine
 ```
 
-### AC5 — AdminWeb dropdown
+### AC5 — Management Web dropdown
 
 Given an admin opens the create application form,  
 then the product profile dropdown is labelled **Profile**,  
@@ -987,7 +987,7 @@ not a `Type` column.
 ### AC9 — Tests
 
 Given the solution test suite is executed,  
-then domain, application, API, contract, infrastructure, and AdminWeb tests pass with the new terminology.
+then domain, application, API, contract, infrastructure, and Management Web tests pass with the new terminology.
 
 ---
 
@@ -1011,5 +1011,6 @@ This PR keeps `Application` as the product/domain name for an administrator-mana
 
 Reason: `ApplicationProfile` conflicts conceptually with OIDC/OpenIddict protocol terminology (`application_type` / `OpenIddictApplicationDescriptor.ApplicationProfile`). The Open Identity Stack value is a product profile such as Web, Single Page, Native, Machine-to-machine, Device, or Custom. It controls defaults, constraints, and available Admin UI options.
 
-The public Applications API now uses `profile` instead of `type`, and AdminWeb labels the dropdown as `Profile`.
+The public Applications API now uses `profile` instead of `type`, and Management Web labels the dropdown as `Profile`.
 ```
+

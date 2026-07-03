@@ -176,7 +176,7 @@ failed before native linking. The first blockers are:
   - `/.well-known/openid-configuration`
   - `/connect/token`
   - interactive login
-  - AdminWeb API calls
+  - Management Web API calls
 - Build and run the AOT API container with Podman.
 - Validate mounted certificate/configuration paths in a production-like run.
 
@@ -192,3 +192,4 @@ failed before native linking. The first blockers are:
 - Target deployment RIDs are `linux-x64` and `win-x64`.
 - EF Core Native AOT support is high risk enough that zero publish warnings plus runtime flow validation is the acceptance bar.
 - Only `plan.md` is added for this spec; `spec.md`, `tasks.md`, contracts, and implementation patches are out of scope for this change.
+

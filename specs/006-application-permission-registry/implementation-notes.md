@@ -10,7 +10,7 @@ The repository already contains an application-permission registry implementatio
 - `src/OpenIdentityStack.Application/ApplicationPermissions/` as the use-case/query/DTO home.
 - `src/OpenIdentityStack.Infrastructure/Persistence/ApplicationPermissions/` for EF configurations and repository implementation.
 - `src/OpenIdentityStack.Api/Admin/ApplicationPermissionsApi.cs` as the Minimal API mapper style for registry endpoints.
-- `src/OpenIdentityStack.AdminWeb/src/features/application-permissions/` as the AdminWeb feature area.
+- `src/OpenIdentityStack.ManagementWeb/src/features/application-permissions/` as the Management Web feature area.
 - Existing tests under `tests/**/ApplicationPermissions/` as regression coverage to evolve under the 006 contract.
 
 ## Rename Or Reshape
@@ -33,3 +33,4 @@ The repository already contains an application-permission registry implementatio
 - Contract tests for `/api/admin/*` endpoints must follow the OpenAPI artifact in `contracts/application-permission-registry.openapi.yaml`.
 - New production code must be preceded by RED tests per the mandatory Superpowers TDD hook.
 - This feature is an alpha breaking change and may require a clean database/destructive reset.
+

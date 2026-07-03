@@ -20,9 +20,9 @@
 
 - [X] T001 Create backend Applications directory skeletons in src/OpenIdentityStack.Domain/Applications/, src/OpenIdentityStack.Application/Applications/, src/OpenIdentityStack.Infrastructure/Applications/, src/OpenIdentityStack.Infrastructure/Persistence/Applications/, and src/OpenIdentityStack.Api/Applications/
 - [X] T002 [P] Create backend test directory skeletons in tests/OpenIdentityStack.Domain.Tests/Applications/, tests/OpenIdentityStack.Application.Tests/Applications/, tests/OpenIdentityStack.Infrastructure.Tests/Applications/, tests/OpenIdentityStack.Api.Tests/Admin/Applications/, and tests/OpenIdentityStack.Contract.Tests/Admin/Applications/
-- [X] T003 [P] Create AdminWeb Applications feature skeleton in src/OpenIdentityStack.AdminWeb/src/features/applications/api/, src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/, src/OpenIdentityStack.AdminWeb/src/features/applications/components/, and src/OpenIdentityStack.AdminWeb/src/features/applications/pages/
+- [X] T003 [P] Create Management Web Applications feature skeleton in src/OpenIdentityStack.ManagementWeb/src/features/applications/api/, src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/, src/OpenIdentityStack.ManagementWeb/src/features/applications/components/, and src/OpenIdentityStack.ManagementWeb/src/features/applications/pages/
 - [X] T004 [P] Add generated API contract fixture for implementation reference in tests/OpenIdentityStack.Contract.Tests/Admin/Applications/applications.openapi.yaml from specs/006-unify-applications-model/contracts/applications.openapi.yaml
-- [X] T005 [P] Add validation command checklist notes in specs/006-unify-applications-model/quickstart.md for domain, application, infrastructure, API, contract, AdminWeb, docs, and Aspire validation
+- [X] T005 [P] Add validation command checklist notes in specs/006-unify-applications-model/quickstart.md for domain, application, infrastructure, API, contract, Management Web, docs, and Aspire validation
 
 ---
 
@@ -54,9 +54,9 @@
 
 ## Phase 3: User Story 1 - Manage one application model (Priority: P1) MVP
 
-**Goal**: Administrators can create, list, view, update, disable, enable, and delete applications through the unified domain, persistence, API, and AdminWeb model without using legacy client/service-account concepts.
+**Goal**: Administrators can create, list, view, update, disable, enable, and delete applications through the unified domain, persistence, API, and Management Web model without using legacy client/service-account concepts.
 
-**Independent Test**: Create, view, update, disable/enable, and delete an application through `/api/admin/applications` and AdminWeb Applications screens; verify the application uses the unified model and does not require legacy APIs.
+**Independent Test**: Create, view, update, disable/enable, and delete an application through `/api/admin/applications` and Management Web Applications screens; verify the application uses the unified model and does not require legacy APIs.
 
 ### Tests for User Story 1
 
@@ -67,8 +67,8 @@
 - [X] T025 [P] [US1] Add repository tests for application persistence, unique client ID lookup, paging, filters, and status changes in tests/OpenIdentityStack.Infrastructure.Tests/Applications/ApplicationRepositoryTests.cs
 - [X] T026 [P] [US1] Add API workflow tests for create/get/list/update/configure/disable/enable/delete endpoints in tests/OpenIdentityStack.Api.Tests/Admin/Applications/ApplicationsEndpointWorkflowTests.cs
 - [X] T027 [P] [US1] Add contract tests for `/api/admin/applications` create/get/list/update/configure/status/delete shape in tests/OpenIdentityStack.Contract.Tests/Admin/Applications/ApplicationsEndpointContractTests.cs
-- [X] T028 [P] [US1] Add AdminWeb API client tests for applications list/get/create/update/delete calls in src/OpenIdentityStack.AdminWeb/src/features/applications/api/applications-api.test.ts
-- [X] T029 [P] [US1] Add AdminWeb component tests for application list, form, and detail baseline behavior in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationManagement.test.tsx
+- [X] T028 [P] [US1] Add Management Web API client tests for applications list/get/create/update/delete calls in src/OpenIdentityStack.ManagementWeb/src/features/applications/api/applications-api.test.ts
+- [X] T029 [P] [US1] Add Management Web component tests for application list, form, and detail baseline behavior in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationManagement.test.tsx
 
 ### Implementation for User Story 1
 
@@ -88,16 +88,16 @@
 - [X] T043 [US1] Implement application request/response DTOs and explicit mapping in src/OpenIdentityStack.Api/Applications/ApplicationRequests.cs
 - [X] T044 [US1] Implement `/api/admin/applications` create/get/list/patch/oauth/disable/enable/delete endpoints with authorization and safe error responses in src/OpenIdentityStack.Api/Applications/ApplicationsApi.cs
 - [X] T045 [US1] Add Scalar/OpenAPI summaries, response types, and permission metadata for Applications endpoints in src/OpenIdentityStack.Api/Applications/ApplicationsApi.cs
-- [X] T046 [US1] Implement AdminWeb applications API module in src/OpenIdentityStack.AdminWeb/src/features/applications/api/applications-api.ts
-- [X] T047 [P] [US1] Implement AdminWeb application query/mutation hooks in src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useApplications.ts, src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useApplication.ts, src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useCreateApplication.ts, src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useUpdateApplication.ts, and src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useDeleteApplication.ts
-- [X] T048 [P] [US1] Implement AdminWeb application list and status/type badge components in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationList.tsx and src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationStatusBadge.tsx
-- [X] T049 [P] [US1] Implement AdminWeb application form and detail baseline components in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx and src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationDetail.tsx
-- [X] T050 [US1] Implement AdminWeb Applications pages and exports in src/OpenIdentityStack.AdminWeb/src/features/applications/pages/ApplicationsPage.tsx, src/OpenIdentityStack.AdminWeb/src/features/applications/pages/CreateApplicationPage.tsx, src/OpenIdentityStack.AdminWeb/src/features/applications/pages/ApplicationDetailPage.tsx, src/OpenIdentityStack.AdminWeb/src/features/applications/pages/EditApplicationPage.tsx, src/OpenIdentityStack.AdminWeb/src/features/applications/pages/index.ts, and src/OpenIdentityStack.AdminWeb/src/features/applications/index.ts
-- [X] T051 [US1] Replace Clients and Service Accounts navigation entries with Applications in src/OpenIdentityStack.AdminWeb/src/components/layout/Sidebar.tsx
-- [X] T052 [US1] Add Applications routes in src/OpenIdentityStack.AdminWeb/src/routes/index.tsx
+- [X] T046 [US1] Implement Management Web applications API module in src/OpenIdentityStack.ManagementWeb/src/features/applications/api/applications-api.ts
+- [X] T047 [P] [US1] Implement Management Web application query/mutation hooks in src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/useApplications.ts, src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/useApplication.ts, src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/useCreateApplication.ts, src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/useUpdateApplication.ts, and src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/useDeleteApplication.ts
+- [X] T048 [P] [US1] Implement Management Web application list and status/type badge components in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationList.tsx and src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationStatusBadge.tsx
+- [X] T049 [P] [US1] Implement Management Web application form and detail baseline components in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationForm.tsx and src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationDetail.tsx
+- [X] T050 [US1] Implement Management Web Applications pages and exports in src/OpenIdentityStack.ManagementWeb/src/features/applications/pages/ApplicationsPage.tsx, src/OpenIdentityStack.ManagementWeb/src/features/applications/pages/CreateApplicationPage.tsx, src/OpenIdentityStack.ManagementWeb/src/features/applications/pages/ApplicationDetailPage.tsx, src/OpenIdentityStack.ManagementWeb/src/features/applications/pages/EditApplicationPage.tsx, src/OpenIdentityStack.ManagementWeb/src/features/applications/pages/index.ts, and src/OpenIdentityStack.ManagementWeb/src/features/applications/index.ts
+- [X] T051 [US1] Replace Clients and Service Accounts navigation entries with Applications in src/OpenIdentityStack.ManagementWeb/src/components/layout/Sidebar.tsx
+- [X] T052 [US1] Add Applications routes in src/OpenIdentityStack.ManagementWeb/src/routes/index.tsx
 - [X] T053 [US1] Add application lifecycle audit event emission in src/OpenIdentityStack.Infrastructure/Audit/AuditLogService.cs
 
-**Checkpoint**: User Story 1 is independently functional when unified application CRUD, status transitions, OpenIddict projection, API contract tests, and baseline AdminWeb flows pass without legacy endpoints.
+**Checkpoint**: User Story 1 is independently functional when unified application CRUD, status transitions, OpenIddict projection, API contract tests, and baseline Management Web flows pass without legacy endpoints.
 
 ---
 
@@ -116,7 +116,7 @@
 - [X] T058 [P] [US2] Add API tests for secret creation, rotation with revokeExisting, certificate add, credential list, credential revoke, and public credential rejection in tests/OpenIdentityStack.Api.Tests/Admin/Applications/ApplicationCredentialsEndpointWorkflowTests.cs
 - [X] T059 [P] [US2] Add token integration tests for machine-to-machine secret success, revoked secret failure, disabled application failure, and certificate validation in tests/OpenIdentityStack.Api.Tests/Authentication/ApplicationClientCredentialsFlowTests.cs
 - [X] T060 [P] [US2] Add contract tests for application credential endpoints and one-time secret response shape in tests/OpenIdentityStack.Contract.Tests/Admin/Applications/ApplicationCredentialsContractTests.cs
-- [X] T061 [P] [US2] Add AdminWeb tests for application credential dialogs, one-time secret display, and public credential rejection messages in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationCredentials.test.tsx
+- [X] T061 [P] [US2] Add Management Web tests for application credential dialogs, one-time secret display, and public credential rejection messages in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationCredentials.test.tsx
 
 ### Implementation for User Story 2
 
@@ -134,12 +134,12 @@
 - [X] T073 [US2] Add credential endpoint DTOs and mapping to src/OpenIdentityStack.Api/Applications/ApplicationRequests.cs
 - [X] T074 [US2] Add credential list/add secret/add certificate/revoke endpoints with `applications:manage-credentials` and `applications:manage-certificates` authorization in src/OpenIdentityStack.Api/Applications/ApplicationsApi.cs
 - [X] T075 [US2] Add application credential audit events for added, revoked, and used credentials in src/OpenIdentityStack.Infrastructure/Audit/AuditLogService.cs
-- [X] T076 [US2] Implement AdminWeb credential API functions in src/OpenIdentityStack.AdminWeb/src/features/applications/api/applications-api.ts
-- [X] T077 [P] [US2] Implement AdminWeb credential hooks in src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useApplicationCredentials.ts, src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useAddApplicationSecret.ts, src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useAddApplicationCertificate.ts, and src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useRevokeApplicationCredential.ts
-- [X] T078 [P] [US2] Implement AdminWeb credential management components in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationCredentials.tsx, src/OpenIdentityStack.AdminWeb/src/features/applications/components/AddApplicationSecretDialog.tsx, src/OpenIdentityStack.AdminWeb/src/features/applications/components/AddApplicationCertificateDialog.tsx, and src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationSecretDisplay.tsx
-- [X] T079 [US2] Add credential and OAuth configuration tabs to the application detail page in src/OpenIdentityStack.AdminWeb/src/features/applications/pages/ApplicationDetailPage.tsx
+- [X] T076 [US2] Implement Management Web credential API functions in src/OpenIdentityStack.ManagementWeb/src/features/applications/api/applications-api.ts
+- [X] T077 [P] [US2] Implement Management Web credential hooks in src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/useApplicationCredentials.ts, src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/useAddApplicationSecret.ts, src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/useAddApplicationCertificate.ts, and src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/useRevokeApplicationCredential.ts
+- [X] T078 [P] [US2] Implement Management Web credential management components in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationCredentials.tsx, src/OpenIdentityStack.ManagementWeb/src/features/applications/components/AddApplicationSecretDialog.tsx, src/OpenIdentityStack.ManagementWeb/src/features/applications/components/AddApplicationCertificateDialog.tsx, and src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationSecretDisplay.tsx
+- [X] T079 [US2] Add credential and OAuth configuration tabs to the application detail page in src/OpenIdentityStack.ManagementWeb/src/features/applications/pages/ApplicationDetailPage.tsx
 
-**Checkpoint**: User Story 2 is independently functional when machine-to-machine validation, credential lifecycle, token endpoint behavior, and AdminWeb credential workflows pass without leaking plain secrets or hashes.
+**Checkpoint**: User Story 2 is independently functional when machine-to-machine validation, credential lifecycle, token endpoint behavior, and Management Web credential workflows pass without leaking plain secrets or hashes.
 
 ---
 
@@ -158,7 +158,7 @@
 - [X] T084 [P] [US3] SUPERSEDED by T117: earlier compatibility tests for `/api/admin/clients` adapters/deprecation metadata in tests/OpenIdentityStack.Api.Tests/Admin/Applications/ClientsCompatibilityEndpointTests.cs
 - [X] T085 [P] [US3] SUPERSEDED by T117: earlier compatibility tests for `/api/admin/service-accounts` adapters/deprecation metadata in tests/OpenIdentityStack.Api.Tests/Admin/Applications/ServiceAccountsCompatibilityEndpointTests.cs
 - [X] T086 [P] [US3] SUPERSEDED by T118: earlier contract tests for deprecated compatibility response headers and replacement metadata in tests/OpenIdentityStack.Contract.Tests/Admin/Applications/ApplicationsCompatibilityContractTests.cs
-- [X] T087 [P] [US3] Add AdminWeb tests verifying Applications navigation replaces legacy Clients and Service Accounts navigation labels in src/OpenIdentityStack.AdminWeb/src/features/applications/pages/ApplicationsNavigation.test.tsx
+- [X] T087 [P] [US3] Add Management Web tests verifying Applications navigation replaces legacy Clients and Service Accounts navigation labels in src/OpenIdentityStack.ManagementWeb/src/features/applications/pages/ApplicationsNavigation.test.tsx
 
 ### Implementation for User Story 3
 
@@ -173,8 +173,8 @@
 - [X] T096 [US3] SUPERSEDED by T120: earlier Service Accounts API compatibility adapter in src/OpenIdentityStack.Api/ServiceAccounts/ServiceAccountsApi.cs
 - [X] T097 [US3] SUPERSEDED by T121: earlier compatibility enable/disable configuration option binding in src/OpenIdentityStack.Api/Options/ApplicationCompatibilityOptions.cs
 - [X] T098 [US3] SUPERSEDED by T121/T127: earlier compatibility configuration and rollback notes in deploy/appsettings.Production.template.json
-- [X] T099 [US3] SUPERSEDED by T126: earlier legacy AdminWeb clients and service-account route exports/redirects in src/OpenIdentityStack.AdminWeb/src/features/clients/index.ts and src/OpenIdentityStack.AdminWeb/src/features/service-accounts/index.ts
-- [X] T100 [US3] SUPERSEDED by T126: earlier AdminWeb legacy client/service-account redirects in src/OpenIdentityStack.AdminWeb/src/routes/index.tsx
+- [X] T099 [US3] SUPERSEDED by T126: earlier legacy Management Web clients and service-account route exports/redirects in src/OpenIdentityStack.ManagementWeb/src/features/clients/index.ts and src/OpenIdentityStack.ManagementWeb/src/features/service-accounts/index.ts
+- [X] T100 [US3] SUPERSEDED by T126: earlier Management Web legacy client/service-account redirects in src/OpenIdentityStack.ManagementWeb/src/routes/index.tsx
 - [X] T101 [US3] SUPERSEDED by T127: earlier docs for compatibility window and deprecated endpoint replacement in docs/applications-migration.md
 
 **Checkpoint**: User Story 3 is independently functional when legacy data migrates safely, client identifiers are preserved, permissions are mapped, old endpoint compatibility work is removed by Phase 7, and migration failures leave data unchanged.
@@ -188,7 +188,7 @@
 - [X] T102 [P] Update administrator terminology docs for Application, Machine-to-machine application, Client ID, and deprecated Service Account wording in docs/admin-applications.md
 - [X] T103 [P] Update README feature overview and API examples for unified Applications in README.md
 - [X] T104 [P] SUPERSEDED by T127 for compatibility flag removal: update deployment guidance for migration ordering, compatibility flags, and rollback in deploy/README.md
-- [X] T105 [P] Add AdminWeb screenshot capture or screenshot checklist for changed Applications flows in docs/admin-applications.md
+- [X] T105 [P] Add Management Web screenshot capture or screenshot checklist for changed Applications flows in docs/admin-applications.md
 - [X] T106 [P] SUPERSEDED by T119/T120: earlier OpenAPI/Scalar deprecation descriptions for legacy endpoints in src/OpenIdentityStack.Api/Clients/ClientsApi.cs and src/OpenIdentityStack.Api/ServiceAccounts/ServiceAccountsApi.cs
 - [X] T107 [P] Add performance/latency regression coverage for token validation lookup behavior in tests/OpenIdentityStack.Api.Tests/Performance/AuthEndpointLatencyTests.cs
 - [X] T108 [P] Add audit log assertions for application lifecycle and credential lifecycle events in tests/OpenIdentityStack.Infrastructure.Tests/Audit/AuditLogServiceTests.cs
@@ -197,8 +197,8 @@
 - [X] T111 Run restore/build validation documented in specs/006-unify-applications-model/quickstart.md using `dotnet restore OpenIdentityStack.slnx` and `dotnet build OpenIdentityStack.slnx --no-restore`
 - [X] T112 Run focused backend tests documented in specs/006-unify-applications-model/quickstart.md for Domain, Application, and Infrastructure test projects
 - [X] T113 Run API and contract module tests documented in specs/006-unify-applications-model/quickstart.md for `*Api.Tests.dll` and `*Contract.Tests.dll`
-- [ ] T114 Run AdminWeb build/lint/unit validation documented in specs/006-unify-applications-model/quickstart.md from src/OpenIdentityStack.AdminWeb/
-- [X] T115 Run AdminWeb E2E validation documented in specs/006-unify-applications-model/quickstart.md for tests/OpenIdentityStack.AdminWeb.E2ETests/OpenIdentityStack.AdminWeb.E2ETests.csproj
+- [ ] T114 Run Management Web build/lint/unit validation documented in specs/006-unify-applications-model/quickstart.md from src/OpenIdentityStack.ManagementWeb/
+- [X] T115 Run Management Web E2E validation documented in specs/006-unify-applications-model/quickstart.md for tests/OpenIdentityStack.ManagementWeb.E2ETests/OpenIdentityStack.ManagementWeb.E2ETests.csproj
 - [X] T116 Run docs validation documented in specs/006-unify-applications-model/quickstart.md using `python -m mkdocs build --strict`
 
 ---
@@ -216,9 +216,9 @@
 - [X] T123 [BREAKING] Remove invalid service-account grant compatibility/preflight behavior; unsupported legacy ServiceAccounts data is not preserved and old service-account tables are dropped after Applications become authoritative
 - [X] T124 [BREAKING] Add EF cleanup migration that drops legacy `Clients`, `ServiceAccounts`, `ClientCredentials`, and `ClientCertificates` tables after required application data migration
 - [X] T125 [BREAKING] Remove legacy permission constants or confine them to migration-only code after `applications:*` role permission mapping is complete
-- [X] T126 [BREAKING] Remove legacy AdminWeb `/clients` and `/service-accounts` redirects/exports if they only exist for compatibility in src/OpenIdentityStack.AdminWeb/src/routes/index.tsx and feature index files
+- [X] T126 [BREAKING] Remove legacy Management Web `/clients` and `/service-accounts` redirects/exports if they only exist for compatibility in src/OpenIdentityStack.ManagementWeb/src/routes/index.tsx and feature index files
 - [X] T127 [P] [BREAKING] Update docs, README, deploy guidance, and quickstart to describe removed legacy endpoints instead of compatibility windows or deprecation headers
-- [X] T128 [BREAKING] Re-run restore/build plus affected API, contract, infrastructure migration, AdminWeb navigation, and docs validation after compatibility removal
+- [X] T128 [BREAKING] Re-run restore/build plus affected API, contract, infrastructure migration, Management Web navigation, and docs validation after compatibility removal
 
 **Checkpoint**: The feature is aligned with the resolved pre-1.0 breaking-change policy when legacy admin API routes are gone, compatibility configuration is gone, old tables are dropped after migration, and docs/tests no longer describe compatibility behavior.
 
@@ -226,7 +226,7 @@
 
 ## Phase 8: Application Profile Policy and Option Railroading
 
-**Purpose**: Model the application profile option matrix as API-owned business rules and AdminWeb guardrails. The API must enforce policy even when callers bypass the UI; AdminWeb should railroad administrators into valid choices by hiding unavailable options and showing fixed defaults.
+**Purpose**: Model the application profile option matrix as API-owned business rules and Management Web guardrails. The API must enforce policy even when callers bypass the UI; Management Web should railroad administrators into valid choices by hiding unavailable options and showing fixed defaults.
 
 ### Tests for Application Profile Policy
 
@@ -235,9 +235,9 @@
 - [x] T131 [P] [POLICY] Add application/use-case tests that create/configure rejects disallowed grant, client profile, PKCE, consent, redirect, post-logout redirect, and credential combinations per type in tests/OpenIdentityStack.Application.Tests/Applications/ApplicationProfilePolicyUseCaseTests.cs
 - [x] T132 [P] [POLICY] Add API workflow tests for valid default create/configure requests by type and invalid matrix combinations returning validation errors in tests/OpenIdentityStack.Api.Tests/Admin/Applications/ApplicationProfilePolicyEndpointTests.cs
 - [x] T133 [P] [POLICY] Add contract tests for application profile policy response shape and validation error examples in tests/OpenIdentityStack.Contract.Tests/Admin/Applications/ApplicationProfilePolicyContractTests.cs
-- [x] T134 [P] [POLICY] Add AdminWeb API client tests for fetching application profile policies and applying availability metadata in src/OpenIdentityStack.AdminWeb/src/features/applications/api/applications-api.test.ts
-- [x] T135 [P] [POLICY] Add AdminWeb form tests for profile-specific railroading: Web, Single Page, Native, Machine-to-machine, and reserved Device controls in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationProfilePolicyForm.test.tsx
-- [x] T136 [P] [POLICY] Add AdminWeb credential UI tests ensuring secret/certificate controls are hidden for public profiles and shown only for confidential profiles in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationCredentials.test.tsx
+- [x] T134 [P] [POLICY] Add Management Web API client tests for fetching application profile policies and applying availability metadata in src/OpenIdentityStack.ManagementWeb/src/features/applications/api/applications-api.test.ts
+- [x] T135 [P] [POLICY] Add Management Web form tests for profile-specific railroading: Web, Single Page, Native, Machine-to-machine, and reserved Device controls in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationProfilePolicyForm.test.tsx
+- [x] T136 [P] [POLICY] Add Management Web credential UI tests ensuring secret/certificate controls are hidden for public profiles and shown only for confidential profiles in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationCredentials.test.tsx
 
 ### Implementation for Application Profile Policy
 
@@ -252,18 +252,18 @@
 - [x] T145 [POLICY] Update `/api/admin/applications` create and `/api/admin/applications/{id}/oauth` configure endpoints to enforce policy and return clear validation responses for matrix violations in src/OpenIdentityStack.Api/Applications/ApplicationsApi.cs
 - [x] T146 [POLICY] Keep advanced matrix options (`private_key_jwt`, mTLS, JWKS, DPoP, token lifetime overrides, confidential Device behavior) as `Advanced` metadata only; do not add working protocol behavior in src/OpenIdentityStack.Domain/Applications/ and src/OpenIdentityStack.Api/Applications/
 - [x] T147 [POLICY] Update OpenAPI contract with application profile policy endpoint and policy-driven validation semantics in specs/006-unify-applications-model/contracts/applications.openapi.yaml and tests/OpenIdentityStack.Contract.Tests/Admin/Applications/applications.openapi.yaml
-- [x] T148 [POLICY] Update AdminWeb application API/types to fetch and type profile-policy metadata in src/OpenIdentityStack.AdminWeb/src/features/applications/api/applications-api.ts and src/OpenIdentityStack.AdminWeb/src/types/index.ts
-- [x] T149 [POLICY] Add AdminWeb hooks for application profile policies in src/OpenIdentityStack.AdminWeb/src/features/applications/hooks/useApplicationProfilePolicies.ts
-- [x] T150 [POLICY] Refactor AdminWeb application form into a profile-first flow that derives visible fields, fixed defaults, allowed grants, PKCE/consent controls, redirect fields, and credential hints from policy metadata in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx
-- [x] T151 [POLICY] Add Native redirect URI guidance and validation hints for claimed HTTPS, private scheme, and loopback redirect patterns in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx
-- [x] T152 [POLICY] Add Single Page browser-origin guidance and hide confidential credential controls in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx and src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationCredentials.tsx
-- [x] T153 [POLICY] Add Machine-to-machine railroading so only `client_credentials`, confidential profile, no redirects, no consent, and credential-management actions are presented in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx
-- [x] T154 [POLICY] Show reserved Device type as unavailable unless the device authorization flow is implemented and tested in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationForm.tsx
+- [x] T148 [POLICY] Update Management Web application API/types to fetch and type profile-policy metadata in src/OpenIdentityStack.ManagementWeb/src/features/applications/api/applications-api.ts and src/OpenIdentityStack.ManagementWeb/src/types/index.ts
+- [x] T149 [POLICY] Add Management Web hooks for application profile policies in src/OpenIdentityStack.ManagementWeb/src/features/applications/hooks/useApplicationProfilePolicies.ts
+- [x] T150 [POLICY] Refactor Management Web application form into a profile-first flow that derives visible fields, fixed defaults, allowed grants, PKCE/consent controls, redirect fields, and credential hints from policy metadata in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationForm.tsx
+- [x] T151 [POLICY] Add Native redirect URI guidance and validation hints for claimed HTTPS, private scheme, and loopback redirect patterns in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationForm.tsx
+- [x] T152 [POLICY] Add Single Page browser-origin guidance and hide confidential credential controls in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationForm.tsx and src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationCredentials.tsx
+- [x] T153 [POLICY] Add Machine-to-machine railroading so only `client_credentials`, confidential profile, no redirects, no consent, and credential-management actions are presented in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationForm.tsx
+- [x] T154 [POLICY] Show reserved Device type as unavailable unless the device authorization flow is implemented and tested in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationForm.tsx
 - [x] T155 [POLICY] Update administrator docs to describe application profile choices, fixed defaults, hidden unavailable options, and advanced metadata-only options in docs/admin-applications.md
 - [x] T156 [POLICY] Update quickstart validation with policy API and UI railroading smoke scenarios in specs/006-unify-applications-model/quickstart.md
-- [x] T157 [POLICY] Re-run build plus affected domain, application, API, contract, AdminWeb policy/form, and docs validation after policy implementation
+- [x] T157 [POLICY] Re-run build plus affected domain, application, API, contract, Management Web policy/form, and docs validation after policy implementation
 
-**Checkpoint**: Application profile choices are safe by construction when API calls enforce the matrix and AdminWeb guides administrators through only sensible options for each type.
+**Checkpoint**: Application profile choices are safe by construction when API calls enforce the matrix and Management Web guides administrators through only sensible options for each type.
 
 ---
 
@@ -275,7 +275,7 @@
 
 - [ ] T158 [P] [PROFILE] Update domain and application tests to use `ApplicationProfile` and `Profile` terminology instead of `ApplicationProfile` and `Type` in tests/OpenIdentityStack.Domain.Tests/Applications/ and tests/OpenIdentityStack.Application.Tests/Applications/
 - [ ] T159 [P] [PROFILE] Update API and contract tests to send and assert `profile` request/query/response fields and `ApplicationProfile` OpenAPI schemas in tests/OpenIdentityStack.Api.Tests/Admin/Applications/, tests/OpenIdentityStack.Contract.Tests/Admin/Applications/, and tests/OpenIdentityStack.Contract.Tests/Admin/Applications/applications.openapi.yaml
-- [ ] T160 [P] [PROFILE] Update AdminWeb tests for `ApplicationProfile` types, `profile` DTO/form/filter fields, and Profile labels/filters in src/OpenIdentityStack.AdminWeb/src/features/applications/ and src/OpenIdentityStack.AdminWeb/src/types/
+- [ ] T160 [P] [PROFILE] Update Management Web tests for `ApplicationProfile` types, `profile` DTO/form/filter fields, and Profile labels/filters in src/OpenIdentityStack.ManagementWeb/src/features/applications/ and src/OpenIdentityStack.ManagementWeb/src/types/
 - [ ] T161 [P] [PROFILE] Update persistence and migration tests to assert `Applications.Profile` and `IX_Applications_Profile` in tests/OpenIdentityStack.Infrastructure.Tests/Persistence/Applications/ and tests/OpenIdentityStack.Infrastructure.Tests/Applications/
 
 ### Implementation for Application Profile Refactor
@@ -284,11 +284,11 @@
 - [ ] T163 [PROFILE] Rename API request/response DTO properties, list filter/query parameter names, and OpenAPI schema/property names from `type` to `profile` in src/OpenIdentityStack.Api/Applications/ApplicationRequests.cs, src/OpenIdentityStack.Api/Applications/ApplicationsApi.cs, and specs/006-unify-applications-model/contracts/applications.openapi.yaml
 - [ ] T164 [PROFILE] Keep OpenIddict protocol naming unchanged while renaming local projection helpers, variables, and mappings to use `ApplicationProfile` in src/OpenIdentityStack.Infrastructure/Identity/OpenIddictApplicationProjection.cs, src/OpenIdentityStack.Infrastructure/Identity/OpenIddictSetup.cs, and related identity adapters
 - [ ] T165 [PROFILE] Rename EF model mappings, database column/index names, migrations, and model snapshot entries from `Type` to `Profile` in src/OpenIdentityStack.Infrastructure/Persistence/Applications/, src/OpenIdentityStack.Infrastructure/Persistence/Migrations/, and src/OpenIdentityStack.Infrastructure/Persistence/OpenIdentityStackDbContextModelSnapshot.cs
-- [ ] T166 [PROFILE] Rename AdminWeb `ApplicationProfile` types, `type` DTO/form/filter fields, and user-facing labels/placeholders to `ApplicationProfile`/`profile`/Profile in src/OpenIdentityStack.AdminWeb/src/features/applications/ and src/OpenIdentityStack.AdminWeb/src/types/index.ts
+- [ ] T166 [PROFILE] Rename Management Web `ApplicationProfile` types, `type` DTO/form/filter fields, and user-facing labels/placeholders to `ApplicationProfile`/`profile`/Profile in src/OpenIdentityStack.ManagementWeb/src/features/applications/ and src/OpenIdentityStack.ManagementWeb/src/types/index.ts
 - [ ] T167 [P] [PROFILE] Update spec artifacts and product docs to use Application Profile/Profile terminology in specs/006-unify-applications-model/, docs/admin-applications.md, docs/applications-migration.md, and README.md
-- [ ] T168 [PROFILE] Re-run build plus affected backend, API/contract, infrastructure migration, AdminWeb, and docs validation after the Application Profile terminology refactor
+- [ ] T168 [PROFILE] Re-run build plus affected backend, API/contract, infrastructure migration, Management Web, and docs validation after the Application Profile terminology refactor
 
-**Checkpoint**: The unified Applications feature is terminology-consistent when product-facing code and contracts expose `ApplicationProfile`/`profile`, persisted schema uses `Profile`, AdminWeb labels use Profile, and OpenIddict protocol `ApplicationProfile` naming remains adapter-only.
+**Checkpoint**: The unified Applications feature is terminology-consistent when product-facing code and contracts expose `ApplicationProfile`/`profile`, persisted schema uses `Profile`, Management Web labels use Profile, and OpenIddict protocol `ApplicationProfile` naming remains adapter-only.
 
 ---
 
@@ -299,11 +299,11 @@
 - **Setup (Phase 1)**: No dependencies.
 - **Foundational (Phase 2)**: Depends on Setup completion and blocks all user stories.
 - **User Story 1 (Phase 3)**: Depends on Foundational; provides MVP unified application management.
-- **User Story 2 (Phase 4)**: Depends on Foundational and can start independently, but token validation and AdminWeb detail tabs integrate with US1 artifacts.
+- **User Story 2 (Phase 4)**: Depends on Foundational and can start independently, but token validation and Management Web detail tabs integrate with US1 artifacts.
 - **User Story 3 (Phase 5)**: Depends on Foundational and is safest after US1 application persistence/use cases exist; migration integrates with US1 use cases and US2 credential mapping.
 - **Polish (Phase 6)**: Depends on completed target user stories.
 - **Breaking-change alignment (Phase 7)**: Depends on completed target user stories and supersedes already-created compatibility code.
-- **Application profile policy (Phase 8)**: Depends on the unified Applications domain/API/AdminWeb from US1/US2 and should run after Phase 7 so policy work is not duplicated across removed compatibility surfaces.
+- **Application profile policy (Phase 8)**: Depends on the unified Applications domain/API/Management Web from US1/US2 and should run after Phase 7 so policy work is not duplicated across removed compatibility surfaces.
 - **Application profile terminology refactor (Phase 9)**: Depends on Phases 7-8 so the rename is applied once the breaking-change and policy surfaces are stable; it refactors existing product-facing code and contracts without changing underlying behavior.
 
 ### User Story Dependencies
@@ -319,7 +319,7 @@
 - Write tests first and confirm they fail.
 - Implement domain model before application use cases.
 - Implement use cases before infrastructure adapters and API endpoints.
-- Implement API contract before AdminWeb integration.
+- Implement API contract before Management Web integration.
 - Add security, audit, validation, and safe error behavior before checkpoint validation.
 
 ## Parallel Opportunities
@@ -327,21 +327,21 @@
 - Setup tasks T002-T005 can run in parallel after T001 path decisions are accepted.
 - Foundational tasks T006-T015 and T017-T018 can run in parallel; T016, T019, and T020 integrate them.
 - US1 tests T021-T029 can run in parallel before implementation.
-- US1 domain/application/API/AdminWeb implementation has parallel lanes: T030-T034, T037-T041, T043-T045, and T046-T050.
+- US1 domain/application/API/Management Web implementation has parallel lanes: T030-T034, T037-T041, T043-T045, and T046-T050.
 - US2 tests T054-T061 can run in parallel before implementation.
-- US2 credential domain/application/API/AdminWeb lanes T062-T066, T067-T075, and T076-T079 can run in parallel after domain contracts stabilize.
+- US2 credential domain/application/API/Management Web lanes T062-T066, T067-T075, and T076-T079 can run in parallel after domain contracts stabilize.
 - US3 migration tests T080-T087 can run in parallel before implementation.
-- US3 migration, removed-endpoint API behavior, AdminWeb route cleanup, and docs tasks T088-T101/T117-T128 can run as separate lanes after the shared application use cases exist.
+- US3 migration, removed-endpoint API behavior, Management Web route cleanup, and docs tasks T088-T101/T117-T128 can run as separate lanes after the shared application use cases exist.
 - Polish tasks T102-T108 can run in parallel; validation tasks T111-T116 should run after implementation stabilization.
-- Phase 8 policy tests T129-T136 can run in parallel before implementation; backend policy tasks T137-T147 and AdminWeb railroading tasks T148-T154 can proceed in parallel after the policy contract stabilizes.
-- Phase 9 terminology tests T158-T161 can run in parallel before implementation; backend/API/persistence rename tasks T162-T165, AdminWeb rename task T166, and docs/spec task T167 can run in parallel once the rename map is agreed.
+- Phase 8 policy tests T129-T136 can run in parallel before implementation; backend policy tasks T137-T147 and Management Web railroading tasks T148-T154 can proceed in parallel after the policy contract stabilizes.
+- Phase 9 terminology tests T158-T161 can run in parallel before implementation; backend/API/persistence rename tasks T162-T165, Management Web rename task T166, and docs/spec task T167 can run in parallel once the rename map is agreed.
 
 ## Parallel Example: User Story 1
 
 ```text
 Task: "T021 Add domain tests for application creation, client ID validation, display name validation, metadata updates, enable/disable, and delete behavior in tests/OpenIdentityStack.Domain.Tests/Applications/ApplicationTests.cs"
 Task: "T026 Add API workflow tests for create/get/list/update/configure/disable/enable/delete endpoints in tests/OpenIdentityStack.Api.Tests/Admin/Applications/ApplicationsEndpointWorkflowTests.cs"
-Task: "T028 Add AdminWeb API client tests for applications list/get/create/update/delete calls in src/OpenIdentityStack.AdminWeb/src/features/applications/api/applications-api.test.ts"
+Task: "T028 Add Management Web API client tests for applications list/get/create/update/delete calls in src/OpenIdentityStack.ManagementWeb/src/features/applications/api/applications-api.test.ts"
 ```
 
 ## Parallel Example: User Story 2
@@ -349,7 +349,7 @@ Task: "T028 Add AdminWeb API client tests for applications list/get/create/updat
 ```text
 Task: "T054 Add domain tests for ApplicationCredential secret/certificate creation, revocation, expiration, active state, and public-application rejection in tests/OpenIdentityStack.Domain.Tests/Applications/ApplicationCredentialTests.cs"
 Task: "T057 Add infrastructure identity tests for application client authentication handler secret/certificate/disabled/revoked/expired behavior in tests/OpenIdentityStack.Infrastructure.Tests/Identity/ApplicationClientAuthenticationHandlerTests.cs"
-Task: "T061 Add AdminWeb tests for application credential dialogs, one-time secret display, and public credential rejection messages in src/OpenIdentityStack.AdminWeb/src/features/applications/components/ApplicationCredentials.test.tsx"
+Task: "T061 Add Management Web tests for application credential dialogs, one-time secret display, and public credential rejection messages in src/OpenIdentityStack.ManagementWeb/src/features/applications/components/ApplicationCredentials.test.tsx"
 ```
 
 ## Parallel Example: User Story 3
@@ -367,7 +367,7 @@ Task: "T127 Update docs, README, deploy guidance, and quickstart to describe rem
 1. Complete Phase 1 setup tasks T001-T005.
 2. Complete Phase 2 foundation tasks T006-T020.
 3. Complete Phase 3 US1 tasks T021-T053.
-4. Stop and validate unified application CRUD/status/configuration through tests and AdminWeb baseline flows.
+4. Stop and validate unified application CRUD/status/configuration through tests and Management Web baseline flows.
 5. Demo the unified Applications model without credential lifecycle or migration cleanup.
 
 ### Incremental Delivery
@@ -376,7 +376,7 @@ Task: "T127 Update docs, README, deploy guidance, and quickstart to describe rem
 2. Deliver US2 to harden machine-to-machine application and credential behavior.
 3. Deliver US3 to migrate supported legacy data.
 4. Complete Phase 7 breaking-change alignment to remove compatibility code introduced earlier.
-5. Complete Phase 8 application profile policy enforcement and AdminWeb railroading.
+5. Complete Phase 8 application profile policy enforcement and Management Web railroading.
 6. Complete Phase 9 application profile terminology refactor across product-facing code, contracts, persistence, and documentation.
 7. Complete Phase 6 hardening, documentation, and validation before release.
 
@@ -387,8 +387,8 @@ Task: "T127 Update docs, README, deploy guidance, and quickstart to describe rem
 3. Persistence/OpenIddict lane owns T038-T042, T069-T071, and T080-T093.
 4. API/contract lane owns T026-T027, T043-T045, T058-T060, T084-T097, and breaking cleanup T117-T121.
 5. Policy/backend lane owns T129-T147.
-6. AdminWeb lane owns T028-T029, T046-T052, T061, T076-T079, T087-T100, T126, and T148-T154.
-7. Terminology refactor lane owns T158-T167 across backend, API/OpenAPI, persistence, AdminWeb, and docs.
+6. Management Web lane owns T028-T029, T046-T052, T061, T076-T079, T087-T100, T126, and T148-T154.
+7. Terminology refactor lane owns T158-T167 across backend, API/OpenAPI, persistence, Management Web, and docs.
 8. Docs/ops lane owns T098, T101-T105, T127, T155-T156, T167, and final validation coordination T111-T116/T128/T157/T168.
 
 ## Notes
@@ -396,7 +396,8 @@ Task: "T127 Update docs, README, deploy guidance, and quickstart to describe rem
 - Use direct use cases/query handlers and explicit DTO mapping; do not introduce MediatR or AutoMapper.
 - Use System.Text.Json, Microsoft OpenAPI, and Scalar patterns; do not introduce Newtonsoft.Json or Swashbuckle/Swagger packages.
 - Keep domain code independent from EF Core, ASP.NET Core, OpenIddict, and React.
-- Plain secrets and secret hashes must never be logged, returned outside one-time secret responses, exposed in AdminWeb after dismissal, or included in audit payloads.
+- Plain secrets and secret hashes must never be logged, returned outside one-time secret responses, exposed in Management Web after dismissal, or included in audit payloads.
 - Legacy client/service-account admin endpoints are removed in this pre-1.0 breaking change; do not add compatibility adapters.
-- API policy enforcement is authoritative; AdminWeb railroading improves UX but must never be the only business-rule check.
+- API policy enforcement is authoritative; Management Web railroading improves UX but must never be the only business-rule check.
 - Advanced matrix options are represented as unavailable/advanced policy metadata only until explicit protocol support and tests are added.
+

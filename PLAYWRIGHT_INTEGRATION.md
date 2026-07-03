@@ -38,7 +38,7 @@ Integrated Playwright E2E tests into the .NET test suite so they run and block C
      - Full stdout from Playwright
      - Full stderr from Playwright
      - Actual Management Web URL
-     - Actual Admin Web URL
+     - Actual Management Web URL
   8. Properly restores original environment variables
   9. Cleans up Aspire resources
 
@@ -104,8 +104,8 @@ The following tests are now executed and must pass:
 2. **`auth-continuity.spec.ts`**: Tests dual-UI independence
    - Navigate to Management Web
    - Verify Management Web is reachable
-   - Navigate to Admin Web
-   - Verify Admin Web is reachable
+   - Navigate to Management Web
+   - Verify Management Web is reachable
    - Navigate back to Management Web
    - Verify Management Web still works
 
@@ -143,7 +143,7 @@ When `dotnet test` is run (including in CI):
 2. **Used Aspire resource discovery** for dynamic URLs instead of hardcoded ports
 3. **Comprehensive error messages** that include both stdout/stderr and actual URLs for debugging
 4. **Environment variable preservation** to avoid side effects on parallel tests
-5. **Fallback for Admin Web URL** when not running to support auth-continuity test
+5. **Fallback for Management Web URL** when not running to support auth-continuity test
 6. **Uses existing TestSeeder** to create realistic test data matching production patterns
 
 ## Files Modified/Created
@@ -158,3 +158,4 @@ When `dotnet test` is run (including in CI):
 **After:** Actually executes Playwright tests against running Aspire stack - **Failures block the build**
 
 The implementation fully addresses the code review comment by ensuring that the new E2E journeys (users and auth-continuity) actually execute and block CI if they fail.
+

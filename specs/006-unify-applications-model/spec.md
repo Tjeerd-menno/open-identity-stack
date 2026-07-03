@@ -61,7 +61,7 @@ As an administrator, I can choose an application profile and only see or submit 
 
 **Why this priority**: The unified model is only safe if product profiles enforce OAuth security rules consistently. The API must be authoritative and the UI should guide administrators away from invalid or insecure combinations before submission.
 
-**Independent Test**: For each supported application profile, request the policy/options matrix, create/configure applications with valid defaults, and verify the API rejects disallowed grants, redirect settings, client profiles, and credential operations while the AdminWeb form hides unavailable options and displays fixed defaults.
+**Independent Test**: For each supported application profile, request the policy/options matrix, create/configure applications with valid defaults, and verify the API rejects disallowed grants, redirect settings, client profiles, and credential operations while the Management Web form hides unavailable options and displays fixed defaults.
 
 **Acceptance Scenarios**:
 
@@ -106,8 +106,8 @@ As an administrator, I can choose an application profile and only see or submit 
 - **FR-016**: The system MUST enforce application-profile policy rules in API use cases and endpoints, treating UI restrictions as guidance only and never as the source of truth.
 - **FR-017**: The system MUST prevent application profile changes after creation unless a future explicit migration workflow is implemented.
 - **FR-018**: The system MUST keep advanced options from `application-type-options-matrix.md` as application-profile policy metadata only unless the corresponding protocol behavior is explicitly implemented and tested.
-- **FR-019**: The AdminWeb MUST railroad administrators through application-profile-specific choices by hiding unavailable controls, showing fixed defaults as read-only or implicit, and preventing invalid grant/credential/redirect combinations before submission.
-- **FR-020**: The system MUST expose the product classification as `ApplicationProfile` in domain/application code and as `profile` in API and AdminWeb contracts, while preserving protocol-level OpenIddict `ApplicationType` naming only inside infrastructure adapters.
+- **FR-019**: The Management Web MUST railroad administrators through application-profile-specific choices by hiding unavailable controls, showing fixed defaults as read-only or implicit, and preventing invalid grant/credential/redirect combinations before submission.
+- **FR-020**: The system MUST expose the product classification as `ApplicationProfile` in domain/application code and as `profile` in API and Management Web contracts, while preserving protocol-level OpenIddict `ApplicationType` naming only inside infrastructure adapters.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -122,7 +122,7 @@ As an administrator, I can choose an application profile and only see or submit 
 - **Secrets & Certificates**: Plain secrets are shown only at creation/rotation time and are never persisted in readable form; revoked/expired credentials cannot authenticate.
 - **Audit Events**: Application create/update/disable/enable/delete and credential add/rotate/revoke actions are audit logged with actor and timestamp.
 - **Safe Failure Modes**: Migration preflight blocks conflicting data before mutation; invalid configuration requests return explicit validation errors without leaking sensitive details.
-- **Policy Enforcement**: API validation rejects disallowed application-profile combinations even if a caller bypasses the AdminWeb.
+- **Policy Enforcement**: API validation rejects disallowed application-profile combinations even if a caller bypasses the Management Web.
 - **Operations**: Migration is planned for transactional execution where supported, with old admin API routes removed as part of the pre-1.0 breaking change.
 
 ## Test Strategy *(mandatory)*
@@ -130,8 +130,8 @@ As an administrator, I can choose an application profile and only see or submit 
 - **Unit Tests**: Validate application invariants (profile/grant/redirect/credential rules), lifecycle transitions, and permission mapping behavior.
 - **API/Integration Tests**: Validate end-to-end admin workflows, migration behavior, disable-token-block behavior, credential lifecycle flows, API rejection of every disallowed profile policy combination, and the `profile` request/response shape.
 - **Contract Tests**: Validate unified admin contract behavior, application-profile policy response shape, `profile` request/query/response naming, and ensure removed legacy admin routes are not part of the supported contract.
-- **AdminWeb Tests**: Validate application-centric terminology, machine-to-machine workflows, credential management UX behavior, and profile-specific railroaded form behavior.
-- **Validation Commands**: Run the repository’s existing backend, integration, contract, and admin web test commands used by CI.
+- **Management Web Tests**: Validate application-centric terminology, machine-to-machine workflows, credential management UX behavior, and profile-specific railroaded form behavior.
+- **Validation Commands**: Run the repository’s existing backend, integration, contract, and management web test commands used by CI.
 
 ## Documentation & Deployment Impact *(mandatory)*
 
@@ -149,7 +149,7 @@ As an administrator, I can choose an application profile and only see or submit 
 - **SC-004**: 100% of disabled applications are prevented from obtaining new tokens after disablement.
 - **SC-005**: Support tickets related to "client vs service account confusion" decrease by at least 50% within one release after rollout.
 - **SC-006**: 100% of application create/configure API requests that violate the profile policy matrix fail with deterministic validation errors.
-- **SC-007**: 100% of AdminWeb application creation/configuration paths hide or disable unavailable options for the selected application profile.
+- **SC-007**: 100% of Management Web application creation/configuration paths hide or disable unavailable options for the selected application profile.
 - **SC-008**: 100% of supported Applications API request, response, filter, and OpenAPI surfaces expose the product classification as `profile` rather than `type`.
 
 ## Assumptions
@@ -159,3 +159,5 @@ As an administrator, I can choose an application profile and only see or submit 
 - Machine-to-machine applications are limited to non-interactive grant behavior in this release.
 - Advanced matrix options such as private-key JWT, mTLS, JWKS, DPoP, token lifetime overrides, and confidential Device behavior are metadata/reserved unless explicitly implemented in a later feature.
 - Existing external integrations depend on stable client identifiers that must remain unchanged through migration.
+
+

@@ -96,7 +96,7 @@
 - Allow legacy grants in `Custom` without feature flags: rejected because it weakens safe-by-default behavior.
 - Drop legacy grant data during migration: rejected because it silently changes existing behavior.
 
-## Decision: Update AdminWeb around an application-profile-first workflow
+## Decision: Update Management Web around an application-profile-first workflow
 
 **Rationale**: Application profile determines safe defaults for grants, redirects, PKCE, consent, and credential behavior. A profile-first wizard reduces misconfiguration and explains the product terms.
 
@@ -104,3 +104,4 @@
 
 - Keep separate Clients and Service Accounts pages: rejected because it fails the product simplification goal.
 - Use a flat one-page form for all fields: rejected because profile-specific rules are easier to understand in a guided flow.
+

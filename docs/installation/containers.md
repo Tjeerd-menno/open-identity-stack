@@ -12,7 +12,7 @@ OpenIdentityStack publishes separate container images for:
 
 Runs the OpenID Connect and OAuth 2.0 authority, admin APIs, login UI, and health endpoints.
 
-### Admin web
+### Management Web
 
 Runs the browser-based administration experience.
 
@@ -43,3 +43,5 @@ At a minimum, a container deployment needs:
 - environment-specific hostnames
 
 Use your deployment platform to inject secrets, config maps, and mounted files instead.
+
+

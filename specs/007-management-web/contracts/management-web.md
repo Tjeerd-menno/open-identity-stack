@@ -2,22 +2,22 @@
 
 ## Purpose
 
-Defines the expected operator-facing behavior for ManagementWeb after the AdminWeb parity expansion.
+Defines the expected operator-facing behavior for ManagementWeb after the Management Web parity expansion.
 
 ## Contract Surface
 
-- **Entry point**: Separate hostname from AdminWeb.
+- **Entry point**: Separate hostname from Management Web.
 - **Authentication**: Reuses the active identity-provider session when present.
 - **Authorization**: Uses normalized frontend permission checks while backend policy remains authoritative. ManagementWeb consumes granular permissions from `permission`, `permissions`, `scope`, and `scp` claims in both OIDC profile data and access-token payloads. It must not infer authorization from role names alone.
 - **Theme behavior**: Supports light, dark, and system appearance.
 - **Visual system**: Uses Mantine components and patterns.
-- **Behavior baseline**: AdminWeb behavior is the parity baseline unless this contract states an explicit deviation.
+- **Behavior baseline**: Management Web behavior is the parity baseline unless this contract states an explicit deviation.
 - **Applications**: Uses only `/api/admin/applications`; no Clients or Service Accounts UI is exposed.
 - **Audit**: Adds ManagementWeb-only audit visibility backed by `GET /api/admin/audit-entries`.
 
 ## Routes
 
-ManagementWeb preserves AdminWeb-compatible route paths where the domain still exists:
+ManagementWeb preserves Management Web-compatible route paths where the domain still exists:
 
 - `/`
 - `/users`
@@ -95,7 +95,8 @@ Response shape:
 
 1. An authenticated operator can open ManagementWeb without a second login when already signed in elsewhere.
 2. The operator can switch appearance mode and see the choice persist on return.
-3. Applications behave like AdminWeb Applications and never fall back to Clients or Service Accounts.
+3. Applications behave like Management Web Applications and never fall back to Clients or Service Accounts.
 4. Each completed vertical slice has unit/component/API coverage and meaningful E2E coverage.
 5. Permission-gated actions are hidden or disabled consistently from granular permission grants, and backend authorization failures are surfaced clearly.
 6. Audit entries can be filtered, paged, and expanded without a second detail endpoint.
+

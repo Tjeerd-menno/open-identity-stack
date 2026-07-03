@@ -141,7 +141,7 @@ public static class PactHelper
 ///         .ServiceProvider("OpenIdentityStack.Api", "https://localhost:5001")
 ///         .WithPactBrokerSource(new Uri("https://your-pact-broker.com"))
 ///         // OR
-///         .WithFileSource(new FileInfo("./pacts/adminweb-openidentitystack.api.json"))
+///         .WithFileSource(new FileInfo("./pacts/managementweb-openidentitystack.api.json"))
 ///         .WithProviderStateUrl(new Uri("https://localhost:5001/provider-states"))
 ///         .Verify();
 /// }
@@ -151,3 +151,4 @@ public static class PactUsageExamples
 {
     // This class exists solely for documentation purposes
 }
+

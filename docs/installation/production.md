@@ -39,7 +39,7 @@ kubectl apply -k <your-kustomize-directory>
 kubectl wait --for=condition=Ready <your-postgres-resource> -n open-identity-stack --timeout=10m
 kubectl wait --for=condition=complete job/open-identity-stack-db-migrator -n open-identity-stack --timeout=10m
 kubectl rollout status deployment/open-identity-stack-api -n open-identity-stack --timeout=10m
-kubectl rollout status deployment/open-identity-stack-adminweb -n open-identity-stack --timeout=10m
+kubectl rollout status deployment/open-identity-stack-managementweb -n open-identity-stack --timeout=10m
 ```
 
 ## Container responsibilities
@@ -52,7 +52,7 @@ The API deployment expects:
 - `AllowedCorsOrigins`
 - mounted certificate and private key files for signing and encryption
 
-### Admin web
+### Management Web
 
 The management web deployment reads its browser-facing configuration from the shared config map. It should point at the public authority and API paths that your users will actually reach.
 
@@ -79,3 +79,5 @@ Before first login, confirm:
 - [Configuration overview](../configuration/index.md)
 - [Operations overview](../operations/index.md)
 - [Hardening checklist](../security/hardening-checklist.md)
+
+

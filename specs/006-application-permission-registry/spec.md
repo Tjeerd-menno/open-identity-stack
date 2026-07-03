@@ -25,7 +25,7 @@ An application/resource API owner registers an application permission manifest s
 
 **Why this priority**: Dynamic application permissions do not exist until the registry can store complete versioned manifests, ownership, maintainers, and current application state.
 
-**Independent Test**: Create an application permission registration from an inline manifest, view it in AdminWeb, update it with a strictly newer non-destructive inline manifest, and verify same/older manifest versions are rejected.
+**Independent Test**: Create an application permission registration from an inline manifest, view it in Management Web, update it with a strictly newer non-destructive inline manifest, and verify same/older manifest versions are rejected.
 
 **Acceptance Scenarios**:
 
@@ -43,11 +43,11 @@ An administrator edits roles using platform permissions and dynamic application 
 
 **Why this priority**: The registry only delivers value when registered permissions can be safely consumed by RBAC role workflows.
 
-**Independent Test**: Register an application with multiple permissions, assign a concrete dynamic permission and an aggregate wildcard permission to a role through AdminWeb, confirm wildcard acknowledgement is required, and verify token/introspection permission emission contains concrete permissions only.
+**Independent Test**: Register an application with multiple permissions, assign a concrete dynamic permission and an aggregate wildcard permission to a role through Management Web, confirm wildcard acknowledgement is required, and verify token/introspection permission emission contains concrete permissions only.
 
 **Acceptance Scenarios**:
 
-1. **Given** current application permissions exist, **When** an administrator opens role editing, **Then** AdminWeb shows platform permissions and application permissions in one picker while the backend keeps their catalog endpoints separate.
+1. **Given** current application permissions exist, **When** an administrator opens role editing, **Then** Management Web shows platform permissions and application permissions in one picker while the backend keeps their catalog endpoints separate.
 2. **Given** a permission aggregate has current concrete permissions, **When** the catalog is queried, **Then** IAM returns a derived `application:aggregate:*` wildcard entry marked as `kind: wildcard`.
 3. **Given** a role mutation adds a platform wildcard, dynamic aggregate wildcard, or `*`, **When** the request omits `acknowledgeWildcardGrant`, **Then** IAM returns `409 RolePermissions.BroadGrantAcknowledgementRequired` with structured warning details.
 4. **Given** a role already has a broad grant, **When** a replacement operation preserves it, **Then** IAM does not require re-acknowledgement.
@@ -62,14 +62,14 @@ An application permission admin removes permissions or applications while IAM to
 
 **Why this priority**: Complete versioned manifests may omit permissions, and registry cleanup must keep role assignments consistent without leaving missing permission strings.
 
-**Independent Test**: Apply a newer manifest that omits a permission with exact and wildcard role assignments, verify AdminWeb requires preview, and verify IAM tombstones the permission, removes exact role assignments, collapses wildcard assignments when the aggregate disappears, advances manifest version, and records audit details transactionally.
+**Independent Test**: Apply a newer manifest that omits a permission with exact and wildcard role assignments, verify Management Web requires preview, and verify IAM tombstones the permission, removes exact role assignments, collapses wildcard assignments when the aggregate disappears, advances manifest version, and records audit details transactionally.
 
 **Acceptance Scenarios**:
 
 1. **Given** a newer complete manifest omits an existing permission, **When** an admin applies it, **Then** IAM soft-removes the permission, removes exact assignments, reports wildcard impacts, collapses aggregate wildcard assignments when needed, and commits all changes atomically.
 2. **Given** a concrete permission is manually deleted, **When** the caller has `application-permissions:admin`, concurrency is current, and a reason is supplied, **Then** IAM performs the same tombstone and assignment cleanup semantics as manifest omission.
 3. **Given** an application is deleted, **When** the caller has `application-permissions:admin`, concurrency is current, and a reason is supplied, **Then** IAM tombstones the application and current permissions, removes assignments in that namespace, and audits all changes.
-4. **Given** AdminWeb performs a destructive operation, **When** the operator has not viewed impact preview, **Then** AdminWeb does not enable the final destructive action.
+4. **Given** Management Web performs a destructive operation, **When** the operator has not viewed impact preview, **Then** Management Web does not enable the final destructive action.
 5. **Given** an assignment removal or audit write fails, **When** a destructive operation is in progress, **Then** the whole operation rolls back and the previous registry/assignment state remains.
 
 ---
@@ -166,7 +166,7 @@ An administrator reviews removed permission history, annotates replacement guida
 - **FR-042**: IAM MUST omit unscoped dynamic application permissions from tokens.
 - **FR-043**: IAM MUST keep platform `*` scoped to platform/admin permissions and not grant dynamic application resource permissions.
 - **FR-044**: IAM MUST update `Permissions.Matches` to support multi-segment prefix wildcards in the role/wildcard slice.
-- **FR-045**: IAM MUST require preview endpoints for AdminWeb destructive flows, while apply endpoints recalculate impact and do not depend on prior preview.
+- **FR-045**: IAM MUST require preview endpoints for Management Web destructive flows, while apply endpoints recalculate impact and do not depend on prior preview.
 - **FR-046**: IAM MUST automatically remove exact assignments for removed permissions and deleted applications.
 - **FR-047**: IAM MUST automatically remove derived wildcard assignments when the last current concrete permission in an aggregate is removed.
 - **FR-048**: IAM MUST commit permission/application tombstones, assignment removals, manifest version changes, and audit records atomically.
@@ -185,8 +185,8 @@ An administrator reviews removed permission history, annotates replacement guida
 - **FR-061**: IAM MUST support removed-permission replacement guidance as admin-only tombstone annotation.
 - **FR-062**: IAM MUST require replacement guidance to point to a current existing platform or dynamic permission.
 - **FR-063**: IAM MUST treat malformed, unknown, orphaned, or collapsed wildcard role strings as integrity issues rather than expected role permission states.
-- **FR-064**: AdminWeb MUST use `Application Permissions` as the navigation label, not `Applications`.
-- **FR-065**: AdminWeb MUST ship with backend workflows in each `006` vertical slice.
+- **FR-064**: Management Web MUST use `Application Permissions` as the navigation label, not `Applications`.
+- **FR-065**: Management Web MUST ship with backend workflows in each `006` vertical slice.
 
 ### Key Entities
 
@@ -214,26 +214,26 @@ An administrator reviews removed permission history, annotates replacement guida
 - **Application/Domain Tests**: Manifest apply rules, ownership/maintainer authorization, destructive omission planning, automatic assignment mutation through `IPermissionAssignmentStore`, and transaction failure behavior.
 - **API/Integration Tests**: Security-sensitive boundaries for create/update/import/delete, owner/maintainer/admin/unrelated writer access, group principal resolution, role assignment validation, token issuance expansion, and introspection filtering/omission behavior.
 - **Contract Tests**: Required for all project-owned `/api/admin/*` endpoints introduced or changed by this spec.
-- **AdminWeb Tests**: Focused E2E per vertical slice plus targeted component/API-client tests for validation and preview flows.
-- **Validation Commands**: Each slice must define focused `dotnet test`, AdminWeb `npm run build`, `npm run lint`, `npm test`, and focused E2E commands in tasks/quickstart before implementation begins.
+- **Management Web Tests**: Focused E2E per vertical slice plus targeted component/API-client tests for validation and preview flows.
+- **Validation Commands**: Each slice must define focused `dotnet test`, Management Web `npm run build`, `npm run lint`, `npm test`, and focused E2E commands in tasks/quickstart before implementation begins.
 
 ## Documentation And Deployment Impact *(mandatory)*
 
 - **Documentation**: Add numbered Spec Kit docs for `006`; retire or archive non-authoritative Copilot application-permission registry specs after `006` is accepted.
 - **Deployment**: Pre-1.0 alpha breaking change. Clean database required; no preservation of pre-existing role permission data.
-- **AdminWeb**: Adds `Application Permissions` navigation and workflows across five vertical slices.
+- **Management Web**: Adds `Application Permissions` navigation and workflows across five vertical slices.
 - **API Compatibility**: Role `permissions: string[]` remains preserved. Existing application-permissions route names may change to target-specific manifest/import endpoints.
 
 ## Success Criteria *(mandatory)*
 
-- **SC-001**: An authorized owner can register a resource/API permission application and at least five permissions from AdminWeb in under 10 minutes.
+- **SC-001**: An authorized owner can register a resource/API permission application and at least five permissions from Management Web in under 10 minutes.
 - **SC-002**: Same-version and older-version manifests are rejected 100% of the time.
 - **SC-003**: New role assignments reject 100% of invalid, unknown, deleted, tombstoned, application-wide wildcard, or disabled-application permissions.
 - **SC-004**: Broad grants require acknowledgement in 100% of create/add/set role mutation paths where the broad grant is newly added.
 - **SC-005**: Tokens and introspection responses emit zero wildcard permission strings.
 - **SC-006**: Destructive manifest/delete operations remove affected exact and collapsed wildcard role assignments transactionally and audit the detailed impact.
 - **SC-007**: Remote import accepts only trusted, matching, bounded, valid manifests and rejects unsafe fetch behavior.
-- **SC-008**: AdminWeb requires preview before destructive import/delete flows.
+- **SC-008**: Management Web requires preview before destructive import/delete flows.
 
 ## Assumptions
 
@@ -242,3 +242,4 @@ An administrator reviews removed permission history, annotates replacement guida
 - Runtime authorization may continue to honor existing role strings for disabled applications, but disabled application permissions are not assignable for new grants.
 - Resource APIs that need fresh dynamic authorization use introspection; compact JWT dynamic claims may be stale until expiry.
 - Exact OpenAPI DTO field details will be finalized in the contract artifact before implementation tasks are generated.
+

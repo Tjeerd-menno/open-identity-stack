@@ -1,4 +1,4 @@
-# Tasks: Management Web AdminWeb Parity
+# Tasks: Management Web Management Web Parity
 
 **Input**: Design documents from `/specs/007-management-web/`
 
@@ -98,7 +98,7 @@
 - [X] T015 [P] [Foundation] Add shared Mantine confirm dialog, destructive-action dialog, form section, and action bar primitives in `src/OpenIdentityStack.ManagementWeb/src/components/`
 - [X] T016 [P] [Foundation] Add one-time secret display/copy primitive in `src/OpenIdentityStack.ManagementWeb/src/components/SecretDisplay.tsx`
 - [X] T017 [Foundation] Update ManagementWeb navigation to remove Service Accounts, avoid Clients, add Applications, Permissions, Sessions, Identity providers, Settings, and Audit in `src/OpenIdentityStack.ManagementWeb/src/components/Navigation.tsx`
-- [X] T018 [Foundation] Preserve AdminWeb-compatible route paths for existing domains in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
+- [X] T018 [Foundation] Preserve Management Web-compatible route paths for existing domains in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
 
 **Checkpoint**: Shared foundation is ready for parity slices.
 
@@ -106,7 +106,7 @@
 
 ## Phase 3: Applications Slice (Priority P1)
 
-**Goal**: Port AdminWeb Applications behavior to ManagementWeb using only `/api/admin/applications`.
+**Goal**: Port Management Web Applications behavior to ManagementWeb using only `/api/admin/applications`.
 
 ### Tests
 
@@ -129,7 +129,7 @@
 
 ## Phase 4: Users Slice Refactor (Priority P1)
 
-**Goal**: Refactor the existing partial Users slice into the shared foundation and complete AdminWeb parity.
+**Goal**: Refactor the existing partial Users slice into the shared foundation and complete Management Web parity.
 
 ### Tests
 
@@ -141,7 +141,7 @@
 
 - [X] T031 [Users] Refactor Users API calls and mutations out of `src/OpenIdentityStack.ManagementWeb/src/lib/admin-api.ts` into `src/OpenIdentityStack.ManagementWeb/src/features/users/`
 - [X] T032 [Users] Replace Users page local table/form/dialog patterns with shared foundation components in `src/OpenIdentityStack.ManagementWeb/src/features/users/`
-- [X] T033 [Users] Add missing AdminWeb-equivalent Users workflows for create, edit, delete, enable/disable, reset password, roles, groups, and upstream identities in `src/OpenIdentityStack.ManagementWeb/src/features/users/`
+- [X] T033 [Users] Add missing Management Web-equivalent Users workflows for create, edit, delete, enable/disable, reset password, roles, groups, and upstream identities in `src/OpenIdentityStack.ManagementWeb/src/features/users/`
 - [X] T034 [Users] Wire `/users`, `/users/create`, `/users/:id`, and `/users/:id/edit` routes in `src/OpenIdentityStack.ManagementWeb/src/routes/AppRoutes.tsx`
 
 **Checkpoint**: Users parity complete.
@@ -277,10 +277,10 @@
 ### Implementation
 
 - [X] T070 [Overview] Add ManagementWeb Overview/dashboard quick links and aggregate status in `src/OpenIdentityStack.ManagementWeb/src/features/overview/`
-- [X] T071 [Docs] Update ManagementWeb docs, screenshots/checklists, rollout guidance, and AdminWeb decommission criteria in `docs/management-web.md`, `deploy/management-web.md`, and `src/OpenIdentityStack.ManagementWeb/README.md`
+- [X] T071 [Docs] Update ManagementWeb docs, screenshots/checklists, rollout guidance, and Management Web decommission criteria in `docs/management-web.md`, `deploy/management-web.md`, and `src/OpenIdentityStack.ManagementWeb/README.md`
 - [X] T072 [Validation] Run the validation commands from `specs/007-management-web/quickstart.md` and fix issues discovered
 
-**Checkpoint**: Overview, documentation, and final validation are complete for the current ManagementWeb parity foundation. `/` now renders the ManagementWeb Overview with permission-aware quick links and aggregate available/unavailable section status, preserving all existing domain route paths. Documentation now records parity scope, audit behavior, rollout/rollback guidance, and AdminWeb decommission criteria. Validation evidence:
+**Checkpoint**: Overview, documentation, and final validation are complete for the current ManagementWeb parity foundation. `/` now renders the ManagementWeb Overview with permission-aware quick links and aggregate available/unavailable section status, preserving all existing domain route paths. Documentation now records parity scope, audit behavior, rollout/rollback guidance, and Management Web decommission criteria. Validation evidence:
 
 - `npm run type-check` passed.
 - `npm run build` passed.
@@ -326,3 +326,4 @@ Do not mark a slice complete until:
 - route and navigation wiring are complete;
 - permission-gated actions use the shared matrix;
 - validation commands relevant to the slice have been run.
+

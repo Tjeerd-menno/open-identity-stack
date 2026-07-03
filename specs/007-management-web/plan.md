@@ -21,7 +21,8 @@ Management Web is now the only supported OpenIdentityStack frontend. The reposit
 
 ## Cleanup Requirements
 
-1. Remove runtime and solution references to `AdminWeb`.
+1. Remove runtime and solution references to `Management Web`.
 2. Remove legacy frontend source and legacy frontend E2E test assets from active repository use.
 3. Update docs, repo guidance, and configuration references so they describe a ManagementWeb-only architecture.
-4. Verify that focused build and test commands pass without relying on AdminWeb.
+4. Verify that focused build and test commands pass without relying on Management Web.
+

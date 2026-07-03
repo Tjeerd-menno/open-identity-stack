@@ -30,4 +30,5 @@ Required settings:
 
 `OpenIddict:Certificates:*:Base64` can be used instead of `Path` when the deployment platform supplies certificates as environment variables.
 
-The Aspire AppHost now composes only PostgreSQL, the OpenIdentityStack migrator, the OpenIdentityStack API, and the Admin Web app. Demo isotope resources and demo OAuth clients are not part of the production composition.
+The Aspire AppHost now composes only PostgreSQL, the OpenIdentityStack migrator, the OpenIdentityStack API, and the Management Web app. Demo isotope resources and demo OAuth clients are not part of the production composition.
+
