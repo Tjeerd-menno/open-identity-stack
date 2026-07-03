@@ -125,6 +125,7 @@ jobs:
           env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Application.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings coverage.settings.xml
           env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/OpenIdentityStack.Infrastructure.Tests/bin/Debug/net10.0/OpenIdentityStack.Infrastructure.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings coverage.settings.xml
           env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/OpenIdentityStack.Api.UnitTests/bin/Debug/net10.0/OpenIdentityStack.Api.UnitTests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings coverage.settings.xml
+          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/OpenIdentityStack.Architecture.Tests/bin/Debug/net10.0/OpenIdentityStack.Architecture.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings coverage.settings.xml
 
       - name: Test API modules sequentially with coverage
         run: |
