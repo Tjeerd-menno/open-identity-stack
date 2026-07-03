@@ -5,6 +5,8 @@ public sealed class ApplicationPermissionRegistryWorkflowArchitectureTests
     [Fact]
     public void ApplicationLayerDoesNotExposeShallowRegistryUseCaseInterfaces()
     {
+        string workflowSource = ReadSource("src", "OpenIdentityStack.Application", "ApplicationPermissions", "ApplicationPermissionRegistryWorkflow.cs");
+        string interfaceSource = ReadSource("src", "OpenIdentityStack.Application", "ApplicationPermissions", "IApplicationPermissionRegistryWorkflow.cs");
         string maintenanceSource = ReadSource("src", "OpenIdentityStack.Application", "ApplicationPermissions", "Commands", "ApplicationPermissionMaintenanceUseCases.cs");
         string registrationSource = ReadSource("src", "OpenIdentityStack.Application", "ApplicationPermissions", "Commands", "RegisterApplicationUseCase.cs");
         string dependencyInjectionSource = ReadSource("src", "OpenIdentityStack.Application", "DependencyInjection.cs");
@@ -42,6 +44,10 @@ public sealed class ApplicationPermissionRegistryWorkflowArchitectureTests
         dependencyInjectionSource.ShouldNotContain("IListApplicationPermissionDiagnosticsQueryHandler");
         dependencyInjectionSource.ShouldNotContain("IRegisterApplicationUseCase");
         dependencyInjectionSource.ShouldNotContain("IRegisterPermissionManifestUseCase");
+        interfaceSource.ShouldNotContain("Task<Result<ApplicationPermissionHistoryDto>> ListHistoryAsync(");
+        interfaceSource.ShouldNotContain("Task<Result<PermissionDiagnosticsDto>> ListDiagnosticsAsync(");
+        workflowSource.ShouldNotContain("public async Task<Result<ApplicationPermissionHistoryDto>> ListHistoryAsync(");
+        workflowSource.ShouldNotContain("public async Task<Result<PermissionDiagnosticsDto>> ListDiagnosticsAsync(");
     }
 
     private static string ReadSource(params string[] pathParts)

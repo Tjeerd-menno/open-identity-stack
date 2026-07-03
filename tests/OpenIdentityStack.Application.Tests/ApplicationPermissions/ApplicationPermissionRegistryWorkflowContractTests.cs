@@ -56,11 +56,6 @@ public sealed class ApplicationPermissionRegistryWorkflowContractTests
             new DeleteApplicationRequest(applicationId, "Retired.", "actor-1", 1));
         Result<RemovedPermissionDetailDto> replacement = await workflow.UpdateRemovedPermissionReplacementAsync(
             new UpdateRemovedPermissionReplacementRequest(permissionId, "orders-api:orders:read", "Use read.", "actor-1", 1));
-        Result<ApplicationPermissionHistoryDto> history = await workflow.ListHistoryAsync(
-            new ListHistoryRequest("orders-api", IncludeApplications: true, IncludePermissions: true, "actor-1"));
-        Result<PermissionDiagnosticsDto> diagnostics = await workflow.ListDiagnosticsAsync(
-            new ListDiagnosticsRequest("actor-1"));
-
         manualRegistration.IsSuccess.ShouldBeTrue();
         imported.IsSuccess.ShouldBeTrue();
         preview.IsSuccess.ShouldBeTrue();
@@ -77,8 +72,6 @@ public sealed class ApplicationPermissionRegistryWorkflowContractTests
         applicationPreview.IsSuccess.ShouldBeTrue();
         applicationDelete.IsSuccess.ShouldBeTrue();
         replacement.IsSuccess.ShouldBeTrue();
-        history.IsSuccess.ShouldBeTrue();
-        diagnostics.IsSuccess.ShouldBeTrue();
     }
 
     private static PermissionManifestDocument CreateManifest()
@@ -185,16 +178,6 @@ public sealed class ApplicationPermissionRegistryWorkflowContractTests
                 request.ReplacementFullPermissionKey,
                 request.ReplacementNote,
                 request.ExpectedConcurrencyToken ?? 0));
-        }
-
-        public Task<Result<ApplicationPermissionHistoryDto>> ListHistoryAsync(ListHistoryRequest request, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult((Result<ApplicationPermissionHistoryDto>)new ApplicationPermissionHistoryDto([], []));
-        }
-
-        public Task<Result<PermissionDiagnosticsDto>> ListDiagnosticsAsync(ListDiagnosticsRequest request, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult((Result<PermissionDiagnosticsDto>)new PermissionDiagnosticsDto([]));
         }
 
         private static RegisteredApplicationDto CreateApplicationDto()
