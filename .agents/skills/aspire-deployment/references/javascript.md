@@ -47,7 +47,7 @@ aspire docs api search "PublishWithStaticFiles" --language typescript
 
 ## Setup
 
-Use `Aspire.Hosting.JavaScript` for Aspire 13+ apps. `Aspire.Hosting.NodeJs` is the old package name; do not add it for new guidance unless the target repo is intentionally pinned to older Aspire.
+Use `Aspire.Hosting.JavaScript` for Aspire 13+ apps. `Aspire.Hosting.JavaScript` is the old package name; do not add it for new guidance unless the target repo is intentionally pinned to older Aspire.
 
 ## Resource choice
 
