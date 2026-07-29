@@ -137,7 +137,7 @@ jobs:
 
       - name: Verify coverage threshold
         shell: bash
-        run: bash scripts/ci/verify-coverage.sh --results-dir "$GITHUB_WORKSPACE/tests" --minimum-line-rate 0.10 --minimum-overall-line-rate 0.50
+        run: bash scripts/ci/verify-coverage.sh --results-dir "$GITHUB_WORKSPACE/TestResults" --minimum-line-rate 0.10 --minimum-overall-line-rate 0.50
 
       - name: End SonarQube analysis
         if: ${{ env.SONAR_TOKEN != '' && steps.begin-sonarqube.outcome == 'success' }}
