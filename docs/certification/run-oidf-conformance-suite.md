@@ -70,6 +70,57 @@ https://staging.certification.openid.net/test/a/<ALIAS>/callback
 - Use PKCE where the suite asks for it.
 - Use the dedicated certification test users only.
 
+## Manual-Review Tests
+
+Five Basic OP modules cannot complete on their own. They park in `WAITING`
+until a human confirms what the provider displayed, and their ceiling is
+`REVIEW`, which is certifiable. **Do not chase `PASSED` on these — it is
+unreachable by design.** Config OP pauses for nothing.
+
+The suite is the system of record for this evidence: screenshot what the
+provider rendered and **upload it on the test's log detail page**, so it becomes
+part of the test log and travels inside the exported results ZIP. Nothing is
+copied into this repository.
+
+### What correct behaviour looks like
+
+Verified against the local stack before the hosted run
+([#310](https://github.com/Tjeerd-menno/open-identity-stack/issues/310)), so a
+reviewer can tell a genuine pass from a plausible-looking failure.
+
+| Test | Correct provider behaviour | What the screenshot must show |
+|---|---|---|
+| `oidcc-response-type-missing` | Rejects the request; **no redirect issued** — a request missing `response_type` is not safe to redirect | Provider error page, address bar still on `/connect/authorize` |
+| `oidcc-ensure-registered-redirect-uri` | Rejects the request; **no redirect issued** — the `redirect_uri` is not registered, so it must never be used | Provider error page, address bar still on `/connect/authorize` |
+| `oidcc-ensure-request-object-with-redirect-uri` (reject path) | Answers `request_not_supported`; **no redirect issued** — request objects are rejected, so a `redirect_uri` inside the object cannot take effect | Provider error page, address bar still on `/connect/authorize` |
+| `oidcc-prompt-login` | Forces a **fresh login** even though a session is already live | Login form, address bar showing `prompt=login` |
+| `oidcc-max-age-1` | Forces a **fresh login** even though a session is already live | Login form, address bar showing `max_age=1` |
+
+For the first three, the evidence is a *negative* — that no redirect happened.
+A cropped screenshot of an error page cannot show that. The address bar is the
+proof, so it is captured deliberately.
+
+### Capture rules
+
+- **Capture the full browser window, including the address bar.** The authorize
+  URL carries `client_id`, `redirect_uri`, `state` and `nonce` — none of them
+  secrets, all of them needed to judge the test.
+- **If the visible URL contains `code=`, discard the screenshot and retake it.**
+  That is a callback, not a provider error page: the wrong moment was captured,
+  and an authorization code is the one value in this flow worth protecting.
+- **No devtools or network panel open** in the capture.
+- Upload each screenshot to its own test's log detail page before moving on. A
+  test whose evidence is captured after the fact cannot be matched back
+  reliably.
+- The human driving the suite performs the capture — agents never handle OIDF
+  credentials, and the capture happens in the authenticated suite session.
+
+[`oidf-negative-review-automation-plan.md`](oidf-negative-review-automation-plan.md)
+is **superseded for manual runs**, including its `review.json` manifest: a local
+manifest would be a second copy of evidence that the actual reviewer never
+opens. The plan stands only as a record of intent for automation, which is out
+of scope for the certification effort.
+
 ## Result Handling
 
 - All required tests must finish successfully.
