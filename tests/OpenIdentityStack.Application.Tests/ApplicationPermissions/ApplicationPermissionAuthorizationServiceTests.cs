@@ -76,7 +76,7 @@ public sealed class ApplicationPermissionAuthorizationServiceTests
     {
         var actorId = UserId.Create();
         RegisteredApplication application = this.CreateApplication(Guid.NewGuid().ToString(), OwnerType.User);
-        this.permissionChecker.HasAnyPermissionAsync(actorId, Arg.Is<IEnumerable<string>>(permissions => permissions.Contains(Permissions.ApplicationPermissions.Admin)), Arg.Any<CancellationToken>())
+        this.permissionChecker.HasAnyPermissionAsync(actorId, Arg.Is<IEnumerable<string>>(permissions => permissions!.Contains(Permissions.ApplicationPermissions.Admin)), Arg.Any<CancellationToken>())
             .Returns(false);
 
         bool result = await this.service.CanManageApplicationAsync(actorId.Value.ToString(), application);
@@ -89,7 +89,7 @@ public sealed class ApplicationPermissionAuthorizationServiceTests
     {
         var actorId = UserId.Create();
         RegisteredApplication application = this.CreateApplication(Guid.NewGuid().ToString(), OwnerType.User);
-        this.permissionChecker.HasAnyPermissionAsync(actorId, Arg.Is<IEnumerable<string>>(permissions => permissions.Contains(Permissions.ApplicationPermissions.Admin)), Arg.Any<CancellationToken>())
+        this.permissionChecker.HasAnyPermissionAsync(actorId, Arg.Is<IEnumerable<string>>(permissions => permissions!.Contains(Permissions.ApplicationPermissions.Admin)), Arg.Any<CancellationToken>())
             .Returns(true);
 
         bool result = await this.service.CanManageApplicationAsync(actorId.Value.ToString(), application);

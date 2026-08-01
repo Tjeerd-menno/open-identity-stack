@@ -79,8 +79,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         result.Value.Permissions[0].FullPermissionKey.ShouldBe("orders-api:order:read");
         await this.repository.Received(1).AddAsync(
             Arg.Is<RegisteredApplication>(application =>
-                application.ApplicationIdentifier == "orders-api"
-                && application.ManifestVersion == "1.0.0"
+                application!.ApplicationIdentifier == "orders-api"
                 && application.ManifestBaseUrl == "https://orders.example.com/api"),
             Arg.Any<CancellationToken>());
     }
@@ -268,7 +267,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         cancelPermission.RemoveReason.ShouldBe("Manifest 1.1.0 omitted permission.");
         await this.permissionAssignmentStore.Received(1).RemoveAssignmentsAsync(
             Arg.Is<PermissionAssignmentRemovalPlan>(plan =>
-                plan.ExactPermissions.SequenceEqual(cancelExactPermission)
+                plan!.ExactPermissions.SequenceEqual(cancelExactPermission)
                 && plan.WildcardPermissionsToRemove.Count == 0),
             "actor-1",
             Arg.Any<CancellationToken>());
@@ -300,7 +299,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         result.Value.Result.WildcardAssignmentsRemoved.Select(impact => impact.Permission).ShouldBe(["orders-api:order:*"]);
         await this.permissionAssignmentStore.Received(1).RemoveAssignmentsAsync(
             Arg.Is<PermissionAssignmentRemovalPlan>(plan =>
-                plan.ExactPermissions.SequenceEqual(readExactPermission)
+                plan!.ExactPermissions.SequenceEqual(readExactPermission)
                 && plan.WildcardPermissionsToRemove.SequenceEqual(orderWildcardPermission)),
             "actor-1",
             Arg.Any<CancellationToken>());

@@ -38,7 +38,7 @@ public sealed class RegisterApplicationUseCaseTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.ApplicationIdentifier.ShouldBe("orders-api");
         result.Value.PermissionsRegistered.ShouldBe(1);
-        await this.repository.Received(1).AddAsync(Arg.Is<RegisteredApplication>(s => s.ApplicationIdentifier == "orders-api"), Arg.Any<CancellationToken>());
+        await this.repository.Received(1).AddAsync(Arg.Is<RegisteredApplication>(s => s!.ApplicationIdentifier == "orders-api"), Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -61,7 +61,7 @@ public sealed class RegisterApplicationUseCaseTests
         result.Value.PermissionsRegistered.ShouldBe(2);
         await this.repository.Received(1).AddAsync(
             Arg.Is<RegisteredApplication>(application =>
-                application.ApplicationIdentifier == "patient-api"
+                application!.ApplicationIdentifier == "patient-api"
                 && application.DisplayName == "Patient API"
                 && application.Description == "1.0.0"
                 && application.OwnerId == "actor-1"
