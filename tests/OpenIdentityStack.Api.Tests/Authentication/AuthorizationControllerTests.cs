@@ -309,7 +309,7 @@ public class AuthorizationControllerTests
 
         // Assert
         await this._addClientSessionUseCase.Received(1).ExecuteAsync(
-            Arg.Is<AddClientSessionCommand>(c => c.SessionId == sessionId && c.ClientId == "test-client"),
+            Arg.Is<AddClientSessionCommand>(c => c!.SessionId == sessionId && c.ClientId == "test-client"),
             Arg.Any<CancellationToken>());
     }
 
@@ -1125,7 +1125,7 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
 
-        this._validateSessionQueryHandler.HandleAsync(Arg.Is<ValidateSessionQuery>(q => q.SessionId == sessionId), Arg.Any<CancellationToken>())
+        this._validateSessionQueryHandler.HandleAsync(Arg.Is<ValidateSessionQuery>(q => q!.SessionId == sessionId), Arg.Any<CancellationToken>())
             .Returns(new ValidateSessionResult(false, "Revoked"));
 
         // Act
@@ -1152,7 +1152,7 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
 
-        this._validateSessionQueryHandler.HandleAsync(Arg.Is<ValidateSessionQuery>(q => q.SessionId == sessionId), Arg.Any<CancellationToken>())
+        this._validateSessionQueryHandler.HandleAsync(Arg.Is<ValidateSessionQuery>(q => q!.SessionId == sessionId), Arg.Any<CancellationToken>())
             .Returns(new ValidateSessionResult(true));
 
         // Act
@@ -1178,7 +1178,7 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
 
-        this._validateSessionQueryHandler.HandleAsync(Arg.Is<ValidateSessionQuery>(q => q.SessionId == sessionId), Arg.Any<CancellationToken>())
+        this._validateSessionQueryHandler.HandleAsync(Arg.Is<ValidateSessionQuery>(q => q!.SessionId == sessionId), Arg.Any<CancellationToken>())
             .Returns(new ValidateSessionResult(false, null));
 
         // Act

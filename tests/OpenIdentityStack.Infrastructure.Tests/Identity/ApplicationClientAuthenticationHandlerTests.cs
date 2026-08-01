@@ -54,7 +54,7 @@ public sealed class ApplicationClientAuthenticationHandlerTests
         });
         this.validateCredentialsUseCase.ExecuteAsync(
                 Arg.Is<ValidateApplicationClientCredentialsCommand>(command =>
-                    command.ClientId == "worker" && command.ClientSecret == "secret"),
+                    command!.ClientId == "worker" && command.ClientSecret == "secret"),
                 Arg.Any<CancellationToken>())
             .Returns(CreateValidationResult());
 
@@ -97,7 +97,7 @@ public sealed class ApplicationClientAuthenticationHandlerTests
         string thumbprint = certificate.GetCertHashString(HashAlgorithmName.SHA256);
         this.validateCertificateUseCase.ExecuteAsync(
                 Arg.Is<ValidateApplicationCertificateCommand>(command =>
-                    command.ClientId == "worker" && command.CertificateThumbprint == thumbprint),
+                    command!.ClientId == "worker" && command.CertificateThumbprint == thumbprint),
                 Arg.Any<CancellationToken>())
             .Returns(CreateValidationResult());
 

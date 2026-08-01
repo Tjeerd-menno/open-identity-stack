@@ -40,7 +40,7 @@ public sealed class DynamicAuthenticationSchemeServiceTests
         await service.RegisterSchemeAsync(providerResult.Value);
 
         // Assert
-        schemeProvider.Received(1).AddScheme(Arg.Is<AuthenticationScheme>(s => s.Name == "google"));
+        schemeProvider.Received(1).AddScheme(Arg.Is<AuthenticationScheme>(s => s!.Name == "google"));
         optionsCache.Received(1).TryAdd("google", Arg.Any<OpenIdConnectOptions>());
     }
 
@@ -69,7 +69,7 @@ public sealed class DynamicAuthenticationSchemeServiceTests
         // Assert
         schemeProvider.Received(1).RemoveScheme("google");
         optionsCache.Received(1).TryRemove("google");
-        schemeProvider.Received(1).AddScheme(Arg.Is<AuthenticationScheme>(s => s.Name == "google"));
+        schemeProvider.Received(1).AddScheme(Arg.Is<AuthenticationScheme>(s => s!.Name == "google"));
     }
 
     [Fact]
