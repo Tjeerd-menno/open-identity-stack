@@ -6,7 +6,7 @@ namespace OpenIdentityStack.Infrastructure.Tests.Common;
 
 public sealed class SecretEncryptionKeyTests
 {
-    private const string expectedMessage = "Secrets:EncryptionKey must be a base64-encoded 256-bit key.";
+    private const string ExpectedMessage = "Secrets:EncryptionKey must be a base64-encoded 256-bit key.";
 
     [Fact]
     public void Resolve_WithValidKey_ReturnsDecodedKey()
@@ -27,7 +27,8 @@ public sealed class SecretEncryptionKeyTests
         InvalidOperationException exception = Should.Throw<InvalidOperationException>(
             () => SecretEncryptionKey.Resolve(configuration));
 
-        exception.Message.ShouldBe(expectedMessage);
+        exception.Message.ShouldBe(ExpectedMessage);
+        exception.InnerException.ShouldBeOfType<FormatException>();
     }
 
     [Fact]
@@ -39,7 +40,7 @@ public sealed class SecretEncryptionKeyTests
         InvalidOperationException exception = Should.Throw<InvalidOperationException>(
             () => SecretEncryptionKey.Resolve(configuration));
 
-        exception.Message.ShouldBe(expectedMessage);
+        exception.Message.ShouldBe(ExpectedMessage);
     }
 
     [Theory]

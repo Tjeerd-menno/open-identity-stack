@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.Extensions.Configuration;
 
 namespace OpenIdentityStack.Infrastructure.Common;
@@ -32,7 +33,14 @@ public static class SecretEncryptionKey
     /// Validates <see cref="ConfigurationKey"/> without keeping the decoded key.
     /// </summary>
     /// <exception cref="InvalidOperationException">The configured value is not a base64-encoded 256-bit key.</exception>
-    public static void Validate(IConfiguration configuration) => _ = Resolve(configuration);
+    public static void Validate(IConfiguration configuration)
+    {
+        byte[]? key = Resolve(configuration);
+        if (key is not null)
+        {
+            CryptographicOperations.ZeroMemory(key);
+        }
+    }
 
     private static byte[]? Parse(string? configuredKey)
     {
