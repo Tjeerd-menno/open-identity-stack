@@ -18,16 +18,7 @@ public sealed class AesSecretProtector : ISecretProtector
 
     public AesSecretProtector(IConfiguration configuration, IHostEnvironment environment)
     {
-        string? configuredKey = configuration["Secrets:EncryptionKey"];
-        if (!string.IsNullOrWhiteSpace(configuredKey))
-        {
-            this.key = Convert.FromBase64String(configuredKey);
-            if (this.key.Length != 32)
-            {
-                throw new InvalidOperationException("Secrets:EncryptionKey must be a base64-encoded 256-bit key.");
-            }
-        }
-
+        this.key = SecretEncryptionKey.Resolve(configuration);
         this.allowPlainTextFallback = environment.IsDevelopment() || environment.IsEnvironment("Testing");
     }
 
