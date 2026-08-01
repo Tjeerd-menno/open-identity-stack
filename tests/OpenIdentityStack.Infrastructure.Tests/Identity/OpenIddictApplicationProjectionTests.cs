@@ -46,7 +46,7 @@ public sealed class OpenIddictApplicationProjectionTests
         result.IsSuccess.ShouldBeTrue();
         await this.applicationManager.Received(1).CreateAsync(
             Arg.Is<OpenIddictApplicationDescriptor>(descriptor =>
-                descriptor.ClientId == application.ClientId &&
+                descriptor!.ClientId == application.ClientId &&
                 descriptor.DisplayName == application.DisplayName &&
                 descriptor.ClientType == OpenIddictConstants.ClientTypes.Confidential &&
                 !string.IsNullOrEmpty(descriptor.ClientSecret) &&
@@ -72,7 +72,7 @@ public sealed class OpenIddictApplicationProjectionTests
 
         result.IsSuccess.ShouldBeTrue();
         await this.applicationManager.Received(1).CreateAsync(
-            Arg.Is<OpenIddictApplicationDescriptor>(descriptor => descriptor.ClientSecret == "legacy-secret"),
+            Arg.Is<OpenIddictApplicationDescriptor>(descriptor => descriptor!.ClientSecret == "legacy-secret"),
             Arg.Any<CancellationToken>());
     }
 
@@ -94,7 +94,7 @@ public sealed class OpenIddictApplicationProjectionTests
         await this.applicationManager.Received(1).UpdateAsync(
             existing,
             Arg.Is<OpenIddictApplicationDescriptor>(descriptor =>
-                descriptor.ClientId == application.ClientId &&
+                descriptor!.ClientId == application.ClientId &&
                 descriptor.DisplayName == application.DisplayName),
             Arg.Any<CancellationToken>());
     }
