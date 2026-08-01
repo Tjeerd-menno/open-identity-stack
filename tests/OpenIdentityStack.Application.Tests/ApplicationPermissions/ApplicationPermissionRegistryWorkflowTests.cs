@@ -78,7 +78,7 @@ public sealed class ApplicationPermissionRegistryWorkflowTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.ApplicationIdentifier.ShouldBe("orders-api");
         await this.repository.Received(1).AddAsync(
-            Arg.Is<RegisteredApplication>(application => application.ApplicationIdentifier == "orders-api"),
+            Arg.Is<RegisteredApplication>(application => application!.ApplicationIdentifier == "orders-api"),
             Arg.Any<CancellationToken>());
     }
 
@@ -117,7 +117,7 @@ public sealed class ApplicationPermissionRegistryWorkflowTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.TargetId.ShouldBe(permission.Id.Value);
         await this.permissionAssignmentStore.Received(1).PreviewRemovalImpactAsync(
-            Arg.Is<PermissionAssignmentRemovalPlan>(plan => plan.ExactPermissions.SequenceEqual(new[] { permission.FullPermissionKey })),
+            Arg.Is<PermissionAssignmentRemovalPlan>(plan => plan!.ExactPermissions.SequenceEqual(new[] { permission.FullPermissionKey })),
             Arg.Any<CancellationToken>());
     }
 

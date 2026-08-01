@@ -94,7 +94,7 @@ public class AccountControllerTests : IDisposable
         IUrlHelper urlHelper = Substitute.For<IUrlHelper>();
         urlHelper.IsLocalUrl(Arg.Any<string>()).Returns(x =>
         {
-            string url = x.Arg<string>();
+            string url = x.Arg<string>()!;
             if (string.IsNullOrEmpty(url))
             {
                 return false;

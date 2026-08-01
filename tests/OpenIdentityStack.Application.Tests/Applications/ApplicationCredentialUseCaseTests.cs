@@ -169,7 +169,7 @@ public sealed class ApplicationCredentialUseCaseTests
             "Application",
             application.Id.Value.ToString(),
             Arg.Is<string>(details =>
-                details.Contains(credential.Id.ToString(), StringComparison.Ordinal) &&
+                details!.Contains(credential.Id.ToString(), StringComparison.Ordinal) &&
                 details.Contains("ClientSecret", StringComparison.Ordinal)),
             Arg.Any<CancellationToken>());
     }
@@ -195,7 +195,7 @@ public sealed class ApplicationCredentialUseCaseTests
             "Application",
             application.Id.Value.ToString(),
             Arg.Is<string>(details =>
-                details.Contains(credential.Id.ToString(), StringComparison.Ordinal) &&
+                details!.Contains(credential.Id.ToString(), StringComparison.Ordinal) &&
                 details.Contains("X509Certificate", StringComparison.Ordinal)),
             Arg.Any<CancellationToken>());
     }

@@ -30,7 +30,7 @@ public sealed class ResetPasswordUseCaseTests
         // Setup password validation to mimic real validator behavior
         this._passwordPolicyValidator.ValidatePassword(Arg.Any<string>()).Returns(callInfo =>
         {
-            string password = callInfo.Arg<string>();
+            string password = callInfo.Arg<string>()!;
             if (string.IsNullOrWhiteSpace(password))
             {
                 return DomainError.Validation("Password.Required", "Password is required.");
