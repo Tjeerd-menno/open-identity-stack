@@ -81,31 +81,66 @@ internal sealed class BrowserDriver : IAsyncDisposable
 
         IPage page = await this.context.NewPageAsync();
 
+        // Evidence for visits that end somewhere unexpected: every network-level
+        // failure and every error response, in order.
+        var anomalies = new List<string>();
+        page.RequestFailed += (_, request) =>
+            anomalies.Add($"{request.Method} {Truncate(request.Url)} !{request.Failure}");
+        page.Response += (_, response) =>
+        {
+            if (response.Status >= 400)
+            {
+                anomalies.Add($"{response.Request.Method} {Truncate(response.Url)} ={response.Status}");
+            }
+        };
+
         try
         {
-            await page.GotoAsync(url, new PageGotoOptions
+            // A navigation that dies at the network level leaves Chromium's
+            // error page: the target URL with an empty body. That is never a
+            // real OP page (even OP error pages carry text), so restart the
+            // whole flow from the interaction URL.
+            for (int attempt = 1; ; attempt++)
             {
-                WaitUntil = WaitUntilState.DOMContentLoaded,
-                Timeout = this.options.NavigationTimeoutMs,
-            });
+                // Reserve the rate-limited login slot BEFORE starting the flow:
+                // several tests start a strict timer (e.g. 30s from the POST to
+                // the authorization endpoint until the redirect must arrive),
+                // and pausing mid-flow makes the suite give up. If no login
+                // turns out to be needed, the slot is released below.
+                await ThrottleLoginAsync(ct);
 
-            bool loggedIn = await this.TryLoginAsync(page, ct);
-            await this.TryConsentAsync(page);
+                await page.GotoAsync(url, new PageGotoOptions
+                {
+                    WaitUntil = WaitUntilState.DOMContentLoaded,
+                    Timeout = this.options.NavigationTimeoutMs,
+                });
 
-            // The flow is done once the browser lands back on the suite, which
-            // is the callback host. Negative tests never get there: the OP shows
-            // an error page instead, which is the correct outcome and simply
-            // means there is nothing further to drive.
-            string landed = await WaitForSettleAsync(page, this.options.SuiteHost, this.options.SettleTimeoutMs);
+                bool loggedIn = await this.TryLoginAsync(page, ct);
+                if (!loggedIn)
+                {
+                    ReleaseLoginSlot();
+                }
 
-            string note = $"login={(loggedIn ? "yes" : "not-required")} landed={landed} url={page.Url}";
-            if (landed != "suite-callback")
-            {
+                await this.TryConsentAsync(page);
+
+                // The flow is done once the browser lands back on the suite,
+                // which is the callback host. Negative tests never get there:
+                // the OP shows an error page instead, which is the correct
+                // outcome and simply means there is nothing further to drive.
+                string landed = await WaitForSettleAsync(page, this.options.SuiteHost, this.options.SettleTimeoutMs);
+
+                string note = $"login={(loggedIn ? "yes" : "not-required")} landed={landed} url={page.Url}";
+                if (landed == "suite-callback")
+                {
+                    return note;
+                }
+
                 string body = (await page.InnerTextAsync("body")).ReplaceLineEndings(" ");
-                note += $" body=[{body[..Math.Min(body.Length, 300)]}]";
+                if (body.Length > 0 || attempt >= 3)
+                {
+                    return $"{note} body=[{body[..Math.Min(body.Length, 300)]}] anomalies=[{string.Join("; ", anomalies)}]";
+                }
             }
-
-            return note;
         }
         catch (TimeoutException)
         {
@@ -121,6 +156,47 @@ internal sealed class BrowserDriver : IAsyncDisposable
         }
     }
 
+    private static readonly List<DateTime> LoginSubmits = [];
+
+    /// <summary>
+    /// Delays until submitting a login form stays within the OP's fixed window
+    /// of 5 interactive logins per 5 minutes per client IP, then reserves a
+    /// slot. A slightly longer window is used because the OP's window boundary
+    /// is not observable.
+    /// </summary>
+    private static async Task ThrottleLoginAsync(CancellationToken ct)
+    {
+        var window = TimeSpan.FromMinutes(5.5);
+        const int Limit = 5;
+
+        LoginSubmits.RemoveAll(t => DateTime.UtcNow - t > window);
+
+        if (LoginSubmits.Count >= Limit)
+        {
+            TimeSpan wait = window - (DateTime.UtcNow - LoginSubmits[0]);
+            Console.WriteLine($"        (login rate limit: waiting {wait.TotalSeconds:F0}s)");
+            await Task.Delay(wait, ct);
+            LoginSubmits.RemoveAt(0);
+        }
+
+        LoginSubmits.Add(DateTime.UtcNow);
+    }
+
+    /// <summary>Returns an unused reservation made by <see cref="ThrottleLoginAsync"/>.</summary>
+    private static void ReleaseLoginSlot()
+    {
+        if (LoginSubmits.Count > 0)
+        {
+            LoginSubmits.RemoveAt(LoginSubmits.Count - 1);
+        }
+    }
+
+    private static string Truncate(string url)
+    {
+        int query = url.IndexOf('?', StringComparison.Ordinal);
+        return query < 0 ? url : url[..query];
+    }
+
     /// <summary>Fills and submits the login form if one is present.</summary>
     private async Task<bool> TryLoginAsync(IPage page, CancellationToken ct)
     {
@@ -132,19 +208,36 @@ internal sealed class BrowserDriver : IAsyncDisposable
             return false;
         }
 
-        // A submit that races page hydration posts empty fields, and the OP
-        // re-renders the login form. Retry while the form is still there.
+        // A failed submit re-renders the login form; retry while it is there.
         for (int attempt = 0; attempt < 3 && await email.CountAsync() > 0; attempt++)
         {
+            if (attempt > 0)
+            {
+                // The first submit rides the slot reserved before the visit
+                // started; a retry is a further rate-limited POST.
+                await ThrottleLoginAsync(ct);
+            }
+
             await email.FillAsync(this.options.Username);
             await page.Locator("#Password").FillAsync(this.options.Password);
 
             ILocator submit = page.Locator("form button[type=submit]");
             await submit.First.ClickAsync();
-            await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded, new PageWaitForLoadStateOptions
+
+            // WaitForLoadState(DOMContentLoaded) is useless after a click: the
+            // current document already satisfies it, so it returns before the
+            // form POST navigates — and the retry then double-submits into the
+            // half-navigated page. Wait until the URL leaves the login page.
+            try
             {
-                Timeout = this.options.NavigationTimeoutMs,
-            });
+                await page.WaitForURLAsync(
+                    url => !url.Contains("/Account/Login", StringComparison.OrdinalIgnoreCase),
+                    new PageWaitForURLOptions { Timeout = this.options.NavigationTimeoutMs });
+            }
+            catch (TimeoutException)
+            {
+                // Still on the login page: a genuine re-render. Let the loop retry.
+            }
 
             ct.ThrowIfCancellationRequested();
         }

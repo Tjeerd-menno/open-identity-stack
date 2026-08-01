@@ -24,7 +24,7 @@ internal sealed class RunnerOptions
 
     public float NavigationTimeoutMs { get; init; } = 30_000;
 
-    public int SettleTimeoutMs { get; init; } = 8_000;
+    public int SettleTimeoutMs { get; init; } = 30_000;
 
     /// <summary>Host that indicates the browser has returned to the suite.</summary>
     public string SuiteHost { get; init; } = "localhost.emobix.co.uk";
