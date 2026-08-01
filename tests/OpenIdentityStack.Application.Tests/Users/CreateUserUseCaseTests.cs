@@ -35,7 +35,7 @@ public sealed class CreateUserUseCaseTests
         // Setup password validation to mimic real validator behavior
         this._passwordPolicyValidator.ValidatePassword(Arg.Any<string>()).Returns(callInfo =>
         {
-            string password = callInfo.Arg<string>();
+            string password = callInfo.Arg<string>()!;
             if (string.IsNullOrWhiteSpace(password))
             {
                 return DomainError.Validation("Password.Required", "Password is required.");
@@ -94,7 +94,7 @@ public sealed class CreateUserUseCaseTests
 
         // Assert
         await this._userRepository.Received(1).AddAsync(
-            Arg.Is<User>(u => u.Email == "test@example.com"),
+            Arg.Is<User>(u => u!.Email == "test@example.com"),
             Arg.Any<CancellationToken>());
     }
 
@@ -137,7 +137,7 @@ public sealed class CreateUserUseCaseTests
         result.IsSuccess.ShouldBeTrue();
         await this._userRepository.Received(1).AddAsync(
             Arg.Is<User>(user =>
-                user.GivenName == "Alice"
+                user!.GivenName == "Alice"
                 && user.FamilyName == "Example"
                 && user.PreferredUsername == "alice.example"
                 && user.Locale == "en-NL"),

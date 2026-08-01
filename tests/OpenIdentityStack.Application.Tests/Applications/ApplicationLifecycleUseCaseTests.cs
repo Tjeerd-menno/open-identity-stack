@@ -60,8 +60,8 @@ public sealed class ApplicationLifecycleUseCaseTests
         result.Value.ClientId.ShouldBe("orders-web");
         result.Value.DisplayName.ShouldBe("Orders Web");
         result.Value.Status.ShouldBe(ApplicationStatus.Active);
-        await this.repository.Received(1).AddAsync(Arg.Is<DomainApplication>(a => a.ClientId == "orders-web"), Arg.Any<CancellationToken>());
-        await this.projection.Received(1).UpsertAsync(Arg.Is<DomainApplication>(a => a.ClientId == "orders-web"), Arg.Any<CancellationToken>());
+        await this.repository.Received(1).AddAsync(Arg.Is<DomainApplication>(a => a!.ClientId == "orders-web"), Arg.Any<CancellationToken>());
+        await this.projection.Received(1).UpsertAsync(Arg.Is<DomainApplication>(a => a!.ClientId == "orders-web"), Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
             "system",

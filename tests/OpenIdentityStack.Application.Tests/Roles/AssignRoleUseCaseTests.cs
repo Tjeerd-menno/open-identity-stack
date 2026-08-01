@@ -59,7 +59,7 @@ public sealed class AssignRoleUseCaseTests
         // Assert
         result.IsSuccess.ShouldBeTrue();
         await this._roleRepository.Received(1).AssignRoleAsync(
-            Arg.Is<RoleAssignment>(a => a.UserId == user.Id && a.RoleId == role.Id),
+            Arg.Is<RoleAssignment>(a => a!.UserId == user.Id && a.RoleId == role.Id),
             Arg.Any<CancellationToken>());
         await this._roleRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

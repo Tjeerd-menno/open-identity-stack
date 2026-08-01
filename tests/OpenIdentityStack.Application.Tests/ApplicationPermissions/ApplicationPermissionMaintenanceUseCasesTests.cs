@@ -80,7 +80,7 @@ public sealed class ApplicationPermissionMaintenanceUseCasesTests
         result.Value.RemovedPermissions.Select(item => item.FullPermissionKey).ShouldBe([permission.FullPermissionKey]);
         await this.permissionAssignmentStore.Received(1).RemoveAssignmentsAsync(
             Arg.Is<PermissionAssignmentRemovalPlan>(plan =>
-                plan.ExactPermissions.SequenceEqual(new[] { permission.FullPermissionKey })),
+                plan!.ExactPermissions.SequenceEqual(new[] { permission.FullPermissionKey })),
             "admin-1",
             Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -111,7 +111,7 @@ public sealed class ApplicationPermissionMaintenanceUseCasesTests
         application.Permissions.All(permission => permission.IsRemoved).ShouldBeTrue();
         await this.permissionAssignmentStore.Received(1).RemoveAssignmentsAsync(
             Arg.Is<PermissionAssignmentRemovalPlan>(plan =>
-                plan.ExactPermissions.SequenceEqual(application.Permissions.Select(permission => permission.FullPermissionKey))
+                plan!.ExactPermissions.SequenceEqual(application.Permissions.Select(permission => permission.FullPermissionKey))
                 && plan.WildcardPermissionsToRemove.SequenceEqual(testApplicationResourceWildcard)),
             "admin-1",
             Arg.Any<CancellationToken>());
