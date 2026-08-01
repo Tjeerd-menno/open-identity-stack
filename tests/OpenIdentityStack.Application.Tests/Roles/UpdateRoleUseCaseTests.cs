@@ -82,7 +82,7 @@ public sealed class UpdateRoleUseCaseTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.Permissions.ShouldBe(["app:resource:read", "app:resource:write"]);
         await this.permissionAssignmentValidator.Received(1).ValidateAssignableAsync(
-            Arg.Is<IEnumerable<string>>(p => p.Count() == 1 && p.Single() == "app:resource:write"),
+            Arg.Is<IEnumerable<string>>(p => p!.Count() == 1 && p!.Single() == "app:resource:write"),
             false,
             Arg.Any<CancellationToken>());
     }

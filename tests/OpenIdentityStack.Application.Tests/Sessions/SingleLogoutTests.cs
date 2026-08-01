@@ -50,7 +50,7 @@ public sealed class SingleLogoutTests
         session.Status.ShouldBe(SessionStatus.LoggedOut);
         await this._logoutNotifier.Received(1).NotifyClientsAsync(
             session.Id,
-            Arg.Is<IReadOnlyList<ClientSessionInfo>>(c => c.Count == 2),
+            Arg.Is<IReadOnlyList<ClientSessionInfo>>(c => c!.Count == 2),
             Arg.Any<CancellationToken>());
     }
 
@@ -114,7 +114,7 @@ public sealed class SingleLogoutTests
         await this._logoutNotifier.Received(1).NotifyClientsAsync(
             session.Id,
             Arg.Is<IReadOnlyList<ClientSessionInfo>>(c => 
-                c.All(client => client.ClientId != "client-1")),
+                c!.All(client => client.ClientId != "client-1")),
             Arg.Any<CancellationToken>());
     }
 
