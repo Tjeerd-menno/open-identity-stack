@@ -34,6 +34,9 @@ public sealed class UpdateUserUseCase : IUpdateUserUseCase
             return UserErrors.NotFound;
         }
 
+        bool wasPhoneNumberVerified = user.PhoneNumberVerified;
+        string? previousPhoneNumber = user.PhoneNumber;
+
         if (!string.IsNullOrWhiteSpace(command.DisplayName))
         {
             Result result = user.UpdateDisplayName(command.DisplayName, this.dateTimeProvider);
@@ -66,9 +69,14 @@ public sealed class UpdateUserUseCase : IUpdateUserUseCase
             // flag must not carry over: phone_number_verified would otherwise tell relying
             // parties the OP verified a number it has never seen. Clearing the number
             // resets it for the same reason.
-            bool newPhoneNumberVerified = command.Profile.PhoneNumberVerified
-                ?? (string.Equals(newPhoneNumber, user.PhoneNumber, StringComparison.Ordinal)
-                    && user.PhoneNumberVerified);
+            //
+            // The final `newPhoneNumber is not null` is not redundant with that: it also
+            // rejects an explicit `PhoneNumberVerified: true` sent with no number at all,
+            // which would otherwise emit a bare phone_number_verified=true claim.
+            bool newPhoneNumberVerified = (command.Profile.PhoneNumberVerified
+                    ?? (string.Equals(newPhoneNumber, user.PhoneNumber, StringComparison.Ordinal)
+                        && user.PhoneNumberVerified))
+                && newPhoneNumber is not null;
 
             Result profileResult = user.UpdateProfile(
                 new UserProfileData(
@@ -97,6 +105,15 @@ public sealed class UpdateUserUseCase : IUpdateUserUseCase
             }
         }
 
+        // phone_number_verified is an assertion relying parties act on, so a change
+        // to it has to be legible in the audit trail rather than hidden inside a
+        // generic User.Updated. The numbers themselves are deliberately not logged.
+        string phoneVerificationAudit = DescribePhoneVerificationChange(
+            wasPhoneNumberVerified,
+            previousPhoneNumber,
+            user.PhoneNumberVerified,
+            user.PhoneNumber);
+
         await this.userRepository.SaveChangesAsync(cancellationToken);
 
         await this.auditLog.LogAsync(
@@ -104,10 +121,42 @@ public sealed class UpdateUserUseCase : IUpdateUserUseCase
             "User.Updated",
             "User",
             user.Id.Value.ToString(),
-            $"Email: {user.Email}",
+            $"Email: {user.Email}{phoneVerificationAudit}",
             cancellationToken);
 
         return new UpdateUserResult(user.Id, this.dateTimeProvider.UtcNow);
+    }
+
+    /// <summary>
+    /// Describes a change to the phone verification assertion for the audit trail,
+    /// or returns an empty string when nothing about it changed. Never includes the
+    /// phone number itself — the audit reader needs to know that verification moved,
+    /// not what it moved to.
+    /// </summary>
+    private static string DescribePhoneVerificationChange(
+        bool wasVerified,
+        string? previousNumber,
+        bool isVerified,
+        string? currentNumber)
+    {
+        bool numberChanged = !string.Equals(previousNumber, currentNumber, StringComparison.Ordinal);
+
+        if (wasVerified == isVerified && !(wasVerified && numberChanged))
+        {
+            return string.Empty;
+        }
+
+        string transition = (wasVerified, isVerified) switch
+        {
+            (false, true) => "asserted",
+            (true, false) => "cleared",
+
+            // Verified before and after, but against a different number: the
+            // assertion was carried over deliberately by the caller.
+            _ => "transferred",
+        };
+
+        return $"; PhoneNumberVerified: {transition}";
     }
 
     private static string? ResolveProfileValue(string? requestedValue, string? existingValue) =>
