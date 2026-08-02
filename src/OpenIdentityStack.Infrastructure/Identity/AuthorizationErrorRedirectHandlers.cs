@@ -12,7 +12,8 @@ using static OpenIddict.Server.OpenIddictServerEvents;
 namespace OpenIdentityStack.Infrastructure.Identity;
 
 /// <summary>
-/// Redirects unsupported request-object authorization errors back to a validated client redirect URI.
+/// Redirects authorization errors back to a validated client redirect URI when client_id and
+/// redirect_uri are valid, per OIDC Core §3.1.2.6.
 /// </summary>
 public sealed class RedirectUnsupportedRequestParameterErrorsHandler(
     IOpenIddictApplicationManager applicationManager) : IOpenIddictServerHandler<ApplyAuthorizationResponseContext>
@@ -30,10 +31,9 @@ public sealed class RedirectUnsupportedRequestParameterErrorsHandler(
     /// <inheritdoc/>
     public async ValueTask HandleAsync(ApplyAuthorizationResponseContext context)
     {
-        if (!string.Equals(context.Error, Errors.RequestNotSupported, StringComparison.Ordinal)
+        if (string.IsNullOrWhiteSpace(context.Error)
             || context.Request is null
             || context.Response is null
-            || string.IsNullOrWhiteSpace(context.Request.Request)
             || string.IsNullOrWhiteSpace(context.Request.ClientId)
             || string.IsNullOrWhiteSpace(context.Request.RedirectUri))
         {
@@ -77,12 +77,14 @@ public static class AuthorizationErrorRedirectExtensions
 }
 
 /// <summary>
-/// Middleware that rewrites unsupported request-object errors into authorization redirects.
+/// Middleware that rewrites authorization errors into validated redirects when client_id and
+/// redirect_uri are valid, per OIDC Core §3.1.2.6.
 /// </summary>
 public sealed class AuthorizationErrorRedirectMiddleware(RequestDelegate next)
 {
     /// <summary>
-    /// Intercepts OpenIddict authorization errors before they are written to the client.
+    /// Intercepts OpenIddict authorization errors before they are written to the client
+    /// and rewrites them as 302 redirects when client_id and redirect_uri are valid.
     /// </summary>
     public async Task InvokeAsync(HttpContext context, IOpenIddictApplicationManager applicationManager)
     {
@@ -134,7 +136,8 @@ public sealed class AuthorizationErrorRedirectMiddleware(RequestDelegate next)
 public static class AuthorizationErrorRedirectMiddlewareExtensions
 {
     /// <summary>
-    /// Rewrites specific authorization endpoint protocol errors into validated redirects.
+    /// Rewrites authorization endpoint protocol errors into validated redirects when
+    /// client_id and redirect_uri are valid, per OIDC Core §3.1.2.6.
     /// </summary>
     public static IApplicationBuilder UseAuthorizationErrorRedirects(this IApplicationBuilder app) =>
         app.UseMiddleware<AuthorizationErrorRedirectMiddleware>();
@@ -158,8 +161,7 @@ internal static class AuthorizationErrorRedirectHelper
 
         if (request is null
             || response is null
-            || !string.Equals(response.Error, Errors.RequestNotSupported, StringComparison.Ordinal)
-            || string.IsNullOrWhiteSpace(request.Request)
+            || string.IsNullOrWhiteSpace(response.Error)
             || string.IsNullOrWhiteSpace(request.ClientId)
             || string.IsNullOrWhiteSpace(request.RedirectUri))
         {
