@@ -15,7 +15,7 @@ namespace OpenIdentityStack.Infrastructure.Identity;
 /// Redirects authorization errors back to a validated client redirect URI when client_id and
 /// redirect_uri are valid, per OIDC Core §3.1.2.6.
 /// </summary>
-public sealed class RedirectUnsupportedRequestParameterErrorsHandler(
+public sealed class RedirectAuthorizationErrorsHandler(
     IOpenIddictApplicationManager applicationManager) : IOpenIddictServerHandler<ApplyAuthorizationResponseContext>
 {
     /// <summary>
@@ -23,7 +23,7 @@ public sealed class RedirectUnsupportedRequestParameterErrorsHandler(
     /// </summary>
     public static OpenIddictServerHandlerDescriptor Descriptor { get; }
         = OpenIddictServerHandlerDescriptor.CreateBuilder<ApplyAuthorizationResponseContext>()
-            .UseScopedHandler<RedirectUnsupportedRequestParameterErrorsHandler>()
+            .UseScopedHandler<RedirectAuthorizationErrorsHandler>()
             .SetOrder(OpenIddictServerHandlers.Authentication.ApplyAuthorizationResponse<ApplyAuthorizationResponseContext>.Descriptor.Order + SessionManagementConstants.CustomHandlerOrderOffset)
             .SetType(OpenIddictServerHandlerType.Custom)
             .Build();
@@ -69,8 +69,8 @@ public static class AuthorizationErrorRedirectExtensions
     /// </summary>
     public static OpenIddictServerBuilder AddAuthorizationErrorRedirects(this OpenIddictServerBuilder builder)
     {
-        builder.Services.AddScoped<RedirectUnsupportedRequestParameterErrorsHandler>();
-        builder.AddEventHandler(RedirectUnsupportedRequestParameterErrorsHandler.Descriptor);
+        builder.Services.AddScoped<RedirectAuthorizationErrorsHandler>();
+        builder.AddEventHandler(RedirectAuthorizationErrorsHandler.Descriptor);
 
         return builder;
     }

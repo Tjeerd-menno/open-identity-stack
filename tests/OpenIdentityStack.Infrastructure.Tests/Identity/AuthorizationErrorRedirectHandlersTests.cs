@@ -6,17 +6,19 @@ using OpenIdentityStack.Infrastructure.Identity;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using static OpenIddict.Server.OpenIddictServerEvents;
 
+#pragma warning disable CA2012 // NSubstitute setup captures ValueTask-returning calls.
+
 namespace OpenIdentityStack.Infrastructure.Tests.Identity;
 
-public sealed class RedirectUnsupportedRequestParameterErrorsHandlerTests
+public sealed class RedirectAuthorizationErrorsHandlerTests
 {
     private readonly IOpenIddictApplicationManager _applicationManager;
-    private readonly RedirectUnsupportedRequestParameterErrorsHandler _handler;
+    private readonly RedirectAuthorizationErrorsHandler _handler;
 
-    public RedirectUnsupportedRequestParameterErrorsHandlerTests()
+    public RedirectAuthorizationErrorsHandlerTests()
     {
         _applicationManager = Substitute.For<IOpenIddictApplicationManager>();
-        _handler = new RedirectUnsupportedRequestParameterErrorsHandler(_applicationManager);
+        _handler = new RedirectAuthorizationErrorsHandler(_applicationManager);
     }
 
     [Fact]
@@ -33,12 +35,10 @@ public sealed class RedirectUnsupportedRequestParameterErrorsHandlerTests
             redirectUri,
             CreateUnsignedRequestObject(state));
 
-#pragma warning disable CA2012
         _applicationManager.FindByClientIdAsync(clientId, Arg.Any<CancellationToken>())
-            .Returns(new ValueTask<object?>(application));
+            .Returns(ValueTask.FromResult<object?>(application));
         _applicationManager.ValidateRedirectUriAsync(application, redirectUri, Arg.Any<CancellationToken>())
-            .Returns(new ValueTask<bool>(true));
-#pragma warning restore CA2012
+            .Returns(ValueTask.FromResult(true));
 
         // Act
         await _handler.HandleAsync(context);
@@ -64,12 +64,10 @@ public sealed class RedirectUnsupportedRequestParameterErrorsHandlerTests
             CreateUnsignedRequestObject(state),
             error: Errors.InvalidRequest);
 
-#pragma warning disable CA2012
         _applicationManager.FindByClientIdAsync(clientId, Arg.Any<CancellationToken>())
-            .Returns(new ValueTask<object?>(application));
+            .Returns(ValueTask.FromResult<object?>(application));
         _applicationManager.ValidateRedirectUriAsync(application, redirectUri, Arg.Any<CancellationToken>())
-            .Returns(new ValueTask<bool>(true));
-#pragma warning restore CA2012
+            .Returns(ValueTask.FromResult(true));
 
         // Act
         await _handler.HandleAsync(context);
@@ -94,12 +92,10 @@ public sealed class RedirectUnsupportedRequestParameterErrorsHandlerTests
             state,
             error: Errors.InvalidRequest);
 
-#pragma warning disable CA2012
         _applicationManager.FindByClientIdAsync(clientId, Arg.Any<CancellationToken>())
-            .Returns(new ValueTask<object?>(application));
+            .Returns(ValueTask.FromResult<object?>(application));
         _applicationManager.ValidateRedirectUriAsync(application, redirectUri, Arg.Any<CancellationToken>())
-            .Returns(new ValueTask<bool>(true));
-#pragma warning restore CA2012
+            .Returns(ValueTask.FromResult(true));
 
         // Act
         await _handler.HandleAsync(context);
@@ -123,12 +119,10 @@ public sealed class RedirectUnsupportedRequestParameterErrorsHandlerTests
             redirectUri,
             CreateUnsignedRequestObject("state-123"));
 
-#pragma warning disable CA2012
         _applicationManager.FindByClientIdAsync(clientId, Arg.Any<CancellationToken>())
-            .Returns(new ValueTask<object?>(application));
+            .Returns(ValueTask.FromResult<object?>(application));
         _applicationManager.ValidateRedirectUriAsync(application, redirectUri, Arg.Any<CancellationToken>())
-            .Returns(new ValueTask<bool>(false));
-#pragma warning restore CA2012
+            .Returns(ValueTask.FromResult(false));
 
         // Act
         await _handler.HandleAsync(context);
@@ -191,7 +185,7 @@ public sealed class RedirectUnsupportedRequestParameterErrorsHandlerTests
     [Fact]
     public void Descriptor_HasCorrectOrder()
     {
-        RedirectUnsupportedRequestParameterErrorsHandler.Descriptor.Order
+        RedirectAuthorizationErrorsHandler.Descriptor.Order
             .ShouldBeGreaterThan(OpenIddictServerHandlers.Authentication
                 .ApplyAuthorizationResponse<ApplyAuthorizationResponseContext>
                 .Descriptor.Order);
@@ -200,7 +194,7 @@ public sealed class RedirectUnsupportedRequestParameterErrorsHandlerTests
     [Fact]
     public void Descriptor_IsCustomHandlerType()
     {
-        RedirectUnsupportedRequestParameterErrorsHandler.Descriptor.Type
+        RedirectAuthorizationErrorsHandler.Descriptor.Type
             .ShouldBe(OpenIddictServerHandlerType.Custom);
     }
 
