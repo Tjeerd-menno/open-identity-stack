@@ -18,6 +18,7 @@ public sealed record UserProfileData(
     string? Locale = null,
     Address? Address = null,
     string? PhoneNumber = null,
-    // Nullable so an omitted value means "unchanged", matching how the string fields
-    // behave on update; the entity itself stores a plain bool defaulting to false.
+    // Nullable to allow callers to omit the value; the use case layer is responsible
+    // for supplying the current stored value when only other fields are being updated.
+    // The entity treats null as false (see ApplyProfileData).
     bool? PhoneNumberVerified = null);
