@@ -10,6 +10,7 @@ using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure;
+using OpenIdentityStack.Infrastructure.Common;
 using OpenIdentityStack.Infrastructure.Persistence;
 
 using SharedKernel;
@@ -26,6 +27,10 @@ if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException("Connection string 'openidentitystack' was not found.");
 }
+
+// Fail before any schema or seed work: the API refuses to start on a malformed key, and a
+// migrator that completes anyway pushes the failure into a different workload.
+SecretEncryptionKey.Validate(builder.Configuration);
 
 builder.Services.AddInfrastructure(connectionString, builder.Configuration, builder.Environment.EnvironmentName);
 
