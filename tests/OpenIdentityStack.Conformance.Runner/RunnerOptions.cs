@@ -29,6 +29,25 @@ internal sealed record RunnerOptions
             "include-manual-review",
         };
 
+    /// <summary>Options that take a value.</summary>
+    private static readonly IReadOnlySet<string> ValueOptions =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "suite",
+            "plan",
+            "variant",
+            "config",
+            "out",
+            "username",
+            "timeout",
+            "suite-host",
+            "only",
+
+            // Recognised so it can be rejected with an explanation rather than
+            // dismissed as a typo.
+            "password",
+        };
+
     public string SuiteBaseUrl { get; init; } = "https://localhost.emobix.co.uk:8443";
 
     public string PlanName { get; init; } = "oidcc-basic-certification-test-plan";
@@ -48,6 +67,14 @@ internal sealed record RunnerOptions
 
     /// <summary>When true, manual-review modules are run despite always stalling.</summary>
     public bool IncludeManualReview { get; init; }
+
+    /// <summary>
+    /// When true, the driver stops at the OP's login form and waits for the
+    /// operator before submitting. Set automatically for the manual-review
+    /// modules, whose evidence *is* the fresh login form: submitting it
+    /// immediately leaves nothing to screenshot.
+    /// </summary>
+    public bool PauseAtLoginForm { get; init; }
 
     public int PerTestTimeoutSeconds { get; init; } = 180;
 
@@ -85,6 +112,13 @@ internal sealed record RunnerOptions
             }
 
             string name = args[i][2..];
+
+            // A mistyped --suiet would otherwise be stored and ignored, and the
+            // run would quietly produce evidence against the default suite.
+            if (!FlagOptions.Contains(name) && !ValueOptions.Contains(name))
+            {
+                throw new InvalidOperationException($"Unknown option '--{name}'.");
+            }
 
             if (FlagOptions.Contains(name))
             {

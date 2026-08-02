@@ -98,6 +98,12 @@ Two ways to drive them anyway:
 - `--include-manual-review` puts them back into a full sweep. Only useful with a
   human watching, ready to complete each review before the deadline.
 
+Either way the runner **requires `--headed`** and **pauses at the OP's login
+form**, printing a prompt and waiting for Enter before submitting. Both are
+necessary rather than convenient: for `oidcc-prompt-login` and `oidcc-max-age-1`
+the evidence *is* the fresh login form, so a headless browser has nothing to
+photograph and an immediate submit destroys the only thing worth capturing.
+
 ### What correct behaviour looks like
 
 Verified against the local stack before the hosted run

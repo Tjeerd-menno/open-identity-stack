@@ -69,14 +69,24 @@ internal sealed class BrowserDriver : IAsyncDisposable
     }
 
     /// <summary>
-    /// Visits one pending interaction URL and returns a short description of what happened.
+    /// Visits one pending interaction URL and reports what happened.
     /// </summary>
-    public async Task<string> VisitAsync(string url, CancellationToken ct)
+    /// <remarks>
+    /// <see cref="VisitOutcome.Retryable"/> distinguishes "the OP answered and
+    /// there is nothing more to drive" from "the browser never got there". Only
+    /// the latter may be attempted again: the suite is still waiting on that
+    /// interaction, and giving up on it strands the test.
+    /// </remarks>
+    public async Task<VisitOutcome> VisitAsync(string url, CancellationToken ct)
     {
-        // IgnoreHTTPSErrors covers the provider's self-signed certificate.
+        // IgnoreHTTPSErrors covers the local provider's self-signed certificate —
+        // and only that. Off-machine it would defeat the origin check outright:
+        // an on-path server can present any certificate for the expected
+        // hostname, so the page would carry the right origin and still collect
+        // the certification password.
         this.context ??= await this.browser.NewContextAsync(new BrowserNewContextOptions
         {
-            IgnoreHTTPSErrors = true,
+            IgnoreHTTPSErrors = IsLoopbackOrigin(this.options.OpOrigin),
         });
 
         IPage page = await this.context.NewPageAsync();
@@ -145,29 +155,44 @@ internal sealed class BrowserDriver : IAsyncDisposable
                 string note = $"login={(loggedIn ? "yes" : "not-required")} landed={landed} url={Redact(page.Url)}";
                 if (landed == "suite-callback")
                 {
-                    return note;
+                    return new VisitOutcome(note, Retryable: false);
                 }
 
                 string body = (await page.InnerTextAsync("body")).ReplaceLineEndings(" ");
                 if (body.Length > 0 || attempt >= 3)
                 {
-                    return $"{note} body=[{body[..Math.Min(body.Length, 300)]}] anomalies=[{string.Join("; ", anomalies)}]";
+                    return new VisitOutcome(
+                        $"{note} body=[{body[..Math.Min(body.Length, 300)]}] anomalies=[{string.Join("; ", anomalies)}]",
+                        Retryable: false);
                 }
             }
         }
         catch (TimeoutException)
         {
-            return $"timeout at {Redact(page.Url)}";
+            return new VisitOutcome($"timeout at {Redact(page.Url)}", Retryable: true);
         }
         catch (PlaywrightException ex)
         {
-            return $"browser-error: {ex.Message.Split('\n')[0]}";
+            return new VisitOutcome($"browser-error: {ex.Message.Split('\n')[0]}", Retryable: true);
         }
         finally
         {
             await page.CloseAsync();
         }
     }
+
+    /// <summary>
+    /// True when the origin resolves to this machine. Mirrors
+    /// <c>SuiteClient.IsLoopback</c>: both <c>localhost.emobix.co.uk</c> and
+    /// <c>*.localtest.me</c> resolve publicly to 127.0.0.1, which is what lets the
+    /// local loop run without a hosts-file edit.
+    /// </summary>
+    internal static bool IsLoopbackOrigin(string origin) =>
+        Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri)
+        && (uri.IsLoopback
+            || uri.Host.Equals("localhost.emobix.co.uk", StringComparison.OrdinalIgnoreCase)
+            || uri.Host.Equals("localtest.me", StringComparison.OrdinalIgnoreCase)
+            || uri.Host.EndsWith(".localtest.me", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>True when <paramref name="url"/>'s host is exactly <paramref name="host"/>.</summary>
     private static bool IsHost(string url, string host) =>
@@ -289,14 +314,27 @@ internal sealed class BrowserDriver : IAsyncDisposable
             return false;
         }
 
-        // The suite chooses the URL this flow started from, and certificate
-        // validation is off, so a login form is not by itself proof of who is
-        // asking. Type the credential only into the OP named by the plan config.
+        // The suite chooses the URL this flow started from, so a login form is not
+        // by itself proof of who is asking. Type the credential only into the OP
+        // named by the plan config.
         if (!this.IsOpOrigin(page.Url))
         {
             throw new InvalidOperationException(
                 $"Refusing to enter credentials: a login form was served from '{OriginOf(page.Url)}', "
                 + $"but the OP under test is '{this.options.OpOrigin}'.");
+        }
+
+        // oidcc-prompt-login and oidcc-max-age-1 are certified on the evidence
+        // that a *fresh* login form appeared despite a live session. Submitting it
+        // immediately destroys the only thing the operator has to screenshot.
+        if (this.options.PauseAtLoginForm)
+        {
+            Console.WriteLine();
+            Console.WriteLine("  >> MANUAL REVIEW: the OP is showing a login form.");
+            Console.WriteLine("  >> Capture the full browser window, including the address bar, then");
+            Console.WriteLine("  >> press Enter here to submit and let the test continue.");
+            Console.Write("  >> ");
+            Console.ReadLine();
         }
 
         // A failed submit re-renders the login form; retry while it is there.
@@ -406,3 +444,13 @@ internal sealed class BrowserDriver : IAsyncDisposable
             : "provider-page";
     }
 }
+
+/// <summary>
+/// What one visit to a pending interaction URL produced.
+/// </summary>
+/// <param name="Note">Short description, safe to persist — credentials redacted.</param>
+/// <param name="Retryable">
+/// True when the browser never reached a conclusion, so the suite is still
+/// waiting on this interaction and it must be attempted again.
+/// </param>
+internal sealed record VisitOutcome(string Note, bool Retryable);

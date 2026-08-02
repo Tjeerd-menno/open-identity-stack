@@ -27,7 +27,6 @@ Console.WriteLine($"config : {options.ConfigPath}");
 Console.WriteLine($"op     : {options.OpOrigin}");
 
 using var suite = new SuiteClient(new Uri(options.SuiteBaseUrl));
-await using BrowserDriver browser = await BrowserDriver.CreateAsync(options);
 
 string planId = await suite.CreatePlanAsync(options.PlanName, options.VariantJson, configJson, CancellationToken.None);
 Console.WriteLine($"planId : {planId}");
@@ -67,8 +66,26 @@ else if (!options.IncludeManualReview)
     }
 }
 
+// Driving a manual-review module means an operator is present to capture
+// evidence, so the driver waits at the login form instead of submitting it.
+if (modules.Any(RunnerOptions.ManualReviewModules.Contains))
+{
+    if (options.Headless)
+    {
+        throw new InvalidOperationException(
+            "Manual-review modules need a visible browser so their evidence can be captured. "
+            + "Re-run with --headed. See docs/certification/run-oidf-conformance-suite.md.");
+    }
+
+    options = options with { PauseAtLoginForm = true };
+    Console.WriteLine("manual-review selected: the run will pause at each login form for capture.");
+}
+
 Console.WriteLine($"modules: {modules.Count}");
 Console.WriteLine();
+
+// Created after module selection so it sees PauseAtLoginForm.
+await using BrowserDriver browser = await BrowserDriver.CreateAsync(options);
 
 var results = new List<TestResult>();
 
@@ -114,11 +131,18 @@ for (int i = 0; i < modules.Count; i++)
             // dead time rather than a slow test. Charging it to the deadline
             // would abandon a flow that is about to succeed.
             TimeSpan throttledBefore = BrowserDriver.ThrottleWait;
-            string outcome = await browser.VisitAsync(url, CancellationToken.None);
+            VisitOutcome outcome = await browser.VisitAsync(url, CancellationToken.None);
             deadline += BrowserDriver.ThrottleWait - throttledBefore;
 
-            notes.Add(outcome);
-            Console.WriteLine($"{prefix}: browser -> {outcome}");
+            // The browser never got there, so the suite is still waiting on this
+            // interaction. Leaving it in `visited` would strand the test.
+            if (outcome.Retryable)
+            {
+                visited.Remove(url);
+            }
+
+            notes.Add(outcome.Note);
+            Console.WriteLine($"{prefix}: browser -> {outcome.Note}");
         }
 
         await Task.Delay(1000);
