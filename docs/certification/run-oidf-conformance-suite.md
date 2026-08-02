@@ -82,6 +82,22 @@ provider rendered and **upload it on the test's log detail page**, so it becomes
 part of the test log and travels inside the exported results ZIP. Nothing is
 copied into this repository.
 
+### These five are excluded from automated sweeps
+
+The Playwright runner drives browser URLs but has no way to acknowledge a
+review, so a manual-review module stays `WAITING` until the per-test deadline
+expires. That is worse than slow: a test still holding the alias when the next
+one starts is killed by the suite with an alias conflict, which silently
+corrupts every result after it.
+
+The runner therefore **skips all five by default** and names them on startup.
+Two ways to drive them anyway:
+
+- `--only <module>` runs exactly the modules named, overriding the exclusion.
+  This is the right way to work one review test at a time.
+- `--include-manual-review` puts them back into a full sweep. Only useful with a
+  human watching, ready to complete each review before the deadline.
+
 ### What correct behaviour looks like
 
 Verified against the local stack before the hosted run
@@ -128,4 +144,31 @@ of scope for the certification effort.
 - Review every warning and document why it is acceptable before submission.
 - Export result ZIP files after the final run.
 - Do not submit or archive logs containing reusable secrets.
+
+### Runner exit codes
+
+The runner's exit code is the quick check; the results JSON carries the detail.
+
+| Code | Meaning |
+|---|---|
+| `0` | Every module reached a verdict and none `FAILED`. |
+| `1` | At least one module `FAILED`. |
+| `2` | At least one module stalled. **Discard the run** — later results may be corrupted by alias conflicts. |
+| `3` | At least one module produced no result at all (failed to start, `INTERRUPTED`, or no verdict). Evidence has holes in it. |
+
+Codes `2` and `3` are not "mostly fine". A missing verdict is missing evidence,
+which blocks certification exactly as a `FAILED` does.
+
+### Credentials
+
+The runner reads the OP password from the **`CONFORMANCE_PASSWORD` environment
+variable only**. It refuses a `--password` argument: a sweep runs for tens of
+minutes, and its command line is readable by other processes for the whole of
+that time and is persisted to shell history afterwards.
+
+It also refuses to type the password into any page not served by the OP named in
+the plan config's `server.discoveryUrl`. The suite chooses the URL each flow
+starts from, and the runner disables certificate validation to accommodate the
+local self-signed certificate, so the origin check is what stands between a
+misconfigured `--suite` and a leaked certification credential.
 - Deactivate or rotate certification user passwords and client secrets after exporting final evidence.

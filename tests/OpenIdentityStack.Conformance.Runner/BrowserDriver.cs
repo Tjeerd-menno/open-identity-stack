@@ -129,7 +129,7 @@ internal sealed class BrowserDriver : IAsyncDisposable
                 // outcome and simply means there is nothing further to drive.
                 string landed = await WaitForSettleAsync(page, this.options.SuiteHost, this.options.SettleTimeoutMs);
 
-                string note = $"login={(loggedIn ? "yes" : "not-required")} landed={landed} url={page.Url}";
+                string note = $"login={(loggedIn ? "yes" : "not-required")} landed={landed} url={Redact(page.Url)}";
                 if (landed == "suite-callback")
                 {
                     return note;
@@ -144,7 +144,7 @@ internal sealed class BrowserDriver : IAsyncDisposable
         }
         catch (TimeoutException)
         {
-            return $"timeout at {page.Url}";
+            return $"timeout at {Redact(page.Url)}";
         }
         catch (PlaywrightException ex)
         {
@@ -156,7 +156,24 @@ internal sealed class BrowserDriver : IAsyncDisposable
         }
     }
 
+    /// <summary>Scheme and authority of <paramref name="url"/>, or the input if unparseable.</summary>
+    private static string OriginOf(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out Uri? parsed)
+            ? parsed.GetLeftPart(UriPartial.Authority)
+            : url;
+
+    private bool IsOpOrigin(string url) =>
+        !string.IsNullOrEmpty(this.options.OpOrigin)
+        && string.Equals(OriginOf(url), this.options.OpOrigin, StringComparison.OrdinalIgnoreCase);
+
     private static readonly List<DateTime> LoginSubmits = [];
+
+    /// <summary>
+    /// Total time spent parked on the login rate limiter. The caller adds this to
+    /// its per-test deadline: a throttle wait can exceed the whole deadline, and
+    /// a test abandoned mid-flow keeps the alias and corrupts what follows.
+    /// </summary>
+    public static TimeSpan ThrottleWait { get; private set; }
 
     /// <summary>
     /// Delays until submitting a login form stays within the OP's fixed window
@@ -176,6 +193,7 @@ internal sealed class BrowserDriver : IAsyncDisposable
             TimeSpan wait = window - (DateTime.UtcNow - LoginSubmits[0]);
             Console.WriteLine($"        (login rate limit: waiting {wait.TotalSeconds:F0}s)");
             await Task.Delay(wait, ct);
+            ThrottleWait += wait;
             LoginSubmits.RemoveAt(0);
         }
 
@@ -197,6 +215,51 @@ internal sealed class BrowserDriver : IAsyncDisposable
         return query < 0 ? url : url[..query];
     }
 
+    /// <summary>
+    /// Query parameters whose values must never reach the results file. A
+    /// successful authorization lands on the suite callback carrying a live
+    /// <c>code</c>, and notes are serialized to disk verbatim.
+    /// </summary>
+    private static readonly IReadOnlySet<string> SecretParameters =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "code",
+            "id_token",
+            "access_token",
+            "refresh_token",
+            "token",
+            "code_verifier",
+            "client_secret",
+        };
+
+    /// <summary>
+    /// Replaces the values of credential-bearing query parameters with a marker,
+    /// keeping parameter names and the diagnostic ones (<c>error</c>,
+    /// <c>state</c>, …) intact — those are what makes a note worth reading.
+    /// </summary>
+    internal static string Redact(string url)
+    {
+        int split = url.IndexOf('?', StringComparison.Ordinal);
+        if (split < 0)
+        {
+            return url;
+        }
+
+        string[] pairs = url[(split + 1)..].Split('&');
+        for (int i = 0; i < pairs.Length; i++)
+        {
+            int eq = pairs[i].IndexOf('=', StringComparison.Ordinal);
+            string name = eq < 0 ? pairs[i] : pairs[i][..eq];
+
+            if (eq >= 0 && SecretParameters.Contains(Uri.UnescapeDataString(name)))
+            {
+                pairs[i] = $"{name}=[redacted]";
+            }
+        }
+
+        return $"{url[..split]}?{string.Join('&', pairs)}";
+    }
+
     /// <summary>Fills and submits the login form if one is present.</summary>
     private async Task<bool> TryLoginAsync(IPage page, CancellationToken ct)
     {
@@ -206,6 +269,16 @@ internal sealed class BrowserDriver : IAsyncDisposable
             // No form: either an existing session satisfied the request, or the
             // OP rejected it outright. Both are legitimate.
             return false;
+        }
+
+        // The suite chooses the URL this flow started from, and certificate
+        // validation is off, so a login form is not by itself proof of who is
+        // asking. Type the credential only into the OP named by the plan config.
+        if (!this.IsOpOrigin(page.Url))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to enter credentials: a login form was served from '{OriginOf(page.Url)}', "
+                + $"but the OP under test is '{this.options.OpOrigin}'.");
         }
 
         // A failed submit re-renders the login form; retry while it is there.
