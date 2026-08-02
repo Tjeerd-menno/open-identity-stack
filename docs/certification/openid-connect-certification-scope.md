@@ -25,6 +25,26 @@ OpenID Provider
 - FAPI
 - OpenID Federation
 - eKYC / Identity Assurance
+- Request Objects (JAR) — see below
+
+## Request Objects (JAR)
+
+Request objects are **not supported**. An authorization request carrying a `request`
+parameter is rejected with `error=request_not_supported`, redirected to the client's
+validated `redirect_uri` as OpenID Connect Core §3.1.2.6 prescribes. Rejection is an
+explicitly permitted posture for the Basic OP profile: the conformance suite accepts
+`request_not_supported` in `oidcc-ensure-request-object-with-redirect-uri`, and
+`oidcc-unsigned-request-object-supported-correctly-or-rejected-as-unsupported` skips
+when the capability is not advertised.
+
+Discovery is therefore **deliberately silent** on
+`request_object_signing_alg_values_supported`. Advertising a capability the OP does not
+implement is a worse failure than advertising nothing: relying parties would build
+against a signalled feature that never works, and discovery metadata is precisely what
+the Config OP plan certifies. OpenIddict 7.6 provides no server-side request-object
+support to enable, so implementing JAR would mean hand-writing the parse, signature
+verification, `iss`/`aud` binding, algorithm-confusion and replay defences — work that
+belongs with the deferred FAPI profile, not with Basic OP certification.
 
 ## Certification Environment
 

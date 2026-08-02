@@ -192,9 +192,6 @@ public static class OpenIddictSetup
                 // Keep OpenIddict's storage identifiers out of public ID tokens.
                 options.AddInternalTokenClaimTrimming();
 
-                // Redirect request-object capability errors back to validated clients.
-                options.AddAuthorizationErrorRedirects();
-
                 // Add session management handlers (session_state + check_session_iframe)
                 options.AddSessionManagement();
             })
