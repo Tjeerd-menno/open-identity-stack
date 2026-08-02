@@ -218,6 +218,15 @@ public static class OpenIddictSetup
                 options.UseAspNetCore();
             });
 
+        // Advertise and accept S256 only. With "plain" the verifier *is* the challenge,
+        // so it protects against nothing, and RFC 7636 section 7.2 requires any client
+        // capable of S256 to use it. OpenIddict announces both methods by default and
+        // exposes no builder API for this, so the set is trimmed directly. Registered
+        // after the AddOpenIddict chain so it runs last and cannot be undone by
+        // OpenIddict's own post-configuration.
+        services.PostConfigure<OpenIddictServerOptions>(options =>
+            options.CodeChallengeMethods.Remove(OpenIddictConstants.CodeChallengeMethods.Plain));
+
         return services;
     }
 
