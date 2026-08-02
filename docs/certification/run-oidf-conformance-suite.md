@@ -165,6 +165,18 @@ The runner's exit code is the quick check; the results JSON carries the detail.
 Codes `2` and `3` are not "mostly fine". A missing verdict is missing evidence,
 which blocks certification exactly as a `FAILED` does.
 
+### First run on a fresh checkout
+
+`dotnet build` restores Playwright's driver but **not** the browser binaries, so
+the first run otherwise fails at launch. Install Chromium once:
+
+```powershell
+tests/OpenIdentityStack.Conformance.Runner/bin/Debug/net10.0/playwright.ps1 install chromium
+```
+
+Use `playwright.sh` on Linux and macOS. If it is missing, the runner says so and
+repeats this command rather than surfacing Playwright's own message.
+
 ### Credentials
 
 The runner reads the OP password from the **`CONFORMANCE_PASSWORD` environment

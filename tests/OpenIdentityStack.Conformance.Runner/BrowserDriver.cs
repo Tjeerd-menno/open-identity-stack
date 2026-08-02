@@ -34,10 +34,28 @@ internal sealed class BrowserDriver : IAsyncDisposable
     public static async Task<BrowserDriver> CreateAsync(RunnerOptions options)
     {
         IPlaywright playwright = await Playwright.CreateAsync();
-        IBrowser browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+
+        IBrowser browser;
+        try
         {
-            Headless = options.Headless,
-        });
+            browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+            {
+                Headless = options.Headless,
+            });
+        }
+        catch (PlaywrightException ex)
+        {
+            // `dotnet build` restores the Playwright driver but not the browser
+            // binaries, so a fresh checkout fails here — after plan creation, with
+            // a message that does not say what to do about it.
+            throw new InvalidOperationException(
+                "Could not launch Chromium. Playwright's browser binaries are not installed by "
+                + "the build; install them once with:\n\n"
+                + "    tests/OpenIdentityStack.Conformance.Runner/bin/Debug/net10.0/playwright.ps1 install chromium\n\n"
+                + "(use playwright.sh on Linux and macOS). See "
+                + "docs/certification/run-oidf-conformance-suite.md.",
+                ex);
+        }
 
         return new BrowserDriver(playwright, browser, options);
     }
@@ -86,7 +104,7 @@ internal sealed class BrowserDriver : IAsyncDisposable
         // the certification password.
         this.context ??= await this.browser.NewContextAsync(new BrowserNewContextOptions
         {
-            IgnoreHTTPSErrors = IsLoopbackOrigin(this.options.OpOrigin),
+            IgnoreHTTPSErrors = LoopbackGuard.IsLoopback(this.options.OpOrigin),
         });
 
         IPage page = await this.context.NewPageAsync();
@@ -180,19 +198,6 @@ internal sealed class BrowserDriver : IAsyncDisposable
             await page.CloseAsync();
         }
     }
-
-    /// <summary>
-    /// True when the origin resolves to this machine. Mirrors
-    /// <c>SuiteClient.IsLoopback</c>: both <c>localhost.emobix.co.uk</c> and
-    /// <c>*.localtest.me</c> resolve publicly to 127.0.0.1, which is what lets the
-    /// local loop run without a hosts-file edit.
-    /// </summary>
-    internal static bool IsLoopbackOrigin(string origin) =>
-        Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri)
-        && (uri.IsLoopback
-            || uri.Host.Equals("localhost.emobix.co.uk", StringComparison.OrdinalIgnoreCase)
-            || uri.Host.Equals("localtest.me", StringComparison.OrdinalIgnoreCase)
-            || uri.Host.EndsWith(".localtest.me", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>True when <paramref name="url"/>'s host is exactly <paramref name="host"/>.</summary>
     private static bool IsHost(string url, string host) =>

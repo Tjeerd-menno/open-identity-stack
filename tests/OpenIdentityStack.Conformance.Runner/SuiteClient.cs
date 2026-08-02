@@ -16,17 +16,6 @@ internal sealed class SuiteClient : IDisposable
 {
     private readonly HttpClient http;
 
-    /// <summary>
-    /// Hosts that resolve to this machine. The suite's own default base URL,
-    /// <c>localhost.emobix.co.uk</c>, and <c>oidc.localtest.me</c> both resolve
-    /// publicly to 127.0.0.1, which is why the local loop needs no hosts file.
-    /// </summary>
-    private static bool IsLoopback(Uri uri) =>
-        uri.IsLoopback
-        || uri.Host.Equals("localhost.emobix.co.uk", StringComparison.OrdinalIgnoreCase)
-        || uri.Host.EndsWith(".localtest.me", StringComparison.OrdinalIgnoreCase)
-        || uri.Host.Equals("localtest.me", StringComparison.OrdinalIgnoreCase);
-
     public SuiteClient(Uri baseAddress)
     {
         // The hosted suite is authenticated, holds real certification evidence,
@@ -46,7 +35,7 @@ internal sealed class SuiteClient : IDisposable
         // CreatePlanAsync posts the static-client configuration, client secrets
         // included. Accepting any certificate off-machine would hand those to
         // whatever answered the DNS query, before any browser-origin check runs.
-        if (IsLoopback(baseAddress))
+        if (LoopbackGuard.IsLoopback(baseAddress))
         {
             handler.ServerCertificateCustomValidationCallback =
                 HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
