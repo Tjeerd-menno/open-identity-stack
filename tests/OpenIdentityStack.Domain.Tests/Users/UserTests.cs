@@ -498,5 +498,65 @@ public sealed class UserTests
         user.ModifiedAt.ShouldBe(this._now);
     }
 
+    [Fact]
+    public void UpdateProfile_RoundTripsAddressAndPhone()
+    {
+        // Arrange
+        User user = User.CreateLocal("alice@example.test", "Alice Example", "password", this._dateTimeProvider).Value;
+        Address address = new(
+            Formatted: "Keizersgracht 1\n1015 CJ Amsterdam\nNetherlands",
+            StreetAddress: "Keizersgracht 1",
+            Locality: "Amsterdam",
+            Region: "Noord-Holland",
+            PostalCode: "1015 CJ",
+            Country: "Netherlands");
+
+        // Act
+        Result result = user.UpdateProfile(
+            new UserProfileData(Address: address, PhoneNumber: " +31 20 555 0100 ", PhoneNumberVerified: true),
+            this._dateTimeProvider);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        user.Address.ShouldBe(address);
+        user.PhoneNumber.ShouldBe("+31 20 555 0100");
+        user.PhoneNumberVerified.ShouldBeTrue();
+        user.GetProfileData().Address.ShouldBe(address);
+        user.GetProfileData().PhoneNumber.ShouldBe("+31 20 555 0100");
+        user.GetProfileData().PhoneNumberVerified.ShouldBe(true);
+    }
+
+    [Fact]
+    public void UpdateProfile_NormalizesAnAllBlankAddressToNull()
+    {
+        // Arrange - an address whose every component is blank must not become an empty claim
+        User user = User.CreateLocal("alice@example.test", "Alice Example", "password", this._dateTimeProvider).Value;
+
+        // Act
+        Result result = user.UpdateProfile(
+            new UserProfileData(Address: new Address(Locality: "   ")),
+            this._dateTimeProvider);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        user.Address.ShouldBeNull();
+    }
+
+    [Fact]
+    public void UpdateProfile_WithOverlongAddressComponent_Fails()
+    {
+        // Arrange
+        User user = User.CreateLocal("alice@example.test", "Alice Example", "password", this._dateTimeProvider).Value;
+
+        // Act
+        Result result = user.UpdateProfile(
+            new UserProfileData(Address: new Address(Locality: new string('a', 257))),
+            this._dateTimeProvider);
+
+        // Assert
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.User.AddressLocalityTooLong");
+    }
+
     #endregion
 }

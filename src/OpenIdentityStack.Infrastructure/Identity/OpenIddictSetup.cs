@@ -107,6 +107,8 @@ public static class OpenIddictSetup
                 options.RegisterScopes(
                     OpenIddictConstants.Scopes.Profile,
                     OpenIddictConstants.Scopes.Email,
+                    OpenIddictConstants.Scopes.Address,
+                    OpenIddictConstants.Scopes.Phone,
                     OpenIddictConstants.Scopes.Roles,
                     "api");
 
@@ -127,7 +129,10 @@ public static class OpenIddictSetup
                     OpenIddictConstants.Claims.Locale,
                     OpenIddictConstants.Claims.UpdatedAt,
                     OpenIddictConstants.Claims.Email,
-                    OpenIddictConstants.Claims.EmailVerified);
+                    OpenIddictConstants.Claims.EmailVerified,
+                    OpenIddictConstants.Claims.Address,
+                    OpenIddictConstants.Claims.PhoneNumber,
+                    OpenIddictConstants.Claims.PhoneNumberVerified);
 
                 string? signingBase64 = configuration["OpenIddict:Certificates:Signing:Base64"];
                 string? signingPath = configuration["OpenIddict:Certificates:Signing:Path"];

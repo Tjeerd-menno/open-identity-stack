@@ -72,7 +72,12 @@ public sealed class UpdateUserUseCase : IUpdateUserUseCase
                     ResolveProfileValue(command.Profile.Gender, user.Gender),
                     ResolveProfileValue(command.Profile.Birthdate, user.Birthdate),
                     ResolveProfileValue(command.Profile.ZoneInfo, user.ZoneInfo),
-                    ResolveProfileValue(command.Profile.Locale, user.Locale)),
+                    ResolveProfileValue(command.Profile.Locale, user.Locale),
+                    // The address is replaced as a whole -- a partial merge of six
+                    // components has no sensible semantics for a postal address.
+                    command.Profile.Address ?? user.Address,
+                    ResolveProfileValue(command.Profile.PhoneNumber, user.PhoneNumber),
+                    command.Profile.PhoneNumberVerified ?? user.PhoneNumberVerified),
                 this.dateTimeProvider);
 
             if (profileResult.IsFailure)

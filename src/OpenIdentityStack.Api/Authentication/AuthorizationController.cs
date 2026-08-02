@@ -32,8 +32,6 @@ namespace OpenIdentityStack.Api.Authentication;
 public class AuthorizationController : ControllerBase
 {
     private const string legacySessionIdClaim = "session_id";
-    private const string requestedUserInfoClaim = "requested_userinfo_claim";
-    private const string authenticationContextClassReferenceClaim = "acr";
     private const string supportedAcrValue = "1";
 
     private readonly IOpenIddictApplicationManager applicationManager;
@@ -524,124 +522,6 @@ public class AuthorizationController : ControllerBase
             .ToList();
     }
 
-    private static IEnumerable<string> GetDestinations(Claim claim)
-    {
-        if (IsInternalTokenStateClaim(claim.Type))
-        {
-            yield break;
-        }
-
-        // Custom destinations support
-        if (claim.Properties.TryGetValue("destinations", out string? destinations))
-        {
-            if (!string.IsNullOrEmpty(destinations))
-            {
-                foreach (string dest in destinations.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-                {
-                    yield return dest;
-                }
-                yield break;
-            }
-        }
-
-        // Note: by default, claims are NOT automatically included in the access and identity tokens.
-        // To include them, you must set their destinations here.
-
-        switch (claim.Type)
-        {
-            case requestedUserInfoClaim:
-                yield return Destinations.AccessToken;
-                yield break;
-
-            case Claims.Name
-                or Claims.PreferredUsername
-                or Claims.GivenName
-                or Claims.FamilyName
-                or Claims.MiddleName
-                or Claims.Nickname
-                or Claims.Profile
-                or Claims.Picture
-                or Claims.Website
-                or Claims.Gender
-                or Claims.Birthdate
-                or Claims.Zoneinfo
-                or Claims.Locale
-                or Claims.UpdatedAt:
-                if (claim.Subject?.HasScope(Scopes.Profile) == true
-                    || claim.Subject?.HasClaim(requestedUserInfoClaim, claim.Type) == true)
-                {
-                    yield return Destinations.AccessToken;
-                }
-
-                if (claim.Subject?.HasScope(Scopes.Profile) == true)
-                {
-                    yield return Destinations.IdentityToken;
-                }
-
-                yield break;
-
-            case Claims.Email or Claims.EmailVerified:
-                if (claim.Subject?.HasScope(Scopes.Email) == true
-                    || claim.Subject?.HasClaim(requestedUserInfoClaim, claim.Type) == true)
-                {
-                    yield return Destinations.AccessToken;
-                }
-
-                if (claim.Subject?.HasScope(Scopes.Email) == true)
-                {
-                    yield return Destinations.IdentityToken;
-                }
-
-                yield break;
-
-            case Claims.Role:
-                yield return Destinations.AccessToken;
-
-                if (claim.Subject?.HasScope(Scopes.Roles) == true)
-                {
-                    yield return Destinations.IdentityToken;
-                }
-
-                yield break;
-
-            case "sid":
-                if (claim.Subject?.HasScope(Scopes.OpenId) == true)
-                {
-                    yield return Destinations.IdentityToken;
-                }
-
-                yield break;
-
-            case Claims.AuthenticationTime:
-                if (claim.Subject?.HasScope(Scopes.OpenId) == true)
-                {
-                    yield return Destinations.IdentityToken;
-                }
-
-                yield break;
-
-            case authenticationContextClassReferenceClaim:
-                if (claim.Subject?.HasScope(Scopes.OpenId) == true)
-                {
-                    yield return Destinations.IdentityToken;
-                }
-
-                yield break;
-
-            // Never include the security stamp in the access and identity tokens, as it's a secret value
-            case "AspNet.Identity.SecurityStamp":
-                yield break;
-
-            default:
-                yield return Destinations.AccessToken;
-                yield break;
-        }
-    }
-
-    private static bool IsInternalTokenStateClaim(string claimType) =>
-        claimType is legacySessionIdClaim or "oi_au_id" or "oi_tkn_id"
-        || claimType.StartsWith("oi_", StringComparison.Ordinal);
-
     private static ImmutableHashSet<string> GetRequestedUserInfoClaims(OpenIddictRequest request)
     {
         if (!request.TryGetParameter(Parameters.Claims, out OpenIddictParameter parameter)
@@ -653,98 +533,8 @@ public class AuthorizationController : ControllerBase
         return ParseRequestedClaims(parameter, "userinfo");
     }
 
-    private static ImmutableHashSet<string> GetRequestedUserInfoClaims(ClaimsPrincipal principal) =>
-        principal.FindAll(requestedUserInfoClaim)
-            .Select(claim => claim.Value)
-            .Where(static value => !string.IsNullOrWhiteSpace(value))
-            .ToImmutableHashSet(StringComparer.Ordinal);
-
     private static UserId? TryParseUserId(string rawUserId) =>
         Guid.TryParse(rawUserId, out Guid userId) ? new UserId(userId) : null;
-
-    private static void AddPersistedProfileClaims(ClaimsIdentity identity, Domain.Users.User user)
-    {
-        AddStringClaim(identity, Claims.GivenName, user.GivenName);
-        AddStringClaim(identity, Claims.FamilyName, user.FamilyName);
-        AddStringClaim(identity, Claims.MiddleName, user.MiddleName);
-        AddStringClaim(identity, Claims.Nickname, user.Nickname);
-        AddStringClaim(identity, Claims.PreferredUsername, user.PreferredUsername);
-        AddStringClaim(identity, Claims.Profile, user.Profile);
-        AddStringClaim(identity, Claims.Picture, user.Picture);
-        AddStringClaim(identity, Claims.Website, user.Website);
-        AddStringClaim(identity, Claims.Gender, user.Gender);
-        AddStringClaim(identity, Claims.Birthdate, user.Birthdate);
-        AddStringClaim(identity, Claims.Zoneinfo, user.ZoneInfo);
-        AddStringClaim(identity, Claims.Locale, user.Locale);
-
-        DateTimeOffset updatedAt = user.ModifiedAt ?? user.CreatedAt;
-        identity.AddClaim(new Claim(
-            Claims.UpdatedAt,
-            updatedAt.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
-            ClaimValueTypes.Integer64));
-    }
-
-    private static void AddPrincipalProfileClaims(ClaimsIdentity identity, ClaimsPrincipal principal)
-    {
-        AddStringClaim(identity, Claims.GivenName, principal.FindFirstValue(Claims.GivenName));
-        AddStringClaim(identity, Claims.FamilyName, principal.FindFirstValue(Claims.FamilyName));
-        AddStringClaim(identity, Claims.MiddleName, principal.FindFirstValue(Claims.MiddleName));
-        AddStringClaim(identity, Claims.Nickname, principal.FindFirstValue(Claims.Nickname));
-        AddStringClaim(identity, Claims.PreferredUsername, principal.FindFirstValue(Claims.PreferredUsername));
-        AddStringClaim(identity, Claims.Profile, principal.FindFirstValue(Claims.Profile));
-        AddStringClaim(identity, Claims.Picture, principal.FindFirstValue(Claims.Picture));
-        AddStringClaim(identity, Claims.Website, principal.FindFirstValue(Claims.Website));
-        AddStringClaim(identity, Claims.Gender, principal.FindFirstValue(Claims.Gender));
-        AddStringClaim(identity, Claims.Birthdate, principal.FindFirstValue(Claims.Birthdate));
-        AddStringClaim(identity, Claims.Zoneinfo, principal.FindFirstValue(Claims.Zoneinfo));
-        AddStringClaim(identity, Claims.Locale, principal.FindFirstValue(Claims.Locale));
-
-        if (principal.FindFirstValue(Claims.UpdatedAt) is { Length: > 0 } updatedAt)
-        {
-            identity.AddClaim(new Claim(Claims.UpdatedAt, updatedAt, ClaimValueTypes.Integer64));
-        }
-    }
-
-    private static void AddStringClaim(ClaimsIdentity identity, string claimType, string? value)
-    {
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            identity.AddClaim(new Claim(claimType, value));
-        }
-    }
-
-    private static void AddUserInfoStringClaim(
-        Dictionary<string, object> claims,
-        ClaimsPrincipal principal,
-        ImmutableHashSet<string> requestedClaims,
-        string claimType,
-        string requiredScope)
-    {
-        if ((principal.HasScope(requiredScope) || requestedClaims.Contains(claimType))
-            && principal.GetClaim(claimType) is { } value)
-        {
-            claims[claimType] = value;
-        }
-    }
-
-    private static void AddUserInfoIntegerClaim(
-        Dictionary<string, object> claims,
-        ClaimsPrincipal principal,
-        ImmutableHashSet<string> requestedClaims,
-        string claimType,
-        string requiredScope)
-    {
-        if (!(principal.HasScope(requiredScope) || requestedClaims.Contains(claimType)))
-        {
-            return;
-        }
-
-        if (principal.GetClaim(claimType) is { } value
-            && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long number))
-        {
-            claims[claimType] = number;
-        }
-    }
 
     private static string? GetSupportedAcrValue(OpenIddictRequest request)
     {
@@ -825,19 +615,6 @@ public class AuthorizationController : ControllerBase
         long.TryParse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out long unixSeconds)
             ? DateTimeOffset.FromUnixTimeSeconds(unixSeconds)
             : null;
-
-    private static void SetAuthenticationTimeClaim(ClaimsIdentity identity, DateTimeOffset authenticationTime)
-    {
-        foreach (Claim claim in identity.FindAll(Claims.AuthenticationTime).ToList())
-        {
-            identity.RemoveClaim(claim);
-        }
-
-        identity.AddClaim(new Claim(
-            Claims.AuthenticationTime,
-            authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
-            ClaimValueTypes.Integer64));
-    }
 
     private static AuthenticationProperties CreateOpenIddictAuthenticationProperties(DateTimeOffset? authenticationTime)
     {

@@ -95,6 +95,22 @@ public sealed partial class User : AggregateRoot<UserId>
     public string? Locale { get; private set; }
 
     /// <summary>
+    /// Gets the user's postal address, exposed as the OpenID Connect <c>address</c> claim.
+    /// </summary>
+    public Address? Address { get; private set; }
+
+    /// <summary>
+    /// Gets the user's phone number.
+    /// </summary>
+    public string? PhoneNumber { get; private set; }
+
+    /// <summary>
+    /// Gets whether the phone number has been verified. Nothing verifies it today, so it
+    /// is stored and defaults to <see langword="false"/> rather than being asserted true.
+    /// </summary>
+    public bool PhoneNumberVerified { get; private set; }
+
+    /// <summary>
     /// Gets the hashed password. Null for federated-only users.
     /// </summary>
     public string? PasswordHash { get; private set; }
@@ -398,7 +414,10 @@ public sealed partial class User : AggregateRoot<UserId>
         this.Gender,
         this.Birthdate,
         this.ZoneInfo,
-        this.Locale);
+        this.Locale,
+        this.Address,
+        this.PhoneNumber,
+        this.PhoneNumberVerified);
 
     /// <summary>
     /// Checks if the user can authenticate.
@@ -598,7 +617,53 @@ public sealed partial class User : AggregateRoot<UserId>
             return validationResult;
         }
 
-        return Result.Success();
+        validationResult = ValidateAddress(profile.Address);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        return ValidateMaxLength(profile.PhoneNumber, nameof(User.PhoneNumber), 64);
+    }
+
+    private static Result ValidateAddress(Address? address)
+    {
+        if (address is null)
+        {
+            return Result.Success();
+        }
+
+        Result validationResult = ValidateMaxLength(address.Formatted, "AddressFormatted", 512);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(address.StreetAddress, "AddressStreetAddress", 256);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(address.Locality, "AddressLocality", 256);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(address.Region, "AddressRegion", 256);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        validationResult = ValidateMaxLength(address.PostalCode, "AddressPostalCode", 64);
+        if (validationResult.IsFailure)
+        {
+            return validationResult;
+        }
+
+        return ValidateMaxLength(address.Country, "AddressCountry", 256);
     }
 
     private static Result ValidateMaxLength(string? value, string fieldName, int maxLength)
@@ -678,6 +743,28 @@ public sealed partial class User : AggregateRoot<UserId>
         this.Birthdate = NormalizeOptionalValue(profile?.Birthdate);
         this.ZoneInfo = NormalizeOptionalValue(profile?.ZoneInfo);
         this.Locale = NormalizeOptionalValue(profile?.Locale);
+        this.Address = NormalizeAddress(profile?.Address);
+        this.PhoneNumber = NormalizeOptionalValue(profile?.PhoneNumber);
+        this.PhoneNumberVerified = profile?.PhoneNumberVerified ?? false;
+    }
+
+    private static Address? NormalizeAddress(Address? address)
+    {
+        if (address is null)
+        {
+            return null;
+        }
+
+        Address normalized = new(
+            NormalizeOptionalValue(address.Formatted),
+            NormalizeOptionalValue(address.StreetAddress),
+            NormalizeOptionalValue(address.Locality),
+            NormalizeOptionalValue(address.Region),
+            NormalizeOptionalValue(address.PostalCode),
+            NormalizeOptionalValue(address.Country));
+
+        // An address with nothing in it must not surface as an empty `address` claim.
+        return normalized.IsEmpty ? null : normalized;
     }
 
     [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
