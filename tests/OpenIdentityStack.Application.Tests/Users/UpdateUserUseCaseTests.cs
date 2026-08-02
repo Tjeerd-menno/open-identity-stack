@@ -193,6 +193,109 @@ public sealed class UpdateUserUseCaseTests
         result.Error.Code.ShouldBe("Validation.User.DisplayNameTooLong");
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WithChangedPhoneNumberAndOmittedVerification_ResetsVerification()
+    {
+        // Arrange
+        var userId = UserId.Create();
+        User user = CreateVerifiedPhoneUser(userId, "+31612345678");
+        var command = new UpdateUserCommand(
+            userId,
+            null,
+            "admin-1",
+            new UserProfileData(PhoneNumber: "+32499999999"));
+
+        this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(user);
+
+        // Act
+        await this._sut.ExecuteAsync(command);
+
+        // Assert
+        user.PhoneNumber.ShouldBe("+32499999999");
+        user.PhoneNumberVerified.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithUnchangedPhoneNumberAndOmittedVerification_KeepsVerification()
+    {
+        // Arrange
+        var userId = UserId.Create();
+        User user = CreateVerifiedPhoneUser(userId, "+31612345678");
+        var command = new UpdateUserCommand(
+            userId,
+            null,
+            "admin-1",
+            new UserProfileData(GivenName: "Alice"));
+
+        this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(user);
+
+        // Act
+        await this._sut.ExecuteAsync(command);
+
+        // Assert
+        user.PhoneNumber.ShouldBe("+31612345678");
+        user.PhoneNumberVerified.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithClearedPhoneNumber_ResetsVerification()
+    {
+        // Arrange
+        var userId = UserId.Create();
+        User user = CreateVerifiedPhoneUser(userId, "+31612345678");
+        var command = new UpdateUserCommand(
+            userId,
+            null,
+            "admin-1",
+            new UserProfileData(PhoneNumber: "   "));
+
+        this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(user);
+
+        // Act
+        await this._sut.ExecuteAsync(command);
+
+        // Assert
+        user.PhoneNumber.ShouldBeNull();
+        user.PhoneNumberVerified.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithChangedPhoneNumberAndExplicitVerification_HonoursCaller()
+    {
+        // Arrange
+        var userId = UserId.Create();
+        User user = CreateVerifiedPhoneUser(userId, "+31612345678");
+        var command = new UpdateUserCommand(
+            userId,
+            null,
+            "admin-1",
+            new UserProfileData(PhoneNumber: "+32499999999", PhoneNumberVerified: true));
+
+        this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(user);
+
+        // Act
+        await this._sut.ExecuteAsync(command);
+
+        // Assert
+        user.PhoneNumber.ShouldBe("+32499999999");
+        user.PhoneNumberVerified.ShouldBeTrue();
+    }
+
+    private User CreateVerifiedPhoneUser(UserId userId, string phoneNumber)
+    {
+        User user = CreateUser(userId, "Old Name");
+
+        user.UpdateProfile(
+            new UserProfileData(PhoneNumber: phoneNumber, PhoneNumberVerified: true),
+            this._dateTimeProvider);
+
+        return user;
+    }
+
     private User CreateUser(UserId userId, string displayName)
     {
         IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();

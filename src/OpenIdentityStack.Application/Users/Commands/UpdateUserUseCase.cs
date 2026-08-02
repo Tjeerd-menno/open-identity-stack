@@ -59,6 +59,17 @@ public sealed class UpdateUserUseCase : IUpdateUserUseCase
                 }
             }
 
+            string? newPhoneNumber = ResolveProfileValue(command.Profile.PhoneNumber, user.PhoneNumber);
+
+            // A verification attests to one specific number. When the number changes and
+            // the caller does not re-assert verification for the new value, the stored
+            // flag must not carry over: phone_number_verified would otherwise tell relying
+            // parties the OP verified a number it has never seen. Clearing the number
+            // resets it for the same reason.
+            bool newPhoneNumberVerified = command.Profile.PhoneNumberVerified
+                ?? (string.Equals(newPhoneNumber, user.PhoneNumber, StringComparison.Ordinal)
+                    && user.PhoneNumberVerified);
+
             Result profileResult = user.UpdateProfile(
                 new UserProfileData(
                     ResolveProfileValue(command.Profile.GivenName, user.GivenName),
@@ -76,8 +87,8 @@ public sealed class UpdateUserUseCase : IUpdateUserUseCase
                     // The address is replaced as a whole -- a partial merge of six
                     // components has no sensible semantics for a postal address.
                     command.Profile.Address ?? user.Address,
-                    ResolveProfileValue(command.Profile.PhoneNumber, user.PhoneNumber),
-                    command.Profile.PhoneNumberVerified ?? user.PhoneNumberVerified),
+                    newPhoneNumber,
+                    newPhoneNumberVerified),
                 this.dateTimeProvider);
 
             if (profileResult.IsFailure)
