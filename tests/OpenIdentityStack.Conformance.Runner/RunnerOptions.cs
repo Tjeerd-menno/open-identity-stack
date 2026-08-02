@@ -35,12 +35,39 @@ internal sealed class RunnerOptions
     public static RunnerOptions FromArgs(string[] args)
     {
         Dictionary<string, string> map = new(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < args.Length - 1; i++)
+        for (int i = 0; i < args.Length;)
         {
-            if (args[i].StartsWith("--", StringComparison.Ordinal))
+            string current = args[i];
+            if (!current.StartsWith("--", StringComparison.Ordinal))
             {
-                map[args[i][2..]] = args[i + 1];
+                i++;
+                continue;
             }
+
+            string token = current[2..];
+            int separator = token.IndexOf('=');
+
+            if (separator >= 0)
+            {
+                map[token[..separator]] = token[(separator + 1)..];
+                i++;
+                continue;
+            }
+
+            if (token.Equals("headed", StringComparison.OrdinalIgnoreCase))
+            {
+                map[token] = bool.TrueString;
+                i++;
+                continue;
+            }
+
+            if (i + 1 >= args.Length || args[i + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Option '--{token}' requires a value.");
+            }
+
+            map[token] = args[i + 1];
+            i += 2;
         }
 
         var defaults = new RunnerOptions();

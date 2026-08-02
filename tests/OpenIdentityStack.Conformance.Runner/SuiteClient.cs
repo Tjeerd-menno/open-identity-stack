@@ -1,6 +1,5 @@
 using System.Net.Http.Json;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace OpenIdentityStack.Conformance.Runner;
@@ -16,8 +15,6 @@ namespace OpenIdentityStack.Conformance.Runner;
 /// </remarks>
 internal sealed class SuiteClient : IDisposable
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
-
     private readonly HttpClient http;
 
     public SuiteClient(Uri baseAddress)

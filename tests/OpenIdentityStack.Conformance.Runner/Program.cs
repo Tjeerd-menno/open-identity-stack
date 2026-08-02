@@ -2,7 +2,8 @@ using System.Text.Json;
 using OpenIdentityStack.Conformance.Runner;
 
 // Drives an OIDF conformance plan end to end against a self-hosted suite,
-// performing the browser half with Playwright. See README.md.
+// performing the browser half with Playwright. See
+// docs/certification/run-oidf-conformance-suite.md.
 
 var options = RunnerOptions.FromArgs(args);
 
