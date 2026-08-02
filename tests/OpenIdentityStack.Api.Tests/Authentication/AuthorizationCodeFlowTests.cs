@@ -128,6 +128,35 @@ public sealed class AuthorizationCodeFlowTests
     }
 
     [Fact]
+    public async Task Authorize_WithPlainCodeChallengeMethod_IsRejected()
+    {
+        // Arrange - advertising S256 only would be worse than the status quo if
+        // "plain" were still silently honoured, so the reject path is the real guard.
+        string testClientId = $"plain-pkce-{Guid.NewGuid():N}";
+        await this._fixture.CreateServiceAccountAsync(
+            testClientId,
+            "test-secret",
+            allowedScopes: ["openid"],
+            allowedGrantTypes: ["authorization_code"],
+            redirectUris: ["https://localhost/callback"]);
+
+        string codeVerifier = GenerateCodeVerifier();
+
+        using HttpClient client = this._fixture.CreateClient(allowAutoRedirect: false);
+
+        // Act - with "plain" the challenge is the verifier itself
+        HttpResponseMessage response = await client.GetAsync(
+            $"/connect/authorize?response_type=code&client_id={testClientId}&redirect_uri=https://localhost/callback&scope=openid&code_challenge={codeVerifier}&code_challenge_method=plain");
+
+        // Assert - rejected outright, never reaching the login page
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        response.Headers.Location.ShouldBeNull();
+
+        string body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain("invalid_request");
+    }
+
+    [Fact]
     public async Task Authorize_WithUnsupportedRequestObject_RedirectsBackWithRequestNotSupportedError()
     {
         // Arrange
