@@ -35,6 +35,17 @@ Console.WriteLine($"planId : {planId}");
 IReadOnlyList<string> modules = await suite.GetPlanModulesAsync(planId, CancellationToken.None);
 if (options.Only.Count > 0)
 {
+    // A mistyped name would otherwise be discarded in silence: the run would
+    // report success having produced no evidence for the module the operator
+    // actually asked about.
+    string[] unknown = options.Only.Except(modules, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+    if (unknown.Length > 0)
+    {
+        throw new InvalidOperationException(
+            $"--only names {unknown.Length} module(s) that plan '{options.PlanName}' does not contain: "
+            + string.Join(", ", unknown));
+    }
+
     // Naming a module explicitly is an operator decision; it overrides the
     // manual-review exclusion below.
     modules = modules.Where(options.Only.Contains).ToList();

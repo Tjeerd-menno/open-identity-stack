@@ -109,13 +109,26 @@ internal sealed class BrowserDriver : IAsyncDisposable
                 // turns out to be needed, the slot is released below.
                 await ThrottleLoginAsync(ct);
 
-                await page.GotoAsync(url, new PageGotoOptions
+                bool loggedIn;
+                try
                 {
-                    WaitUntil = WaitUntilState.DOMContentLoaded,
-                    Timeout = this.options.NavigationTimeoutMs,
-                });
+                    await page.GotoAsync(url, new PageGotoOptions
+                    {
+                        WaitUntil = WaitUntilState.DOMContentLoaded,
+                        Timeout = this.options.NavigationTimeoutMs,
+                    });
 
-                bool loggedIn = await this.TryLoginAsync(page, ct);
+                    loggedIn = await this.TryLoginAsync(page, ct);
+                }
+                catch
+                {
+                    // Nothing was ever POSTed, so the reservation is fictitious.
+                    // Left in place, five transient navigation failures would park
+                    // the next visit for five and a half minutes for no reason.
+                    ReleaseLoginSlot();
+                    throw;
+                }
+
                 if (!loggedIn)
                 {
                     ReleaseLoginSlot();
@@ -155,6 +168,11 @@ internal sealed class BrowserDriver : IAsyncDisposable
             await page.CloseAsync();
         }
     }
+
+    /// <summary>True when <paramref name="url"/>'s host is exactly <paramref name="host"/>.</summary>
+    private static bool IsHost(string url, string host) =>
+        Uri.TryCreate(url, UriKind.Absolute, out Uri? parsed)
+        && parsed.Host.Equals(host, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Scheme and authority of <paramref name="url"/>, or the input if unparseable.</summary>
     private static string OriginOf(string url) =>
@@ -355,7 +373,11 @@ internal sealed class BrowserDriver : IAsyncDisposable
 
         while (waited < timeoutMs)
         {
-            if (page.Url.Contains(suiteHost, StringComparison.OrdinalIgnoreCase))
+            // Compare the actual host, not a substring of the whole URL: an OP
+            // authorization or error page carries the suite host inside its
+            // redirect_uri, so a substring test reports "suite-callback" while
+            // the browser is still sitting on the provider.
+            if (IsHost(page.Url, suiteHost))
             {
                 // The suite's callback page runs JavaScript that submits the
                 // response parameters back to the suite. Closing the page

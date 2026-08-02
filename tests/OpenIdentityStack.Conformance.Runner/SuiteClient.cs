@@ -16,12 +16,41 @@ internal sealed class SuiteClient : IDisposable
 {
     private readonly HttpClient http;
 
+    /// <summary>
+    /// Hosts that resolve to this machine. The suite's own default base URL,
+    /// <c>localhost.emobix.co.uk</c>, and <c>oidc.localtest.me</c> both resolve
+    /// publicly to 127.0.0.1, which is why the local loop needs no hosts file.
+    /// </summary>
+    private static bool IsLoopback(Uri uri) =>
+        uri.IsLoopback
+        || uri.Host.Equals("localhost.emobix.co.uk", StringComparison.OrdinalIgnoreCase)
+        || uri.Host.EndsWith(".localtest.me", StringComparison.OrdinalIgnoreCase)
+        || uri.Host.Equals("localtest.me", StringComparison.OrdinalIgnoreCase);
+
     public SuiteClient(Uri baseAddress)
     {
-        var handler = new HttpClientHandler
+        // The hosted suite is authenticated, holds real certification evidence,
+        // and has a valid certificate. Nothing in this client belongs anywhere
+        // near it: it assumes the dev profile's unauthenticated auto-admin.
+        if (baseAddress.Host.Equals("certification.openid.net", StringComparison.OrdinalIgnoreCase)
+            || baseAddress.Host.EndsWith(".certification.openid.net", StringComparison.OrdinalIgnoreCase))
         {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
-        };
+            throw new InvalidOperationException(
+                $"Refusing to drive the hosted OIDF suite at '{baseAddress.Host}'. This runner is for "
+                + "the self-hosted local loop only; the hosted run is performed by a human. See "
+                + "docs/certification/run-oidf-conformance-suite.md.");
+        }
+
+        var handler = new HttpClientHandler();
+
+        // CreatePlanAsync posts the static-client configuration, client secrets
+        // included. Accepting any certificate off-machine would hand those to
+        // whatever answered the DNS query, before any browser-origin check runs.
+        if (IsLoopback(baseAddress))
+        {
+            handler.ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        }
 
         this.http = new HttpClient(handler)
         {
