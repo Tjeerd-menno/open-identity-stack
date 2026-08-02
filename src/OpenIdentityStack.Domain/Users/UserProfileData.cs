@@ -15,4 +15,10 @@ public sealed record UserProfileData(
     string? Gender = null,
     string? Birthdate = null,
     string? ZoneInfo = null,
-    string? Locale = null);
+    string? Locale = null,
+    Address? Address = null,
+    string? PhoneNumber = null,
+    // Nullable to allow callers to omit the value; the use case layer is responsible
+    // for supplying the current stored value when only other fields are being updated.
+    // The entity treats null as false (see ApplyProfileData).
+    bool? PhoneNumberVerified = null);

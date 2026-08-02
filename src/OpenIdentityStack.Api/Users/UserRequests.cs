@@ -60,4 +60,18 @@ public sealed record UserProfileRequest(
     string? Gender = null,
     string? Birthdate = null,
     string? ZoneInfo = null,
-    string? Locale = null);
+    string? Locale = null,
+    UserAddressRequest? Address = null,
+    string? PhoneNumber = null,
+    bool? PhoneNumberVerified = null);
+
+/// <summary>
+/// The OpenID Connect standard <c>address</c> claim components.
+/// </summary>
+public sealed record UserAddressRequest(
+    string? Formatted = null,
+    string? StreetAddress = null,
+    string? Locality = null,
+    string? Region = null,
+    string? PostalCode = null,
+    string? Country = null);

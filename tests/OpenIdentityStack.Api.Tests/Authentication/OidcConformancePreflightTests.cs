@@ -94,6 +94,21 @@ public sealed class OidcConformancePreflightTests
     }
 
     [Fact]
+    public async Task Discovery_AdvertisesTheAddressAndPhoneScopesAndTheirClaims()
+    {
+        JsonNode metadata = await this.GetDiscoveryMetadataAsync();
+
+        string[] scopes = ReadStringArray(metadata, "scopes_supported");
+        scopes.ShouldContain("address");
+        scopes.ShouldContain("phone");
+
+        string[] claims = ReadStringArray(metadata, "claims_supported");
+        claims.ShouldContain("address");
+        claims.ShouldContain("phone_number");
+        claims.ShouldContain("phone_number_verified");
+    }
+
+    [Fact]
     public async Task Discovery_AdvertisesS256AsTheOnlyCodeChallengeMethod()
     {
         JsonNode metadata = await this.GetDiscoveryMetadataAsync();
