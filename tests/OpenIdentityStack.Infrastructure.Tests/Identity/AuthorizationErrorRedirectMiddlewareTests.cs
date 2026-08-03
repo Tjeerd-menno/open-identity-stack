@@ -43,6 +43,35 @@ public sealed class AuthorizationErrorRedirectMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_StillRedirectsRequestNotSupported()
+    {
+        // Arrange – the error this middleware was originally written for must keep redirecting
+        AllowClient();
+        DefaultHttpContext context = CreateAuthorizationContext(
+            new OpenIddictRequest
+            {
+                ClientId = ClientId,
+                RedirectUri = RedirectUri,
+                ResponseType = ResponseTypes.Code,
+                Request = CreateUnsignedRequestObject("state-123")
+            },
+            new OpenIddictResponse
+            {
+                Error = Errors.RequestNotSupported,
+                ErrorDescription = "The 'request' parameter is not supported."
+            });
+
+        // Act
+        await InvokeAsync(context);
+
+        // Assert
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status302Found);
+        string location = context.Response.Headers.Location.ToString();
+        location.ShouldContain("error=request_not_supported");
+        location.ShouldContain("state=state-123");
+    }
+
+    [Fact]
     public async Task InvokeAsync_RestoresStateFromJwtRequestObject()
     {
         // Arrange
