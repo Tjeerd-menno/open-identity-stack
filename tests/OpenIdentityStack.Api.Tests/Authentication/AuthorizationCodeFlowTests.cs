@@ -148,12 +148,17 @@ public sealed class AuthorizationCodeFlowTests
         HttpResponseMessage response = await client.GetAsync(
             $"/connect/authorize?response_type=code&client_id={testClientId}&redirect_uri=https://localhost/callback&scope=openid&code_challenge={codeVerifier}&code_challenge_method=plain");
 
-        // Assert - rejected outright, never reaching the login page
-        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        response.Headers.Location.ShouldBeNull();
+        // Assert - rejected without ever reaching the login page. The client_id and
+        // redirect_uri are both valid, so per OIDC Core §3.1.2.6 the rejection is handed
+        // back to the RP as an error redirect rather than a 400 page (see #330).
+        response.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        response.Headers.Location.ShouldNotBeNull();
+        response.Headers.Location.GetLeftPart(UriPartial.Path).ShouldBe("https://localhost/callback");
 
-        string body = await response.Content.ReadAsStringAsync();
-        body.ShouldContain("invalid_request");
+        Dictionary<string, Microsoft.Extensions.Primitives.StringValues> query =
+            QueryHelpers.ParseQuery(response.Headers.Location.Query);
+
+        query["error"].Single().ShouldBe("invalid_request");
     }
 
     [Fact]
