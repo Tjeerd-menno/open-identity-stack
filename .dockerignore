@@ -1,0 +1,29 @@
+# Keep host build output out of the build context. Every Dockerfile here
+# restores and builds inside the image, so anything below is at best dead
+# weight and at worst clobbers what the container installed -- the
+# ManagementWeb image copies its project directory after `npm ci`, so a
+# developer's local node_modules would overwrite the container's.
+
+# Node
+**/node_modules/
+**/dist/
+**/.vite/
+**/coverage/
+
+# .NET
+**/bin/
+**/obj/
+**/TestResults/
+artifacts/
+
+# VCS and tooling
+.git/
+.github/
+.vs/
+.vscode/
+.idea/
+
+# Test and runtime output
+**/playwright-report/
+**/test-results/
+**/*.log
