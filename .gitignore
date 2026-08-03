@@ -148,3 +148,8 @@ deploy/*
 # clients' secrets in static-client mode, and the results JSON is run evidence.
 plan-config.json
 conformance-results.json
+
+# Local conformance loop working files: the self-signed provider certificate
+# and the per-run results. Only the README and the compose file are tracked.
+conformance/local/provider.*
+conformance/local/*results*.json
