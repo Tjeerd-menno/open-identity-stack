@@ -255,6 +255,8 @@ public sealed class AuthorizationCodeFlowTests
         callbackResponse.Headers.Location.ShouldNotBeNull();
 
         // Assert
+        callbackResponse.Headers.Location.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
+
         Dictionary<string, Microsoft.Extensions.Primitives.StringValues> callbackQuery =
             QueryHelpers.ParseQuery(callbackResponse.Headers.Location.Query);
 
