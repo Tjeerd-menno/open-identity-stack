@@ -135,7 +135,7 @@ The three client secrets must match `Seed__Certification__Clients__*` in the com
 
 ## Notes
 
-- The migrator container exits `0` when finished; that is expected, not a failure.
+- The migrator container exits `0` when finished; that is expected, not a failure. That exit is load-bearing — the provider waits on it via `service_completed_successfully`, so the API cannot serve discovery before migrations and seeding are done. If the provider never starts, read the migrator's logs first.
 - The migrator needs both the OpenIddict certificates **and** `OpenIddict__Issuer`, even though it issues no tokens — it constructs the full OpenIddict server, which refuses to start without them outside Development/Testing.
 - MongoDB uses a **named volume** rather than the upstream `./mongo/data` bind mount, which is unreliable on Windows.
 - `podman compose` delegates to `docker-compose` v2 and works without modification.

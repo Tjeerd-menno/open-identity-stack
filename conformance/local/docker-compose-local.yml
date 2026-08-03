@@ -141,6 +141,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # Mirrors WaitForCompletion(openIdModuleMigrator) in the Aspire host
+      # (src/OpenIdentityStack.AppHost/AppHost.cs). Waiting only on Postgres
+      # lets the API serve discovery before migrations and certification
+      # seeding finish, so a plan started immediately can hit missing tables,
+      # users or clients.
+      migrator:
+        condition: service_completed_successfully
     logging: *logopts
 
 volumes:
