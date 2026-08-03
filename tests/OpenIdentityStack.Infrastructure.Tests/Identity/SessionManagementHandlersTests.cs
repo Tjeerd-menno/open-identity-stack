@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.WebUtilities;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
+using OpenIddict.Server.AspNetCore;
 using OpenIdentityStack.Infrastructure.Identity;
 using static OpenIddict.Server.OpenIddictServerEvents;
 
@@ -177,11 +178,11 @@ public sealed class AttachSessionStateHandlerTests
     public void Descriptor_HasCorrectOrder()
     {
         // Assert
-        int expectedMinOrder = OpenIddictServerHandlers.Authentication
-            .ApplyAuthorizationResponse<ApplyAuthorizationResponseContext>
-            .Descriptor.Order;
-        
-        AttachSessionStateHandler.Descriptor.Order.ShouldBeGreaterThan(expectedMinOrder);
+        int processSelfRedirectionOrder = OpenIddictServerAspNetCoreHandlers.Authentication.ProcessSelfRedirection.Descriptor.Order;
+        int processFormPostResponseOrder = OpenIddictServerAspNetCoreHandlers.Authentication.ProcessFormPostResponse.Descriptor.Order;
+
+        AttachSessionStateHandler.Descriptor.Order.ShouldBe(processSelfRedirectionOrder - SessionManagementConstants.CustomHandlerOrderOffset);
+        AttachSessionStateHandler.Descriptor.Order.ShouldBeLessThan(processFormPostResponseOrder);
     }
 
     [Fact]
