@@ -151,6 +151,39 @@ JSON
 
 The three client secrets must match `Seed__Certification__Clients__*` in the compose file, and `login_hint` must be a seeded user.
 
+Nothing mounts this file into a container — it is read from the host by the runner below, which is why it lives beside the compose file rather than inside it.
+
+## Driving a plan
+
+The stack only stands the suite and the OP up facing each other. Plans are driven by `tests/OpenIdentityStack.Conformance.Runner`, a Playwright driver that creates the plan, works through its modules, and writes a results JSON.
+
+Install the browser binaries once — `dotnet build` restores Playwright's driver but not Chromium:
+
+```bash
+tests/OpenIdentityStack.Conformance.Runner/bin/Debug/net10.0/playwright.ps1 install chromium
+```
+
+Use `playwright.sh` on Linux and macOS. Then, from this directory:
+
+```bash
+export CONFORMANCE_PASSWORD='Alice!Conformance1'
+```
+
+```bash
+dotnet run --project ../../tests/OpenIdentityStack.Conformance.Runner -- --config plan-config.json --out conformance-results.json
+```
+
+The runner's defaults already match this loop — suite at `https://localhost.emobix.co.uk:8443`, user `alice@example.test`, the Basic OP plan with the `discovery` / `static_client` variant — so only the paths need passing.
+
+The password is taken from `CONFORMANCE_PASSWORD` only; `--password` is refused, because a sweep's command line stays readable for as long as it runs and lands in shell history afterwards.
+
+Two things that are easy to lose an afternoon to:
+
+- **The Config OP plan takes no variant.** `/api/plan/available` reports `"variants": {}` for it, so passing the Basic plan's default makes plan creation fail with a bare `400`. Run it as `--plan oidcc-config-certification-test-plan --variant '{}'`.
+- **Interactive login is rate-limited to 5 POSTs per 5 minutes per client IP** in Production, answering an empty `429`. The runner paces itself around this; anything else driving the OP from one IP must too. A full Basic sweep therefore takes roughly 35 minutes.
+
+Exit codes, the five manual-review modules, and evidence-capture rules are in [docs/certification/run-oidf-conformance-suite.md](../../docs/certification/run-oidf-conformance-suite.md). Note especially that exit `2` and `3` mean the evidence has holes and the run must be discarded, not that it mostly passed.
+
 ## Notes
 
 - The migrator container exits `0` when finished; that is expected, not a failure. That exit is load-bearing — the provider waits on it via `service_completed_successfully`, so the API cannot serve discovery before migrations and seeding are done. If the provider never starts, read the migrator's logs first.
