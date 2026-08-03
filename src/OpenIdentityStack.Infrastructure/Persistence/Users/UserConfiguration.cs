@@ -71,6 +71,42 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Locale)
             .HasMaxLength(35);
 
+        // Flattened into the Users table: the address is part of the user's profile, never
+        // queried on its own. All six columns null means the user simply has no address.
+        builder.OwnsOne(u => u.Address, addressBuilder =>
+        {
+            addressBuilder.Property(a => a.Formatted)
+                .HasColumnName("AddressFormatted")
+                .HasMaxLength(512);
+
+            addressBuilder.Property(a => a.StreetAddress)
+                .HasColumnName("AddressStreetAddress")
+                .HasMaxLength(256);
+
+            addressBuilder.Property(a => a.Locality)
+                .HasColumnName("AddressLocality")
+                .HasMaxLength(256);
+
+            addressBuilder.Property(a => a.Region)
+                .HasColumnName("AddressRegion")
+                .HasMaxLength(256);
+
+            addressBuilder.Property(a => a.PostalCode)
+                .HasColumnName("AddressPostalCode")
+                .HasMaxLength(64);
+
+            addressBuilder.Property(a => a.Country)
+                .HasColumnName("AddressCountry")
+                .HasMaxLength(256);
+        });
+
+        builder.Property(u => u.PhoneNumber)
+            .HasMaxLength(64);
+
+        builder.Property(u => u.PhoneNumberVerified)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(u => u.PasswordHash)
             .HasMaxLength(512);
 

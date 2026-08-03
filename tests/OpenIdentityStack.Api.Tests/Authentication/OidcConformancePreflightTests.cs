@@ -94,6 +94,31 @@ public sealed class OidcConformancePreflightTests
     }
 
     [Fact]
+    public async Task Discovery_AdvertisesTheAddressAndPhoneScopesAndTheirClaims()
+    {
+        JsonNode metadata = await this.GetDiscoveryMetadataAsync();
+
+        string[] scopes = ReadStringArray(metadata, "scopes_supported");
+        scopes.ShouldContain("address");
+        scopes.ShouldContain("phone");
+
+        string[] claims = ReadStringArray(metadata, "claims_supported");
+        claims.ShouldContain("address");
+        claims.ShouldContain("phone_number");
+        claims.ShouldContain("phone_number_verified");
+    }
+
+    [Fact]
+    public async Task Discovery_AdvertisesS256AsTheOnlyCodeChallengeMethod()
+    {
+        JsonNode metadata = await this.GetDiscoveryMetadataAsync();
+
+        // "plain" leaves the verifier equal to the challenge, so it protects against
+        // nothing. Discovery is what Config OP certifies, so it must advertise S256 only.
+        ReadStringArray(metadata, "code_challenge_methods_supported").ShouldBe(["S256"]);
+    }
+
+    [Fact]
     public async Task Jwks_ExposesSigningPublicKeysOnly()
     {
         HttpResponseMessage response = await this.fixture.HttpClient!.GetAsync("/.well-known/jwks");

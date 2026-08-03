@@ -2,79 +2,12 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.DependencyInjection;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using OpenIddict.Server.AspNetCore;
 using static OpenIddict.Abstractions.OpenIddictConstants;
-using static OpenIddict.Server.OpenIddictServerEvents;
 
 namespace OpenIdentityStack.Infrastructure.Identity;
-
-/// <summary>
-/// Redirects authorization errors back to a validated client redirect URI when client_id and
-/// redirect_uri are valid, per OIDC Core §3.1.2.6.
-/// </summary>
-public sealed class RedirectAuthorizationErrorsHandler(
-    IOpenIddictApplicationManager applicationManager) : IOpenIddictServerHandler<ApplyAuthorizationResponseContext>
-{
-    /// <summary>
-    /// Gets the default descriptor for this handler.
-    /// </summary>
-    public static OpenIddictServerHandlerDescriptor Descriptor { get; }
-        = OpenIddictServerHandlerDescriptor.CreateBuilder<ApplyAuthorizationResponseContext>()
-            .UseScopedHandler<RedirectAuthorizationErrorsHandler>()
-            .SetOrder(OpenIddictServerHandlers.Authentication.ApplyAuthorizationResponse<ApplyAuthorizationResponseContext>.Descriptor.Order + SessionManagementConstants.CustomHandlerOrderOffset)
-            .SetType(OpenIddictServerHandlerType.Custom)
-            .Build();
-
-    /// <inheritdoc/>
-    public async ValueTask HandleAsync(ApplyAuthorizationResponseContext context)
-    {
-        if (string.IsNullOrWhiteSpace(context.Error)
-            || context.Request is null
-            || context.Response is null
-            || string.IsNullOrWhiteSpace(context.Request.ClientId)
-            || string.IsNullOrWhiteSpace(context.Request.RedirectUri))
-        {
-            return;
-        }
-
-#pragma warning disable CA2012
-        object? application = await applicationManager.FindByClientIdAsync(context.Request.ClientId);
-        if (application is null
-            || !await applicationManager.ValidateRedirectUriAsync(application, context.Request.RedirectUri))
-        {
-            return;
-        }
-#pragma warning restore CA2012
-
-        context.RedirectUri ??= context.Request.RedirectUri;
-        context.ResponseMode ??= ResponseModes.Query;
-
-        if (context.Response[Parameters.State] is null && AuthorizationErrorRedirectHelper.ExtractState(context.Request) is { } state)
-        {
-            context.Response[Parameters.State] = state;
-        }
-    }
-}
-
-/// <summary>
-/// Extension methods for authorization error redirect handlers.
-/// </summary>
-public static class AuthorizationErrorRedirectExtensions
-{
-    /// <summary>
-    /// Adds handlers that keep authorization protocol errors redirect-compatible for valid clients.
-    /// </summary>
-    public static OpenIddictServerBuilder AddAuthorizationErrorRedirects(this OpenIddictServerBuilder builder)
-    {
-        builder.Services.AddScoped<RedirectAuthorizationErrorsHandler>();
-        builder.AddEventHandler(RedirectAuthorizationErrorsHandler.Descriptor);
-
-        return builder;
-    }
-}
 
 /// <summary>
 /// Middleware that rewrites authorization errors into validated redirects when client_id and
