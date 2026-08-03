@@ -104,7 +104,11 @@ services:
       OpenIddict__Certificates__Encryption__Path: /certs/provider.pfx
       OpenIddict__Certificates__Encryption__Password: conformance
     volumes:
-      - ./provider.pfx:/certs/provider.pfx:ro
+      # `z`, not `Z`: on an SELinux-enforcing host the mount needs relabelling
+      # to container_file_t, and this PFX is shared by the migrator and the
+      # provider — `Z` would give each a private MCS category and deny the
+      # second. A no-op where SELinux is not enforcing.
+      - ./provider.pfx:/certs/provider.pfx:ro,z
     depends_on:
       postgres:
         condition: service_healthy
@@ -137,7 +141,11 @@ services:
       OpenIddict__Certificates__Encryption__Path: /certs/provider.pfx
       OpenIddict__Certificates__Encryption__Password: conformance
     volumes:
-      - ./provider.pfx:/certs/provider.pfx:ro
+      # `z`, not `Z`: on an SELinux-enforcing host the mount needs relabelling
+      # to container_file_t, and this PFX is shared by the migrator and the
+      # provider — `Z` would give each a private MCS category and deny the
+      # second. A no-op where SELinux is not enforcing.
+      - ./provider.pfx:/certs/provider.pfx:ro,z
     depends_on:
       postgres:
         condition: service_healthy

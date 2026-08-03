@@ -66,6 +66,8 @@ chmod 0644 provider.pfx
 
 That is deliberate for this file only. It is a throwaway self-signed certificate whose password is already published in the compose file below, and it is never the certificate used for the hosted certification run. `provider.key` can stay `0600`; nothing mounts it.
 
+On an SELinux-enforcing host the Unix mode is not sufficient on its own, but no extra step is needed: the compose file mounts the PFX with `:ro,z` so Podman relabels it for container access.
+
 The encryption key must decode to exactly 32 bytes or the API fails at startup with `Secrets:EncryptionKey must be a base64-encoded 256-bit key`:
 
 ```bash
