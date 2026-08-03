@@ -139,4 +139,18 @@ public sealed record UserProfileResponse(
     string? Gender,
     string? Birthdate,
     string? ZoneInfo,
-    string? Locale);
+    string? Locale,
+    UserAddressResponse? Address,
+    string? PhoneNumber,
+    bool PhoneNumberVerified);
+
+/// <summary>
+/// The OpenID Connect standard <c>address</c> claim components.
+/// </summary>
+public sealed record UserAddressResponse(
+    string? Formatted,
+    string? StreetAddress,
+    string? Locality,
+    string? Region,
+    string? PostalCode,
+    string? Country);

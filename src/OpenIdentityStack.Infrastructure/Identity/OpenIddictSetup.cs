@@ -107,6 +107,8 @@ public static class OpenIddictSetup
                 options.RegisterScopes(
                     OpenIddictConstants.Scopes.Profile,
                     OpenIddictConstants.Scopes.Email,
+                    OpenIddictConstants.Scopes.Address,
+                    OpenIddictConstants.Scopes.Phone,
                     OpenIddictConstants.Scopes.Roles,
                     "api");
 
@@ -127,7 +129,10 @@ public static class OpenIddictSetup
                     OpenIddictConstants.Claims.Locale,
                     OpenIddictConstants.Claims.UpdatedAt,
                     OpenIddictConstants.Claims.Email,
-                    OpenIddictConstants.Claims.EmailVerified);
+                    OpenIddictConstants.Claims.EmailVerified,
+                    OpenIddictConstants.Claims.Address,
+                    OpenIddictConstants.Claims.PhoneNumber,
+                    OpenIddictConstants.Claims.PhoneNumberVerified);
 
                 string? signingBase64 = configuration["OpenIddict:Certificates:Signing:Base64"];
                 string? signingPath = configuration["OpenIddict:Certificates:Signing:Path"];
@@ -192,9 +197,6 @@ public static class OpenIddictSetup
                 // Keep OpenIddict's storage identifiers out of public ID tokens.
                 options.AddInternalTokenClaimTrimming();
 
-                // Redirect request-object capability errors back to validated clients.
-                options.AddAuthorizationErrorRedirects();
-
                 // Add session management handlers (session_state + check_session_iframe)
                 options.AddSessionManagement();
             })
@@ -212,6 +214,15 @@ public static class OpenIddictSetup
                 // Register the ASP.NET Core host
                 options.UseAspNetCore();
             });
+
+        // Advertise and accept S256 only. With "plain" the verifier *is* the challenge,
+        // so it protects against nothing, and RFC 7636 section 7.2 requires any client
+        // capable of S256 to use it. OpenIddict announces both methods by default and
+        // exposes no builder API for this, so the set is trimmed directly. Registered
+        // after the AddOpenIddict chain so it runs last and cannot be undone by
+        // OpenIddict's own post-configuration.
+        services.PostConfigure<OpenIddictServerOptions>(options =>
+            options.CodeChallengeMethods.Remove(OpenIddictConstants.CodeChallengeMethods.Plain));
 
         return services;
     }

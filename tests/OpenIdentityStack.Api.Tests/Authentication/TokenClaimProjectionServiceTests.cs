@@ -173,13 +173,161 @@ public sealed class TokenClaimProjectionServiceTests
         userInfo[OpenIddictConstants.Claims.Email].ShouldBe("alice@example.test");
     }
 
+    [Fact]
+    public void ProjectSubjectClaims_AddressAndPhoneFollowTheirOwnScopes()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal cookiePrincipal = CreateCookiePrincipal(user.Id.Value);
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            cookiePrincipal,
+            user,
+            Roles: [],
+            Permissions: [],
+            GroupClaims: [],
+            Scopes: [OpenIddictConstants.Scopes.Address, OpenIddictConstants.Scopes.Phone],
+            RequestedUserInfoClaims: [],
+            AuthenticationTime: null,
+            Acr: null,
+            SessionId: null));
+
+        // #322 settled one uniform rule for all four section 5.4 scopes: both destinations.
+        projected.FindFirst(OpenIddictConstants.Claims.Address)!.GetDestinations()
+            .ShouldBe([OpenIddictConstants.Destinations.AccessToken, OpenIddictConstants.Destinations.IdentityToken]);
+        projected.FindFirst(OpenIddictConstants.Claims.PhoneNumber)!.GetDestinations()
+            .ShouldBe([OpenIddictConstants.Destinations.AccessToken, OpenIddictConstants.Destinations.IdentityToken]);
+        projected.FindFirst(OpenIddictConstants.Claims.PhoneNumberVerified)!.GetDestinations()
+            .ShouldBe([OpenIddictConstants.Destinations.AccessToken, OpenIddictConstants.Destinations.IdentityToken]);
+    }
+
+    [Fact]
+    public void ProjectSubjectClaims_AddressAndPhoneAreDestinationlessWithoutTheirScopes()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal cookiePrincipal = CreateCookiePrincipal(user.Id.Value);
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            cookiePrincipal,
+            user,
+            Roles: [],
+            Permissions: [],
+            GroupClaims: [],
+            Scopes: [OpenIddictConstants.Scopes.Profile, OpenIddictConstants.Scopes.Email],
+            RequestedUserInfoClaims: [],
+            AuthenticationTime: null,
+            Acr: null,
+            SessionId: null));
+
+        projected.FindFirst(OpenIddictConstants.Claims.Address)!.GetDestinations().ShouldBeEmpty();
+        projected.FindFirst(OpenIddictConstants.Claims.PhoneNumber)!.GetDestinations().ShouldBeEmpty();
+        projected.FindFirst(OpenIddictConstants.Claims.PhoneNumberVerified)!.GetDestinations().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void CreateUserInfoResponse_EmitsAddressAsObjectAndPhoneVerifiedAsBoolean()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal cookiePrincipal = CreateCookiePrincipal(user.Id.Value);
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            cookiePrincipal,
+            user,
+            Roles: [],
+            Permissions: [],
+            GroupClaims: [],
+            Scopes: [OpenIddictConstants.Scopes.Address, OpenIddictConstants.Scopes.Phone],
+            RequestedUserInfoClaims: [],
+            AuthenticationTime: null,
+            Acr: null,
+            SessionId: null));
+
+        IReadOnlyDictionary<string, object> userInfo = this.service.CreateUserInfoResponse(projected);
+
+        // The suite validates `address` as a JSON object at FAILURE level; a bare string is a hard fail.
+        IReadOnlyDictionary<string, object> address =
+            userInfo[OpenIddictConstants.Claims.Address].ShouldBeAssignableTo<IReadOnlyDictionary<string, object>>()!;
+        address["formatted"].ShouldBe("Keizersgracht 1\n1015 CJ Amsterdam\nNetherlands");
+        address["street_address"].ShouldBe("Keizersgracht 1");
+        address["locality"].ShouldBe("Amsterdam");
+        address["region"].ShouldBe("Noord-Holland");
+        address["postal_code"].ShouldBe("1015 CJ");
+        address["country"].ShouldBe("Netherlands");
+
+        userInfo[OpenIddictConstants.Claims.PhoneNumber].ShouldBe("+31 20 555 0100");
+        // Boolean, not the string "false" -- the suite checks the type.
+        userInfo[OpenIddictConstants.Claims.PhoneNumberVerified].ShouldBe(false);
+    }
+
+    [Fact]
+    public void CreateUserInfoResponse_OmitsAddressAndPhoneWithoutTheirScopes()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal cookiePrincipal = CreateCookiePrincipal(user.Id.Value);
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            cookiePrincipal,
+            user,
+            Roles: [],
+            Permissions: [],
+            GroupClaims: [],
+            Scopes: [OpenIddictConstants.Scopes.Profile],
+            RequestedUserInfoClaims: [],
+            AuthenticationTime: null,
+            Acr: null,
+            SessionId: null));
+
+        IReadOnlyDictionary<string, object> userInfo = this.service.CreateUserInfoResponse(projected);
+
+        userInfo.ShouldNotContainKey(OpenIddictConstants.Claims.Address);
+        userInfo.ShouldNotContainKey(OpenIddictConstants.Claims.PhoneNumber);
+        userInfo.ShouldNotContainKey(OpenIddictConstants.Claims.PhoneNumberVerified);
+    }
+
+    [Fact]
+    public void CreateUserInfoResponse_OmitsAddressEntirelyWhenTheUserHasNone()
+    {
+        Result<User> result = User.CreateFederated(
+            "carol@example.test",
+            "Carol Example",
+            this.dateTimeProvider,
+            new UserProfileData(GivenName: "Carol"));
+        result.IsSuccess.ShouldBeTrue();
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(result.Value.Id.Value),
+            result.Value,
+            Roles: [],
+            Permissions: [],
+            GroupClaims: [],
+            Scopes: [OpenIddictConstants.Scopes.Address, OpenIddictConstants.Scopes.Phone],
+            RequestedUserInfoClaims: [],
+            AuthenticationTime: null,
+            Acr: null,
+            SessionId: null));
+
+        IReadOnlyDictionary<string, object> userInfo = this.service.CreateUserInfoResponse(projected);
+
+        userInfo.ShouldNotContainKey(OpenIddictConstants.Claims.Address);
+        userInfo.ShouldNotContainKey(OpenIddictConstants.Claims.PhoneNumber);
+        // phone_number_verified is a stored bool, so it is emitted whenever `phone` is granted.
+        userInfo[OpenIddictConstants.Claims.PhoneNumberVerified].ShouldBe(false);
+    }
+
     private User CreateUser()
     {
         UserProfileData profile = new(
             GivenName: "Alice",
             FamilyName: "Example",
             PreferredUsername: "alice.example",
-            Locale: "en-NL");
+            Locale: "en-NL",
+            Address: new Address(
+                Formatted: "Keizersgracht 1\n1015 CJ Amsterdam\nNetherlands",
+                StreetAddress: "Keizersgracht 1",
+                Locality: "Amsterdam",
+                Region: "Noord-Holland",
+                PostalCode: "1015 CJ",
+                Country: "Netherlands"),
+            PhoneNumber: "+31 20 555 0100");
 
         Result<User> result = User.CreateFederated("alice@example.test", "Alice Example", this.dateTimeProvider, profile);
         result.IsSuccess.ShouldBeTrue();
