@@ -90,6 +90,22 @@ podman compose -f docker-compose-local.yml exec server curl -sk -o /dev/null -w 
 
 Both must return `200` — the first is the browser path, the second the suite's. The published `issuer` must read exactly `https://oidc.localtest.me:3000/`.
 
+### If the browser path fails but the suite path succeeds
+
+On Windows, the Podman machine is a WSL VM, and after a machine restart WSL's localhost relay stops forwarding published ports — the listeners sit in the rootless network namespace where the relay cannot see them. The symptom is precise: the in-container check returns `200` while the host `curl` cannot connect at all. This is a WSL issue and not the port binding; a container published on `0.0.0.0` is equally unreachable.
+
+Tunnel the two ports through the machine's own sshd, in a separate shell:
+
+```bash
+podman machine inspect podman-machine-default --format '{{.SSHConfig.Port}}'
+```
+
+```bash
+ssh -i "$USERPROFILE/.local/share/containers/podman/machine/machine" -p <port> -N -L 127.0.0.1:3000:127.0.0.1:3000 -L 127.0.0.1:8443:127.0.0.1:8443 user@127.0.0.1
+```
+
+Both `oidc.localtest.me` and `localhost.emobix.co.uk` resolve to `127.0.0.1`, so one tunnel serves the provider and the suite UI alike.
+
 The suite UI is at <https://localhost.emobix.co.uk:8443/>. Both `oidcc-basic-certification-test-plan` and `oidcc-config-certification-test-plan` are available (85 plans total).
 
 ## Seeded test identities
