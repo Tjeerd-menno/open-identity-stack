@@ -18,7 +18,7 @@ This setup avoids any hosts-file edit or administrator privileges:
 
 ## Security
 
-The suite runs with `SPRING_PROFILES_ACTIVE=dev`, which injects an auto-authenticated `ROLE_ADMIN` user. **It is completely unauthenticated.** Never expose port 8443 beyond this machine. The suite's own javadoc says this profile must never be used in production.
+The suite runs with `SPRING_PROFILES_ACTIVE=dev`, which injects an auto-authenticated `ROLE_ADMIN` user. **It is completely unauthenticated.** The suite's own javadoc says this profile must never be used in production. Both published ports are therefore bound to `127.0.0.1` in the compose file rather than to all interfaces; do not widen them.
 
 The provider's TLS certificate is self-signed. That is fine: the suite installs a trust-all `X509TrustManager` and `NoopHostnameVerifier`, so certificate validity is irrelevant to it. Your browser will warn once and needs an exception.
 
@@ -28,14 +28,27 @@ The provider's TLS certificate is self-signed. That is fine: the suite installs 
 podman machine start
 ```
 
-Build both images for your **host** architecture — these run locally, not on the arm64 cluster:
+### From the repository root
+
+The image builds need the repository as their build context, so run these two from the root — not from this directory.
+
+Both images run on this machine, so build them for your **host** architecture. The Dockerfiles honour `--platform` through `$TARGETPLATFORM`; omitting it gives you the host's own, which is what you want. Do not copy the arm64 platform flag used for the cluster builds.
 
 ```bash
-podman build --platform linux/amd64 -f src/OpenIdentityStack.Api/Dockerfile -t oidcp-api:local .
-podman build --platform linux/amd64 -f src/OpenIdentityStack.DbMigrator/Dockerfile -t oidcp-migrator:local .
+podman build -f src/OpenIdentityStack.Api/Dockerfile -t oidcp-api:local .
 ```
 
-Generate the provider certificate, in this directory. On Git Bash, `MSYS_NO_PATHCONV=1` is required or the subject is mangled into a Windows path:
+```bash
+podman build -f src/OpenIdentityStack.DbMigrator/Dockerfile -t oidcp-migrator:local .
+```
+
+### From this directory
+
+```bash
+cd conformance/local
+```
+
+Generate the provider certificate. On Git Bash, `MSYS_NO_PATHCONV=1` is required or the subject is mangled into a Windows path:
 
 ```bash
 MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -nodes -keyout provider.key -out provider.crt -days 825 -subj "/CN=oidc.localtest.me" -addext "subjectAltName=DNS:oidc.localtest.me,DNS:localhost,IP:127.0.0.1"
@@ -44,6 +57,14 @@ MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -nodes -keyout provider.ke
 ```bash
 MSYS_NO_PATHCONV=1 openssl pkcs12 -export -out provider.pfx -inkey provider.key -in provider.crt -passout pass:conformance
 ```
+
+Both images run as `USER app`, and under rootless Podman your host UID maps to container root — so a default-umask `0600` PFX is unreadable to the runtime user and both containers fail to start. Make it readable:
+
+```bash
+chmod 0644 provider.pfx
+```
+
+That is deliberate for this file only. It is a throwaway self-signed certificate whose password is already published in the compose file below, and it is never the certificate used for the hosted certification run. `provider.key` can stay `0600`; nothing mounts it.
 
 The encryption key must decode to exactly 32 bytes or the API fails at startup with `Secrets:EncryptionKey must be a base64-encoded 256-bit key`:
 
@@ -55,6 +76,8 @@ export SECRETS_ENCRYPTION_KEY=$(openssl rand -base64 32)
 podman compose -f docker-compose-local.yml up -d
 ```
 
+The suite and nginx images default to the `latest` tag. To pin a known-good suite build — worth doing when bisecting a behaviour change, since upstream moves `latest` — set `CONFORMANCE_SUITE_TAG` before bringing the stack up.
+
 ## Verifying
 
 ```bash
@@ -62,7 +85,7 @@ curl -sk -o /dev/null -w "%{http_code}\n" https://oidc.localtest.me:3000/.well-k
 ```
 
 ```bash
-podman exec oidcc-local-server-1 curl -sk -o /dev/null -w "%{http_code}\n" https://oidc.localtest.me:3000/.well-known/openid-configuration
+podman compose -f docker-compose-local.yml exec server curl -sk -o /dev/null -w "%{http_code}\n" https://oidc.localtest.me:3000/.well-known/openid-configuration
 ```
 
 Both must return `200` — the first is the browser path, the second the suite's. The published `issuer` must read exactly `https://oidc.localtest.me:3000/`.

@@ -29,7 +29,7 @@ services:
         max-file: "5"
 
   nginx:
-    image: registry.gitlab.com/openid/conformance-suite/nginx:latest
+    image: registry.gitlab.com/openid/conformance-suite/nginx:${CONFORMANCE_SUITE_TAG:-latest}
     networks:
       default:
         aliases:
@@ -39,14 +39,20 @@ services:
           # where nothing listens on 8443, and every redirect-based test dies
           # with HttpHostConnectException.
           - localhost.emobix.co.uk
+    # Loopback-only: the dev profile below makes the suite completely
+    # unauthenticated, so it must never be published to the LAN. The suite's
+    # own callbacks resolve through the container network alias above, not
+    # this mapping, so restricting it costs nothing.
     ports:
-      - "8443:8443"
+      - "127.0.0.1:8443:8443"
     depends_on:
       - server
     logging: *logopts
 
   server:
-    image: registry.gitlab.com/openid/conformance-suite:latest
+    # Pin CONFORMANCE_SUITE_TAG to a known-good build when bisecting a
+    # behaviour change; upstream moves `latest` without notice.
+    image: registry.gitlab.com/openid/conformance-suite:${CONFORMANCE_SUITE_TAG:-latest}
     environment:
       BASE_URL: https://localhost.emobix.co.uk:8443
       MONGODB_HOST: mongodb
@@ -113,8 +119,11 @@ services:
           # Makes the browser-facing hostname resolve to this container from
           # inside the suite container.
           - oidc.localtest.me
+    # Loopback-only, matching the suite. `oidc.localtest.me` resolves to
+    # 127.0.0.1, so the browser path is unaffected, and the suite container
+    # reaches the provider through the alias above rather than this mapping.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: https://+:3000
