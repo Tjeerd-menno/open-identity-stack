@@ -1,0 +1,162 @@
+# OIDF conformance suite + OpenIdentityStack, both as sibling containers.
+#
+# The name-identity constraint: the suite requires the OP's published `issuer`
+# to equal the discovery URL minus the well-known suffix, and the same hostname
+# must resolve in the browser, inside the suite container, and in the issuer.
+#
+# Solved without any hosts-file edit:
+#   * `oidc.localtest.me` resolves publicly to 127.0.0.1, so the BROWSER reaches
+#     the provider through the published port below.
+#   * the provider carries a NETWORK ALIAS of the same name, so the SUITE
+#     CONTAINER resolves it to the provider container directly.
+#   * port 3000 is identical on both paths, so one issuer string works for both.
+#
+# `localhost.emobix.co.uk` also resolves publicly to 127.0.0.1, so the suite's
+# own default BASE_URL needs no hosts entry either.
+
+name: oidcc-local
+
+services:
+  mongodb:
+    image: mongo:6.0.13
+    # Named volume rather than ./mongo/data: the bind mount is unreliable on Windows.
+    volumes:
+      - mongodata:/data/db
+    logging: &logopts
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "5"
+
+  nginx:
+    image: registry.gitlab.com/openid/conformance-suite/nginx:${CONFORMANCE_SUITE_TAG:-latest}
+    networks:
+      default:
+        aliases:
+          # The scripted browser runs inside the `server` container, and the OP
+          # redirects it to the suite's callback on this hostname. Without this
+          # alias that name resolves to the server container's own loopback,
+          # where nothing listens on 8443, and every redirect-based test dies
+          # with HttpHostConnectException.
+          - localhost.emobix.co.uk
+    # Loopback-only: the dev profile below makes the suite completely
+    # unauthenticated, so it must never be published to the LAN. The suite's
+    # own callbacks resolve through the container network alias above, not
+    # this mapping, so restricting it costs nothing.
+    ports:
+      - "127.0.0.1:8443:8443"
+    depends_on:
+      - server
+    logging: *logopts
+
+  server:
+    # Pin CONFORMANCE_SUITE_TAG to a known-good build when bisecting a
+    # behaviour change; upstream moves `latest` without notice.
+    image: registry.gitlab.com/openid/conformance-suite:${CONFORMANCE_SUITE_TAG:-latest}
+    environment:
+      BASE_URL: https://localhost.emobix.co.uk:8443
+      MONGODB_HOST: mongodb
+      # dev profile => DummyUserFilter injects an auto-authenticated ROLE_ADMIN.
+      # The suite is therefore UNAUTHENTICATED; never expose 8443 beyond this host.
+      SPRING_PROFILES_ACTIVE: dev
+      OIDC_GOOGLE_CLIENTID: google-client
+      OIDC_GOOGLE_SECRET: google-secret
+      OIDC_GITLAB_CLIENTID: gitlab-client
+      OIDC_GITLAB_SECRET: gitlab-secret
+    depends_on:
+      - mongodb
+    logging: *logopts
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: openidentitystack
+      POSTGRES_PASSWORD: conformance
+      POSTGRES_DB: openidentitystack
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openidentitystack"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logopts
+
+  migrator:
+    image: oidcp-migrator:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      OPENIDENTITYSTACK_SEED_PROFILE: certification
+      OpenIddict__Issuer: https://oidc.localtest.me:3000/
+      ConnectionStrings__openidentitystack: Host=postgres;Database=openidentitystack;Username=openidentitystack;Password=conformance
+      Secrets__EncryptionKey: "${SECRETS_ENCRYPTION_KEY:?set SECRETS_ENCRYPTION_KEY to a base64 256-bit key}"
+      Seed__Certification__Alias: local-conformance
+      Seed__Certification__Users__Alice__Password: Alice!Conformance1
+      Seed__Certification__Users__Bob__Password: Bob!Conformance1
+      Seed__Certification__Clients__CodeClientSecret: code-client-secret
+      Seed__Certification__Clients__CodeClientPostSecret: code-client-post-secret
+      Seed__Certification__Clients__CodeClientTakeoverSecret: code-client-takeover-secret
+      # The suite's callback, not certification.openid.net, because plans are
+      # driven from the local instance.
+      Seed__Certification__RedirectUris__0: https://localhost.emobix.co.uk:8443/test/a/local-conformance/callback
+      # The migrator constructs the full OpenIddict server, which outside
+      # Development/Testing refuses to start without both certificates.
+      OpenIddict__Certificates__Signing__Path: /certs/provider.pfx
+      OpenIddict__Certificates__Signing__Password: conformance
+      OpenIddict__Certificates__Encryption__Path: /certs/provider.pfx
+      OpenIddict__Certificates__Encryption__Password: conformance
+    volumes:
+      # `z`, not `Z`: on an SELinux-enforcing host the mount needs relabelling
+      # to container_file_t, and this PFX is shared by the migrator and the
+      # provider — `Z` would give each a private MCS category and deny the
+      # second. A no-op where SELinux is not enforcing.
+      - ./provider.pfx:/certs/provider.pfx:ro,z
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    logging: *logopts
+
+  provider:
+    image: oidcp-api:local
+    networks:
+      default:
+        aliases:
+          # Makes the browser-facing hostname resolve to this container from
+          # inside the suite container.
+          - oidc.localtest.me
+    # Loopback-only, matching the suite. `oidc.localtest.me` resolves to
+    # 127.0.0.1, so the browser path is unaffected, and the suite container
+    # reaches the provider through the alias above rather than this mapping.
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: https://+:3000
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /certs/provider.pfx
+      ASPNETCORE_Kestrel__Certificates__Default__Password: conformance
+      OpenIddict__Issuer: https://oidc.localtest.me:3000/
+      ConnectionStrings__openidentitystack: Host=postgres;Database=openidentitystack;Username=openidentitystack;Password=conformance
+      Secrets__EncryptionKey: "${SECRETS_ENCRYPTION_KEY:?set SECRETS_ENCRYPTION_KEY to a base64 256-bit key}"
+      OpenIddict__Certificates__Signing__Path: /certs/provider.pfx
+      OpenIddict__Certificates__Signing__Password: conformance
+      OpenIddict__Certificates__Encryption__Path: /certs/provider.pfx
+      OpenIddict__Certificates__Encryption__Password: conformance
+    volumes:
+      # `z`, not `Z`: on an SELinux-enforcing host the mount needs relabelling
+      # to container_file_t, and this PFX is shared by the migrator and the
+      # provider — `Z` would give each a private MCS category and deny the
+      # second. A no-op where SELinux is not enforcing.
+      - ./provider.pfx:/certs/provider.pfx:ro,z
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # Mirrors WaitForCompletion(openIdModuleMigrator) in the Aspire host
+      # (src/OpenIdentityStack.AppHost/AppHost.cs). Waiting only on Postgres
+      # lets the API serve discovery before migrations and certification
+      # seeding finish, so a plan started immediately can hit missing tables,
+      # users or clients.
+      migrator:
+        condition: service_completed_successfully
+    logging: *logopts
+
+volumes:
+  mongodata:
