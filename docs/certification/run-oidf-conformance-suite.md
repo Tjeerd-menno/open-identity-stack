@@ -72,17 +72,27 @@ https://staging.certification.openid.net/test/a/<ALIAS>/callback
 
 ## Manual-Review Tests
 
-Five Basic OP modules cannot complete on their own. They park in `WAITING`
+Four Basic OP modules cannot complete on their own. They park in `WAITING`
 until a human confirms what the provider displayed, and their ceiling is
 `REVIEW`, which is certifiable. **Do not chase `PASSED` on these — it is
 unreachable by design.** Config OP pauses for nothing.
+
+It was five until authorization errors began redirecting to a validated
+`redirect_uri` ([#331](https://github.com/Tjeerd-menno/open-identity-stack/pull/331)).
+`oidcc-response-type-missing` now answers with a `302` to the registered
+callback carrying `error=invalid_request` and the original `state`, which the
+suite verifies by itself — so it reaches `PASSED` unattended and is an ordinary
+sweep module. **If you see it pause for review, something has regressed.**
+This is why membership below is stated as observed provider behaviour rather
+than by test name: the same module can move in or out of this list when the
+provider changes.
 
 The suite is the system of record for this evidence: screenshot what the
 provider rendered and **upload it on the test's log detail page**, so it becomes
 part of the test log and travels inside the exported results ZIP. Nothing is
 copied into this repository.
 
-### These five are excluded from automated sweeps
+### These four are excluded from automated sweeps
 
 The Playwright runner drives browser URLs but has no way to acknowledge a
 review, so a manual-review module stays `WAITING` until the per-test deadline
@@ -90,11 +100,14 @@ expires. That is worse than slow: a test still holding the alias when the next
 one starts is killed by the suite with an alias conflict, which silently
 corrupts every result after it.
 
-The runner therefore **skips all five by default** and names them on startup.
+The runner therefore **skips all four by default** and names them on startup.
 Two ways to drive them anyway:
 
-- `--only <module>` runs exactly the modules named, overriding the exclusion.
-  This is the right way to work one review test at a time.
+- `--only <list>` runs exactly the modules named, overriding the exclusion.
+  This is the right way to work one review test at a time. The value is a
+  **single comma-separated list** — repeating the flag keeps only the last
+  value, and the run then reports `modules: 1` while otherwise looking entirely
+  successful.
 - `--include-manual-review` puts them back into a full sweep. Only useful with a
   human watching, ready to complete each review before the deadline.
 
@@ -107,20 +120,27 @@ photograph and an immediate submit destroys the only thing worth capturing.
 ### What correct behaviour looks like
 
 Verified against the local stack before the hosted run
-([#310](https://github.com/Tjeerd-menno/open-identity-stack/issues/310)), so a
+([#310](https://github.com/Tjeerd-menno/open-identity-stack/issues/310)) and
+re-verified on the exact commit that was deployed for certification
+([#336](https://github.com/Tjeerd-menno/open-identity-stack/issues/336)), so a
 reviewer can tell a genuine pass from a plausible-looking failure.
 
 | Test | Correct provider behaviour | What the screenshot must show |
 |---|---|---|
-| `oidcc-response-type-missing` | Rejects the request; **no redirect issued** — a request missing `response_type` is not safe to redirect | Provider error page, address bar still on `/connect/authorize` |
 | `oidcc-ensure-registered-redirect-uri` | Rejects the request; **no redirect issued** — the `redirect_uri` is not registered, so it must never be used | Provider error page, address bar still on `/connect/authorize` |
 | `oidcc-ensure-request-object-with-redirect-uri` (reject path) | Answers `request_not_supported`; **no redirect issued** — request objects are rejected, so a `redirect_uri` inside the object cannot take effect | Provider error page, address bar still on `/connect/authorize` |
 | `oidcc-prompt-login` | Forces a **fresh login** even though a session is already live | Login form, address bar showing `prompt=login` |
 | `oidcc-max-age-1` | Forces a **fresh login** even though a session is already live | Login form, address bar showing `max_age=1` |
 
-For the first three, the evidence is a *negative* — that no redirect happened.
+For the first two, the evidence is a *negative* — that no redirect happened.
 A cropped screenshot of an error page cannot show that. The address bar is the
 proof, so it is captured deliberately.
+
+Both remaining rejection rows are the cases where the requested `redirect_uri`
+is **not** one the provider may use, which is exactly why redirecting errors
+elsewhere did not touch them: OIDC Core §3.1.2.6 permits an error redirect only
+once the `redirect_uri` has been validated. A redirect appearing on either of
+these two is a defect, not an improvement.
 
 ### Capture rules
 

@@ -182,7 +182,7 @@ Two things that are easy to lose an afternoon to:
 - **The Config OP plan takes no variant.** `/api/plan/available` reports `"variants": {}` for it, so passing the Basic plan's default makes plan creation fail with a bare `400`. Run it as `--plan oidcc-config-certification-test-plan --variant '{}'`.
 - **Interactive login is rate-limited to 5 POSTs per 5 minutes per client IP** in Production, answering an empty `429`. The runner paces itself around this; anything else driving the OP from one IP must too. A full Basic sweep therefore takes roughly 35 minutes.
 
-Exit codes, the five manual-review modules, and evidence-capture rules are in [docs/certification/run-oidf-conformance-suite.md](../../docs/certification/run-oidf-conformance-suite.md). Note especially that exit `2` and `3` mean the evidence has holes and the run must be discarded, not that it mostly passed.
+Exit codes, the manual-review modules, and evidence-capture rules are in [docs/certification/run-oidf-conformance-suite.md](../../docs/certification/run-oidf-conformance-suite.md) — which is where their count lives too, since it changes when the provider does. Note especially that exit `2` and `3` mean the evidence has holes and the run must be discarded, not that it mostly passed.
 
 ## Notes
 

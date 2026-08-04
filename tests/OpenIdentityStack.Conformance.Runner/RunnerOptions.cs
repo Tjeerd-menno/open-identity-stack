@@ -10,6 +10,12 @@ internal sealed record RunnerOptions
     /// expires — and a test still holding the alias when the next one starts is
     /// killed with an alias conflict, silently corrupting every later result.
     /// They are therefore excluded from automated sweeps by default.
+    ///
+    /// Membership follows what the OP actually does, not what the module is
+    /// named. <c>oidcc-response-type-missing</c> used to belong here; once
+    /// authorization errors began redirecting to a validated
+    /// <c>redirect_uri</c>, the suite could verify it without a human and it
+    /// reached <c>PASSED</c> on its own, so it belongs in the sweep instead.
     /// </summary>
     public static readonly IReadOnlySet<string> ManualReviewModules =
         new HashSet<string>(StringComparer.Ordinal)
@@ -18,7 +24,6 @@ internal sealed record RunnerOptions
             "oidcc-ensure-request-object-with-redirect-uri",
             "oidcc-max-age-1",
             "oidcc-prompt-login",
-            "oidcc-response-type-missing",
         };
 
     /// <summary>Options that take no value.</summary>
