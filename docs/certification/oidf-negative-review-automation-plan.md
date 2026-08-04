@@ -1,5 +1,22 @@
 # OIDF Negative-Case Review Automation Plan
 
+> **Status: record of intent only — and its starting target no longer exists.**
+>
+> Building this automation is out of scope for the certification effort, and
+> [`run-oidf-conformance-suite.md`](run-oidf-conformance-suite.md) supersedes it
+> for manual runs, including the `review.json` manifest below.
+>
+> The Initial Target, `oidcc-response-type-missing`, **stopped being a
+> review-pause test** once authorization errors began redirecting to a validated
+> `redirect_uri` ([#331](https://github.com/Tjeerd-menno/open-identity-stack/pull/331)):
+> the suite verifies it automatically and it now passes in an ordinary sweep.
+> Anyone reviving this plan needs a new starting target from the current
+> manual-review list, not this one.
+>
+> The classification step below is the part that aged well — it already treats
+> "redirect to the suite callback with `error`" as the automatic case, which is
+> precisely what happened.
+
 ## Purpose
 
 Some OpenID Foundation conformance tests intentionally send invalid authorization requests. When the provider correctly displays a local error page instead of redirecting to an untrusted or incomplete callback, the suite can pause for manual review.
@@ -98,7 +115,10 @@ Track each paused negative test in this table as it is encountered.
 
 | Test | Expected provider behavior | Evidence required |
 |---|---|---|
-| `oidcc-response-type-missing` | Reject missing `response_type` with `invalid_request` or `unsupported_response_type`; local error display is acceptable when redirect safety is not established. | Screenshot or callback evidence |
+| ~~`oidcc-response-type-missing`~~ | **No longer pauses.** Redirects `error=invalid_request` with `state` to the validated `redirect_uri`; the suite verifies this automatically. | None — it is a normal sweep module |
+
+The live catalog of tests that *do* pause is the manual-review table in
+[`run-oidf-conformance-suite.md`](run-oidf-conformance-suite.md).
 
 ## Definition of Done
 
