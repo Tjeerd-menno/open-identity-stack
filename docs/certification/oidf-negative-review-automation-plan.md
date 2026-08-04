@@ -23,13 +23,13 @@ Some OpenID Foundation conformance tests intentionally send invalid authorizatio
 
 This plan describes how to make those review steps repeatable without storing test secrets or depending on tribal knowledge.
 
-## Initial Target
+## Initial Target (no longer applicable)
 
-Automate evidence capture for the OpenID Connect Core Basic OP negative authorization tests, starting with:
+The plan was written to automate evidence capture for the OpenID Connect Core Basic OP negative authorization tests, starting with ~~`oidcc-response-type-missing`~~.
 
-- `oidcc-response-type-missing`
+At the time, that module's expected behavior was a protocol error response for a request missing `response_type`, with no redirect unless the request was safe to redirect — so it paused for review and needed captured evidence. It no longer does: the request *is* safe to redirect once the `redirect_uri` has been validated, so the provider redirects the error and the suite verifies it automatically.
 
-The current expected provider behavior is a protocol error response for a request missing `response_type`, with no redirect unless the request is safe to redirect.
+**There is no current target.** Anyone reviving this plan must pick one from the manual-review table in [`run-oidf-conformance-suite.md`](run-oidf-conformance-suite.md), which is the live list.
 
 ## Automation Stages
 
