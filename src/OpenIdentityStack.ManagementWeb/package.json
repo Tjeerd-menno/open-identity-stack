@@ -14,10 +14,10 @@
     "type-check": "tsc -b"
   },
   "dependencies": {
-    "@mantine/core": "^9.5.0",
-    "@mantine/form": "^9.5.0",
-    "@mantine/hooks": "^9.5.0",
-    "@mantine/notifications": "^9.5.0",
+    "@mantine/core": "^9.5.1",
+    "@mantine/form": "^9.5.1",
+    "@mantine/hooks": "^9.5.1",
+    "@mantine/notifications": "^9.5.1",
     "@tanstack/react-query": "^5.101.4",
     "oidc-client-ts": "^3.5.0",
     "react": "^19.2.8",
