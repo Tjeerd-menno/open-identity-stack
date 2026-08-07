@@ -92,6 +92,9 @@ export const mockApi = {
     importPermissionManifestFromEndpoint: vi.fn(),
     changeApplicationLifecycle: vi.fn(),
   },
+  currentUser: {
+    getCurrentUser: vi.fn(),
+  },
 };
 
 export function page<T>(items: T[], overrides: Record<string, unknown> = {}) {

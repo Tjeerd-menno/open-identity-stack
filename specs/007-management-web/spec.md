@@ -12,6 +12,8 @@
 
 **Input**: ManagementWeb must reach functional parity with Management Web while using a Mantine-first frontend. The port preserves Management Web behavior one-for-one before any product redesign, uses the consolidated Applications API only, removes legacy Clients and Service accounts navigation, and adds a ManagementWeb Audit area backed by a read-only audit entries endpoint.
 
+**Supersession note**: `008-current-user-permissions` supersedes the authentication-initialization requirements in this spec that derive frontend permissions from OIDC profile or access-token payload claims. Management Web must now treat access tokens as opaque and obtain UI authorization state from `GET /api/me`.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Use a parity-grade ManagementWeb foundation (Priority: P1)
@@ -27,7 +29,7 @@ An operator signs in to ManagementWeb and sees the same authentication, authoriz
 1. **Given** an authenticated operator, **When** ManagementWeb calls the Admin API, **Then** it attaches the bearer token and normalizes Problem Details errors consistently.
 2. **Given** a 401 API response, **When** a protected request fails, **Then** ManagementWeb starts the logout/re-authentication path without losing route protection semantics.
 3. **Given** permissions such as `*`, `applications:*`, or concrete grants, **When** the UI evaluates actions and routes, **Then** it uses one normalized permission helper while backend authorization remains authoritative.
-4. **Given** a signed-in operator with effective role permissions emitted as concrete token claims, **When** ManagementWeb initializes authentication, **Then** it reads granular `permission`/`permissions`/scope claims from the profile and access-token payload and does not infer access from role names alone.
+4. **Given** a signed-in operator with effective role permissions represented by the current access token, **When** ManagementWeb initializes authentication, **Then** it retrieves granular permissions from `GET /api/me`, treats the access token as opaque, and does not infer access from role names alone.
 
 ---
 
@@ -116,7 +118,7 @@ Product and operations teams run Management Web and ManagementWeb side by side o
 - **FR-003**: ManagementWeb MUST use only `/api/admin/applications` for application-like resources.
 - **FR-004**: ManagementWeb MUST NOT expose Clients or Service accounts navigation, routes, or legacy endpoint usage.
 - **FR-005**: ManagementWeb MUST preserve existing Management Web route paths wherever the domain still exists.
-- **FR-006**: ManagementWeb MUST normalize permission checks in a shared foundation while treating backend authorization as authoritative. It MUST consume concrete grants from `permission`, `permissions`, `scope`, and `scp` claims in both OIDC profile data and access-token payloads, and MUST NOT elevate privileges from role names alone.
+- **FR-006**: ManagementWeb MUST normalize permission checks in a shared foundation while treating backend authorization as authoritative. As superseded by `008-current-user-permissions`, it MUST consume UI permissions from `GET /api/me`, MUST treat access tokens as opaque, and MUST NOT elevate privileges from role names alone.
 - **FR-007**: ManagementWeb MUST include shared API client, error handling, route protection, permission helpers, table, dialog, loading, empty-state, and one-time-secret primitives before new domain ports.
 - **FR-008**: Each vertical slice MUST meet a strict definition of done: UI parity, API client coverage, risky component/unit tests, E2E coverage for operator-critical workflows, permission gates, loading/empty/error states, and validation passing.
 - **FR-009**: ManagementWeb MUST provide Applications, Users, Roles, Groups, Sessions, Identity providers, Settings, Application permissions, Audit, and Overview navigation.
@@ -136,7 +138,7 @@ Product and operations teams run Management Web and ManagementWeb side by side o
 
 ## Security & Operational Impact *(mandatory)*
 
-- **Authentication/Authorization**: ManagementWeb uses the same identity and permission model as Management Web, with normalized client-side checks and backend policy as the final authority. UI gates are based on granular permission grants, including concrete permissions expanded from backend roles into token claims; role names are display/context data, not frontend authorization grants.
+- **Authentication/Authorization**: ManagementWeb uses the same identity and permission model as Management Web, with normalized client-side checks and backend policy as the final authority. UI gates are based on granular permission grants returned by `GET /api/me`; role names are display/context data, not frontend authorization grants.
 - **Secrets & Certificates**: One-time secret displays must avoid storing or re-rendering secrets outside the immediate response state.
 - **Audit Events**: ManagementWeb adds a read-only audit trail surface and does not mutate audit data.
 - **Safe Failure Modes**: Errors avoid sensitive detail exposure, block unauthorized operations, and keep action-local recovery where possible.

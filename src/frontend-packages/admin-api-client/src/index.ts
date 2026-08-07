@@ -124,6 +124,8 @@ export { createAuditEntriesContract } from './audit-entries';
 export * from './audit-entries';
 export { createApplicationPermissionsContract } from './application-permissions';
 export * from './application-permissions';
+export { createCurrentUserContract } from './current-user';
+export * from './current-user';
 export * from './permission-semantics';
 
 export function createApiError(status: number, payload: unknown): ApiError {

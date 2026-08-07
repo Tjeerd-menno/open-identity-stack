@@ -28,6 +28,10 @@ _Avoid_: Server-side theme persistence, role-driven theme switching
 Frontend route and action gating is derived from concrete permission claims; backend authorization remains authoritative.
 _Avoid_: Inferring privilege from role names alone
 
+**Current User**:
+The authenticated Management Web user as represented to the frontend by the API, including their effective permission snapshot.
+_Avoid_: Managed user record, token payload, live permission recalculation
+
 **Management Web Availability**:
 Management Web is started by default in the local Aspire composition and is the only interactive frontend resource.
 _Avoid_: Dual-frontend local startup, legacy UI fallback assumptions
