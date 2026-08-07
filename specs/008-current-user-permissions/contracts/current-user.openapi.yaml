@@ -1,0 +1,78 @@
+openapi: 3.1.0
+info:
+  title: OpenIdentityStack Current User API
+  version: 1.0.0
+  description: Client-readable current-user identity and effective permission snapshot for Management Web.
+paths:
+  /api/me:
+    get:
+      operationId: getCurrentUser
+      tags:
+        - CurrentUser
+      summary: Gets the authenticated current user for Management Web.
+      description: Returns identity display fields and explicit permission claims from the validated access-token principal. The endpoint does not perform live permission recalculation.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user identity and effective permission snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUserResponse'
+              examples:
+                superAdmin:
+                  value:
+                    subject: 6fd0c0ad-0000-4000-8000-000000000001
+                    userName: admin
+                    displayName: Administrator
+                    email: admin@example.com
+                    permissions:
+                      - users:read
+                      - users:write
+                      - roles:read
+                      - applications:read
+        '401':
+          description: The request is unauthenticated or the validated principal lacks a subject.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: Access token validated by the API. Management Web treats the token as opaque.
+  schemas:
+    CurrentUserResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - subject
+        - userName
+        - displayName
+        - email
+        - permissions
+      properties:
+        subject:
+          type: string
+          minLength: 1
+          description: Stable subject identifier from the validated principal.
+        userName:
+          type: string
+          minLength: 1
+          description: Preferred user-facing username.
+        displayName:
+          type: string
+          minLength: 1
+          description: Display label for the signed-in operator.
+        email:
+          type:
+            - string
+            - 'null'
+          format: email
+          description: Email claim value when present.
+        permissions:
+          type: array
+          description: Explicit permission claims from the validated access-token principal, deduplicated case-insensitively.
+          items:
+            type: string
+            minLength: 1

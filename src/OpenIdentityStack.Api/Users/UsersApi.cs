@@ -477,7 +477,18 @@ internal static class UsersApi
         request.Gender,
         request.Birthdate,
         request.ZoneInfo,
-        request.Locale);
+        request.Locale,
+        request.Address is null
+            ? null
+            : new Address(
+                request.Address.Formatted,
+                request.Address.StreetAddress,
+                request.Address.Locality,
+                request.Address.Region,
+                request.Address.PostalCode,
+                request.Address.Country),
+        request.PhoneNumber,
+        request.PhoneNumberVerified);
 
     private static UserProfileResponse ToUserProfileResponse(UserProfileData profile) => new(
         profile.GivenName,
@@ -491,7 +502,18 @@ internal static class UsersApi
         profile.Gender,
         profile.Birthdate,
         profile.ZoneInfo,
-        profile.Locale);
+        profile.Locale,
+        profile.Address is null
+            ? null
+            : new UserAddressResponse(
+                profile.Address.Formatted,
+                profile.Address.StreetAddress,
+                profile.Address.Locality,
+                profile.Address.Region,
+                profile.Address.PostalCode,
+                profile.Address.Country),
+        profile.PhoneNumber,
+        profile.PhoneNumberVerified ?? false);
 
     /// <summary>Resolves the acting admin's id from the authenticated principal for audit logging.</summary>
     private static string GetActorId(HttpContext context) =>

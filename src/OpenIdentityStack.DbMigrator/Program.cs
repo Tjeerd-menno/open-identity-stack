@@ -10,6 +10,7 @@ using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure;
+using OpenIdentityStack.Infrastructure.Common;
 using OpenIdentityStack.Infrastructure.Persistence;
 
 using SharedKernel;
@@ -26,6 +27,10 @@ if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException("Connection string 'openidentitystack' was not found.");
 }
+
+// Fail before any schema or seed work: the API refuses to start on a malformed key, and a
+// migrator that completes anyway pushes the failure into a different workload.
+SecretEncryptionKey.Validate(builder.Configuration);
 
 builder.Services.AddInfrastructure(connectionString, builder.Configuration, builder.Environment.EnvironmentName);
 
@@ -231,7 +236,15 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
             gender: "female",
             birthdate: "1990-01-15",
             zoneInfo: "Europe/Amsterdam",
-            locale: "en-NL"),
+            locale: "en-NL",
+            address: new Address(
+                Formatted: "Keizersgracht 1\n1015 CJ Amsterdam\nNetherlands",
+                StreetAddress: "Keizersgracht 1",
+                Locality: "Amsterdam",
+                Region: "Noord-Holland",
+                PostalCode: "1015 CJ",
+                Country: "Netherlands"),
+            phoneNumber: "+31 20 555 0100"),
         GetRequiredConfiguration(configuration, "Seed:Certification:Users:Alice:Password"),
         resetPassword: configuration.GetValue("Seed:Certification:ResetExistingUsers", defaultValue: true));
 
@@ -249,7 +262,15 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
             gender: "male",
             birthdate: "1988-07-04",
             zoneInfo: "Europe/Amsterdam",
-            locale: "en-NL"),
+            locale: "en-NL",
+            address: new Address(
+                Formatted: "Herengracht 42\n1015 BS Amsterdam\nNetherlands",
+                StreetAddress: "Herengracht 42",
+                Locality: "Amsterdam",
+                Region: "Noord-Holland",
+                PostalCode: "1015 BS",
+                Country: "Netherlands"),
+            phoneNumber: "+31 20 555 0101"),
         GetRequiredConfiguration(configuration, "Seed:Certification:Users:Bob:Password"),
         resetPassword: configuration.GetValue("Seed:Certification:ResetExistingUsers", defaultValue: true));
 
@@ -259,6 +280,8 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
         OpenIddictConstants.Scopes.OpenId,
         OpenIddictConstants.Scopes.Profile,
         OpenIddictConstants.Scopes.Email,
+        OpenIddictConstants.Scopes.Address,
+        OpenIddictConstants.Scopes.Phone,
         OpenIddictConstants.Scopes.OfflineAccess
     ];
 
@@ -411,7 +434,9 @@ static UserProfileData CreateCertificationUserProfile(
     string gender,
     string birthdate,
     string zoneInfo,
-    string locale)
+    string locale,
+    Address address,
+    string phoneNumber)
 {
     string profilePath = $"profiles/{preferredUsername}";
     string avatarPath = $"{profilePath}/avatar.svg";
@@ -428,7 +453,11 @@ static UserProfileData CreateCertificationUserProfile(
         Gender: gender,
         Birthdate: birthdate,
         ZoneInfo: zoneInfo,
-        Locale: locale);
+        Locale: locale,
+        Address: address,
+        PhoneNumber: phoneNumber,
+        // Nothing has verified these numbers; the suite checks the type, not the value.
+        PhoneNumberVerified: false);
 }
 
 static async Task SeedCertificationClientAsync(

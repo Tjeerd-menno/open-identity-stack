@@ -17,13 +17,13 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -31,7 +31,7 @@ jobs:
         run: "python -m pip install --require-hashes --only-binary :all: -r docs/requirements.txt"
 
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: lts/*
 
@@ -39,12 +39,12 @@ jobs:
         run: mkdocs build --strict
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: "10.0.x"
 
       - name: Set up JDK 17
-        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           java-version: "17"
           distribution: zulu
@@ -94,6 +94,14 @@ jobs:
         working-directory: src/OpenIdentityStack.ManagementWeb
         run: npm ci --ignore-scripts
 
+      - name: Type-check ManagementWeb
+        working-directory: src/OpenIdentityStack.ManagementWeb
+        run: npm run type-check
+
+      - name: Lint ManagementWeb
+        working-directory: src/OpenIdentityStack.ManagementWeb
+        run: npm run lint
+
       - name: Test ManagementWeb with coverage
         working-directory: src/OpenIdentityStack.ManagementWeb
         run: npm run test:coverage
@@ -124,7 +132,7 @@ jobs:
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*E2ETests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings coverage.settings.xml
 
       - name: Verify coverage threshold
-        run: pwsh scripts/ci/verify-coverage.ps1 -ResultsDir $GITHUB_WORKSPACE/tests -MinimumLineRate 0.10 -MinimumOverallLineRate 0.72
+        run: pwsh scripts/ci/verify-coverage.ps1 -ResultsDir $GITHUB_WORKSPACE/TestResults -MinimumLineRate 0.10 -MinimumOverallLineRate 0.72
 
       - name: End SonarQube analysis
         env:

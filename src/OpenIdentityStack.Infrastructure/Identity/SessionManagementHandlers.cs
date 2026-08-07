@@ -1,10 +1,12 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
+using OpenIddict.Server.AspNetCore;
 using static OpenIddict.Server.OpenIddictServerEvents;
 
 namespace OpenIdentityStack.Infrastructure.Identity;
@@ -65,7 +67,7 @@ public sealed class AttachSessionStateHandler : IOpenIddictServerHandler<ApplyAu
     public static OpenIddictServerHandlerDescriptor Descriptor { get; }
         = OpenIddictServerHandlerDescriptor.CreateBuilder<ApplyAuthorizationResponseContext>()
             .UseScopedHandler<AttachSessionStateHandler>()
-            .SetOrder(OpenIddictServerHandlers.Authentication.ApplyAuthorizationResponse<ApplyAuthorizationResponseContext>.Descriptor.Order + SessionManagementConstants.CustomHandlerOrderOffset)
+            .SetOrder(OpenIddictServerAspNetCoreHandlers.Authentication.ProcessSelfRedirection.Descriptor.Order - SessionManagementConstants.CustomHandlerOrderOffset)
             .SetType(OpenIddictServerHandlerType.Custom)
             .Build();
 
@@ -84,12 +86,20 @@ public sealed class AttachSessionStateHandler : IOpenIddictServerHandler<ApplyAu
             return ValueTask.CompletedTask;
         }
 
-        if (context.Transaction.GetProperty<HttpContext>(typeof(HttpContext).FullName!) is not { } httpContext)
+        HttpRequest? httpRequest = context.Transaction.GetHttpRequest();
+
+        if (httpRequest is null &&
+            context.Transaction.GetProperty<HttpContext>(typeof(HttpContext).FullName!) is { } httpContext)
+        {
+            httpRequest = httpContext.Request;
+        }
+
+        if (httpRequest is null)
         {
             return ValueTask.CompletedTask;
         }
 
-        if (!httpContext.Request.Cookies.TryGetValue(SessionManagementDefaults.SessionCookieName, out string? sessionCookie) ||
+        if (!httpRequest.Cookies.TryGetValue(SessionManagementDefaults.SessionCookieName, out string? sessionCookie) ||
             string.IsNullOrWhiteSpace(sessionCookie))
         {
             return ValueTask.CompletedTask;

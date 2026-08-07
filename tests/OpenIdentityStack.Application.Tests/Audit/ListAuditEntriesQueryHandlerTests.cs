@@ -73,7 +73,7 @@ public sealed class ListAuditEntriesQueryHandlerTests
         this.auditEntryReader.ListAsync(Arg.Any<ListAuditEntriesQuery>(), cts.Token)
             .Returns(call =>
             {
-                ListAuditEntriesQuery normalized = call.Arg<ListAuditEntriesQuery>();
+                ListAuditEntriesQuery normalized = call.Arg<ListAuditEntriesQuery>()!;
                 normalized.Page.ShouldBe(1);
                 normalized.PageSize.ShouldBe(100);
                 normalized.From.ShouldBe(from);

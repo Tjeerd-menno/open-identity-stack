@@ -1,18 +1,35 @@
 # OIDF Negative-Case Review Automation Plan
 
+> **Status: record of intent only — and its starting target no longer exists.**
+>
+> Building this automation is out of scope for the certification effort, and
+> [`run-oidf-conformance-suite.md`](run-oidf-conformance-suite.md) supersedes it
+> for manual runs, including the `review.json` manifest below.
+>
+> The Initial Target, `oidcc-response-type-missing`, **stopped being a
+> review-pause test** once authorization errors began redirecting to a validated
+> `redirect_uri` ([#331](https://github.com/Tjeerd-menno/open-identity-stack/pull/331)):
+> the suite verifies it automatically and it now passes in an ordinary sweep.
+> Anyone reviving this plan needs a new starting target from the current
+> manual-review list, not this one.
+>
+> The classification step below is the part that aged well — it already treats
+> "redirect to the suite callback with `error`" as the automatic case, which is
+> precisely what happened.
+
 ## Purpose
 
 Some OpenID Foundation conformance tests intentionally send invalid authorization requests. When the provider correctly displays a local error page instead of redirecting to an untrusted or incomplete callback, the suite can pause for manual review.
 
 This plan describes how to make those review steps repeatable without storing test secrets or depending on tribal knowledge.
 
-## Initial Target
+## Initial Target (no longer applicable)
 
-Automate evidence capture for the OpenID Connect Core Basic OP negative authorization tests, starting with:
+The plan was written to automate evidence capture for the OpenID Connect Core Basic OP negative authorization tests, starting with ~~`oidcc-response-type-missing`~~.
 
-- `oidcc-response-type-missing`
+At the time, that module's expected behavior was a protocol error response for a request missing `response_type`, with no redirect unless the request was safe to redirect — so it paused for review and needed captured evidence. It no longer does: the request *is* safe to redirect once the `redirect_uri` has been validated, so the provider redirects the error and the suite verifies it automatically.
 
-The current expected provider behavior is a protocol error response for a request missing `response_type`, with no redirect unless the request is safe to redirect.
+**There is no current target.** Anyone reviving this plan must pick one from the manual-review table in [`run-oidf-conformance-suite.md`](run-oidf-conformance-suite.md), which is the live list.
 
 ## Automation Stages
 
@@ -98,7 +115,10 @@ Track each paused negative test in this table as it is encountered.
 
 | Test | Expected provider behavior | Evidence required |
 |---|---|---|
-| `oidcc-response-type-missing` | Reject missing `response_type` with `invalid_request` or `unsupported_response_type`; local error display is acceptable when redirect safety is not established. | Screenshot or callback evidence |
+| ~~`oidcc-response-type-missing`~~ | **No longer pauses.** Redirects `error=invalid_request` with `state` to the validated `redirect_uri`; the suite verifies this automatically. | None — it is a normal sweep module |
+
+The live catalog of tests that *do* pause is the manual-review table in
+[`run-oidf-conformance-suite.md`](run-oidf-conformance-suite.md).
 
 ## Definition of Done
 

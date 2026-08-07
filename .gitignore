@@ -143,3 +143,13 @@ deploy/*
 .squad/sessions/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+# Conformance runner working files. plan-config.json carries the certification
+# clients' secrets in static-client mode, and the results JSON is run evidence.
+plan-config.json
+conformance-results.json
+
+# Local conformance loop working files: the self-signed provider certificate
+# and the per-run results. Only the README and the compose file are tracked.
+conformance/local/provider.*
+conformance/local/*results*.json

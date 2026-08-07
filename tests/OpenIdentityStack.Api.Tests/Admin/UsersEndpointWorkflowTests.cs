@@ -209,6 +209,86 @@ public sealed class UsersEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
     }
 
     [Fact]
+    public async Task UpdateUser_WithAddressAndPhone_RoundTripsThroughTheApi()
+    {
+        // Arrange
+        (Guid userId, string _) = await this.CreateUserAsync();
+        var update = new
+        {
+            Profile = new
+            {
+                Address = new
+                {
+                    Formatted = "Keizersgracht 1\n1015 CJ Amsterdam\nNetherlands",
+                    StreetAddress = "Keizersgracht 1",
+                    Locality = "Amsterdam",
+                    Region = "Noord-Holland",
+                    PostalCode = "1015 CJ",
+                    Country = "NL",
+                },
+                PhoneNumber = "+31612345678",
+                PhoneNumberVerified = true,
+            },
+        };
+
+        // Act
+        HttpResponseMessage updateResponse =
+            await this.SendRequestAsync(HttpMethod.Put, $"/api/admin/users/{userId}", update);
+
+        // Assert
+        updateResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        HttpResponseMessage getResponse =
+            await this.SendRequestAsync(HttpMethod.Get, $"/api/admin/users/{userId}");
+        getResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        JsonNode? json = await getResponse.Content.ReadFromJsonAsync<JsonNode>();
+        json.ShouldNotBeNull();
+
+        JsonNode profile = json!["profile"].ShouldNotBeNull();
+        profile["phoneNumber"]!.GetValue<string>().ShouldBe("+31612345678");
+        profile["phoneNumberVerified"]!.GetValue<bool>().ShouldBeTrue();
+
+        // address is the codebase's first structured profile value, so the nested
+        // shape is what a regression would most likely flatten or drop.
+        JsonNode address = profile["address"].ShouldNotBeNull();
+        address["streetAddress"]!.GetValue<string>().ShouldBe("Keizersgracht 1");
+        address["locality"]!.GetValue<string>().ShouldBe("Amsterdam");
+        address["region"]!.GetValue<string>().ShouldBe("Noord-Holland");
+        address["postalCode"]!.GetValue<string>().ShouldBe("1015 CJ");
+        address["country"]!.GetValue<string>().ShouldBe("NL");
+        address["formatted"]!.GetValue<string>().ShouldContain("Keizersgracht 1");
+    }
+
+    [Fact]
+    public async Task UpdateUser_ChangingThePhoneNumber_DropsTheVerifiedAssertion()
+    {
+        // Arrange
+        (Guid userId, string _) = await this.CreateUserAsync();
+        await this.SendRequestAsync(
+            HttpMethod.Put,
+            $"/api/admin/users/{userId}",
+            new { Profile = new { PhoneNumber = "+31612345678", PhoneNumberVerified = true } });
+
+        // Act - a new number, with the caller saying nothing about verification
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Put,
+            $"/api/admin/users/{userId}",
+            new { Profile = new { PhoneNumber = "+32499999999" } });
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        HttpResponseMessage getResponse =
+            await this.SendRequestAsync(HttpMethod.Get, $"/api/admin/users/{userId}");
+        JsonNode? json = await getResponse.Content.ReadFromJsonAsync<JsonNode>();
+
+        JsonNode profile = json!["profile"].ShouldNotBeNull();
+        profile["phoneNumber"]!.GetValue<string>().ShouldBe("+32499999999");
+        profile["phoneNumberVerified"]!.GetValue<bool>().ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task DisableUser_WithValidId_Returns200Ok()
     {
         // Arrange - Create verified user (only Active users can be disabled)

@@ -79,8 +79,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         result.Value.Permissions[0].FullPermissionKey.ShouldBe("orders-api:order:read");
         await this.repository.Received(1).AddAsync(
             Arg.Is<RegisteredApplication>(application =>
-                application.ApplicationIdentifier == "orders-api"
-                && application.ManifestVersion == "1.0.0"
+                application!.ApplicationIdentifier == "orders-api"
                 && application.ManifestBaseUrl == "https://orders.example.com/api"),
             Arg.Any<CancellationToken>());
     }
@@ -220,6 +219,25 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData("1.0.0")]
+    [InlineData("0.9.9")]
+    public async Task PreviewChangesAsync_WithSameOrOlderManifestVersion_ReturnsConflict(string version)
+    {
+        RegisteredApplication application = CreateApplication("1.0.0");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+
+        Result<ManifestPreviewDto> result = await this.useCases.PreviewChangesAsync(new ApplyApplicationPermissionManifestCommand(
+            application.Id.Value,
+            ValidManifest(version),
+            "actor-1",
+            application.ConcurrencyToken));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.PermissionManifest.VersionNotNewer");
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task ApplyAsync_WithOmittedExistingPermission_TombstonesPermissionRemovesAssignmentsAndAdvancesVersion()
     {
@@ -249,7 +267,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         cancelPermission.RemoveReason.ShouldBe("Manifest 1.1.0 omitted permission.");
         await this.permissionAssignmentStore.Received(1).RemoveAssignmentsAsync(
             Arg.Is<PermissionAssignmentRemovalPlan>(plan =>
-                plan.ExactPermissions.SequenceEqual(cancelExactPermission)
+                plan!.ExactPermissions.SequenceEqual(cancelExactPermission)
                 && plan.WildcardPermissionsToRemove.Count == 0),
             "actor-1",
             Arg.Any<CancellationToken>());
@@ -281,7 +299,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         result.Value.Result.WildcardAssignmentsRemoved.Select(impact => impact.Permission).ShouldBe(["orders-api:order:*"]);
         await this.permissionAssignmentStore.Received(1).RemoveAssignmentsAsync(
             Arg.Is<PermissionAssignmentRemovalPlan>(plan =>
-                plan.ExactPermissions.SequenceEqual(readExactPermission)
+                plan!.ExactPermissions.SequenceEqual(readExactPermission)
                 && plan.WildcardPermissionsToRemove.SequenceEqual(orderWildcardPermission)),
             "actor-1",
             Arg.Any<CancellationToken>());
@@ -352,6 +370,23 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
 
         Result<ManifestApplyDto> result = await this.useCases.ApplyChangesAsync(new ApplyApplicationPermissionManifestCommand(
+            application.Id.Value,
+            ValidManifest("1.0.0"),
+            "actor-1",
+            application.ConcurrencyToken));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.PermissionManifest.ManifestBaseUrlRequired");
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PreviewChangesAsync_WithManualApplication_ReturnsValidationError()
+    {
+        RegisteredApplication application = CreateApplication("0.0.0", manifestBaseUrl: null);
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+
+        Result<ManifestPreviewDto> result = await this.useCases.PreviewChangesAsync(new ApplyApplicationPermissionManifestCommand(
             application.Id.Value,
             ValidManifest("1.0.0"),
             "actor-1",

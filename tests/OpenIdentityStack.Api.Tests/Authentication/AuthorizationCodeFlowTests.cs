@@ -128,6 +128,40 @@ public sealed class AuthorizationCodeFlowTests
     }
 
     [Fact]
+    public async Task Authorize_WithPlainCodeChallengeMethod_IsRejected()
+    {
+        // Arrange - advertising S256 only would be worse than the status quo if
+        // "plain" were still silently honoured, so the reject path is the real guard.
+        string testClientId = $"plain-pkce-{Guid.NewGuid():N}";
+        await this._fixture.CreateServiceAccountAsync(
+            testClientId,
+            "test-secret",
+            allowedScopes: ["openid"],
+            allowedGrantTypes: ["authorization_code"],
+            redirectUris: ["https://localhost/callback"]);
+
+        string codeVerifier = GenerateCodeVerifier();
+
+        using HttpClient client = this._fixture.CreateClient(allowAutoRedirect: false);
+
+        // Act - with "plain" the challenge is the verifier itself
+        HttpResponseMessage response = await client.GetAsync(
+            $"/connect/authorize?response_type=code&client_id={testClientId}&redirect_uri=https://localhost/callback&scope=openid&code_challenge={codeVerifier}&code_challenge_method=plain");
+
+        // Assert - rejected without ever reaching the login page. The client_id and
+        // redirect_uri are both valid, so per OIDC Core §3.1.2.6 the rejection is handed
+        // back to the RP as an error redirect rather than a 400 page (see #330).
+        response.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        response.Headers.Location.ShouldNotBeNull();
+        response.Headers.Location.GetLeftPart(UriPartial.Path).ShouldBe("https://localhost/callback");
+
+        Dictionary<string, Microsoft.Extensions.Primitives.StringValues> query =
+            QueryHelpers.ParseQuery(response.Headers.Location.Query);
+
+        query["error"].Single().ShouldBe("invalid_request");
+    }
+
+    [Fact]
     public async Task Authorize_WithUnsupportedRequestObject_RedirectsBackWithRequestNotSupportedError()
     {
         // Arrange
@@ -164,6 +198,75 @@ public sealed class AuthorizationCodeFlowTests
 
         query["error"].Single().ShouldBe("request_not_supported");
         query["state"].Single().ShouldBe(state);
+    }
+
+    [Fact]
+    public async Task Authorize_WithAuthenticatedSession_IncludesSessionStateInCallbackRedirect()
+    {
+        // Arrange
+        string clientId = $"session-state-client-{Guid.NewGuid():N}";
+        string clientSecret = "test-secret-123!";
+        string redirectUri = "https://localhost/callback";
+        string email = $"session-state-{Guid.NewGuid():N}@example.test";
+        string password = "Password123!@#";
+
+        await this._fixture.CreateTestUserAsync(email, "Session State User", password);
+        await this._fixture.CreateServiceAccountAsync(
+            clientId,
+            clientSecret,
+            allowedScopes: ["openid"],
+            allowedGrantTypes: ["authorization_code"],
+            redirectUris: [redirectUri]);
+
+        string codeVerifier = GenerateCodeVerifier();
+        string codeChallenge = GenerateCodeChallenge(codeVerifier);
+
+        using HttpClient client = this._fixture.CreateClient(allowAutoRedirect: false);
+
+        string authorizeQuery = await new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["response_type"] = "code",
+            ["client_id"] = clientId,
+            ["redirect_uri"] = redirectUri,
+            ["scope"] = "openid",
+            ["state"] = "session-state-123",
+            ["nonce"] = "session-state-nonce",
+            ["code_challenge"] = codeChallenge,
+            ["code_challenge_method"] = "S256"
+        }).ReadAsStringAsync();
+
+        // Act
+        HttpResponseMessage authorizeResponse = await client.GetAsync("/connect/authorize?" + authorizeQuery);
+        authorizeResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        authorizeResponse.Headers.Location.ShouldNotBeNull();
+
+        HttpResponseMessage loginPageResponse = await client.GetAsync(authorizeResponse.Headers.Location);
+        loginPageResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        string loginPage = await loginPageResponse.Content.ReadAsStringAsync();
+        string antiForgeryToken = ExtractAntiForgeryToken(loginPage);
+
+        HttpResponseMessage loginResponse = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email,
+            ["Password"] = password,
+            ["RememberMe"] = "false",
+            ["returnUrl"] = QueryHelpers.ParseQuery(GetQuery(authorizeResponse.Headers.Location))["returnUrl"].Single()!,
+            ["__RequestVerificationToken"] = antiForgeryToken
+        }));
+        loginResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+
+        HttpResponseMessage callbackResponse = await client.GetAsync(loginResponse.Headers.Location);
+        callbackResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        callbackResponse.Headers.Location.ShouldNotBeNull();
+
+        // Assert
+        callbackResponse.Headers.Location.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
+
+        Dictionary<string, Microsoft.Extensions.Primitives.StringValues> callbackQuery =
+            QueryHelpers.ParseQuery(callbackResponse.Headers.Location.Query);
+
+        callbackQuery.ShouldContainKey("session_state");
+        callbackQuery["session_state"].Single().ShouldNotBeNullOrWhiteSpace();
     }
 
     #endregion

@@ -21,6 +21,7 @@
     <Project Path="tests/OpenIdentityStack.Api.Tests/OpenIdentityStack.Api.Tests.csproj" />
     <Project Path="tests/OpenIdentityStack.Api.UnitTests/OpenIdentityStack.Api.UnitTests.csproj" />
     <Project Path="tests/OpenIdentityStack.Application.Tests/OpenIdentityStack.Application.Tests.csproj" />
+    <Project Path="tests/OpenIdentityStack.Conformance.Runner/OpenIdentityStack.Conformance.Runner.csproj" />
     <Project Path="tests/OpenIdentityStack.Contract.Tests/OpenIdentityStack.Contract.Tests.csproj" />
     <Project Path="tests/OpenIdentityStack.Domain.Tests/OpenIdentityStack.Domain.Tests.csproj" />
     <Project Path="tests/OpenIdentityStack.Infrastructure.Tests/OpenIdentityStack.Infrastructure.Tests.csproj" />

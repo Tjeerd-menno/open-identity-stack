@@ -3,6 +3,7 @@ import {
   createApplicationPermissionsContract,
   createApplicationsContract,
   createAuditEntriesContract,
+  createCurrentUserContract,
   createGroupsContract,
   createProvidersContract,
   createRolesContract,
@@ -46,4 +47,5 @@ export const api = {
   settings: createSettingsContract(client),
   audit: createAuditEntriesContract(client),
   applicationPermissions: createApplicationPermissionsContract(client),
+  currentUser: createCurrentUserContract(client),
 };

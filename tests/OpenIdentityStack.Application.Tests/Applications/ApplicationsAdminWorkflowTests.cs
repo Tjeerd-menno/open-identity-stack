@@ -94,7 +94,7 @@ public sealed class ApplicationsAdminWorkflowTests
         result.Value.Details.RedirectUris.ShouldBe(OrdersCallbackRedirectUris);
         await this.repository.Received(1).AddAsync(
             Arg.Is<DomainApplication>(application =>
-                application.ClientId == "orders-web" &&
+                application!.ClientId == "orders-web" &&
                 application.Description == "Orders portal" &&
                 application.AllowedGrantTypes.SequenceEqual(AuthorizationCodeGrantTypes) &&
                 application.RedirectUris.SequenceEqual(OrdersCallbackRedirectUris)),

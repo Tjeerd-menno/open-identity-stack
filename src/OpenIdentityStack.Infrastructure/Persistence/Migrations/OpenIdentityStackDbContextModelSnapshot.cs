@@ -17,7 +17,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -964,6 +964,15 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("PhoneNumberVerified")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Picture")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
@@ -1258,6 +1267,49 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("OpenIdentityStack.Domain.Users.User", b =>
                 {
+                    b.OwnsOne("OpenIdentityStack.Domain.Users.Address", "Address", b1 =>
+                        {
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Country")
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)")
+                                .HasColumnName("AddressCountry");
+
+                            b1.Property<string>("Formatted")
+                                .HasMaxLength(512)
+                                .HasColumnType("character varying(512)")
+                                .HasColumnName("AddressFormatted");
+
+                            b1.Property<string>("Locality")
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)")
+                                .HasColumnName("AddressLocality");
+
+                            b1.Property<string>("PostalCode")
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)")
+                                .HasColumnName("AddressPostalCode");
+
+                            b1.Property<string>("Region")
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)")
+                                .HasColumnName("AddressRegion");
+
+                            b1.Property<string>("StreetAddress")
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)")
+                                .HasColumnName("AddressStreetAddress");
+
+                            b1.HasKey("UserId");
+
+                            b1.ToTable("Users");
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
                     b.OwnsMany("OpenIdentityStack.Domain.Users.UpstreamIdentity", "UpstreamIdentities", b1 =>
                         {
                             b1.Property<int>("Id")
@@ -1310,6 +1362,8 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("UserId");
                         });
+
+                    b.Navigation("Address");
 
                     b.Navigation("UpstreamIdentities");
                 });

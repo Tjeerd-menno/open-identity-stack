@@ -1,6 +1,9 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Security.Claims;
+using System.Text.Json;
+
+using Microsoft.IdentityModel.JsonWebTokens;
 
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Domain.Groups;
@@ -169,6 +172,19 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             }
         }
 
+        AddUserInfoAddressClaim(claims, principal, requestedUserInfoClaims);
+
+        AddUserInfoStringClaim(claims, principal, requestedUserInfoClaims, Claims.PhoneNumber, Scopes.Phone);
+
+        if (principal.HasScope(Scopes.Phone) || requestedUserInfoClaims.Contains(Claims.PhoneNumberVerified))
+        {
+            if (principal.GetClaim(Claims.PhoneNumberVerified) is { } phoneVerified)
+            {
+                claims[Claims.PhoneNumberVerified] =
+                    string.Equals(phoneVerified, "true", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
         return claims;
     }
 
@@ -233,6 +249,36 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
                 }
 
                 if (claim.Subject?.HasScope(Scopes.Email) == true)
+                {
+                    yield return Destinations.IdentityToken;
+                }
+
+                yield break;
+
+            // #322 settled one uniform rule for all four OIDC section 5.4 scopes, so
+            // `address` and `phone` reach the ID token exactly like `profile` and `email`.
+            case Claims.Address:
+                if (claim.Subject?.HasScope(Scopes.Address) == true
+                    || claim.Subject?.HasClaim(RequestedUserInfoClaim, claim.Type) == true)
+                {
+                    yield return Destinations.AccessToken;
+                }
+
+                if (claim.Subject?.HasScope(Scopes.Address) == true)
+                {
+                    yield return Destinations.IdentityToken;
+                }
+
+                yield break;
+
+            case Claims.PhoneNumber or Claims.PhoneNumberVerified:
+                if (claim.Subject?.HasScope(Scopes.Phone) == true
+                    || claim.Subject?.HasClaim(RequestedUserInfoClaim, claim.Type) == true)
+                {
+                    yield return Destinations.AccessToken;
+                }
+
+                if (claim.Subject?.HasScope(Scopes.Phone) == true)
                 {
                     yield return Destinations.IdentityToken;
                 }
@@ -330,6 +376,20 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
         AddStringClaim(identity, Claims.Zoneinfo, user.ZoneInfo);
         AddStringClaim(identity, Claims.Locale, user.Locale);
 
+        if (user.Address is { } address)
+        {
+            identity.AddClaim(new Claim(
+                Claims.Address,
+                SerializeAddress(address),
+                JsonClaimValueTypes.Json));
+        }
+
+        AddStringClaim(identity, Claims.PhoneNumber, user.PhoneNumber);
+        identity.AddClaim(new Claim(
+            Claims.PhoneNumberVerified,
+            user.PhoneNumberVerified ? "true" : "false",
+            ClaimValueTypes.Boolean));
+
         DateTimeOffset updatedAt = user.ModifiedAt ?? user.CreatedAt;
         identity.AddClaim(new Claim(
             Claims.UpdatedAt,
@@ -377,6 +437,66 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             && principal.GetClaim(claimType) is { } value)
         {
             claims[claimType] = value;
+        }
+    }
+
+    /// <summary>
+    /// Serializes an address to the JSON object shape of OIDC Core section 5.1.1, omitting
+    /// absent components. The suite validates only the sub-fields that are present.
+    /// </summary>
+    private static string SerializeAddress(Address address) =>
+        JsonSerializer.Serialize(BuildAddressObject(address));
+
+    private static Dictionary<string, object> BuildAddressObject(Address address)
+    {
+        var components = new Dictionary<string, object>(StringComparer.Ordinal);
+        AddAddressComponent(components, "formatted", address.Formatted);
+        AddAddressComponent(components, "street_address", address.StreetAddress);
+        AddAddressComponent(components, "locality", address.Locality);
+        AddAddressComponent(components, "region", address.Region);
+        AddAddressComponent(components, "postal_code", address.PostalCode);
+        AddAddressComponent(components, "country", address.Country);
+        return components;
+    }
+
+    private static void AddAddressComponent(Dictionary<string, object> components, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            components[name] = value;
+        }
+    }
+
+    /// <summary>
+    /// Emits <c>address</c> as a JSON object. The conformance suite validates it at FAILURE
+    /// level, so a bare string here would be a hard failure rather than a warning.
+    /// </summary>
+    private static void AddUserInfoAddressClaim(
+        Dictionary<string, object> claims,
+        ClaimsPrincipal principal,
+        ImmutableHashSet<string> requestedClaims)
+    {
+        if (!(principal.HasScope(Scopes.Address) || requestedClaims.Contains(Claims.Address)))
+        {
+            return;
+        }
+
+        if (principal.GetClaim(Claims.Address) is not { Length: > 0 } serialized)
+        {
+            return;
+        }
+
+        // Every sub-field of `address` is a string, so this stays type-exact -- deserializing
+        // to object would hand the response JsonElement values instead.
+        Dictionary<string, string>? components =
+            JsonSerializer.Deserialize<Dictionary<string, string>>(serialized);
+
+        if (components is { Count: > 0 })
+        {
+            claims[Claims.Address] = components.ToDictionary(
+                static component => component.Key,
+                static component => (object)component.Value,
+                StringComparer.Ordinal);
         }
     }
 
