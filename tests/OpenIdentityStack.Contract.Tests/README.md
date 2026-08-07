@@ -62,7 +62,7 @@ dotnet test tests/OpenIdentityStack.Contract.Tests
 
 ## OpenAPI Versioning Rules
 
-The CI scripts under `scripts/ci/compare-openapi-breaking-changes.ps1` and `.sh` compare OpenAPI specs found under `specs/**/contracts`.
+The CI scripts under `scripts/ci/compare-openapi-breaking-changes.ps1` and `.sh` compare OpenAPI specs found under `contracts/openapi`.
 
 - Removing an existing spec file is treated as a breaking change.
 - New spec files are skipped until a base version exists on the comparison branch.

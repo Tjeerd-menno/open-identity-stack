@@ -73,7 +73,10 @@ public sealed class ApplicationProfilePolicyContractTests
             "..",
             "..",
             "..",
-            "Admin",
-            "Applications",
+            "..",
+            "..",
+            "contracts",
+            "openapi",
+            "006-unify-applications-model",
             "applications.openapi.yaml"));
 }
