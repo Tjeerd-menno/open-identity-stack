@@ -10,6 +10,7 @@ using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Api.Admin;
 using OpenIdentityStack.Api.Applications;
 using OpenIdentityStack.Api.Audit;
+using OpenIdentityStack.Api.CurrentUser;
 using OpenIdentityStack.Api.Users;
 using OpenIdentityStack.Api.Groups;
 using OpenIdentityStack.Api.Sessions;
@@ -203,6 +204,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Map Minimal API endpoints
+app.MapCurrentUserApi();
 app.MapApplicationsApi();
 app.MapUsersApi();
 app.MapPublicProfilesApi();

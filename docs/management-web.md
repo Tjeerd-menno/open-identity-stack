@@ -36,7 +36,9 @@ The UI uses `GET /api/admin/audit-entries`; there is no Management Web audit wri
 
 ## Authorization
 
-Management Web uses shared permission helpers for route and action gates, but backend authorization remains authoritative. The frontend consumes concrete permission grants from `permission`, `permissions`, `scope`, and `scp` claims. Role names such as `admin` or `super-admin` are not treated as frontend wildcard grants.
+Management Web uses shared permission helpers for route and action gates, but backend authorization remains authoritative. After sign-in, the frontend treats the access token as opaque and calls `GET /api/me` to obtain the current user's effective permission snapshot from the validated API principal. Role names such as `admin` or `super-admin` are not treated as frontend wildcard grants.
+
+Access-token encryption remains enabled by default in Production. Management Web must continue to function when the access token cannot be decoded by JavaScript, including encrypted JWT/JWE and future reference-token forms.
 
 ## Appearance
 

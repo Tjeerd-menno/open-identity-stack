@@ -1,11 +1,16 @@
 /* eslint-disable react-refresh/only-export-components */
-import { extractGrantedPermissions } from '@openidentitystack/admin-api-client';
 import { UserManager, WebStorageStateStore, type User, type UserManagerSettings } from 'oidc-client-ts';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
-import { setAccessTokenProvider, setUnauthorizedHandler } from './api';
+import type { CurrentUserResponse } from '@openidentitystack/admin-api-client';
+import { api, setAccessTokenProvider, setUnauthorizedHandler } from './api';
 import { AuthContextProvider, type AuthContextValue } from './auth-context';
 import { getOidcAuthority, getOidcClientId } from './runtime-config';
+
+type CurrentUserLoadState =
+  | { token: string; status: 'success'; user: CurrentUserResponse }
+  | { token: string; status: 'error'; error: unknown }
+  | null;
 
 export { AuthContextProvider, useAuth, type AuthContextValue } from './auth-context';
 
@@ -64,6 +69,7 @@ let authCodeRedemptionStarted = false;
 function OidcAuthProvider({ children }: { children: ReactNode }) {
   const [userManager] = useState(() => createUserManager());
   const [oidcUser, setOidcUser] = useState<User | null>(null);
+  const [currentUserLoad, setCurrentUserLoad] = useState<CurrentUserLoadState>(null);
   const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
 
@@ -71,6 +77,9 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
     const user = await userManager.getUser();
     return user?.expired ? null : (user?.access_token ?? null);
   }, [userManager]);
+
+  const login = useCallback(async () => userManager.signinRedirect(), [userManager]);
+  const logout = useCallback(async () => userManager.signoutRedirect(), [userManager]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,33 +124,101 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
   }, [userManager, location.pathname]);
 
   useEffect(() => {
+    const removeUserLoaded = userManager.events.addUserLoaded((user) => {
+      setOidcUser(user && !user.expired ? user : null);
+    });
+
+    return () => {
+      removeUserLoaded();
+    };
+  }, [userManager]);
+
+  useEffect(() => {
     setAccessTokenProvider(getAccessToken);
   }, [getAccessToken]);
+
+  const accessToken = oidcUser && !oidcUser.expired ? oidcUser.access_token : null;
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    let cancelled = false;
+
+    api.currentUser
+      .getCurrentUser()
+      .then((response) => {
+        if (!cancelled) {
+          setCurrentUserLoad({ token: accessToken, status: 'success', user: response });
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (getApiStatus(error) === 401) {
+          void logout();
+        } else {
+          console.error('Failed to load current user:', error);
+          setCurrentUserLoad({ token: accessToken, status: 'error', error });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, logout]);
+
+  const effectiveCurrentUser =
+    currentUserLoad?.token === accessToken && currentUserLoad.status === 'success'
+      ? currentUserLoad.user
+      : null;
+  const effectiveCurrentUserError =
+    currentUserLoad?.token === accessToken && currentUserLoad.status === 'error'
+      ? currentUserLoad.error
+      : null;
+  const isAuthLoading =
+    isLoading || (!!oidcUser && !effectiveCurrentUser && !effectiveCurrentUserError);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       isAuthenticated: !!oidcUser,
-      isLoading,
-      displayName: typeof oidcUser?.profile.name === 'string' ? oidcUser.profile.name : 'Operator',
-      permissions: extractPermissions(oidcUser),
-      login: async () => userManager.signinRedirect(),
-      logout: async () => userManager.signoutRedirect(),
+      isLoading: isAuthLoading,
+      displayName: effectiveCurrentUser?.displayName ?? getFallbackDisplayName(oidcUser),
+      permissions: effectiveCurrentUser?.permissions ?? [],
+      login,
+      logout,
       getAccessToken,
     }),
-    [getAccessToken, isLoading, oidcUser, userManager]
+    [effectiveCurrentUser, getAccessToken, isAuthLoading, login, logout, oidcUser]
   );
 
   useEffect(() => {
     setUnauthorizedHandler(value.logout);
   }, [value.logout]);
 
+  if (effectiveCurrentUserError) {
+    return (
+      <div role="alert">
+        Unable to load your authorization state.
+      </div>
+    );
+  }
+
   return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
 }
 
-function extractPermissions(user: User | null): string[] {
-  if (!user) {
-    return [];
-  }
+function getFallbackDisplayName(user: User | null): string {
+  return typeof user?.profile.name === 'string' ? user.profile.name : 'Operator';
+}
 
-  return extractGrantedPermissions({ profile: user.profile, accessToken: user.access_token });
+function getApiStatus(error: unknown): number | null {
+  return typeof error === 'object'
+    && error !== null
+    && 'status' in error
+    && typeof (error as { status?: unknown }).status === 'number'
+    ? (error as { status: number }).status
+    : null;
 }
