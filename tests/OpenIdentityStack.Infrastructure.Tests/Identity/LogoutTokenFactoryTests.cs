@@ -22,7 +22,14 @@ namespace OpenIdentityStack.Infrastructure.Tests.Identity;
 public sealed class LogoutTokenFactoryTests : IDisposable
 {
     private const string BackChannelLogoutEvent = "http://schemas.openid.net/event/backchannel-logout";
+    /// <summary>Issuer as an operator configures it, without a trailing slash.</summary>
     private const string ConfiguredIssuer = "https://identity.example.com";
+
+    /// <summary>
+    /// The canonical form OpenIddict publishes in the discovery document, and therefore the exact
+    /// string a relying party compares the logout token's 'iss' against.
+    /// </summary>
+    private const string CanonicalIssuer = "https://identity.example.com/";
 
     private readonly RSA _rsa = RSA.Create(2048);
     private readonly IDateTimeProvider _dateTimeProvider = Substitute.For<IDateTimeProvider>();
@@ -58,7 +65,7 @@ public sealed class LogoutTokenFactoryTests : IDisposable
             token,
             new TokenValidationParameters
             {
-                ValidIssuer = ConfiguredIssuer,
+                ValidIssuer = CanonicalIssuer,
                 ValidAudience = "client-1",
                 IssuerSigningKey = new RsaSecurityKey(this._rsa.ExportParameters(false)),
                 ValidateIssuerSigningKey = true,
@@ -83,7 +90,7 @@ public sealed class LogoutTokenFactoryTests : IDisposable
             unsigned,
             new TokenValidationParameters
             {
-                ValidIssuer = ConfiguredIssuer,
+                ValidIssuer = CanonicalIssuer,
                 ValidAudience = "client-1",
                 IssuerSigningKey = new RsaSecurityKey(this._rsa.ExportParameters(false)),
                 ValidateIssuerSigningKey = true,
@@ -113,7 +120,7 @@ public sealed class LogoutTokenFactoryTests : IDisposable
         string token = factory.CreateLogoutToken(sessionId, "client-1");
 
         JsonWebToken parsed = new JsonWebTokenHandler().ReadJsonWebToken(token);
-        parsed.Issuer.ShouldBe(ConfiguredIssuer);
+        parsed.Issuer.ShouldBe(CanonicalIssuer);
         parsed.Audiences.ShouldContain("client-1");
         parsed.Id.ShouldNotBeNullOrEmpty();
         parsed.GetClaim("sid").Value.ShouldBe(sessionId.Value.ToString());
@@ -175,6 +182,19 @@ public sealed class LogoutTokenFactoryTests : IDisposable
     }
 
     [Fact]
+    public void CreateLogoutToken_KeepsTheTrailingSlashOnARootIssuer()
+    {
+        LogoutTokenFactory factory = this.CreateFactory();
+
+        string token = factory.CreateLogoutToken(SessionId.Create(), "client-1");
+
+        // A relying party compares 'iss' byte-for-byte against the issuer in the discovery
+        // document, which for a root URI carries a trailing slash (see
+        // OidcConformancePreflightTests). Normalising it away rejects every logout token.
+        new JsonWebTokenHandler().ReadJsonWebToken(token).Issuer.ShouldBe(CanonicalIssuer);
+    }
+
+    [Fact]
     public void CreateLogoutToken_FallsBackToTheRequestIssuerWhenNoneIsConfigured()
     {
         var httpContext = new DefaultHttpContext();
@@ -185,7 +205,7 @@ public sealed class LogoutTokenFactoryTests : IDisposable
 
         string token = factory.CreateLogoutToken(SessionId.Create(), "client-1");
 
-        new JsonWebTokenHandler().ReadJsonWebToken(token).Issuer.ShouldBe("https://login.example.org");
+        new JsonWebTokenHandler().ReadJsonWebToken(token).Issuer.ShouldBe("https://login.example.org/");
     }
 
     [Fact]

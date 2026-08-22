@@ -8,14 +8,27 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['lcov', 'text'],
-      // Thresholds sit just under the current numbers so the gate blocks regressions.
-      // CI collected coverage before this without checking it against anything. Raise these
-      // as coverage improves; never lower them to make a red build go green.
+      // Without an explicit include, v8 counts only files some test imported, so a module with
+      // no tests at all is invisible to the thresholds below and adding one can raise the
+      // percentages. Enumerating the sources makes untested code count against the gate.
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/test/**',
+        'src/globals.d.ts',
+        // Bootstraps the app; nothing to assert and it is excluded from Sonar coverage too.
+        'src/main.tsx',
+      ],
+      // Thresholds sit just under the current numbers so the gate blocks regressions. Raise
+      // them as coverage improves; never lower them to make a red build go green.
+      // Measured across every source file, not just the ones a test happens to import, so
+      // these are much lower than the previously reported figures — that number was computed
+      // against roughly half the codebase.
       thresholds: {
-        statements: 55,
-        branches: 54,
-        functions: 42,
-        lines: 56,
+        statements: 22,
+        branches: 24,
+        functions: 17,
+        lines: 22,
       },
     },
     globals: true,

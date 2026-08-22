@@ -113,11 +113,18 @@ public sealed class LogoutTokenFactory : ILogoutTokenFactory
     /// Resolves the issuer the same way OpenIddict does: the configured issuer when present,
     /// otherwise the base URI of the request being handled.
     /// </summary>
+    /// <remarks>
+    /// The value is the URI's canonical <see cref="Uri.AbsoluteUri"/> and is deliberately not
+    /// trimmed. A relying party compares the logout token's <c>iss</c> byte-for-byte against the
+    /// issuer published in the discovery document, and for a root URI that value keeps its
+    /// trailing slash — 'https://issuer.example.com/', not 'https://issuer.example.com'.
+    /// Normalising the slash away here would make every token fail that comparison.
+    /// </remarks>
     private string ResolveIssuer(OpenIddictServerOptions options)
     {
         if (options.Issuer is not null)
         {
-            return options.Issuer.AbsoluteUri.TrimEnd('/');
+            return options.Issuer.AbsoluteUri;
         }
 
         HttpRequest? request = this.httpContextAccessor.HttpContext?.Request;
@@ -127,7 +134,7 @@ public sealed class LogoutTokenFactory : ILogoutTokenFactory
             {
                 Port = request.Host.Port ?? -1,
                 Path = request.PathBase.ToString(),
-            }.Uri.AbsoluteUri.TrimEnd('/');
+            }.Uri.AbsoluteUri;
         }
 
         throw new InvalidOperationException(
