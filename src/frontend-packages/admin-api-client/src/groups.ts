@@ -73,7 +73,10 @@ export type GroupsContract = {
   addMemberToGroup: (groupId: string, userId: string) => Promise<void>;
   removeMemberFromGroup: (groupId: string, userId: string) => Promise<void>;
   getGroupMappings: (groupId: string) => Promise<GroupMappingsResponse>;
-  addGroupMapping: (groupId: string, data: AddGroupMappingRequest) => Promise<GroupMapping>;
+  // Resolves void: the endpoint answers 201 with an empty body and a Location header,
+  // matching addMemberToGroup above. Typing it as GroupMapping promised a value the
+  // client resolves as undefined.
+  addGroupMapping: (groupId: string, data: AddGroupMappingRequest) => Promise<void>;
   removeGroupMapping: (groupId: string, mappingId: string) => Promise<void>;
 };
 
@@ -101,7 +104,7 @@ export function createGroupsContract(client: AdminApiClient): GroupsContract {
       client.delete<void>(`/api/admin/groups/${groupId}/members/${userId}`),
     getGroupMappings: (groupId) => client.get<GroupMappingsResponse>(`/api/admin/groups/${groupId}/mappings`),
     addGroupMapping: (groupId, data) =>
-      client.post<GroupMapping>(`/api/admin/groups/${groupId}/mappings`, data),
+      client.post<void>(`/api/admin/groups/${groupId}/mappings`, data),
     removeGroupMapping: (groupId, mappingId) =>
       client.delete<void>(`/api/admin/groups/${groupId}/mappings/${mappingId}`),
   };
