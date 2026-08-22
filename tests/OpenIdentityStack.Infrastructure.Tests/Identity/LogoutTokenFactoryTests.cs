@@ -42,19 +42,19 @@ public sealed class LogoutTokenFactoryTests : IDisposable
         string token = factory.CreateLogoutToken(SessionId.Create(), "client-1");
 
         JsonWebToken parsed = new JsonWebTokenHandler().ReadJsonWebToken(token);
+        // RS256, and specifically not "none" — the algorithm an earlier revision emitted.
         parsed.Alg.ShouldBe(SecurityAlgorithms.RsaSha256);
-        parsed.Alg.ShouldNotBe("none");
     }
 
     [Fact]
-    public void CreateLogoutToken_ProducesTokenThatValidatesAgainstThePublicKey()
+    public async Task CreateLogoutToken_ProducesTokenThatValidatesAgainstThePublicKey()
     {
         LogoutTokenFactory factory = this.CreateFactory();
 
         string token = factory.CreateLogoutToken(SessionId.Create(), "client-1");
 
         // A relying party fetches the public key from the JWKS endpoint and validates with it.
-        TokenValidationResult result = new JsonWebTokenHandler().ValidateTokenAsync(
+        TokenValidationResult result = await new JsonWebTokenHandler().ValidateTokenAsync(
             token,
             new TokenValidationParameters
             {
@@ -63,14 +63,14 @@ public sealed class LogoutTokenFactoryTests : IDisposable
                 IssuerSigningKey = new RsaSecurityKey(this._rsa.ExportParameters(false)),
                 ValidateIssuerSigningKey = true,
                 ValidateLifetime = false,
-            }).GetAwaiter().GetResult();
+            });
 
         result.Exception.ShouldBeNull();
         result.IsValid.ShouldBeTrue();
     }
 
     [Fact]
-    public void CreateLogoutToken_RejectsAnUnsignedTokenSubstitutedForTheRealOne()
+    public async Task CreateLogoutToken_RejectsAnUnsignedTokenSubstitutedForTheRealOne()
     {
         LogoutTokenFactory factory = this.CreateFactory();
         string token = factory.CreateLogoutToken(SessionId.Create(), "client-1");
@@ -79,7 +79,7 @@ public sealed class LogoutTokenFactoryTests : IDisposable
         string[] segments = token.Split('.');
         string unsigned = $"{segments[0]}.{segments[1]}.";
 
-        TokenValidationResult result = new JsonWebTokenHandler().ValidateTokenAsync(
+        TokenValidationResult result = await new JsonWebTokenHandler().ValidateTokenAsync(
             unsigned,
             new TokenValidationParameters
             {
@@ -88,7 +88,7 @@ public sealed class LogoutTokenFactoryTests : IDisposable
                 IssuerSigningKey = new RsaSecurityKey(this._rsa.ExportParameters(false)),
                 ValidateIssuerSigningKey = true,
                 ValidateLifetime = false,
-            }).GetAwaiter().GetResult();
+            });
 
         result.IsValid.ShouldBeFalse();
     }

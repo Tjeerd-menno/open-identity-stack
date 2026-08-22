@@ -259,10 +259,14 @@ public sealed class BackChannelLogoutNotifierTests
     public async Task NotifyClientsAsync_PostsTheSignedLogoutTokenAsFormContent()
     {
         // Arrange
+        // Read the body inside the handler: HttpClient disposes the request once the call
+        // completes, so the content is not readable afterwards. ReadAsStream is the synchronous
+        // API, which keeps this off the blocking-task-in-a-test path.
         string? postedBody = null;
         var handler = new MockHttpMessageHandler(request =>
         {
-            postedBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            using var reader = new StreamReader(request.Content!.ReadAsStream());
+            postedBody = reader.ReadToEnd();
             return new HttpResponseMessage(HttpStatusCode.OK);
         });
         var httpClient = new HttpClient(handler);
