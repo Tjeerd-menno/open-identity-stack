@@ -1,12 +1,14 @@
+# Defaults mirror the values the CI workflows pass explicitly. Keep the two in step: a default
+# that advertises a higher bar than CI enforces makes the gate look stricter than it is.
 param(
     [Parameter(Mandatory = $false)]
     [string]$ResultsDir = "TestResults",
 
     [Parameter(Mandatory = $false)]
-    [double]$MinimumLineRate = 0.80,
+    [double]$MinimumLineRate = 0.10,
 
     [Parameter(Mandatory = $false)]
-    [double]$MinimumOverallLineRate = 0.80
+    [double]$MinimumOverallLineRate = 0.72
 )
 
 $coverageFiles = Get-ChildItem -Path $ResultsDir -Filter "*.cobertura.xml" -Recurse -ErrorAction SilentlyContinue
@@ -41,28 +43,7 @@ foreach ($file in $coverageFiles) {
     $percent = [math]::Round($lineRate * 100, 2)
     Write-Host "$($file.Name): $percent%"
 
-    # Check for a per-project threshold override.
-    # Convention: a '.coverage-threshold' file in the test project's root directory
-    # (search upward from the coverage file's directory until the root of $ResultsDir)
-    # overrides the global MinimumLineRate for that project.
-    $effectiveThreshold = $MinimumLineRate
-    $searchDir = $file.Directory
-    $resultsDirInfo = Get-Item $ResultsDir
-    while ($null -ne $searchDir -and $searchDir.FullName -ne $resultsDirInfo.FullName -and $searchDir.FullName.StartsWith($resultsDirInfo.FullName)) {
-        $overrideFile = Join-Path $searchDir.FullName ".coverage-threshold"
-        if (Test-Path $overrideFile) {
-            $overrideValue = Get-Content $overrideFile -Raw
-            $parsedOverride = 0.0
-            if ([double]::TryParse($overrideValue.Trim(), [ref]$parsedOverride)) {
-                $effectiveThreshold = $parsedOverride
-                Write-Host "  (using per-project threshold: $([math]::Round($effectiveThreshold * 100, 2))%)"
-            }
-            break
-        }
-        $searchDir = $searchDir.Parent
-    }
-
-    if ($lineRate -lt $effectiveThreshold) {
+    if ($lineRate -lt $MinimumLineRate) {
         $failed += "$($file.Name) ($percent%)"
     }
 }

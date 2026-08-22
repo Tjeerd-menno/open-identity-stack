@@ -139,6 +139,15 @@ For an IAM product, these changes require explicit security owner approval.
 - Security-focused negative tests for tampered token hints.
 - End-to-end session termination verification across SLO channels.
 
+### Resolved separately: back-channel logout token signing
+
+The logout token itself was a distinct defect and is **fixed**, not deferred.
+`BackChannelLogoutNotifier` previously hand-assembled an `alg: none` JWT — unsigned, and
+carrying the session id in `sub`. It now delegates to `LogoutTokenFactory`, which signs with the
+OpenIddict server's asymmetric key, sets `typ: logout+jwt`, emits `sid` (not a fabricated `sub`),
+and fails closed if no asymmetric signing key or issuer can be resolved rather than degrading to
+an unsigned token. Covered by `LogoutTokenFactoryTests`.
+
 ## Prioritization proposal
 
 1. **Logout flow completion** (security + standards impact)

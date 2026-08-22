@@ -1,21 +1,10 @@
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 
-export default defineConfig(({ command, mode }) => {
-  // loadEnv reads .env, .env.local, .env.[mode] files in addition to process.env.
-  // Using prefix '' captures ALL vars (not just VITE_*) so we can read VITE_E2E_TEST_MODE
-  // that may have been written to .env.local by the test fixture.
-  const env = loadEnv(mode, process.cwd(), '');
-  const isE2ETestMode =
-    (env['VITE_E2E_TEST_MODE'] ?? process.env['VITE_E2E_TEST_MODE']) === 'true';
-
+export default defineConfig(() => {
   return {
-    plugins: isE2ETestMode && command === 'serve' ? [] : [react()],
-    // Bake the E2E flag into the client bundle so auth.tsx can select MockAuthProvider.
-    define: {
-      __E2E_TEST_MODE__: JSON.stringify(isE2ETestMode),
-    },
+    plugins: [react()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

@@ -3,7 +3,7 @@ import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { Role } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
@@ -12,6 +12,7 @@ import { BackLink, CenteredState, DetailHeader, ErrorState, MetaStrip, SectionCa
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
+import { useSyncedForm } from '@/lib/use-synced-form';
 
 type PermissionEntry = { action: string; key: string };
 
@@ -221,11 +222,7 @@ function RoleSettings({ role, canWrite, onDeleted }: { role: Role; canWrite: boo
     validate: { displayName: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useEffect(() => {
-    form.setValues({ displayName: role.displayName, description: role.description ?? '' });
-    form.resetDirty({ displayName: role.displayName, description: role.description ?? '' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role.id]);
+  useSyncedForm(form, { displayName: role.displayName, description: role.description ?? '' });
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) =>

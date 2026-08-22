@@ -12,7 +12,7 @@ info:
     
     ## Error Responses
     All errors follow RFC 7807 Problem Details format.
-  version: 1.0.0
+  version: 1.1.0
   contact:
     name: IAM Team
 
@@ -628,9 +628,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/GroupMappingResponse'
+                $ref: '#/components/schemas/GroupMappingsListResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -651,11 +649,12 @@ paths:
               $ref: '#/components/schemas/CreateGroupMappingRequest'
       responses:
         '201':
-          description: Mapping created
-          content:
-            application/json:
+          description: Mapping created. The body is empty; the Location header points at the mappings collection.
+          headers:
+            Location:
               schema:
-                $ref: '#/components/schemas/GroupMappingResponse'
+                type: string
+              description: URI of the group's mappings collection.
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1560,25 +1559,37 @@ components:
           type: integer
           default: 0
 
+    GroupMappingsListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupMappingResponse'
+
     GroupMappingResponse:
       type: object
+      required: [id, type, value]
       properties:
         id:
           type: string
           format: uuid
-        mappingType:
+          description: Deterministic identifier derived from the mapping's value.
+        type:
           $ref: '#/components/schemas/MappingType'
-        targetRoleId:
+        value:
           type: string
-          format: uuid
-        claimType:
+          description: >-
+            The role name for role mappings, or 'claimType' / 'claimType:claimValue'
+            for claim mappings.
+        createdAt:
           type: string
-        claimValue:
-          type: string
-        tokenTarget:
-          $ref: '#/components/schemas/TokenTarget'
-        priority:
-          type: integer
+          format: date-time
+          nullable: true
+          description: >-
+            Always null. A group mapping is a value object with no identity of its own and
+            therefore no creation timestamp; the field is retained for client compatibility.
 
     # Role schemas
     CreateRoleRequest:

@@ -27,3 +27,10 @@ artifacts/
 **/playwright-report/
 **/test-results/
 **/*.log
+
+# Local environment files. Vite's loadEnv reads .env/.env.local from the project
+# directory at build time, so a developer's or CI runner's leftover file must never
+# reach the image and silently change what gets baked into the bundle.
+**/.env
+**/.env.*
+!**/.env.example

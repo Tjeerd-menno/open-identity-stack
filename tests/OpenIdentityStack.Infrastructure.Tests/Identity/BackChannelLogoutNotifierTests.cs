@@ -13,10 +13,14 @@ namespace OpenIdentityStack.Infrastructure.Tests.Identity;
 public sealed class BackChannelLogoutNotifierTests
 {
     private readonly ILogger<BackChannelLogoutNotifier> _logger;
+    private readonly ILogoutTokenFactory _logoutTokenFactory;
 
     public BackChannelLogoutNotifierTests()
     {
         this._logger = Substitute.For<ILogger<BackChannelLogoutNotifier>>();
+        this._logoutTokenFactory = Substitute.For<ILogoutTokenFactory>();
+        this._logoutTokenFactory.CreateLogoutToken(Arg.Any<SessionId>(), Arg.Any<string>())
+            .Returns("header.payload.signature");
     }
 
     [Fact]
@@ -25,7 +29,7 @@ public sealed class BackChannelLogoutNotifierTests
         // Arrange
         var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handler);
-        var notifier = new BackChannelLogoutNotifier(httpClient, this._logger);
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
 
         var sessionId = SessionId.Create();
         var clients = new List<ClientSessionInfo>
@@ -48,7 +52,7 @@ public sealed class BackChannelLogoutNotifierTests
         // Arrange
         var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handler);
-        var notifier = new BackChannelLogoutNotifier(httpClient, this._logger);
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
 
         var sessionId = SessionId.Create();
         var clients = new List<ClientSessionInfo>
@@ -71,7 +75,7 @@ public sealed class BackChannelLogoutNotifierTests
         // Arrange
         var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
         var httpClient = new HttpClient(handler);
-        var notifier = new BackChannelLogoutNotifier(httpClient, this._logger);
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
 
         var sessionId = SessionId.Create();
         var clients = new List<ClientSessionInfo>
@@ -94,7 +98,7 @@ public sealed class BackChannelLogoutNotifierTests
         // Arrange
         var handler = new MockHttpMessageHandler(_ => throw new HttpRequestException("Network error"));
         var httpClient = new HttpClient(handler);
-        var notifier = new BackChannelLogoutNotifier(httpClient, this._logger);
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
 
         var sessionId = SessionId.Create();
         var clients = new List<ClientSessionInfo>
@@ -124,7 +128,7 @@ public sealed class BackChannelLogoutNotifierTests
                 : new HttpResponseMessage(HttpStatusCode.OK);
         });
         var httpClient = new HttpClient(handler);
-        var notifier = new BackChannelLogoutNotifier(httpClient, this._logger);
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
 
         var sessionId = SessionId.Create();
         var clients = new List<ClientSessionInfo>
@@ -149,7 +153,7 @@ public sealed class BackChannelLogoutNotifierTests
         // Arrange
         var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handler);
-        var notifier = new BackChannelLogoutNotifier(httpClient, this._logger);
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
 
         var sessionId = SessionId.Create();
         var clients = new List<ClientSessionInfo>();
@@ -169,7 +173,7 @@ public sealed class BackChannelLogoutNotifierTests
         // Arrange
         var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handler);
-        var notifier = new BackChannelLogoutNotifier(httpClient, this._logger);
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
 
         var sessionId = SessionId.Create();
         var clients = new List<ClientSessionInfo>
@@ -192,7 +196,7 @@ public sealed class BackChannelLogoutNotifierTests
         // Arrange
         var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handler);
-        var notifier = new BackChannelLogoutNotifier(httpClient, this._logger);
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
 
         var sessionId = SessionId.Create();
         var clients = new List<ClientSessionInfo>
@@ -214,7 +218,7 @@ public sealed class BackChannelLogoutNotifierTests
         // Arrange
         var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handler);
-        var notifier = new BackChannelLogoutNotifier(httpClient, this._logger);
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
 
         var sessionId = SessionId.Create();
         var clients = new List<ClientSessionInfo>
@@ -236,7 +240,7 @@ public sealed class BackChannelLogoutNotifierTests
         // Arrange
         var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handler);
-        var notifier = new BackChannelLogoutNotifier(httpClient, this._logger);
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
 
         var sessionId = SessionId.Create();
         var clients = new List<ClientSessionInfo>
@@ -249,6 +253,66 @@ public sealed class BackChannelLogoutNotifierTests
 
         // Assert
         urls.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task NotifyClientsAsync_PostsTheSignedLogoutTokenAsFormContent()
+    {
+        // Arrange
+        string? postedBody = null;
+        var handler = new MockHttpMessageHandler(request =>
+        {
+            postedBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var httpClient = new HttpClient(handler);
+        this._logoutTokenFactory.CreateLogoutToken(Arg.Any<SessionId>(), "client-1")
+            .Returns("signed.logout.token");
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
+
+        var clients = new List<ClientSessionInfo>
+        {
+            new("client-1", null, "https://client1.com/backchannel")
+        };
+
+        // Act
+        LogoutNotificationResult result = await notifier.NotifyClientsAsync(SessionId.Create(), clients);
+
+        // Assert
+        result.SuccessCount.ShouldBe(1);
+        postedBody.ShouldBe("logout_token=signed.logout.token");
+    }
+
+    [Fact]
+    public async Task NotifyClientsAsync_WhenTokenCannotBeSigned_FailsWithoutNotifyingTheClient()
+    {
+        // A client must never receive an unsigned or malformed token, so a signing failure is
+        // reported as a failed notification rather than degrading to an unverifiable request.
+        // Arrange
+        bool requestSent = false;
+        var handler = new MockHttpMessageHandler(_ =>
+        {
+            requestSent = true;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var httpClient = new HttpClient(handler);
+        this._logoutTokenFactory.CreateLogoutToken(Arg.Any<SessionId>(), Arg.Any<string>())
+            .Returns(_ => throw new InvalidOperationException("no signing credentials"));
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
+
+        var clients = new List<ClientSessionInfo>
+        {
+            new("client-1", null, "https://client1.com/backchannel")
+        };
+
+        // Act
+        LogoutNotificationResult result = await notifier.NotifyClientsAsync(SessionId.Create(), clients);
+
+        // Assert
+        requestSent.ShouldBeFalse();
+        result.SuccessCount.ShouldBe(0);
+        result.FailureCount.ShouldBe(1);
+        result.FailedClients.ShouldContain("client-1");
     }
 
     /// <summary>

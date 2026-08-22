@@ -43,7 +43,8 @@ export type GroupMapping = {
   id: string;
   type: GroupMappingType;
   value: string;
-  createdAt: string;
+  // Always null: a group mapping is a value object with no creation timestamp of its own.
+  createdAt: string | null;
 };
 
 export type AddGroupMappingRequest = {

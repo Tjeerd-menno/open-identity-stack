@@ -3,7 +3,6 @@ import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { Provider } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
@@ -13,6 +12,7 @@ import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
 import { formatDateTime } from '@/lib/format';
+import { useSyncedForm } from '@/lib/use-synced-form';
 
 export function ProviderDetailPage() {
   const { providerId = '' } = useParams();
@@ -190,17 +190,12 @@ function ProviderConfigForm({ provider, canWrite, onSaved }: { provider: Provide
     validate: { clientId: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useEffect(() => {
-    const next = {
-      displayName: provider.displayName ?? '',
-      clientId: provider.clientId ?? '',
-      clientSecret: '',
-      scopes: provider.scopes.join(', '),
-    };
-    form.setValues(next);
-    form.resetDirty(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider.id, provider.displayName, provider.clientId, provider.scopes]);
+  useSyncedForm(form, {
+    displayName: provider.displayName ?? '',
+    clientId: provider.clientId ?? '',
+    clientSecret: '',
+    scopes: provider.scopes.join(', '),
+  });
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) =>

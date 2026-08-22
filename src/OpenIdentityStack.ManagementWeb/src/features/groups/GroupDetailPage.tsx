@@ -16,7 +16,7 @@ import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { Group as GroupModel, GroupMapping, GroupMember } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
@@ -29,6 +29,7 @@ import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
 import { formatDateTime, getInitials } from '@/lib/format';
+import { useSyncedForm } from '@/lib/use-synced-form';
 
 export function GroupDetailPage() {
   const { groupId = '' } = useParams();
@@ -437,11 +438,7 @@ function GroupSettings({ group, canWrite, canDelete, onDeleted }: { group: Group
     validate: { name: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useEffect(() => {
-    form.setValues({ name: group.name, description: group.description ?? '' });
-    form.resetDirty({ name: group.name, description: group.description ?? '' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [group.id]);
+  useSyncedForm(form, { name: group.name, description: group.description ?? '' });
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) =>

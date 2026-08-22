@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Common;
@@ -13,13 +11,16 @@ namespace OpenIdentityStack.Infrastructure.Identity;
 public sealed partial class BackChannelLogoutNotifier : ILogoutNotifier
 {
     private readonly HttpClient httpClient;
+    private readonly ILogoutTokenFactory logoutTokenFactory;
     private readonly ILogger<BackChannelLogoutNotifier> logger;
 
     public BackChannelLogoutNotifier(
         HttpClient httpClient,
+        ILogoutTokenFactory logoutTokenFactory,
         ILogger<BackChannelLogoutNotifier> logger)
     {
         this.httpClient = httpClient;
+        this.logoutTokenFactory = logoutTokenFactory;
         this.logger = logger;
     }
 
@@ -53,7 +54,7 @@ public sealed partial class BackChannelLogoutNotifier : ILogoutNotifier
 
             try
             {
-                string logoutToken = CreateLogoutToken(sessionId, client.ClientId);
+                string logoutToken = this.logoutTokenFactory.CreateLogoutToken(sessionId, client.ClientId);
                 bool success = await this.SendLogoutNotificationAsync(
                     client.BackChannelLogoutUri,
                     logoutToken,
@@ -100,36 +101,6 @@ public sealed partial class BackChannelLogoutNotifier : ILogoutNotifier
         }
 
         return urls;
-    }
-
-    private static string CreateLogoutToken(SessionId sessionId, string clientId)
-    {
-        // Create a simple unsigned logout token for back-channel notification
-        // In production, this should be signed with the server's key
-        // and use proper JWT library from OpenIddict
-        var payload = new
-        {
-            iss = "open-identity-stack", // TODO: Get from configuration
-            sub = sessionId.Value.ToString(),
-            aud = clientId,
-            iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            jti = Guid.NewGuid().ToString(),
-            sid = sessionId.Value.ToString(),
-            events = new Dictionary<string, object>
-            {
-                ["http://schemas.openid.net/event/backchannel-logout"] = new { }
-            }
-        };
-
-        string header = Convert.ToBase64String(Encoding.UTF8.GetBytes("{\"alg\":\"none\",\"typ\":\"JWT\"}"))
-            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-        string payloadJson = JsonSerializer.Serialize(payload);
-        string payloadBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(payloadJson))
-            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-
-        // Unsigned JWT (alg: none) - for demo only
-        // Production should use OpenIddict's token generation
-        return $"{header}.{payloadBase64}.";
     }
 
     private async Task<bool> SendLogoutNotificationAsync(
