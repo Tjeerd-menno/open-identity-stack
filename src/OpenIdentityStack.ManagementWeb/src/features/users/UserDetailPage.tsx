@@ -378,7 +378,7 @@ function ProfileCard({ user, canWrite }: { user: User; canWrite: boolean }) {
     validate: { displayName: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useSyncedForm(form, { displayName: user.displayName });
+  useSyncedForm(form, { displayName: user.displayName }, user.id);
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) => api.users.updateUser(user.id, { displayName: values.displayName }),

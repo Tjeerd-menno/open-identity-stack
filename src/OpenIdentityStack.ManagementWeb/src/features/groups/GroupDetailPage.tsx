@@ -438,7 +438,7 @@ function GroupSettings({ group, canWrite, canDelete, onDeleted }: { group: Group
     validate: { name: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useSyncedForm(form, { name: group.name, description: group.description ?? '' });
+  useSyncedForm(form, { name: group.name, description: group.description ?? '' }, group.id);
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) =>

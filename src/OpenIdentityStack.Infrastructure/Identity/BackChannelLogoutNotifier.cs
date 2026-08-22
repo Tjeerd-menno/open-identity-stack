@@ -71,6 +71,15 @@ public sealed partial class BackChannelLogoutNotifier : ILogoutNotifier
                     failedClients.Add(client.ClientId);
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // The caller cancelled (shutdown, request abort). That is not a per-client
+                // failure, and recording it as one would report the remaining clients as
+                // notified-and-failed when they were never attempted. Let it propagate.
+                // An HttpClient timeout also surfaces as OperationCanceledException but carries
+                // its own token, so the filter leaves it to the handler below.
+                throw;
+            }
             catch (Exception ex)
             {
                 this.LogBackChannelLogoutError(ex, client.ClientId);

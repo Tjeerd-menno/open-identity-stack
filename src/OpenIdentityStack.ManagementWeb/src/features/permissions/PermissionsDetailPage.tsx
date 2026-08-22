@@ -291,11 +291,15 @@ function RegistrationSettings({ app, canWrite, onSaved }: { app: RegisteredAppli
     validate: { displayName: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useSyncedForm(form, {
-    displayName: app.displayName,
-    description: app.description ?? '',
-    manifestBaseUrl: app.manifestBaseUrl ?? '',
-  });
+  useSyncedForm(
+    form,
+    {
+      displayName: app.displayName,
+      description: app.description ?? '',
+      manifestBaseUrl: app.manifestBaseUrl ?? '',
+    },
+    app.id
+  );
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) =>

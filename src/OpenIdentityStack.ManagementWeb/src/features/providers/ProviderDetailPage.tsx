@@ -190,12 +190,16 @@ function ProviderConfigForm({ provider, canWrite, onSaved }: { provider: Provide
     validate: { clientId: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useSyncedForm(form, {
-    displayName: provider.displayName ?? '',
-    clientId: provider.clientId ?? '',
-    clientSecret: '',
-    scopes: provider.scopes.join(', '),
-  });
+  useSyncedForm(
+    form,
+    {
+      displayName: provider.displayName ?? '',
+      clientId: provider.clientId ?? '',
+      clientSecret: '',
+      scopes: provider.scopes.join(', '),
+    },
+    provider.id
+  );
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) =>

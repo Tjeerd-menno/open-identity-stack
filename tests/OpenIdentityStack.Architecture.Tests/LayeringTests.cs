@@ -42,7 +42,7 @@ public sealed class LayeringTests
     [Fact]
     public void Domain_DoesNotDependOnOuterLayers()
     {
-        List<string> violations = SolutionReferences(typeof(SessionId).Assembly)
+        var violations = SolutionReferences(typeof(SessionId).Assembly)
             .Where(name => name is not "SharedKernel")
             .ToList();
 
@@ -62,7 +62,7 @@ public sealed class LayeringTests
     [Fact]
     public void Application_DoesNotDependOnInfrastructureOrApi()
     {
-        List<string> violations = SolutionReferences(typeof(GroupClaimDto).Assembly)
+        var violations = SolutionReferences(typeof(GroupClaimDto).Assembly)
             .Where(name => name is not "SharedKernel" and not "OpenIdentityStack.Domain")
             .ToList();
 

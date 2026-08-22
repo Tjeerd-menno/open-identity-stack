@@ -1584,9 +1584,10 @@ components:
             The role name for role mappings, or 'claimType' / 'claimType:claimValue'
             for claim mappings.
         createdAt:
-          type: string
+          # This document is OpenAPI 3.1, where `nullable` carries no validation meaning.
+          # The union type is what makes generators and validators accept the null.
+          type: [string, 'null']
           format: date-time
-          nullable: true
           description: >-
             Always null. A group mapping is a value object with no identity of its own and
             therefore no creation timestamp; the field is retained for client compatibility.

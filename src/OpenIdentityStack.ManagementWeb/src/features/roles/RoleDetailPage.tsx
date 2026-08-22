@@ -222,7 +222,7 @@ function RoleSettings({ role, canWrite, onDeleted }: { role: Role; canWrite: boo
     validate: { displayName: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useSyncedForm(form, { displayName: role.displayName, description: role.description ?? '' });
+  useSyncedForm(form, { displayName: role.displayName, description: role.description ?? '' }, role.id);
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) =>

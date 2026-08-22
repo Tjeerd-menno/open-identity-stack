@@ -20,18 +20,32 @@ public sealed class LogoutTokenFactory : ILogoutTokenFactory
     /// The <c>typ</c> header value that distinguishes a logout token from an ID token,
     /// preventing the substitution attack described in the specification.
     /// </summary>
-    private const string LogoutTokenType = "logout+jwt";
+    private const string logoutTokenType = "logout+jwt";
+
+    /// <summary>
+    /// The claim carrying the terminated session's identifier.
+    /// </summary>
+    private const string sessionIdClaim = "sid";
+
+    /// <summary>
+    /// The claim carrying the set of events the token reports.
+    /// </summary>
+    private const string eventsClaim = "events";
 
     /// <summary>
     /// The back-channel logout event identifier that must appear in the <c>events</c> claim.
+    /// This is an opaque identifier fixed by the specification, not an address that is ever
+    /// dereferenced, so the http scheme is required and must not be "upgraded" to https.
     /// </summary>
-    private const string BackChannelLogoutEvent = "http://schemas.openid.net/event/backchannel-logout";
+#pragma warning disable S5332 // Using http protocol is insecure — see above; this is an identifier.
+    private const string backChannelLogoutEvent = "http://schemas.openid.net/event/backchannel-logout";
+#pragma warning restore S5332
 
     /// <summary>
     /// Logout tokens are consumed immediately by the relying party, so a short lifetime
     /// bounds the replay window without risking clock-skew failures.
     /// </summary>
-    private static readonly TimeSpan TokenLifetime = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan tokenLifetime = TimeSpan.FromMinutes(2);
 
     private readonly IOptionsMonitor<OpenIddictServerOptions> serverOptions;
     private readonly IHttpContextAccessor httpContextAccessor;
@@ -66,16 +80,16 @@ public sealed class LogoutTokenFactory : ILogoutTokenFactory
             Audience = clientId,
             IssuedAt = issuedAt.UtcDateTime,
             NotBefore = issuedAt.UtcDateTime,
-            Expires = issuedAt.Add(TokenLifetime).UtcDateTime,
-            TokenType = LogoutTokenType,
+            Expires = issuedAt.Add(tokenLifetime).UtcDateTime,
+            TokenType = logoutTokenType,
             SigningCredentials = credentials,
             Claims = new Dictionary<string, object>(StringComparer.Ordinal)
             {
                 [OpenIddictConstants.Claims.JwtId] = Guid.NewGuid().ToString(),
-                [OpenIddictConstants.Claims.SessionId] = sessionId.Value.ToString(),
-                ["events"] = new Dictionary<string, object>(StringComparer.Ordinal)
+                [sessionIdClaim] = sessionId.Value.ToString(),
+                [eventsClaim] = new Dictionary<string, object>(StringComparer.Ordinal)
                 {
-                    [BackChannelLogoutEvent] = new Dictionary<string, object>(StringComparer.Ordinal),
+                    [backChannelLogoutEvent] = new Dictionary<string, object>(StringComparer.Ordinal),
                 },
             },
         };

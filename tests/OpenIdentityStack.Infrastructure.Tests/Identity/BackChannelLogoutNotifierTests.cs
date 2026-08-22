@@ -315,6 +315,66 @@ public sealed class BackChannelLogoutNotifierTests
         result.FailedClients.ShouldContain("client-1");
     }
 
+    [Fact]
+    public async Task NotifyClientsAsync_WhenCallerCancels_PropagatesInsteadOfReportingFailures()
+    {
+        // The exception is raised inside the notifier's own try block rather than through
+        // HttpClient, whose exception translation varies by runtime version; the behaviour under
+        // test is the catch filter, not that translation.
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var httpClient = new HttpClient(handler);
+        this._logoutTokenFactory.CreateLogoutToken(Arg.Any<SessionId>(), Arg.Any<string>())
+            .Returns(_ => throw new OperationCanceledException(cts.Token));
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
+
+        var clients = new List<ClientSessionInfo>
+        {
+            new("client-1", null, "https://client1.com/backchannel"),
+            new("client-2", null, "https://client2.com/backchannel")
+        };
+
+        // Act / Assert
+        // Swallowing this would report client-2 as a failed notification when it was never
+        // attempted, so cancellation has to surface to the caller.
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => notifier.NotifyClientsAsync(SessionId.Create(), clients, cts.Token));
+    }
+
+    [Fact]
+    public async Task NotifyClientsAsync_WhenATimeoutCancelsWithoutTheCallerAsking_RecordsAFailure()
+    {
+        // A transport timeout surfaces as OperationCanceledException carrying its own token, not
+        // the caller's. That is a per-client failure and must not abort the remaining clients.
+        // Arrange
+        var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var httpClient = new HttpClient(handler);
+        this._logoutTokenFactory.CreateLogoutToken(Arg.Any<SessionId>(), "client-1")
+            .Returns(_ => throw new TaskCanceledException(
+                "The request timed out.", null, new CancellationToken(canceled: true)));
+        this._logoutTokenFactory.CreateLogoutToken(Arg.Any<SessionId>(), "client-2")
+            .Returns("signed.logout.token");
+        var notifier = new BackChannelLogoutNotifier(httpClient, this._logoutTokenFactory, this._logger);
+
+        var clients = new List<ClientSessionInfo>
+        {
+            new("client-1", null, "https://client1.com/backchannel"),
+            new("client-2", null, "https://client2.com/backchannel")
+        };
+
+        // Act
+        LogoutNotificationResult result = await notifier.NotifyClientsAsync(
+            SessionId.Create(), clients, CancellationToken.None);
+
+        // Assert
+        result.FailedClients.ShouldContain("client-1");
+        result.SuccessCount.ShouldBe(1);
+        result.FailureCount.ShouldBe(1);
+    }
+
     /// <summary>
     /// Mock HTTP message handler for testing HttpClient.
     /// </summary>

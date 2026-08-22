@@ -362,7 +362,7 @@ function AppSettings({
     validate: { displayName: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useSyncedForm(form, { displayName: app.displayName, description: app.description ?? '' });
+  useSyncedForm(form, { displayName: app.displayName, description: app.description ?? '' }, app.id);
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) =>
