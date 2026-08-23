@@ -10,8 +10,4 @@
     <ProjectReference Include="..\OpenIdentityStack.Application\OpenIdentityStack.Application.csproj" />
     <ProjectReference Include="..\OpenIdentityStack.Infrastructure\OpenIdentityStack.Infrastructure.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
-  </ItemGroup>
 </Project>
