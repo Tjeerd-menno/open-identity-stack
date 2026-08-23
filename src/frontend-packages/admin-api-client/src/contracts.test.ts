@@ -32,6 +32,10 @@ function asAdminApiClient(client: MockClient): AdminApiClient {
   return client as unknown as AdminApiClient;
 }
 
+function expectCalls(mock: ReturnType<typeof vi.fn>, calls: readonly unknown[][]): void {
+  expect(mock.mock.calls).toEqual(calls);
+}
+
 describe('Admin API domain contracts', () => {
   it('maps application lifecycle and credential operations to their routes', async () => {
     const client = createMockClient();
@@ -63,13 +67,25 @@ describe('Admin API domain contracts', () => {
     await contract.addApplicationCertificate('app-1', { thumbprint: 'thumbprint' });
     await contract.revokeApplicationCredential('app-1', 'credential-1');
 
-    expect(client.get).toHaveBeenCalledWith('/api/admin/applications', { page: 2, search: 'web' });
-    expect(client.get).toHaveBeenCalledWith('/api/admin/applications/app-1/credentials');
-    expect(client.post).toHaveBeenCalledWith('/api/admin/applications/app-1/disable');
-    expect(client.post).toHaveBeenCalledWith('/api/admin/applications/app-1/credentials/client-secrets', { revokeExisting: true });
-    expect(client.put).toHaveBeenCalledWith('/api/admin/applications/app-1/oauth', application);
-    expect(client.patch).toHaveBeenCalledWith('/api/admin/applications/app-1', { displayName: 'Updated' });
-    expect(client.delete).toHaveBeenCalledWith('/api/admin/applications/app-1/credentials/credential-1');
+    expectCalls(client.get, [
+      ['/api/admin/applications', { page: 2, search: 'web' }],
+      ['/api/admin/applications/app-1'],
+      ['/api/admin/applications/policies/profiles'],
+      ['/api/admin/applications/app-1/credentials'],
+    ]);
+    expectCalls(client.post, [
+      ['/api/admin/applications', application],
+      ['/api/admin/applications/app-1/disable'],
+      ['/api/admin/applications/app-1/enable'],
+      ['/api/admin/applications/app-1/credentials/client-secrets', { revokeExisting: true }],
+      ['/api/admin/applications/app-1/credentials/certificates', { thumbprint: 'thumbprint' }],
+    ]);
+    expectCalls(client.put, [['/api/admin/applications/app-1/oauth', application]]);
+    expectCalls(client.patch, [['/api/admin/applications/app-1', { displayName: 'Updated' }]]);
+    expectCalls(client.delete, [
+      ['/api/admin/applications/app-1'],
+      ['/api/admin/applications/app-1/credentials/credential-1'],
+    ]);
   });
 
   it('normalizes application-permission mutations and encodes maintainer query parameters', async () => {
@@ -108,11 +124,53 @@ describe('Admin API domain contracts', () => {
     await contract.updateRemovedPermissionReplacement('permission-1', { replacementFullPermissionKey: 'inventory:read' });
     await contract.getPermissionDependencies('permission-1');
 
-    expect(client.post).toHaveBeenCalledWith('/api/admin/application-permissions/applications/import', { endpoint: 'https://inventory.example/manifest' });
-    expect(client.post).toHaveBeenCalledWith('/api/admin/application-permissions/applications/registered-1/manifest/preview', { manifest: manifest.manifest, concurrencyToken: 4 });
-    expect(client.delete).toHaveBeenCalledWith('/api/admin/application-permissions/applications/registered-1/maintainers/user%2F2?concurrencyToken=7');
-    expect(client.get).toHaveBeenCalledWith('/api/admin/application-permissions/catalog', { page: 2 });
-    expect(client.patch).toHaveBeenCalledWith('/api/admin/application-permissions/permissions/permission-1/replacement', { replacementFullPermissionKey: 'inventory:read' });
+    expectCalls(client.get, [
+      ['/api/admin/application-permissions/applications', { search: 'inventory' }],
+      ['/api/admin/application-permissions/applications/registered-1'],
+      ['/api/admin/application-permissions/catalog', { page: 2 }],
+      ['/api/admin/application-permissions/history', { applicationIdentifier: 'inventory' }],
+      ['/api/admin/application-permissions/diagnostics'],
+      ['/api/admin/application-permissions/permissions/permission-1/dependencies'],
+    ]);
+    expectCalls(client.post, [
+      ['/api/admin/application-permissions/applications', manifest],
+      ['/api/admin/application-permissions/applications/import', { endpoint: 'https://inventory.example/manifest' }],
+      ['/api/admin/application-permissions/applications/registered-1/manifest/preview', {
+        manifest: manifest.manifest,
+        concurrencyToken: 4,
+      }],
+      ['/api/admin/application-permissions/applications/registered-1/manifest', {
+        manifest: manifest.manifest,
+        concurrencyToken: 4,
+      }],
+      ['/api/admin/application-permissions/applications/registered-1/import/preview', { concurrencyToken: 5 }],
+      ['/api/admin/application-permissions/applications/registered-1/import', { concurrencyToken: 5 }],
+      ['/api/admin/application-permissions/applications/registered-1/permissions', {
+        permissionKey: 'inventory:write',
+        displayName: 'Write inventory',
+      }],
+      ['/api/admin/application-permissions/applications/registered-1/lifecycle', {
+        status: 'Disabled',
+        acknowledgeDependencies: true,
+      }],
+      ['/api/admin/application-permissions/applications/registered-1/ownership', {
+        ownerId: 'owner-2',
+        ownerType: 'Group',
+      }],
+      ['/api/admin/application-permissions/applications/registered-1/maintainers', {
+        principalId: 'user/2',
+        principalType: 'User',
+      }],
+    ]);
+    expectCalls(client.patch, [
+      ['/api/admin/application-permissions/applications/registered-1', { displayName: 'Updated' }],
+      ['/api/admin/application-permissions/permissions/permission-1/replacement', {
+        replacementFullPermissionKey: 'inventory:read',
+      }],
+    ]);
+    expectCalls(client.delete, [
+      ['/api/admin/application-permissions/applications/registered-1/maintainers/user%2F2?concurrencyToken=7'],
+    ]);
   });
 
   it('normalizes group member identifiers while mapping group operations', async () => {
@@ -145,9 +203,23 @@ describe('Admin API domain contracts', () => {
       items: [{ id: 'user-1', userId: 'user-1', email: 'ada@example.com', displayName: 'Ada' }],
       nextPageToken: 'next-page',
     });
-    expect(client.get).toHaveBeenCalledWith('/api/admin/groups/group-1/members', { pageSize: 10 });
-    expect(client.post).toHaveBeenCalledWith('/api/admin/groups/group-1/members/user-1');
-    expect(client.delete).toHaveBeenCalledWith('/api/admin/groups/group-1/mappings/mapping-1');
+    expectCalls(client.get, [
+      ['/api/admin/groups', { page: 1 }],
+      ['/api/admin/groups/group-1'],
+      ['/api/admin/groups/group-1/members', { pageSize: 10 }],
+      ['/api/admin/groups/group-1/mappings'],
+    ]);
+    expectCalls(client.post, [
+      ['/api/admin/groups', { name: 'Operators' }],
+      ['/api/admin/groups/group-1/members/user-1'],
+      ['/api/admin/groups/group-1/mappings', { type: 'Role', value: 'operator' }],
+    ]);
+    expectCalls(client.patch, [['/api/admin/groups/group-1', { name: 'Admins' }]]);
+    expectCalls(client.delete, [
+      ['/api/admin/groups/group-1'],
+      ['/api/admin/groups/group-1/members/user-1'],
+      ['/api/admin/groups/group-1/mappings/mapping-1'],
+    ]);
   });
 
   it('normalizes both supported user role and upstream identity response shapes', async () => {
@@ -180,13 +252,33 @@ describe('Admin API domain contracts', () => {
     await contract.linkUserUpstreamIdentity('user-1', { providerId: 'provider-1', subject: 'subject-1', email: 'ada@example.com' });
     await contract.unlinkUserUpstreamIdentity('user-1', 'provider-1');
 
-    expect(client.post).toHaveBeenCalledWith('/api/admin/users/user-1/upstream-identities', {
-      providerId: 'provider-1',
-      subjectId: 'subject-1',
-      email: 'ada@example.com',
-    });
-    expect(client.get).toHaveBeenCalledWith('/api/admin/users/user-1/roles');
-    expect(client.delete).toHaveBeenCalledWith('/api/admin/users/user-1/upstream-identities/provider-1');
+    expectCalls(client.get, [
+      ['/api/admin/users', { search: 'ada' }],
+      ['/api/admin/users/user-1'],
+      ['/api/admin/users/user-1/roles'],
+      ['/api/admin/users/user-1/roles'],
+      ['/api/admin/users/user-1/groups'],
+      ['/api/admin/users/user-1/upstream-identities'],
+      ['/api/admin/users/user-1/upstream-identities'],
+    ]);
+    expectCalls(client.post, [
+      ['/api/admin/users', { email: 'ada@example.com', displayName: 'Ada', password: 'Password123!' }],
+      ['/api/admin/users/user-1/disable', { reason: 'operator request' }],
+      ['/api/admin/users/user-1/enable'],
+      ['/api/admin/users/user-1/reset-password', { newPassword: 'NewPassword123!' }],
+      ['/api/admin/users/user-1/roles/role-1'],
+      ['/api/admin/users/user-1/upstream-identities', {
+        providerId: 'provider-1',
+        subjectId: 'subject-1',
+        email: 'ada@example.com',
+      }],
+    ]);
+    expectCalls(client.put, [['/api/admin/users/user-1', { displayName: 'Ada Lovelace' }]]);
+    expectCalls(client.delete, [
+      ['/api/admin/users/user-1'],
+      ['/api/admin/users/user-1/roles/role-1'],
+      ['/api/admin/users/user-1/upstream-identities/provider-1'],
+    ]);
   });
 
   it('maps provider, role, session, settings, and audit routes', async () => {
@@ -220,11 +312,35 @@ describe('Admin API domain contracts', () => {
     await settings.setLocalFallback({ enabled: true });
     await audit.getAuditEntries({ action: 'user.updated', userId: 'user-1' });
 
-    expect(client.get).toHaveBeenCalledWith('/api/admin/providers', { includeDisabled: true });
-    expect(client.patch).toHaveBeenCalledWith('/api/admin/providers/provider-1', { displayName: 'GitHub' });
-    expect(client.put).toHaveBeenCalledWith('/api/admin/roles/role-1', { displayName: 'Operator', permissions: [], acknowledgeWildcardGrant: false });
-    expect(client.delete).toHaveBeenCalledWith('/api/admin/users/user-1/sessions');
-    expect(client.put).toHaveBeenCalledWith('/api/admin/authentication-settings/local-fallback', { enabled: true });
-    expect(client.get).toHaveBeenCalledWith('/api/admin/audit-entries', { action: 'user.updated', userId: 'user-1' });
+    expectCalls(client.get, [
+      ['/api/admin/providers', { includeDisabled: true }],
+      ['/api/admin/providers/provider-1'],
+      ['/api/admin/roles', { search: 'operator' }],
+      ['/api/admin/roles/role-1'],
+      ['/api/admin/permissions/platform'],
+      ['/api/admin/sessions', { status: 'Active' }],
+      ['/api/admin/sessions/session-1'],
+      ['/api/admin/authentication-settings'],
+      ['/api/admin/authentication-settings/providers'],
+      ['/api/admin/audit-entries', { action: 'user.updated', userId: 'user-1' }],
+    ]);
+    expectCalls(client.post, [
+      ['/api/admin/providers', { name: 'github', authority: 'https://github.com', clientId: 'client-1' }],
+      ['/api/admin/providers/provider-1/enable'],
+      ['/api/admin/providers/provider-1/disable'],
+      ['/api/admin/roles', { name: 'operator', displayName: 'Operator', permissions: [], acknowledgeWildcardGrant: false }],
+    ]);
+    expectCalls(client.patch, [['/api/admin/providers/provider-1', { displayName: 'GitHub' }]]);
+    expectCalls(client.put, [
+      ['/api/admin/roles/role-1', { displayName: 'Operator', permissions: [], acknowledgeWildcardGrant: false }],
+      ['/api/admin/authentication-settings/default-provider', { providerId: 'provider-1' }],
+      ['/api/admin/authentication-settings/local-fallback', { enabled: true }],
+    ]);
+    expectCalls(client.delete, [
+      ['/api/admin/providers/provider-1'],
+      ['/api/admin/roles/role-1'],
+      ['/api/admin/sessions/session-1'],
+      ['/api/admin/users/user-1/sessions'],
+    ]);
   });
 });
