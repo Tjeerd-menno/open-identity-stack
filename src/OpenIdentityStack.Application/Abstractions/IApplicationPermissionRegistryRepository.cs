@@ -29,7 +29,16 @@ public interface IApplicationPermissionRegistryRepository
 
     Task<PagedResult<RegisteredApplicationSummaryDto>> ListApplicationsAsync(ListRegisteredApplicationsQuery query, CancellationToken cancellationToken = default);
 
-    Task<PagedResult<ApplicationPermissionDto>> ListAssignablePermissionCatalogAsync(ListAssignablePermissionCatalogQuery query, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Returns concrete assignable permissions that match the query filters.
+    /// </summary>
+    /// <remarks>
+    /// This repository boundary does not derive wildcard permissions and does not apply
+    /// <see cref="ListAssignablePermissionCatalogQuery.Page"/> or
+    /// <see cref="ListAssignablePermissionCatalogQuery.PageSize"/>. Wildcard derivation,
+    /// final ordering, and paging are composed by the Application query handler.
+    /// </remarks>
+    Task<IReadOnlyList<ApplicationPermissionDto>> ListAssignablePermissionCatalogAsync(ListAssignablePermissionCatalogQuery query, CancellationToken cancellationToken = default);
 
     Task<bool> IsPermissionAssignableAsync(string fullPermissionKey, CancellationToken cancellationToken = default);
 

@@ -40,5 +40,4 @@ public record GroupMappingResponse(
     Guid? TargetRoleId,
     string? ClaimType,
     string? ClaimValue,
-    TokenTarget TokenTarget,
-    int Priority);
+    TokenTarget TokenTarget);

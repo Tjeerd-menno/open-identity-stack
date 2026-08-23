@@ -35,15 +35,107 @@ public sealed class ApplicationPermissionCatalogQueryTests
             "orders-api",
             "Orders API",
             null);
-        var paged = PagedResult<ApplicationPermissionDto>.Create([dto], 1, 50, 1);
-        this.repository.ListAssignablePermissionCatalogAsync(Arg.Any<ListAssignablePermissionCatalogQuery>(), Arg.Any<CancellationToken>()).Returns(paged);
+        this.repository.ListAssignablePermissionCatalogAsync(Arg.Any<ListAssignablePermissionCatalogQuery>(), Arg.Any<CancellationToken>())
+            .Returns([dto]);
         var handler = new ListAssignablePermissionCatalogQueryHandler(this.repository);
 
         PagedResult<ApplicationPermissionDto> result = await handler.HandleAsync(new ListAssignablePermissionCatalogQuery());
 
-        result.TotalCount.ShouldBe(1);
-        result.Items[0].FullPermissionKey.ShouldBe("orders-api:order:read");
-        result.Items[0].Category.ShouldBeNull();
+        result.TotalCount.ShouldBe(2);
+        result.Items[0].FullPermissionKey.ShouldBe("orders-api:order:*");
+        result.Items[1].FullPermissionKey.ShouldBe("orders-api:order:read");
+        result.Items[1].Category.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ListAssignablePermissionCatalog_DerivesWildcardRowsFromConcreteCatalog()
+    {
+        var concrete = new ApplicationPermissionDto(
+            Guid.NewGuid(),
+            "order-item:read",
+            "orders-api:order-item:read",
+            "Read order item",
+            null,
+            "order-item",
+            this.dateTimeProvider.UtcNow,
+            null,
+            "orders-api",
+            "Orders API",
+            "1.0.0");
+
+        this.repository.ListAssignablePermissionCatalogAsync(Arg.Any<ListAssignablePermissionCatalogQuery>(), Arg.Any<CancellationToken>())
+            .Returns([concrete]);
+
+        var handler = new ListAssignablePermissionCatalogQueryHandler(this.repository);
+
+        PagedResult<ApplicationPermissionDto> result = await handler.HandleAsync(
+            new ListAssignablePermissionCatalogQuery(Page: 1, PageSize: 50));
+
+        result.TotalCount.ShouldBe(2);
+        result.Items.Select(item => item.FullPermissionKey).ShouldBe(
+            ["orders-api:order-item:*", "orders-api:order-item:read"],
+            ignoreOrder: false);
+        result.Items[0].Kind.ShouldBe("wildcard");
+        result.Items[0].DisplayName.ShouldBe("Orders API Order Item All");
+    }
+
+    [Fact]
+    public async Task ListAssignablePermissionCatalog_AppliesWildcardFirstOrderingAndPaging()
+    {
+        var ordersRead = new ApplicationPermissionDto(
+            Guid.NewGuid(),
+            "order:read",
+            "orders-api:order:read",
+            "Read orders",
+            null,
+            "order",
+            this.dateTimeProvider.UtcNow,
+            null,
+            "orders-api",
+            "Orders API",
+            "1.0.0");
+        var ordersWrite = new ApplicationPermissionDto(
+            Guid.NewGuid(),
+            "order:write",
+            "orders-api:order:write",
+            "Write orders",
+            null,
+            "order",
+            this.dateTimeProvider.UtcNow,
+            null,
+            "orders-api",
+            "Orders API",
+            "1.0.0");
+        var billingRead = new ApplicationPermissionDto(
+            Guid.NewGuid(),
+            "invoice:read",
+            "billing-api:invoice:read",
+            "Read invoices",
+            null,
+            "invoice",
+            this.dateTimeProvider.UtcNow,
+            null,
+            "billing-api",
+            "Billing API",
+            "1.0.0");
+
+        this.repository.ListAssignablePermissionCatalogAsync(Arg.Any<ListAssignablePermissionCatalogQuery>(), Arg.Any<CancellationToken>())
+            .Returns([ordersRead, ordersWrite, billingRead]);
+
+        var handler = new ListAssignablePermissionCatalogQueryHandler(this.repository);
+
+        PagedResult<ApplicationPermissionDto> firstPage = await handler.HandleAsync(
+            new ListAssignablePermissionCatalogQuery(Page: 1, PageSize: 2));
+        PagedResult<ApplicationPermissionDto> secondPage = await handler.HandleAsync(
+            new ListAssignablePermissionCatalogQuery(Page: 2, PageSize: 2));
+
+        firstPage.TotalCount.ShouldBe(5);
+        firstPage.Items.Select(item => item.FullPermissionKey).ShouldBe(
+            ["billing-api:invoice:*", "billing-api:invoice:read"],
+            ignoreOrder: false);
+        secondPage.Items.Select(item => item.FullPermissionKey).ShouldBe(
+            ["orders-api:order:*", "orders-api:order:read"],
+            ignoreOrder: false);
     }
 
     [Fact]

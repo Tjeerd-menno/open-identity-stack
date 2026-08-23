@@ -122,11 +122,10 @@ public sealed class ApplicationPermissionRegistryRepositoryTests : IClassFixture
         await this.repository.SaveChangesAsync();
         this.dbContext.ChangeTracker.Clear();
 
-        PagedResult<ApplicationPermissionDto> result = await this.repository.ListAssignablePermissionCatalogAsync(new ListAssignablePermissionCatalogQuery());
+        IReadOnlyList<ApplicationPermissionDto> result = await this.repository.ListAssignablePermissionCatalogAsync(new ListAssignablePermissionCatalogQuery());
 
-        result.Items.Select(item => item.FullPermissionKey).ShouldBe(
+        result.Select(item => item.FullPermissionKey).ShouldBe(
             [
-                "orders-api:order:*",
                 "orders-api:order:read",
             ],
             ignoreOrder: true);

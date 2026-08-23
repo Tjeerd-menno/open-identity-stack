@@ -18,7 +18,7 @@ import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { Application, ApplicationCredential, AddApplicationCertificateRequest } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
@@ -30,6 +30,7 @@ import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
 import { formatDateTime } from '@/lib/format';
+import { useSyncedForm } from '@/lib/use-synced-form';
 
 export function ApplicationDetailPage() {
   const { applicationId = '' } = useParams();
@@ -361,11 +362,7 @@ function AppSettings({
     validate: { displayName: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useEffect(() => {
-    form.setValues({ displayName: app.displayName, description: app.description ?? '' });
-    form.resetDirty({ displayName: app.displayName, description: app.description ?? '' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [app.id]);
+  useSyncedForm(form, { displayName: app.displayName, description: app.description ?? '' }, app.id);
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) =>

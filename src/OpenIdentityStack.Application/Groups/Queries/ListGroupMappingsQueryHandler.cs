@@ -28,9 +28,8 @@ public class ListGroupMappingsQueryHandler : IListGroupMappingsQueryHandler
              m.Type,
              m.Type == MappingType.Role && Guid.TryParse(m.Target, out Guid roleId) ? roleId : null,
              m.Type == MappingType.Claim ? m.Target : null,
-             m.Value, 
-             m.TokenTarget,
-             0 
+             m.Value,
+             m.TokenTarget
         )).ToList();
 
         return response;

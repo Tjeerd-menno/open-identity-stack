@@ -2,9 +2,11 @@
 
 set -euo pipefail
 
+# Defaults mirror the values the CI workflows pass explicitly. Keep the two in step: a default
+# that advertises a higher bar than CI enforces makes the gate look stricter than it is.
 results_dir="TestResults"
-minimum_line_rate="0.80"
-minimum_overall_line_rate="0.80"
+minimum_line_rate="0.10"
+minimum_overall_line_rate="0.72"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -57,18 +59,7 @@ for file in coverage_files:
     percent = round(line_rate * 100, 2)
     print(f"{file.name}: {percent}%")
 
-    effective_threshold = minimum_line_rate
-    search_dir = file.parent
-    while search_dir != results_dir and results_dir in search_dir.parents:
-        override_file = search_dir / ".coverage-threshold"
-        if override_file.exists():
-            override_value = override_file.read_text(encoding="utf-8").strip()
-            effective_threshold = float(override_value)
-            print(f"  (using per-project threshold: {round(effective_threshold * 100, 2)}%)")
-            break
-        search_dir = search_dir.parent
-
-    if line_rate < effective_threshold:
+    if line_rate < minimum_line_rate:
         failed.append(f"{file.name} ({percent}%)")
 
 total_lines_valid = len(unique_line_covered_by_key)

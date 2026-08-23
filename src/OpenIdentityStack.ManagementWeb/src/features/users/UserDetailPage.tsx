@@ -3,7 +3,7 @@ import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router';
 import type { User } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
@@ -12,6 +12,7 @@ import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
+import { useSyncedForm } from '@/lib/use-synced-form';
 
 export function UserDetailPage() {
   const { userId = '' } = useParams();
@@ -377,11 +378,7 @@ function ProfileCard({ user, canWrite }: { user: User; canWrite: boolean }) {
     validate: { displayName: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useEffect(() => {
-    form.setValues({ displayName: user.displayName });
-    form.resetDirty({ displayName: user.displayName });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.id, user.displayName]);
+  useSyncedForm(form, { displayName: user.displayName }, user.id);
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) => api.users.updateUser(user.id, { displayName: values.displayName }),

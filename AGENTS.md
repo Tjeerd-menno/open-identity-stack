@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-`src/` contains the product code. Core backend layers live in `SharedKernel`, `OpenIdentityStack.Domain`, `OpenIdentityStack.Application`, and `OpenIdentityStack.Infrastructure`. Runtime entry points are `OpenIdentityStack.Api`, `OpenIdentityStack.DbMigrator`, `OpenIdentityStack.AppHost` (Aspire orchestration), and `OpenIdentityStack.ManagementWeb` (React/Vite admin UI). `tests/` mirrors those layers with focused projects such as `*.Domain.Tests`, `*.Application.Tests`, `*.Api.Tests`, `*.Contract.Tests`, and `*.ManagementWeb.E2ETests`. Product docs live in `docs/`, deployment scripts in `deploy/`, and longer-form design work in `specs/`.
+`src/` contains the product code. Core backend layers live in `SharedKernel`, `OpenIdentityStack.Domain`, `OpenIdentityStack.Application`, and `OpenIdentityStack.Infrastructure`. Runtime entry points are `OpenIdentityStack.Api`, `OpenIdentityStack.DbMigrator`, `OpenIdentityStack.AppHost` (Aspire orchestration), and `OpenIdentityStack.ManagementWeb` (React/Vite admin UI). `tests/` mirrors those layers with focused projects such as `*.Domain.Tests`, `*.Application.Tests`, `*.Api.Tests`, `*.Contract.Tests`, and `*.ManagementWeb.E2ETests`. Product docs live in `docs/`, deployment scripts in `deploy/`, and API contracts in `contracts/`.
 
 ## Build, Test, and Development Commands
 Use .NET 10 and restore from the solution root:

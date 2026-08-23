@@ -94,6 +94,14 @@ static bool ShouldSeedDemoClients(
         return false;
     }
 
+    // The demo clients carry a well-known, source-controlled client secret. Seeding them into a
+    // production database would register a confidential client whose credentials are public, so
+    // this is refused outright rather than left to configuration.
+    if (hostEnvironment.IsProduction() || hostEnvironment.IsStaging())
+    {
+        return false;
+    }
+
     bool? configured = configuration.GetValue<bool?>("Seed:DemoClients");
     if (configured.HasValue)
     {
@@ -768,6 +776,9 @@ static async Task SeedIsotopesApiResourceClientAsync(IServiceProvider servicePro
     IOpenIddictScopeManager scopeManager = serviceProvider.GetRequiredService<IOpenIddictScopeManager>();
 
     const string clientId = "isotopes-api-resource";
+
+    // Well-known secret for a local demo client. ShouldSeedDemoClients refuses to run outside
+    // development/testing, so this never reaches a production or staging database.
     const string clientSecret = "isotopes-api-resource-secret";
 
     object? apiScope = await scopeManager.FindByNameAsync("api");

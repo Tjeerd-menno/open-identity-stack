@@ -40,23 +40,10 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
     private IPlaywright? Playwright { get; set; }
     private IBrowser? Browser { get; set; }
     private OpenIdentityStackTestSeeder? TestSeeder { get; set; }
-    private string? _envLocalPath;
 
     public async ValueTask InitializeAsync()
     {
         EnsureRequiredAspireParameters();
-
-        // Force the real OIDC login flow: the AppHost reads this env var and passes it to the
-        // managementweb child, where Vite's loadEnv (empty prefix) lets process env override
-        // .env files. false => OidcAuthProvider + the React plugin enabled.
-        Environment.SetEnvironmentVariable("VITE_E2E_TEST_MODE", "false");
-
-        // Write .env.local to the ManagementWeb source directory before Vite starts.
-        // Vite reads .env.local and its value takes precedence over the AppHost's process
-        // env, so writing VITE_E2E_TEST_MODE=false forces the REAL OidcAuthProvider. E2E
-        // tests then sign in through the real login page and hit the real admin API — no
-        // mock auth, no network stubbing.
-        _envLocalPath = FindAndWriteEnvLocal();
 
         // Reference the AppHost project type to ensure it's loaded
         _ = typeof(AppHostProject::Projects.OpenIdentityStack_AppHost);
@@ -108,8 +95,8 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
             IgnoreHTTPSErrors = true
         });
         await ConfigureViteReactRefreshFallbackAsync(context);
-        // NB: no __OIS_E2E_AUTH__ hook — that would re-activate MockAuthProvider in dev-serve.
-        // Tests authenticate through the real OIDC login flow (see SignInAsync).
+        // Tests authenticate through the real OIDC login flow (see SignInAsync); the app has no
+        // mock-auth path to fall back to.
 
         return context;
     }
@@ -275,11 +262,6 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
         {
             await App.DisposeAsync();
         }
-        // Clean up the .env.local file written for E2E test mode activation.
-        if (_envLocalPath is not null && File.Exists(_envLocalPath))
-        {
-            File.Delete(_envLocalPath);
-        }
         GC.SuppressFinalize(this);
     }
 
@@ -297,26 +279,6 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
         }
 
         return connectionString;
-    }
-
-    private static string? FindAndWriteEnvLocal()
-    {
-        // Walk from the test binary directory up to the repository root (contains OpenIdentityStack.slnx).
-        string? repoRoot = AppContext.BaseDirectory;
-        while (repoRoot is not null && !File.Exists(Path.Combine(repoRoot, "OpenIdentityStack.slnx")))
-        {
-            repoRoot = Directory.GetParent(repoRoot)?.FullName;
-        }
-
-        if (repoRoot is null)
-        {
-            return null;
-        }
-
-        string envLocalPath = Path.Combine(repoRoot, "src", "OpenIdentityStack.ManagementWeb", ".env.local");
-        // false => real OidcAuthProvider (tests perform a genuine sign-in against the API).
-        File.WriteAllText(envLocalPath, "VITE_E2E_TEST_MODE=false\n");
-        return envLocalPath;
     }
 
     private static void EnsureRequiredAspireParameters()

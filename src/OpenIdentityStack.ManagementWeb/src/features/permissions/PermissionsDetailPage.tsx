@@ -3,7 +3,6 @@ import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { useParams } from 'react-router';
 import type {
   ApplicationPermissionHistory,
@@ -19,6 +18,7 @@ import { BackLink, CenteredState, DetailHeader, ErrorState, MetaStrip, SectionCa
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
+import { useSyncedForm } from '@/lib/use-synced-form';
 
 export function PermissionsDetailPage() {
   const { registrationId = '' } = useParams();
@@ -291,16 +291,15 @@ function RegistrationSettings({ app, canWrite, onSaved }: { app: RegisteredAppli
     validate: { displayName: (value) => (value.trim() ? null : 'Required') },
   });
 
-  useEffect(() => {
-    const next = {
+  useSyncedForm(
+    form,
+    {
       displayName: app.displayName,
       description: app.description ?? '',
       manifestBaseUrl: app.manifestBaseUrl ?? '',
-    };
-    form.setValues(next);
-    form.resetDirty(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [app.id, app.displayName, app.description, app.manifestBaseUrl]);
+    },
+    app.id
+  );
 
   const save = useMutation({
     mutationFn: (values: typeof form.values) =>

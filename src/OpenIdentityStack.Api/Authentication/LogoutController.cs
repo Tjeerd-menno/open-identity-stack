@@ -59,7 +59,6 @@ public sealed class LogoutController : ControllerBase
             throw new InvalidOperationException("The OpenID Connect request cannot be retrieved.");
 
         string? postLogoutRedirectUri = request.PostLogoutRedirectUri;
-        string? idTokenHint = request.IdTokenHint;
         string? state = request.State;
 
         // CRITICAL: Always sign out the authentication cookies to terminate the SSO session.
@@ -72,8 +71,6 @@ public sealed class LogoutController : ControllerBase
             SessionManagementDefaults.SessionCookieName,
             SessionManagementDefaults.CreateSessionCookieOptions());
 
-        // Extract session ID from context (in a real implementation, this would come from
-        // the ID token hint or the user's authentication session)
         SessionId? sessionId = this.GetCurrentSessionId();
         if (sessionId is null)
         {
@@ -86,8 +83,12 @@ public sealed class LogoutController : ControllerBase
             return this.Ok(new LogoutResponse(true, "No active session", postLogoutRedirectUri, []));
         }
 
-        // Get the initiating client ID (from the id_token_hint if available)
-        string? initiatingClientId = ExtractClientIdFromTokenHint(idTokenHint);
+        // The initiating client is not resolved from 'id_token_hint'. Decoding the hint without
+        // validating it would let a caller name any client it likes, and validating it through
+        // OpenIddict is not implemented (deferred item 3 in
+        // docs/reference/DEFERRED-BACKEND-REMEDIATION-ITEMS.md). Until then no client is treated
+        // as the initiator, so every client with a logout URI is notified.
+        string? initiatingClientId = null;
 
         // Process the logout
         Result<ProcessLogoutResult> result = await this.processLogoutUseCase.ExecuteAsync(sessionId.Value, initiatingClientId, cancellationToken);
@@ -173,20 +174,10 @@ public sealed class LogoutController : ControllerBase
             return new SessionId(sessionGuid);
         }
 
-        // TODO: Also check session cookie and OpenIddict authentication context
-        return null;
-    }
-
-    private static string? ExtractClientIdFromTokenHint(string? idTokenHint)
-    {
-        if (string.IsNullOrEmpty(idTokenHint))
-        {
-            return null;
-        }
-
-        // In a real implementation, this would decode the ID token
-        // and extract the 'aud' claim to identify the client
-        // TODO: Integrate with OpenIddict token validation
+        // Session resolution from the session cookie and the OpenIddict authentication context
+        // is not implemented. Tracked as deferred item 3 in
+        // docs/reference/DEFERRED-BACKEND-REMEDIATION-ITEMS.md; until then a request whose
+        // principal carries no 'sid' claim is treated as having no active session.
         return null;
     }
 

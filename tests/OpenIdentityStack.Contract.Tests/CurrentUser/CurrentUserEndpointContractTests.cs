@@ -32,7 +32,7 @@ public sealed class CurrentUserEndpointContractTests
         string directory = AppContext.BaseDirectory;
         while (!string.IsNullOrEmpty(directory))
         {
-            string candidate = Path.Combine(directory, "specs", "008-current-user-permissions", "contracts", "current-user.openapi.yaml");
+            string candidate = Path.Combine(directory, "contracts", "openapi", "008-current-user-permissions", "current-user.openapi.yaml");
             if (File.Exists(candidate))
             {
                 return File.ReadAllText(candidate);

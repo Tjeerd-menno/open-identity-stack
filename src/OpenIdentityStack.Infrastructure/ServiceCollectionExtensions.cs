@@ -202,7 +202,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IApplicationProtocolProjection, OpenIddictApplicationProjection>();
         services.AddScoped<IRolePermissionDependencyReader, RolePermissionDependencyReader>();
 
-        // Register Single Logout (SLO) notification services
+        // Register Single Logout (SLO) notification services. The logout token factory needs
+        // the ambient request to fall back to a request-derived issuer when 'OpenIddict:Issuer'
+        // is not configured, matching how OpenIddict resolves the issuer itself.
+        services.AddHttpContextAccessor();
+        // Singleton: every dependency it takes is itself a singleton, and the typed HttpClient
+        // registration below makes the notifier transient — a scoped factory would fault if the
+        // notifier were ever resolved outside a request scope.
+        services.AddSingleton<ILogoutTokenFactory, LogoutTokenFactory>();
         services.AddHttpClient<ILogoutNotifier, BackChannelLogoutNotifier>();
         services.AddScoped<IFrontChannelLogoutService, FrontChannelLogoutService>();
     }
