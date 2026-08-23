@@ -2,12 +2,14 @@ namespace OpenIdentityStack.Architecture.Tests;
 
 public sealed class FrontendTopologyTests
 {
+    // Written plainly rather than assembled from fragments: this project's own sources are
+    // excluded from the scan below, so the literals cannot match themselves.
     private static readonly string[] ObsoleteUiModules =
     [
-        "OpenIdentityStack." + "Admin" + "Web",
-        "OpenIdentityStack.ManagementWeb." + "Legacy",
-        "Admin" + "Web",
-        "ManagementWeb." + "Legacy",
+        "OpenIdentityStack.AdminWeb",
+        "OpenIdentityStack.ManagementWeb.Legacy",
+        "AdminWeb",
+        "ManagementWeb.Legacy",
     ];
 
     private static readonly string[] SkippedDirectories =
@@ -34,6 +36,7 @@ public sealed class FrontendTopologyTests
             .EnumerateFiles(repoRoot, "*", SearchOption.AllDirectories)
             .Where(IsTextFile)
             .Where(path => !IsUnderSkippedDirectory(repoRoot, path))
+            .Where(path => !IsThisTestProject(repoRoot, path))
             .Where(ContainsObsoleteUiReference)
             .Select(path => Path.GetRelativePath(repoRoot, path))
             .Order(StringComparer.OrdinalIgnoreCase)
@@ -64,6 +67,18 @@ public sealed class FrontendTopologyTests
         return relativePath
             .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             .Any(part => SkippedDirectories.Contains(part, StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Excludes this test project's own sources, which necessarily name the modules being
+    /// banned and would otherwise report themselves as offenders.
+    /// </summary>
+    private static bool IsThisTestProject(string repoRoot, string path)
+    {
+        string relativePath = Path.GetRelativePath(repoRoot, path);
+        return relativePath.StartsWith(
+            Path.Combine("tests", "OpenIdentityStack.Architecture.Tests"),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool ContainsObsoleteUiReference(string path)

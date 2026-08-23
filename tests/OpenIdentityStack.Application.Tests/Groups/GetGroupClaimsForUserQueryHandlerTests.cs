@@ -184,4 +184,62 @@ public sealed class GetGroupClaimsForUserQueryHandlerTests
         result.Value.Single(c => c.Type == "id-claim").TokenTarget.ShouldBe(TokenTarget.IdToken);
         result.Value.Single(c => c.Type == "both-claim").TokenTarget.ShouldBe(TokenTarget.Both);
     }
+
+    [Fact]
+    public async Task HandleAsync_SameClaimTypeInMultipleGroups_ReturnsEveryValue()
+    {
+        // Arrange
+        var userId = UserId.Create();
+        Group engineering = this.CreateGroup("engineering", "Engineering");
+        Group sales = this.CreateGroup("sales", "Sales");
+
+        engineering.AddMapping(MappingType.Claim, "department", "Engineering", TokenTarget.AccessToken, this._dateTimeProvider);
+        sales.AddMapping(MappingType.Claim, "department", "Sales", TokenTarget.AccessToken, this._dateTimeProvider);
+
+        this._groupRepository
+            .GetGroupsForUserAsync(userId, Arg.Any<CancellationToken>())
+            .Returns([engineering, sales]);
+
+        // Act
+        Result<IReadOnlyList<GroupClaimDto>> result = await this._handler.HandleAsync(userId);
+
+        // Assert
+        // Conflicting values for one claim type are emitted as a multi-valued claim rather than
+        // one winning. GroupMapping carries no precedence field, so there is nothing to resolve
+        // a conflict with, and silently dropping a value would lose an authorization input.
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Count.ShouldBe(2);
+        result.Value.ShouldContain(c => c.Type == "department" && c.Value == "Engineering");
+        result.Value.ShouldContain(c => c.Type == "department" && c.Value == "Sales");
+    }
+
+    [Fact]
+    public async Task HandleAsync_ParentGroupMappings_AreNotInherited()
+    {
+        // Arrange
+        var userId = UserId.Create();
+        Group parent = this.CreateGroup("all-staff", "All Staff");
+        Group child = this.CreateGroup("engineering", "Engineering");
+
+        parent.AddMapping(MappingType.Claim, "company", "Contoso", TokenTarget.AccessToken, this._dateTimeProvider);
+        child.AddMapping(MappingType.Claim, "department", "Engineering", TokenTarget.AccessToken, this._dateTimeProvider);
+        child.SetParent(parent, this._dateTimeProvider);
+
+        // The repository resolves direct membership only; the user belongs to the child group.
+        this._groupRepository
+            .GetGroupsForUserAsync(userId, Arg.Any<CancellationToken>())
+            .Returns([child]);
+
+        // Act
+        Result<IReadOnlyList<GroupClaimDto>> result = await this._handler.HandleAsync(userId);
+
+        // Assert
+        // Claims are sourced from directly assigned groups only. Nested groups do not currently
+        // contribute their parent's claims; this test pins that boundary so a future change to
+        // inheritance is a deliberate, visible decision.
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Count.ShouldBe(1);
+        result.Value.ShouldContain(c => c.Type == "department" && c.Value == "Engineering");
+        result.Value.ShouldNotContain(c => c.Type == "company");
+    }
 }

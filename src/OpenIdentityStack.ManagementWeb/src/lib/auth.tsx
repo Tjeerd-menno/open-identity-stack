@@ -14,10 +14,6 @@ type CurrentUserLoadState =
 
 export { AuthContextProvider, useAuth, type AuthContextValue } from './auth-context';
 
-function isE2ETestMode(): boolean {
-  return __E2E_TEST_MODE__ || (import.meta.env.DEV && globalThis.window?.__OIS_E2E_AUTH__ === true);
-}
-
 function createUserManager(): UserManager {
   const baseUrl = globalThis.location.origin;
   const settings: UserManagerSettings = {
@@ -36,29 +32,7 @@ function createUserManager(): UserManager {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  return isE2ETestMode() ? <MockAuthProvider>{children}</MockAuthProvider> : <OidcAuthProvider>{children}</OidcAuthProvider>;
-}
-
-function MockAuthProvider({ children }: { children: ReactNode }) {
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      isAuthenticated: true,
-      isLoading: false,
-      displayName: 'E2E Test Admin',
-      permissions: ['*'],
-      login: async () => {},
-      logout: async () => {},
-      getAccessToken: async () => 'e2e-test-token',
-    }),
-    []
-  );
-
-  useEffect(() => {
-    setAccessTokenProvider(value.getAccessToken);
-    setUnauthorizedHandler(value.logout);
-  }, [value]);
-
-  return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
+  return <OidcAuthProvider>{children}</OidcAuthProvider>;
 }
 
 // Guards the authorization-code redemption so it runs exactly once, even when

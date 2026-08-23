@@ -153,3 +153,9 @@ conformance-results.json
 # and the per-run results. Only the README and the compose file are tracked.
 conformance/local/provider.*
 conformance/local/*results*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/

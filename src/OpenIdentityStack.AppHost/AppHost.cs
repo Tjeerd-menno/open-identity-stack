@@ -64,11 +64,9 @@ if (enableManagementWeb)
 
     if (disableDataVolume)
     {
-        // Default to mock-auth E2E mode, but let the test host opt into the real OIDC login
-        // flow by exporting VITE_E2E_TEST_MODE=false before the AppHost is built.
-        managementWeb
-            .WithHttpEndpoint(env: "PORT")
-            .WithEnvironment("VITE_E2E_TEST_MODE", Environment.GetEnvironmentVariable("VITE_E2E_TEST_MODE") ?? "true");
+        // Test runs take a dynamic port to avoid contention. Authentication always goes through
+        // the real OIDC flow — there is no mock-auth mode to select.
+        managementWeb.WithHttpEndpoint(env: "PORT");
     }
     else
     {

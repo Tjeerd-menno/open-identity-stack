@@ -1,0 +1,144 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
+using OpenIddict.Abstractions;
+using OpenIddict.Server;
+using OpenIdentityStack.Domain.Common;
+using SharedKernel;
+
+namespace OpenIdentityStack.Infrastructure.Identity;
+
+/// <summary>
+/// Creates logout tokens signed with the OpenIddict server's asymmetric signing key, as
+/// required by OpenID Connect Back-Channel Logout 1.0 section 2.4. Relying parties verify
+/// the signature against the keys published on the JWKS endpoint.
+/// </summary>
+public sealed class LogoutTokenFactory : ILogoutTokenFactory
+{
+    /// <summary>
+    /// The <c>typ</c> header value that distinguishes a logout token from an ID token,
+    /// preventing the substitution attack described in the specification.
+    /// </summary>
+    private const string logoutTokenType = "logout+jwt";
+
+    /// <summary>
+    /// The claim carrying the terminated session's identifier.
+    /// </summary>
+    private const string sessionIdClaim = "sid";
+
+    /// <summary>
+    /// The claim carrying the set of events the token reports.
+    /// </summary>
+    private const string eventsClaim = "events";
+
+    /// <summary>
+    /// The back-channel logout event identifier that must appear in the <c>events</c> claim.
+    /// This is an opaque identifier fixed by the specification, not an address that is ever
+    /// dereferenced, so the http scheme is required and must not be "upgraded" to https.
+    /// </summary>
+#pragma warning disable S5332 // Using http protocol is insecure — see above; this is an identifier.
+    private const string backChannelLogoutEvent = "http://schemas.openid.net/event/backchannel-logout";
+#pragma warning restore S5332
+
+    /// <summary>
+    /// Logout tokens are consumed immediately by the relying party, so a short lifetime
+    /// bounds the replay window without risking clock-skew failures.
+    /// </summary>
+    private static readonly TimeSpan tokenLifetime = TimeSpan.FromMinutes(2);
+
+    private readonly IOptionsMonitor<OpenIddictServerOptions> serverOptions;
+    private readonly IHttpContextAccessor httpContextAccessor;
+    private readonly IDateTimeProvider dateTimeProvider;
+
+    public LogoutTokenFactory(
+        IOptionsMonitor<OpenIddictServerOptions> serverOptions,
+        IHttpContextAccessor httpContextAccessor,
+        IDateTimeProvider dateTimeProvider)
+    {
+        this.serverOptions = serverOptions;
+        this.httpContextAccessor = httpContextAccessor;
+        this.dateTimeProvider = dateTimeProvider;
+    }
+
+    public string CreateLogoutToken(SessionId sessionId, string clientId)
+    {
+        OpenIddictServerOptions options = this.serverOptions.CurrentValue;
+
+        SigningCredentials credentials = SelectSigningCredentials(options);
+        string issuer = this.ResolveIssuer(options);
+
+        DateTimeOffset issuedAt = this.dateTimeProvider.UtcNow;
+
+        // The session identifier travels in 'sid'. 'sub' is deliberately omitted: the
+        // specification requires 'sub', 'sid', or both, and this notifier has no access to
+        // the end user's subject identifier. Emitting the session id as 'sub' — as an earlier
+        // revision did — makes relying parties resolve a principal that does not exist.
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Issuer = issuer,
+            Audience = clientId,
+            IssuedAt = issuedAt.UtcDateTime,
+            NotBefore = issuedAt.UtcDateTime,
+            Expires = issuedAt.Add(tokenLifetime).UtcDateTime,
+            TokenType = logoutTokenType,
+            SigningCredentials = credentials,
+            Claims = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                [OpenIddictConstants.Claims.JwtId] = Guid.NewGuid().ToString(),
+                [sessionIdClaim] = sessionId.Value.ToString(),
+                [eventsClaim] = new Dictionary<string, object>(StringComparer.Ordinal)
+                {
+                    [backChannelLogoutEvent] = new Dictionary<string, object>(StringComparer.Ordinal),
+                },
+            },
+        };
+
+        return new JsonWebTokenHandler().CreateToken(descriptor);
+    }
+
+    /// <summary>
+    /// Selects an asymmetric signing key. Symmetric keys are rejected because a relying party
+    /// cannot verify them from the JWKS endpoint, and unsigned tokens are never produced.
+    /// </summary>
+    private static SigningCredentials SelectSigningCredentials(OpenIddictServerOptions options)
+    {
+        return options.SigningCredentials.FirstOrDefault(credentials => credentials.Key is AsymmetricSecurityKey)
+            ?? throw new InvalidOperationException(
+                "No asymmetric signing credentials are registered. A back-channel logout token cannot be "
+                + "signed, and an unsigned token would be rejected by conforming relying parties.");
+    }
+
+    /// <summary>
+    /// Resolves the issuer the same way OpenIddict does: the configured issuer when present,
+    /// otherwise the base URI of the request being handled.
+    /// </summary>
+    /// <remarks>
+    /// The value is the URI's canonical <see cref="Uri.AbsoluteUri"/> and is deliberately not
+    /// trimmed. A relying party compares the logout token's <c>iss</c> byte-for-byte against the
+    /// issuer published in the discovery document, and for a root URI that value keeps its
+    /// trailing slash — 'https://issuer.example.com/', not 'https://issuer.example.com'.
+    /// Normalising the slash away here would make every token fail that comparison.
+    /// </remarks>
+    private string ResolveIssuer(OpenIddictServerOptions options)
+    {
+        if (options.Issuer is not null)
+        {
+            return options.Issuer.AbsoluteUri;
+        }
+
+        HttpRequest? request = this.httpContextAccessor.HttpContext?.Request;
+        if (request is not null && request.Host.HasValue)
+        {
+            return new UriBuilder(request.Scheme, request.Host.Host)
+            {
+                Port = request.Host.Port ?? -1,
+                Path = request.PathBase.ToString(),
+            }.Uri.AbsoluteUri;
+        }
+
+        throw new InvalidOperationException(
+            "The issuer could not be resolved. Configure 'OpenIddict:Issuer' so back-channel logout "
+            + "tokens carry an issuer relying parties can validate.");
+    }
+}

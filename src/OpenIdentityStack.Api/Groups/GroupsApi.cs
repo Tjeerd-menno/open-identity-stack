@@ -270,11 +270,19 @@ internal static class GroupsApi
     /// <summary>
     /// Frontend-compatible response item for group mappings.
     /// </summary>
+    /// <param name="Id">Deterministic identifier derived from the mapping's value.</param>
+    /// <param name="Type">The mapping type (<c>Role</c> or <c>Claim</c>).</param>
+    /// <param name="Value">The resolved role name or <c>claimType:claimValue</c> pair.</param>
+    /// <param name="CreatedAt">
+    /// Always <see langword="null"/>. A group mapping is a value object with no identity of its
+    /// own, so it carries no creation timestamp. The field is retained so existing clients keep
+    /// parsing the response, but reporting a real time here would mean inventing one.
+    /// </param>
     private sealed record GroupMappingItem(
         string Id,
         string Type,
         string Value,
-        string CreatedAt);
+        string? CreatedAt);
 
     /// <summary>
     /// Frontend-compatible response wrapper for group mappings list.
@@ -333,7 +341,7 @@ internal static class GroupsApi
                 m.Id.ToString(),
                 m.MappingType.ToString(),
                 value,
-                DateTimeOffset.UtcNow.ToString("o")); // TODO: Add CreatedAt to GroupMapping entity
+                CreatedAt: null);
         }).ToList();
 
         return TypedResults.Ok(new GroupMappingsListResponse(items));

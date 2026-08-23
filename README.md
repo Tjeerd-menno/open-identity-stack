@@ -47,8 +47,8 @@ open-identity-stack/
 ├── deploy/
 │   ├── open-identity-stack/
 │   └── windows-service/
-├── docs/
-└── specs/
+├── contracts/
+└── docs/
 ```
 
 ## Quick start

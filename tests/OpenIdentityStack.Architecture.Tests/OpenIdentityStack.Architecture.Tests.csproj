@@ -14,6 +14,15 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="Shouldly" />
+    <Using Include="SharedKernel" />
+  </ItemGroup>
+
+  <!-- Referenced so the layering tests can inspect each layer's assembly metadata. Api is
+       intentionally absent: it is the outermost layer and nothing asserts anything about it. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\OpenIdentityStack.Domain\OpenIdentityStack.Domain.csproj" />
+    <ProjectReference Include="..\..\src\OpenIdentityStack.Application\OpenIdentityStack.Application.csproj" />
   </ItemGroup>
 
 </Project>
