@@ -4,12 +4,12 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Aspire 13.4.5 -->
-    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
+    <!-- Aspire 13.5.2 -->
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.5.2" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.2" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.5.2" />
-    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.4.6" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.10" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.5.2" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.9.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.9.0" />
     <!-- OpenTelemetry (for ServiceDefaults) -->
@@ -25,20 +25,20 @@
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
     <!-- Pinned above the transitive 2.0.0 pulled in by Microsoft.AspNetCore.OpenApi: fixes GHSA-v5pm-xwqc-g5wc (stack overflow on circular schema refs), patched in 2.7.5+ -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.11" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.16.17" />
     <!-- Entity Framework Core -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <!-- OpenIddict -->
     <PackageVersion Include="OpenIddict.AspNetCore" Version="7.6.0" />
