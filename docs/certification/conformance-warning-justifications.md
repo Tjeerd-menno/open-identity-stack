@@ -87,7 +87,7 @@ included that the relying party did not ask for. The suite's
 
 If an implicit or hybrid flow profile is ever added, §5.4's conditional becomes
 reachable and the destination logic in
-[`TokenClaimProjectionService`](../../src/OpenIdentityStack.Api/Authentication/TokenClaimProjectionService.cs)
+[`TokenClaimProjectionService`](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/src/OpenIdentityStack.Api/Authentication/TokenClaimProjectionService.cs)
 must gain the "is an access token being issued" branch it does not need today.
 
 Decided on
