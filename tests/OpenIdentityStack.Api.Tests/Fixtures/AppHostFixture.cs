@@ -13,9 +13,12 @@ using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using OpenIdentityStack.Api.Tests.Fixtures;
 using OpenIdentityStack.Testing;
+using Xunit;
+using Xunit.Sdk;
+using Xunit.v3;
 
 [assembly: AssemblyFixture(typeof(AppHostFixture))]
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Parallelization(Mode = ParallelMode.None)]
 
 namespace OpenIdentityStack.Api.Tests.Fixtures;
 
