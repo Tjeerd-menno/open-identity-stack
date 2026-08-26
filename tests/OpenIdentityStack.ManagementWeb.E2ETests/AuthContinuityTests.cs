@@ -23,6 +23,8 @@ public sealed class AuthContinuityTests : ManagementWebPageTest
         await Page.ReloadAsync();
 
         await Page.GetByRole(AriaRole.Heading, new() { Name = "Overview", Exact = true }).WaitForAsync();
-        await Page.GetByText("OpenIdentity").First.WaitForAsync();
+        ILocator brand = Page.GetByText("OpenIdentity").First;
+        await brand.WaitForAsync();
+        (await brand.IsVisibleAsync()).ShouldBeTrue();
     }
 }

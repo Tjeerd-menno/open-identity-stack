@@ -80,7 +80,9 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
         // the entity-type filter renders a hidden <option>Application</option> that would otherwise
         // be the first (invisible) text match, and the badge is rendered uppercased.
         await Page.Locator("tbody tr").First.WaitForAsync();
-        await Page.Locator("tbody").GetByText(new Regex("^Application$", RegexOptions.IgnoreCase)).First.WaitForAsync();
+        ILocator applicationBadge = Page.Locator("tbody").GetByText(new Regex("^Application$", RegexOptions.IgnoreCase)).First;
+        await applicationBadge.WaitForAsync();
+        (await applicationBadge.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -93,7 +95,9 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
         await Page.GetByLabel("Entity", new() { Exact = true }).SelectOptionAsync("Application");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Clear Entity", Exact = true }).WaitForAsync();
         // Scope to the table body so the hidden <option>Application</option> in the select isn't matched.
-        await Page.Locator("tbody").GetByText(new Regex("^Application$", RegexOptions.IgnoreCase)).First.WaitForAsync();
+        ILocator applicationBadge = Page.Locator("tbody").GetByText(new Regex("^Application$", RegexOptions.IgnoreCase)).First;
+        await applicationBadge.WaitForAsync();
+        (await applicationBadge.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -109,9 +113,12 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
         await row.First.WaitForAsync();
 
         // The row is a User-entity action attributed to a real admin actor, not the "system" fallback.
-        await row.First.GetByText(new Regex("^User$", RegexOptions.IgnoreCase)).WaitForAsync();
-        await row.First.GetByText(new Regex("^system$", RegexOptions.IgnoreCase))
-            .WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        ILocator userBadge = row.First.GetByText(new Regex("^User$", RegexOptions.IgnoreCase));
+        await userBadge.WaitForAsync();
+        ILocator systemFallback = row.First.GetByText(new Regex("^system$", RegexOptions.IgnoreCase));
+        await systemFallback.WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        (await userBadge.IsVisibleAsync()).ShouldBeTrue();
+        (await systemFallback.IsVisibleAsync()).ShouldBeFalse();
     }
 
     [Fact]
@@ -127,9 +134,12 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
         await row.First.WaitForAsync();
 
         // The row is a User-entity action attributed to a real admin actor, not the "system" fallback.
-        await row.First.GetByText(new Regex("^User$", RegexOptions.IgnoreCase)).WaitForAsync();
-        await row.First.GetByText(new Regex("^system$", RegexOptions.IgnoreCase))
-            .WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        ILocator userBadge = row.First.GetByText(new Regex("^User$", RegexOptions.IgnoreCase));
+        await userBadge.WaitForAsync();
+        ILocator systemFallback = row.First.GetByText(new Regex("^system$", RegexOptions.IgnoreCase));
+        await systemFallback.WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        (await userBadge.IsVisibleAsync()).ShouldBeTrue();
+        (await systemFallback.IsVisibleAsync()).ShouldBeFalse();
     }
 
     [Fact]
@@ -144,6 +154,8 @@ public sealed class AuditEntryManagementTests : ManagementWebPageTest
 
         // A search that matches nothing collapses the table to the empty state.
         await Page.GetByLabel("Search entries").FillAsync($"no-such-entry-{Unique}");
-        await Page.GetByText("No audit entries", new() { Exact = true }).WaitForAsync();
+        ILocator emptyState = Page.GetByText("No audit entries", new() { Exact = true });
+        await emptyState.WaitForAsync();
+        (await emptyState.IsVisibleAsync()).ShouldBeTrue();
     }
 }

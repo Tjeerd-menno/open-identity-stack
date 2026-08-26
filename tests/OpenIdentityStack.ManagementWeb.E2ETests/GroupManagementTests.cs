@@ -43,7 +43,9 @@ public sealed class GroupManagementTests : ManagementWebPageTest
         await GotoAsync($"/groups/{_groupId}");
         await Page.GetByRole(AriaRole.Heading, new() { Name = _groupName, Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Members", RegexOptions.IgnoreCase) }).WaitForAsync();
-        await Page.GetByText(_memberName).WaitForAsync();
+        ILocator memberRow = Page.GetByText(_memberName);
+        await memberRow.WaitForAsync();
+        (await memberRow.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -57,7 +59,9 @@ public sealed class GroupManagementTests : ManagementWebPageTest
         await dialog.GetByLabel("Group name").FillAsync(name);
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Create group", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex($"Created {Regex.Escape(name)}", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex($"Created {Regex.Escape(name)}", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -72,7 +76,9 @@ public sealed class GroupManagementTests : ManagementWebPageTest
         await dialog.GetByText(_candidateName).WaitForAsync();
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Add", Exact = true }).First.ClickAsync();
 
-        await Page.GetByText(new Regex("Member added", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Member added", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -113,7 +119,9 @@ public sealed class GroupManagementTests : ManagementWebPageTest
         await Page.GetByRole(AriaRole.Option, new() { Name = roleName, Exact = true }).ClickAsync();
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Add mapping", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Mapping added", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Mapping added", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -133,7 +141,9 @@ public sealed class GroupManagementTests : ManagementWebPageTest
 
         await Page.GetByRole(AriaRole.Button, new() { Name = "Remove", Exact = true }).First.ClickAsync();
         await Page.GetByText(new Regex("Mapping removed", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByText(mappingValue, new() { Exact = true }).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        ILocator removedMapping = Page.GetByText(mappingValue, new() { Exact = true });
+        await removedMapping.WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        (await removedMapping.IsVisibleAsync()).ShouldBeFalse();
     }
 
     [Fact]
@@ -145,7 +155,9 @@ public sealed class GroupManagementTests : ManagementWebPageTest
         await Page.GetByLabel("Description").FillAsync("Platform engineering and tooling");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Save changes", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Group updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Group updated", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -165,8 +177,10 @@ public sealed class GroupManagementTests : ManagementWebPageTest
         ILocator deleteDialog = Page.GetByRole(AriaRole.Dialog);
         await deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Delete group", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Group deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Group deleted", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
         await Page.WaitForURLAsync(new Regex(@"/groups/?$"));
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     private static readonly string[] MappingRolePermissions = ["users:read"];

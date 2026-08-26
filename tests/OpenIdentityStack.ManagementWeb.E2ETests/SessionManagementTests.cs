@@ -33,7 +33,9 @@ public sealed class SessionManagementTests : ManagementWebPageTest
         await GotoAsync("/sessions");
         await Page.GetByRole(AriaRole.Heading, new() { Name = "Sessions", Exact = true }).WaitForAsync();
         await Page.GetByText(_primaryIp).WaitForAsync();
-        await Page.GetByLabel("Status").WaitForAsync();
+        ILocator statusFilter = Page.GetByLabel("Status");
+        await statusFilter.WaitForAsync();
+        (await statusFilter.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -48,7 +50,9 @@ public sealed class SessionManagementTests : ManagementWebPageTest
         ILocator dialog = Page.GetByRole(AriaRole.Dialog);
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Revoke", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Session revoked", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Session revoked", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -60,8 +64,10 @@ public sealed class SessionManagementTests : ManagementWebPageTest
         // The seeded sessions are Active; filtering to Revoked removes them from the list.
         await Page.GetByLabel("Status").SelectOptionAsync("Revoked");
 
-        await Page.GetByText(_primaryIp).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        ILocator primaryRow = Page.GetByText(_primaryIp);
+        await primaryRow.WaitForAsync(new() { State = WaitForSelectorState.Detached });
         await Page.GetByRole(AriaRole.Button, new() { Name = "Clear Status", Exact = true }).WaitForAsync();
+        (await primaryRow.IsVisibleAsync()).ShouldBeFalse();
     }
 
     [Fact]
@@ -72,6 +78,8 @@ public sealed class SessionManagementTests : ManagementWebPageTest
 
         // A search term that matches nothing exercises the query round-trip: the row drops out.
         await Page.GetByLabel("Search sessions").FillAsync($"no-such-session-{Unique}");
-        await Page.GetByText(_primaryIp).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        ILocator primaryRow = Page.GetByText(_primaryIp);
+        await primaryRow.WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        (await primaryRow.IsVisibleAsync()).ShouldBeFalse();
     }
 }
