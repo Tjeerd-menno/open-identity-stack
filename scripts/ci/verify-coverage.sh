@@ -6,7 +6,7 @@ set -euo pipefail
 # that advertises a higher bar than CI enforces makes the gate look stricter than it is.
 results_dir="TestResults"
 minimum_line_rate="0.10"
-minimum_overall_line_rate="0.72"
+minimum_overall_line_rate="0.80"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

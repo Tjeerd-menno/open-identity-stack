@@ -8,7 +8,7 @@ param(
     [double]$MinimumLineRate = 0.10,
 
     [Parameter(Mandatory = $false)]
-    [double]$MinimumOverallLineRate = 0.72
+    [double]$MinimumOverallLineRate = 0.80
 )
 
 $coverageFiles = Get-ChildItem -Path $ResultsDir -Filter "*.cobertura.xml" -Recurse -ErrorAction SilentlyContinue
