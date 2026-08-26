@@ -71,7 +71,7 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: openidentitystack
-      POSTGRES_PASSWORD: conformance
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD to a local Postgres password}"
       POSTGRES_DB: openidentitystack
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U openidentitystack"]
@@ -86,11 +86,11 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       OPENIDENTITYSTACK_SEED_PROFILE: certification
       OpenIddict__Issuer: https://oidc.localtest.me:3000/
-      ConnectionStrings__openidentitystack: Host=postgres;Database=openidentitystack;Username=openidentitystack;Password=conformance
+      ConnectionStrings__openidentitystack: "Host=postgres;Database=openidentitystack;Username=openidentitystack;Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD to a local Postgres password}"
       Secrets__EncryptionKey: "${SECRETS_ENCRYPTION_KEY:?set SECRETS_ENCRYPTION_KEY to a base64 256-bit key}"
       Seed__Certification__Alias: local-conformance
-      Seed__Certification__Users__Alice__Password: Alice!Conformance1
-      Seed__Certification__Users__Bob__Password: Bob!Conformance1
+      Seed__Certification__Users__Alice__Password: "${CONFORMANCE_PASSWORD:?set CONFORMANCE_PASSWORD to seed Alice's password}"
+      Seed__Certification__Users__Bob__Password: "${CONFORMANCE_BOB_PASSWORD:?set CONFORMANCE_BOB_PASSWORD to seed Bob's password}"
       Seed__Certification__Clients__CodeClientSecret: code-client-secret
       Seed__Certification__Clients__CodeClientPostSecret: code-client-post-secret
       Seed__Certification__Clients__CodeClientTakeoverSecret: code-client-takeover-secret
@@ -100,9 +100,9 @@ services:
       # The migrator constructs the full OpenIddict server, which outside
       # Development/Testing refuses to start without both certificates.
       OpenIddict__Certificates__Signing__Path: /certs/provider.pfx
-      OpenIddict__Certificates__Signing__Password: conformance
+      OpenIddict__Certificates__Signing__Password: "${PROVIDER_CERT_PASSWORD:?set PROVIDER_CERT_PASSWORD to the provider.pfx export password}"
       OpenIddict__Certificates__Encryption__Path: /certs/provider.pfx
-      OpenIddict__Certificates__Encryption__Password: conformance
+      OpenIddict__Certificates__Encryption__Password: "${PROVIDER_CERT_PASSWORD:?set PROVIDER_CERT_PASSWORD to the provider.pfx export password}"
     volumes:
       # `z`, not `Z`: on an SELinux-enforcing host the mount needs relabelling
       # to container_file_t, and this PFX is shared by the migrator and the
@@ -132,14 +132,14 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: https://+:3000
       ASPNETCORE_Kestrel__Certificates__Default__Path: /certs/provider.pfx
-      ASPNETCORE_Kestrel__Certificates__Default__Password: conformance
+      ASPNETCORE_Kestrel__Certificates__Default__Password: "${PROVIDER_CERT_PASSWORD:?set PROVIDER_CERT_PASSWORD to the provider.pfx export password}"
       OpenIddict__Issuer: https://oidc.localtest.me:3000/
-      ConnectionStrings__openidentitystack: Host=postgres;Database=openidentitystack;Username=openidentitystack;Password=conformance
+      ConnectionStrings__openidentitystack: "Host=postgres;Database=openidentitystack;Username=openidentitystack;Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD to a local Postgres password}"
       Secrets__EncryptionKey: "${SECRETS_ENCRYPTION_KEY:?set SECRETS_ENCRYPTION_KEY to a base64 256-bit key}"
       OpenIddict__Certificates__Signing__Path: /certs/provider.pfx
-      OpenIddict__Certificates__Signing__Password: conformance
+      OpenIddict__Certificates__Signing__Password: "${PROVIDER_CERT_PASSWORD:?set PROVIDER_CERT_PASSWORD to the provider.pfx export password}"
       OpenIddict__Certificates__Encryption__Path: /certs/provider.pfx
-      OpenIddict__Certificates__Encryption__Password: conformance
+      OpenIddict__Certificates__Encryption__Password: "${PROVIDER_CERT_PASSWORD:?set PROVIDER_CERT_PASSWORD to the provider.pfx export password}"
     volumes:
       # `z`, not `Z`: on an SELinux-enforcing host the mount needs relabelling
       # to container_file_t, and this PFX is shared by the migrator and the

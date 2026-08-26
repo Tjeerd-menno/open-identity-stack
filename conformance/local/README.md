@@ -54,8 +54,17 @@ Generate the provider certificate. On Git Bash, `MSYS_NO_PATHCONV=1` is required
 MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -nodes -keyout provider.key -out provider.crt -days 825 -subj "/CN=oidc.localtest.me" -addext "subjectAltName=DNS:oidc.localtest.me,DNS:localhost,IP:127.0.0.1"
 ```
 
+The PFX export password, the local Postgres password, and Alice and Bob's seeded passwords are not committed to the compose file — export them before bringing the stack up. The values below are throwaway local-only ones; reuse them verbatim unless you have a reason not to:
+
 ```bash
-MSYS_NO_PATHCONV=1 openssl pkcs12 -export -out provider.pfx -inkey provider.key -in provider.crt -passout pass:conformance
+export PROVIDER_CERT_PASSWORD=conformance
+export POSTGRES_PASSWORD=conformance
+export CONFORMANCE_PASSWORD='Alice!Conformance1'
+export CONFORMANCE_BOB_PASSWORD='Bob!Conformance1'
+```
+
+```bash
+MSYS_NO_PATHCONV=1 openssl pkcs12 -export -out provider.pfx -inkey provider.key -in provider.crt -passout pass:$PROVIDER_CERT_PASSWORD
 ```
 
 Both images run as `USER app`, and under rootless Podman your host UID maps to container root — so a default-umask `0600` PFX is unreadable to the runtime user and both containers fail to start. Make it readable:
@@ -64,7 +73,7 @@ Both images run as `USER app`, and under rootless Podman your host UID maps to c
 chmod 0644 provider.pfx
 ```
 
-That is deliberate for this file only. It is a throwaway self-signed certificate whose password is already published in the compose file below, and it is never the certificate used for the hosted certification run. `provider.key` can stay `0600`; nothing mounts it.
+That is deliberate for this file only. It is a throwaway self-signed certificate whose password is the `PROVIDER_CERT_PASSWORD` exported above, and it is never the certificate used for the hosted certification run. `provider.key` can stay `0600`; nothing mounts it.
 
 On an SELinux-enforcing host the Unix mode is not sufficient on its own, but no extra step is needed: the compose file mounts the PFX with `:ro,z` so Podman relabels it for container access.
 
