@@ -17,10 +17,16 @@ RUN npm run build
 
 FROM --platform=$TARGETPLATFORM nginx:1.29-alpine AS final
 
+RUN apk add --no-cache libcap \
+    && setcap 'cap_net_bind_service=+ep' /usr/sbin/nginx \
+    && apk del libcap
+
 COPY src/OpenIdentityStack.ManagementWeb/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --chmod=755 src/OpenIdentityStack.ManagementWeb/docker-entrypoint.sh /docker-entrypoint.d/40-openidentitystack-runtime-config.sh
-COPY --from=build /workspace/src/OpenIdentityStack.ManagementWeb/dist /usr/share/nginx/html
+COPY --chown=nginx:nginx --from=build /workspace/src/OpenIdentityStack.ManagementWeb/dist /usr/share/nginx/html
 
 EXPOSE 80
+
+USER nginx
 
 CMD ["nginx", "-g", "daemon off;"]
