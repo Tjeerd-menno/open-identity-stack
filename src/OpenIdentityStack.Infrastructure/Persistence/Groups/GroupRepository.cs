@@ -25,6 +25,7 @@ internal sealed class GroupRepository : IGroupRepository
         return await this.dbContext.Groups
             .Include(g => g.Memberships)
             .Include(g => g.Mappings)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(g => g.Id == id, cancellationToken);
     }
 
@@ -34,6 +35,7 @@ internal sealed class GroupRepository : IGroupRepository
         return await this.dbContext.Groups
             .Include(g => g.Memberships)
             .Include(g => g.Mappings)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(g => g.Name == name, cancellationToken);
     }
 

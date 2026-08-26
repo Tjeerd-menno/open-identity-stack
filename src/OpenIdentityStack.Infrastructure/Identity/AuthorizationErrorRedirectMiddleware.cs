@@ -193,9 +193,9 @@ internal static class AuthorizationErrorRedirectHelper
         }
 
 #pragma warning disable CA2012
-        object? application = await applicationManager.FindByClientIdAsync(request.ClientId);
+        object? application = await applicationManager.FindByClientIdAsync(request.ClientId, context.RequestAborted);
         if (application is null
-            || !await applicationManager.ValidateRedirectUriAsync(application, request.RedirectUri))
+            || !await applicationManager.ValidateRedirectUriAsync(application, request.RedirectUri, context.RequestAborted))
         {
             return null;
         }
