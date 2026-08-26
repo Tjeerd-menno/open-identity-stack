@@ -18,7 +18,9 @@ public sealed class SettingsManagementTests : ManagementWebPageTest
         await Page.GetByRole(AriaRole.Heading, new() { Name = "Authentication settings", Exact = true }).WaitForAsync();
         await Page.GetByText("Default sign-in", new() { Exact = true }).WaitForAsync();
         await Page.GetByLabel(new Regex("Local password fallback", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByText("Current configuration", new() { Exact = true }).WaitForAsync();
+        ILocator currentConfig = Page.GetByText("Current configuration", new() { Exact = true });
+        await currentConfig.WaitForAsync();
+        (await currentConfig.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -30,6 +32,8 @@ public sealed class SettingsManagementTests : ManagementWebPageTest
         await Page.GetByLabel(new Regex("Local password fallback", RegexOptions.IgnoreCase))
             .ClickAsync(new LocatorClickOptions { Force = true });
 
-        await Page.GetByText(new Regex("Local fallback updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Local fallback updated", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 }

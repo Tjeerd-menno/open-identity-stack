@@ -61,7 +61,9 @@ public sealed class ApplicationManagementTests : ManagementWebPageTest
         await GotoAsync($"/applications/{_appId}");
         await Page.GetByRole(AriaRole.Heading, new() { Name = _appName, Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { Name = "Configuration", Exact = true }).WaitForAsync();
-        await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Credentials", RegexOptions.IgnoreCase) }).WaitForAsync();
+        ILocator credentialsTab = Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Credentials", RegexOptions.IgnoreCase) });
+        await credentialsTab.WaitForAsync();
+        (await credentialsTab.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -81,6 +83,7 @@ public sealed class ApplicationManagementTests : ManagementWebPageTest
 
         // The modal closes on success and the new application appears in the list.
         await Page.GetByText(display).WaitForAsync();
+        (await Page.GetByText(display).IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -92,7 +95,9 @@ public sealed class ApplicationManagementTests : ManagementWebPageTest
         await Page.GetByRole(AriaRole.Dialog).GetByRole(AriaRole.Button, new() { Name = "Generate secret", Exact = true }).ClickAsync();
 
         await Page.GetByText(new Regex("Client secret created", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByRole(AriaRole.Button, new() { Name = "Copy", Exact = true }).WaitForAsync();
+        ILocator copyButton = Page.GetByRole(AriaRole.Button, new() { Name = "Copy", Exact = true });
+        await copyButton.WaitForAsync();
+        (await copyButton.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -109,6 +114,7 @@ public sealed class ApplicationManagementTests : ManagementWebPageTest
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Save configuration", Exact = true }).ClickAsync();
 
         await dialog.WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        (await dialog.IsVisibleAsync()).ShouldBeFalse();
     }
 
     [Fact]
@@ -122,7 +128,9 @@ public sealed class ApplicationManagementTests : ManagementWebPageTest
         ILocator dialog = Page.GetByRole(AriaRole.Dialog);
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Revoke", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Credential revoked", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator revokedToast = Page.GetByText(new Regex("Credential revoked", RegexOptions.IgnoreCase));
+        await revokedToast.WaitForAsync();
+        (await revokedToast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -139,7 +147,9 @@ public sealed class ApplicationManagementTests : ManagementWebPageTest
         // The same control now re-enables the application.
         await Page.GetByRole(AriaRole.Button, new() { Name = "Enable", Exact = true }).ClickAsync();
         await Page.GetByText(new Regex("Application updated", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByText("Active", new() { Exact = true }).First.WaitForAsync();
+        ILocator activeBadge = Page.GetByText("Active", new() { Exact = true }).First;
+        await activeBadge.WaitForAsync();
+        (await activeBadge.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -152,6 +162,7 @@ public sealed class ApplicationManagementTests : ManagementWebPageTest
         // A term that matches nothing exercises the query round-trip: the row drops out.
         await Page.GetByLabel("Search applications").FillAsync($"no-such-app-{Unique}");
         await Page.GetByText(_appName).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        (await Page.GetByText(_appName).IsVisibleAsync()).ShouldBeFalse();
     }
 
     [Fact]

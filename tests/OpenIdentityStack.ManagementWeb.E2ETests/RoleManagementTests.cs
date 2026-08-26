@@ -41,7 +41,9 @@ public sealed class RoleManagementTests : ManagementWebPageTest
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Permissions", RegexOptions.IgnoreCase) }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).WaitForAsync();
         await Page.GetByText("users", new() { Exact = true }).First.WaitForAsync();
-        await Page.GetByText("read", new() { Exact = true }).First.WaitForAsync();
+        ILocator readSegment = Page.GetByText("read", new() { Exact = true }).First;
+        await readSegment.WaitForAsync();
+        (await readSegment.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -55,7 +57,9 @@ public sealed class RoleManagementTests : ManagementWebPageTest
         await dialog.GetByLabel("Display name").FillAsync("Ops viewer");
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Create role", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Created Ops viewer", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Created Ops viewer", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -85,7 +89,9 @@ public sealed class RoleManagementTests : ManagementWebPageTest
         ILocator dialog = Page.GetByRole(AriaRole.Dialog);
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Delete role", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Role deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Role deleted", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -109,8 +115,10 @@ public sealed class RoleManagementTests : ManagementWebPageTest
         ILocator deleteDialog = Page.GetByRole(AriaRole.Dialog);
         await deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Delete role", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Role deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Role deleted", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
         await Page.WaitForURLAsync(new Regex(@"/roles/?$"));
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -124,7 +132,9 @@ public sealed class RoleManagementTests : ManagementWebPageTest
         await Page.GetByRole(AriaRole.Option, new() { NameRegex = new Regex("users:write", RegexOptions.IgnoreCase) }).ClickAsync();
         await Page.GetByRole(AriaRole.Button, new() { Name = "Add", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Permissions updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Permissions updated", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -137,7 +147,9 @@ public sealed class RoleManagementTests : ManagementWebPageTest
         // The seeded role carries users:read; removing it drops the badge from the family list.
         await Page.GetByRole(AriaRole.Button, new() { Name = "Remove users:read", Exact = true }).ClickAsync();
         await Page.GetByText(new Regex("Permissions updated", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByText("read", new() { Exact = true }).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        ILocator readSegment = Page.GetByText("read", new() { Exact = true });
+        await readSegment.WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        (await readSegment.IsVisibleAsync()).ShouldBeFalse();
     }
 
     [Fact]
@@ -149,6 +161,8 @@ public sealed class RoleManagementTests : ManagementWebPageTest
         await Page.GetByLabel("Display name").FillAsync("Senior Operator");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Save changes", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Role updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Role updated", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 }

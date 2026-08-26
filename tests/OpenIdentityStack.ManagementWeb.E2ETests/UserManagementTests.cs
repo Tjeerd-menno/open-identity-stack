@@ -100,7 +100,9 @@ public sealed class UserManagementTests : ManagementWebPageTest
 
         // Disable the user.
         await Page.GetByRole(AriaRole.Button, new() { Name = "Disable user", Exact = true }).ClickAsync();
-        await Page.GetByText(new Regex("User status updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("User status updated", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -112,7 +114,9 @@ public sealed class UserManagementTests : ManagementWebPageTest
         await Page.GetByText("Operator", new() { Exact = true }).First.WaitForAsync();
 
         await Page.GetByRole(AriaRole.Button, new() { Name = "Remove Operator", Exact = true }).ClickAsync();
-        await Page.GetByText(new Regex("Role removed", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Role removed", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -127,7 +131,9 @@ public sealed class UserManagementTests : ManagementWebPageTest
         await Page.GetByLabel("Subject").FillAsync("google-subject-12345");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Link", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Identity linked", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Identity linked", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -137,7 +143,9 @@ public sealed class UserManagementTests : ManagementWebPageTest
         await Page.GetByRole(AriaRole.Heading, new() { Name = _alanName, Exact = true }).WaitForAsync();
 
         await Page.GetByRole(AriaRole.Button, new() { Name = "Enable user", Exact = true }).ClickAsync();
-        await Page.GetByText(new Regex("User status updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("User status updated", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -150,7 +158,9 @@ public sealed class UserManagementTests : ManagementWebPageTest
         // Narrow to Grace; Ada no longer matches and drops out.
         await Page.GetByLabel("Search users").FillAsync(_graceName);
         await Page.GetByText(_graceName).WaitForAsync();
-        await Page.GetByText(_adaName).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        ILocator adaRow = Page.GetByText(_adaName);
+        await adaRow.WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        (await adaRow.IsVisibleAsync()).ShouldBeFalse();
     }
 
     [Fact]
@@ -166,7 +176,9 @@ public sealed class UserManagementTests : ManagementWebPageTest
         await dialog.GetByLabel(new Regex("Temporary password", RegexOptions.IgnoreCase)).FillAsync("Temp1234!Temp");
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Create user", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex($"Created {Regex.Escape(name)}", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex($"Created {Regex.Escape(name)}", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -185,7 +197,9 @@ public sealed class UserManagementTests : ManagementWebPageTest
         ILocator dialog = Page.GetByRole(AriaRole.Dialog);
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Delete user", Exact = true }).ClickAsync();
         await Page.GetByText(new Regex("User deleted", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByText(_graceName).WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        ILocator graceRow = Page.GetByText(_graceName);
+        await graceRow.WaitForAsync(new() { State = WaitForSelectorState.Detached });
+        (await graceRow.IsVisibleAsync()).ShouldBeFalse();
     }
 
     [Fact]
@@ -205,7 +219,9 @@ public sealed class UserManagementTests : ManagementWebPageTest
         // The unlink button is labelled with the provider's stored name; match the single
         // identity row's button by its "Unlink …" prefix rather than the display name.
         await Page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^Unlink ", RegexOptions.IgnoreCase) }).First.ClickAsync();
-        await Page.GetByText(new Regex("Identity unlinked", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Identity unlinked", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     private static readonly string[] OpenidScope = ["openid"];

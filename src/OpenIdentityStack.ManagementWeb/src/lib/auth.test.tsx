@@ -140,7 +140,7 @@ describe('AuthProvider current user permissions', () => {
       </AuthProvider>
     );
 
-    await screen.findByText('Unable to load your authorization state.');
+    expect(await screen.findByText('Unable to load your authorization state.')).toBeInTheDocument();
   });
 
   it('refetches /api/me when oidc-client-ts raises a loaded user with a changed access token', async () => {

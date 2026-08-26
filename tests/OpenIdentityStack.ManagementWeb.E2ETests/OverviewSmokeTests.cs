@@ -37,7 +37,9 @@ public sealed class OverviewSmokeTests : ManagementWebPageTest
 
         // The seeded user creation is the newest audited action, so it heads the recent feed.
         await Page.GetByText("Recent activity", new() { Exact = true }).WaitForAsync();
-        await Page.GetByText("User.Created", new() { Exact = true }).First.WaitForAsync();
+        ILocator latestActivity = Page.GetByText("User.Created", new() { Exact = true }).First;
+        await latestActivity.WaitForAsync();
+        (await latestActivity.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]

@@ -47,7 +47,9 @@ public sealed class ProviderManagementTests : ManagementWebPageTest
         await GotoAsync($"/providers/{_providerId}");
         await Page.GetByRole(AriaRole.Heading, new() { Name = _providerDisplay, Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { Name = "Connection", Exact = true }).WaitForAsync();
-        await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).WaitForAsync();
+        ILocator settingsTab = Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true });
+        await settingsTab.WaitForAsync();
+        (await settingsTab.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -64,7 +66,9 @@ public sealed class ProviderManagementTests : ManagementWebPageTest
         await dialog.GetByLabel("Client ID").FillAsync("0oa1northwind");
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Add provider", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex($"Added {Regex.Escape(display)}", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex($"Added {Regex.Escape(display)}", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -77,7 +81,9 @@ public sealed class ProviderManagementTests : ManagementWebPageTest
         await row.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).ClickAsync();
         await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Disable provider", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Provider updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Provider updated", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -87,7 +93,9 @@ public sealed class ProviderManagementTests : ManagementWebPageTest
         await Page.GetByRole(AriaRole.Tab, new() { Name = "Settings", Exact = true }).ClickAsync();
         await Page.GetByLabel("Just-in-time provisioning").ClickAsync(new LocatorClickOptions { Force = true });
 
-        await Page.GetByText(new Regex("Provider updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Provider updated", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -101,6 +109,8 @@ public sealed class ProviderManagementTests : ManagementWebPageTest
         ILocator deleteDialog = Page.GetByRole(AriaRole.Dialog);
         await deleteDialog.GetByRole(AriaRole.Button, new() { Name = "Delete provider", Exact = true }).ClickAsync();
 
-        await Page.GetByText(new Regex("Provider deleted", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Provider deleted", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 }

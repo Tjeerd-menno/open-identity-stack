@@ -58,7 +58,9 @@ public sealed class ApplicationPermissionsManagementTests : ManagementWebPageTes
         await GotoAsync($"/application-permissions/{_registrationId}");
         await Page.GetByRole(AriaRole.Heading, new() { Name = _appDisplay, Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Permissions", RegexOptions.IgnoreCase) }).WaitForAsync();
-        await Page.GetByText("orders:read").WaitForAsync();
+        ILocator permissionKey = Page.GetByText("orders:read");
+        await permissionKey.WaitForAsync();
+        (await permissionKey.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -79,7 +81,9 @@ public sealed class ApplicationPermissionsManagementTests : ManagementWebPageTes
 
         // Registration navigates to the new application's permission detail page.
         await Page.WaitForURLAsync(new Regex(@"/application-permissions/[^/]+$"));
-        await Page.GetByRole(AriaRole.Heading, new() { Name = display, Exact = true }).WaitForAsync();
+        ILocator heading = Page.GetByRole(AriaRole.Heading, new() { Name = display, Exact = true });
+        await heading.WaitForAsync();
+        (await heading.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -89,7 +93,9 @@ public sealed class ApplicationPermissionsManagementTests : ManagementWebPageTes
         await Page.GetByRole(AriaRole.Heading, new() { Name = _appDisplay, Exact = true }).WaitForAsync();
 
         await Page.GetByRole(AriaRole.Button, new() { Name = "Disable", Exact = true }).ClickAsync();
-        await Page.GetByText(new Regex("Application updated", RegexOptions.IgnoreCase)).WaitForAsync();
+        ILocator toast = Page.GetByText(new Regex("Application updated", RegexOptions.IgnoreCase));
+        await toast.WaitForAsync();
+        (await toast.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -104,7 +110,9 @@ public sealed class ApplicationPermissionsManagementTests : ManagementWebPageTes
 
         await Page.GetByRole(AriaRole.Button, new() { Name = "Enable", Exact = true }).ClickAsync();
         await Page.GetByText(new Regex("Application updated", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByText("Active", new() { Exact = true }).First.WaitForAsync();
+        ILocator activeBadge = Page.GetByText("Active", new() { Exact = true }).First;
+        await activeBadge.WaitForAsync();
+        (await activeBadge.IsVisibleAsync()).ShouldBeTrue();
     }
 
     [Fact]
@@ -113,6 +121,8 @@ public sealed class ApplicationPermissionsManagementTests : ManagementWebPageTes
         await GotoAsync($"/application-permissions/{_registrationId}");
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Maintainers", RegexOptions.IgnoreCase) }).ClickAsync();
         await Page.GetByText(new Regex("No delegated maintainers", RegexOptions.IgnoreCase)).WaitForAsync();
-        await Page.GetByText(_ownerId).WaitForAsync();
+        ILocator ownerFallback = Page.GetByText(_ownerId);
+        await ownerFallback.WaitForAsync();
+        (await ownerFallback.IsVisibleAsync()).ShouldBeTrue();
     }
 }

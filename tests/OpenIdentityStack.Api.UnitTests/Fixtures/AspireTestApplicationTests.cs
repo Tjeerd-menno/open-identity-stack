@@ -9,7 +9,8 @@ public sealed class AspireTestApplicationTests
     {
         using HttpClient client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.Redirect));
 
-        await AspireTestApplication.WaitForHttpReadyAsync(client, TimeSpan.FromSeconds(1), "/ready");
+        await Should.NotThrowAsync(() =>
+            AspireTestApplication.WaitForHttpReadyAsync(client, TimeSpan.FromSeconds(1), "/ready"));
     }
 
     [Fact]
