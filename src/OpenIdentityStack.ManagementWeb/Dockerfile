@@ -24,7 +24,7 @@ RUN apk add --no-cache libcap \
 
 COPY src/OpenIdentityStack.ManagementWeb/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --chmod=755 src/OpenIdentityStack.ManagementWeb/docker-entrypoint.sh /docker-entrypoint.d/40-openidentitystack-runtime-config.sh
-COPY --chown=nginx:nginx --from=build /workspace/src/OpenIdentityStack.ManagementWeb/dist /usr/share/nginx/html
+COPY --chmod=755 --from=build /workspace/src/OpenIdentityStack.ManagementWeb/dist /usr/share/nginx/html
 
 EXPOSE 80
 
