@@ -205,10 +205,3 @@ if (incomplete.Length > 0)
 }
 
 return results.Any(r => r.Result == "FAILED") ? 1 : 0;
-
-internal sealed record TestResult(
-    string Module,
-    string? TestId,
-    string? Status,
-    string? Result,
-    IReadOnlyList<string> BrowserNotes);

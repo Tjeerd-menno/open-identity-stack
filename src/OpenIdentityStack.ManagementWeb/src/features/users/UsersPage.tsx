@@ -187,7 +187,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
   const form = useForm({
     initialValues: { email: '', displayName: '', password: '' },
     validate: {
-      email: (value) => (/^\S+@\S+\.\S+$/.test(value) ? null : 'Enter a valid email'),
+      email: (value) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : 'Enter a valid email'),
       displayName: (value) => (value.trim().length > 0 ? null : 'Required'),
       password: (value) => (value.length >= 12 ? null : 'Use at least 12 characters'),
     },

@@ -85,6 +85,7 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
         return await this.dbContext.RegisteredApplications
             .Include(s => s.Permissions)
             .Include(s => s.Maintainers)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
 
@@ -94,6 +95,7 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
         return await this.dbContext.RegisteredApplications
             .Include(s => s.Permissions)
             .Include(s => s.Maintainers)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(s => s.ApplicationIdentifier == normalized, cancellationToken);
     }
 
@@ -102,6 +104,7 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
         return await this.dbContext.RegisteredApplications
             .Include(s => s.Permissions)
             .Include(s => s.Maintainers)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(s => s.Permissions.Any(p => p.Id == permissionId), cancellationToken);
     }
 

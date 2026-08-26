@@ -46,7 +46,7 @@ dotnet test \
 
 TEST_RESULT=$?
 
-if [ $TEST_RESULT -ne 0 ] && [ $TEST_RESULT -ne 2 ]; then
+if [[ $TEST_RESULT -ne 0 && $TEST_RESULT -ne 2 ]]; then
     echo -e "${RED}Tests failed with exit code $TEST_RESULT${NC}"
     # Continue to generate report even if tests fail (exit code 2 means test failures but coverage was generated)
 fi

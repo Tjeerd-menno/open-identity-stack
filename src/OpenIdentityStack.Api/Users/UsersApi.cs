@@ -154,7 +154,7 @@ internal static class UsersApi
             request.Password,
             GetActorId(context),
             request.Profile is null ? null : ToUserProfileData(request.Profile));
-        Result<CreateUserResult> result = await createUserUseCase.ExecuteAsync(command);
+        Result<CreateUserResult> result = await createUserUseCase.ExecuteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -239,7 +239,7 @@ internal static class UsersApi
         {
             command = command with { Profile = ToUserProfileData(request.Profile) };
         }
-        Result<UpdateUserResult> result = await updateUserUseCase.ExecuteAsync(command);
+        Result<UpdateUserResult> result = await updateUserUseCase.ExecuteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -255,7 +255,7 @@ internal static class UsersApi
         Guid id)
     {
         var command = new DeleteUserCommand(new UserId(id), GetActorId(context));
-        Result result = await deleteUserUseCase.ExecuteAsync(command);
+        Result result = await deleteUserUseCase.ExecuteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -272,7 +272,7 @@ internal static class UsersApi
         [FromBody] DisableUserRequest request)
     {
         var command = new DisableUserCommand(new UserId(id), request.Reason, GetActorId(context));
-        Result<DisableUserResult> result = await disableUserUseCase.ExecuteAsync(command);
+        Result<DisableUserResult> result = await disableUserUseCase.ExecuteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -288,7 +288,7 @@ internal static class UsersApi
         Guid id)
     {
         var command = new EnableUserCommand(new UserId(id), GetActorId(context));
-        Result<EnableUserResult> result = await enableUserUseCase.ExecuteAsync(command);
+        Result<EnableUserResult> result = await enableUserUseCase.ExecuteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -305,7 +305,7 @@ internal static class UsersApi
         [FromBody] ResetPasswordRequest request)
     {
         var command = new ResetPasswordCommand(new UserId(id), request.NewPassword, GetActorId(context));
-        Result<ResetPasswordResult> result = await resetPasswordUseCase.ExecuteAsync(command);
+        Result<ResetPasswordResult> result = await resetPasswordUseCase.ExecuteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -363,7 +363,7 @@ internal static class UsersApi
         Guid roleId)
     {
         var command = new AssignRoleCommand(new UserId(userId), new RoleId(roleId), GetActorId(context));
-        Result result = await assignRoleUseCase.ExecuteAsync(command);
+        Result result = await assignRoleUseCase.ExecuteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -380,7 +380,7 @@ internal static class UsersApi
         Guid roleId)
     {
         var command = new UnassignRoleCommand(new UserId(userId), new RoleId(roleId), GetActorId(context));
-        Result result = await unassignRoleUseCase.ExecuteAsync(command);
+        Result result = await unassignRoleUseCase.ExecuteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -428,7 +428,7 @@ internal static class UsersApi
             Email: request.Email,
             ActorId: GetActorId(context));
 
-        Result<LinkUpstreamIdentityResult> result = await linkUpstreamIdentityUseCase.ExecuteAsync(command);
+        Result<LinkUpstreamIdentityResult> result = await linkUpstreamIdentityUseCase.ExecuteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -455,7 +455,7 @@ internal static class UsersApi
             new UpstreamProviderId(providerId),
             GetActorId(context));
 
-        Result<UnlinkUpstreamIdentityResult> result = await unlinkUpstreamIdentityUseCase.ExecuteAsync(command);
+        Result<UnlinkUpstreamIdentityResult> result = await unlinkUpstreamIdentityUseCase.ExecuteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {

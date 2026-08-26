@@ -246,7 +246,8 @@ internal static class GroupsApi
         Guid userId)
     {
         Result result = await addUserToGroupUseCase.ExecuteAsync(
-            new AddUserToGroupCommand(new GroupId(id), new UserId(userId), GetCurrentUserId(httpContext)));
+            new AddUserToGroupCommand(new GroupId(id), new UserId(userId), GetCurrentUserId(httpContext)),
+            httpContext.RequestAborted);
         if (!result.IsSuccess)
         {
             return MapFailure(result.Error);
