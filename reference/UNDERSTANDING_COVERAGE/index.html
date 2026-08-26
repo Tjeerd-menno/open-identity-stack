@@ -1,0 +1,3817 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="OpenIdentityStack documentation for identity operators and platform teams.">
+      
+      
+      
+        <link rel="canonical" href="https://tjeerd-menno.github.io/open-identity-stack/reference/UNDERSTANDING_COVERAGE/">
+      
+      
+        <link rel="prev" href="../TESTING-STRATEGY/">
+      
+      
+        <link rel="next" href="../GHCR-PUBLISHING/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.5">
+    
+    
+      
+        <title>Coverage interpretation - OpenIdentityStack</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.8608ea7d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#understanding-code-coverage-reports" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="OpenIdentityStack" class="md-header__button md-logo" aria-label="OpenIdentityStack" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenIdentityStack
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Coverage interpretation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-hidden="true"  type="radio" name="__palette" id="__palette_1">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Tjeerd-menno/open-identity-stack" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Tjeerd-menno/open-identity-stack
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="OpenIdentityStack" class="md-nav__button md-logo" aria-label="OpenIdentityStack" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenIdentityStack
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Tjeerd-menno/open-identity-stack" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Tjeerd-menno/open-identity-stack
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Getting started
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Getting started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/guided-setup/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Guided setup
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quick-start/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick start
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Features
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Features
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Installation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/local/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Local development
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/containers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Containers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/production/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Production (Kubernetes)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/windows-service/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Windows service
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../configuration/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Configuration
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Configuration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/runtime-settings/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Runtime settings
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/environment-variables/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Environment variables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../operations/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Operations
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Operations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/health-and-observability/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Health and observability
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/database-operations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Database operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/upgrades/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrades
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications-migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Applications migration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Administration
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Administration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin-applications/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Applications
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/users-and-roles/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Users and roles
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/groups-and-delegation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Groups and delegation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/clients/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Client applications
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/service-accounts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service accounts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/federation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Federation providers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/sessions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Sessions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Management Web
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Management Web
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../management-web/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../integrations/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Integrations
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Integrations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/web-app-oidc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web app OIDC integration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/api-protection/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API protection
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/machine-to-machine/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Machine-to-machine access
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/verify-integration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Verify an integration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            Troubleshooting
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/startup-failures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Startup failures
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/database-and-migration-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Database and migration issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/login-and-token-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Login and token issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/certificates-and-key-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificates and key issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/reverse-proxy-and-cors-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Reverse proxy and CORS issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/clients-and-service-accounts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Clients and service accounts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Security
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Security
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/hardening-checklist/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hardening checklist
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/secrets-management/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Secrets management
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/certificates-and-keys/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificates and keys
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/backup-and-recovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Backup and recovery
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" checked>
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_2" id="__nav_12_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Product reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_2">
+            <span class="md-nav__icon md-icon"></span>
+            Product reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../endpoint-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Endpoint reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../standards-and-flows/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Standards and flows
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../glossary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Glossary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_12_3" id="__nav_12_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Internal reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_12_3">
+            <span class="md-nav__icon md-icon"></span>
+            Internal reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API-VS-CONTRACT-TESTING-SUMMARY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API vs Contract Testing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CODE_COVERAGE_GUIDE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Code coverage guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CODE_COVERAGE_SUMMARY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage summary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CODE_COVERAGE_ANALYSIS/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONTRACT-TEST-MIGRATION-GUIDE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Contract test migration guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TESTING-STRATEGY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Testing strategy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Coverage interpretation
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Coverage interpretation
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#coverage-report-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coverage Report Structure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-dashboard-indexhtml" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reading the Dashboard (index.html)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reading the Dashboard (index.html)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      Main Metrics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#color-coding" class="md-nav__link">
+    <span class="md-ellipsis">
+      Color Coding
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#understanding-coverage-percentages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Understanding Coverage Percentages
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Understanding Coverage Percentages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#line-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Line Coverage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#branch-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Branch Coverage
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-patterns-in-coverage-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Patterns in Coverage Reports
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Patterns in Coverage Reports">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pattern-1-high-method-coverage-low-line-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pattern 1: High Method Coverage, Low Line Coverage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pattern-2-high-line-coverage-low-branch-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pattern 2: High Line Coverage, Low Branch Coverage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pattern-3-0-coverage-on-entire-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pattern 3: 0% Coverage on Entire Feature
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#drilling-down-into-low-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Drilling Down into Low Coverage
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Drilling Down into Low Coverage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-find-the-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Find the Class
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-view-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: View Details
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-identify-missing-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Identify Missing Tests
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-coverage-doesnt-tell-you" class="md-nav__link">
+    <span class="md-ellipsis">
+      What Coverage Doesn't Tell You
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What Coverage Doesn't Tell You">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#high-coverage-good-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      ⚠️ High Coverage ≠ Good Tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coverage-doesnt-measure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coverage Doesn't Measure
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#improving-coverage-strategically" class="md-nav__link">
+    <span class="md-ellipsis">
+      Improving Coverage Strategically
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Improving Coverage Strategically">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#priority-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      Priority Framework
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dont-over-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Don't Over-Test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#taking-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      Taking Action
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Taking Action">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#for-classes-with-0-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Classes with 0% Coverage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-classes-with-partial-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Classes with Partial Coverage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-improving-clientrepository-from-40-to-90" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Improving ClientRepository from 40% to 90%
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-coverage-in-code-reviews" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Coverage in Code Reviews
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using Coverage in Code Reviews">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before-merging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before Merging
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coverage-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coverage Gates
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tools-and-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tools and Commands
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tools and Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generate-coverage-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generate Coverage Report
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#view-coverage-for-specific-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      View Coverage for Specific Project
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compare-coverage-over-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compare Coverage Over Time
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#do" class="md-nav__link">
+    <span class="md-ellipsis">
+      ✅ Do
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dont" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Don't
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coverage-shows-0-but-i-have-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      "Coverage shows 0% but I have tests"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coverage-report-not-generating" class="md-nav__link">
+    <span class="md-ellipsis">
+      "Coverage report not generating"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coverage-decreased-after-refactoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      "Coverage decreased after refactoring"
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GHCR-PUBLISHING/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GHCR publishing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../OPENIDENTITYSTACK_PRODUCTION/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Production config guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../engineering/application-permission-transaction-notes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Application permission transaction notes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_4" id="__nav_12_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Architecture decisions
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_4">
+            <span class="md-nav__icon md-icon"></span>
+            Architecture decisions
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-dual-admin-ui-strategy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dual admin UI strategy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-dual-host-management-ui/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dual-host management UI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0003-unified-release-train-for-breaking-api-changes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Unified release train for breaking API changes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_5" id="__nav_12_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Certification workbench
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_5">
+            <span class="md-nav__icon md-icon"></span>
+            Certification workbench
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../certification/oidf-negative-review-automation-plan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OIDC negative review automation plan
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../certification/openid-connect-certification-scope/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OpenID Connect certification scope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../certification/run-oidf-conformance-suite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OIDC conformance suite
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#coverage-report-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coverage Report Structure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-dashboard-indexhtml" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reading the Dashboard (index.html)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reading the Dashboard (index.html)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      Main Metrics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#color-coding" class="md-nav__link">
+    <span class="md-ellipsis">
+      Color Coding
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#understanding-coverage-percentages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Understanding Coverage Percentages
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Understanding Coverage Percentages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#line-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Line Coverage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#branch-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Branch Coverage
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-patterns-in-coverage-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Patterns in Coverage Reports
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Patterns in Coverage Reports">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pattern-1-high-method-coverage-low-line-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pattern 1: High Method Coverage, Low Line Coverage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pattern-2-high-line-coverage-low-branch-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pattern 2: High Line Coverage, Low Branch Coverage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pattern-3-0-coverage-on-entire-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pattern 3: 0% Coverage on Entire Feature
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#drilling-down-into-low-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Drilling Down into Low Coverage
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Drilling Down into Low Coverage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-find-the-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Find the Class
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-view-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: View Details
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-identify-missing-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Identify Missing Tests
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-coverage-doesnt-tell-you" class="md-nav__link">
+    <span class="md-ellipsis">
+      What Coverage Doesn't Tell You
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What Coverage Doesn't Tell You">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#high-coverage-good-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      ⚠️ High Coverage ≠ Good Tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coverage-doesnt-measure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coverage Doesn't Measure
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#improving-coverage-strategically" class="md-nav__link">
+    <span class="md-ellipsis">
+      Improving Coverage Strategically
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Improving Coverage Strategically">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#priority-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      Priority Framework
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dont-over-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Don't Over-Test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#taking-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      Taking Action
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Taking Action">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#for-classes-with-0-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Classes with 0% Coverage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-classes-with-partial-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Classes with Partial Coverage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-improving-clientrepository-from-40-to-90" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Improving ClientRepository from 40% to 90%
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-coverage-in-code-reviews" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Coverage in Code Reviews
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using Coverage in Code Reviews">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before-merging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before Merging
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coverage-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coverage Gates
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tools-and-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tools and Commands
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tools and Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generate-coverage-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generate Coverage Report
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#view-coverage-for-specific-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      View Coverage for Specific Project
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compare-coverage-over-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compare Coverage Over Time
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#do" class="md-nav__link">
+    <span class="md-ellipsis">
+      ✅ Do
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dont" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Don't
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coverage-shows-0-but-i-have-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      "Coverage shows 0% but I have tests"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coverage-report-not-generating" class="md-nav__link">
+    <span class="md-ellipsis">
+      "Coverage report not generating"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coverage-decreased-after-refactoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      "Coverage decreased after refactoring"
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="understanding-code-coverage-reports">Understanding Code Coverage Reports<a class="headerlink" href="#understanding-code-coverage-reports" title="Permanent link">&para;</a></h1>
+<p>This guide helps you interpret and act on code coverage reports generated for the OpenIdentityStack solution.</p>
+<h2 id="coverage-report-structure">Coverage Report Structure<a class="headerlink" href="#coverage-report-structure" title="Permanent link">&para;</a></h2>
+<p>When you run <code>./scripts/coverage.sh</code> or <code>./scripts/coverage.ps1</code>, several files are generated:</p>
+<div class="highlight"><pre><span></span><code>coverage-report/
+├── index.html              # Main coverage dashboard (open this in browser)
+├── Summary.txt             # Text summary of coverage by class
+├── Summary.md              # Markdown summary
+├── badge_linecoverage.svg  # Coverage badge image
+├── badge_branchcoverage.svg
+└── OpenIdentityStack.*.html     # Per-class coverage details
+</code></pre></div>
+<h2 id="reading-the-dashboard-indexhtml">Reading the Dashboard (index.html)<a class="headerlink" href="#reading-the-dashboard-indexhtml" title="Permanent link">&para;</a></h2>
+<h3 id="main-metrics">Main Metrics<a class="headerlink" href="#main-metrics" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>What It Means</th>
+<th>Good Target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Line Coverage</strong></td>
+<td>% of code lines executed during tests</td>
+<td>80%+</td>
+</tr>
+<tr>
+<td><strong>Branch Coverage</strong></td>
+<td>% of decision branches tested (if/else)</td>
+<td>70%+</td>
+</tr>
+<tr>
+<td><strong>Method Coverage</strong></td>
+<td>% of methods called at least once</td>
+<td>75%+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="color-coding">Color Coding<a class="headerlink" href="#color-coding" title="Permanent link">&para;</a></h3>
+<ul>
+<li>🟢 <strong>Green (80-100%)</strong> - Excellent coverage</li>
+<li>🟡 <strong>Yellow (60-79%)</strong> - Acceptable but improvable</li>
+<li>🟠 <strong>Orange (40-59%)</strong> - Needs attention</li>
+<li>🔴 <strong>Red (0-39%)</strong> - Critical gap</li>
+</ul>
+<h2 id="understanding-coverage-percentages">Understanding Coverage Percentages<a class="headerlink" href="#understanding-coverage-percentages" title="Permanent link">&para;</a></h2>
+<h3 id="line-coverage">Line Coverage<a class="headerlink" href="#line-coverage" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">public</span><span class="w"> </span><span class="n">Result</span><span class="o">&lt;</span><span class="n">User</span><span class="o">&gt;</span><span class="w"> </span><span class="n">CreateUser</span><span class="p">(</span><span class="kt">string</span><span class="w"> </span><span class="n">email</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="n">name</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">.</span><span class="n">IsNullOrEmpty</span><span class="p">(</span><span class="n">email</span><span class="p">))</span><span class="w">        </span><span class="c1">// Line 1 ✅</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">UserErrors</span><span class="p">.</span><span class="n">EmailRequired</span><span class="p">;</span><span class="w">    </span><span class="c1">// Line 2 ✅</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">.</span><span class="n">IsNullOrEmpty</span><span class="p">(</span><span class="n">name</span><span class="p">))</span><span class="w">         </span><span class="c1">// Line 3 ❌ Not covered</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">UserErrors</span><span class="p">.</span><span class="n">NameRequired</span><span class="p">;</span><span class="w">     </span><span class="c1">// Line 4 ❌ Not covered</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">User</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span><span class="n">email</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">);</span><span class="w">        </span><span class="c1">// Line 5 ✅</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><strong>Line Coverage: 60%</strong> (3 of 5 lines covered)</p>
+<p>The test only validates the email check, missing the name validation path.</p>
+<h3 id="branch-coverage">Branch Coverage<a class="headerlink" href="#branch-coverage" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">public</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="nf">GetStatus</span><span class="p">(</span><span class="kt">bool</span><span class="w"> </span><span class="n">isActive</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">isVerified</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">isActive</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">isVerified</span><span class="p">)</span><span class="w">             </span><span class="c1">// Branch point</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;Active&quot;</span><span class="p">;</span><span class="w">                     </span><span class="c1">// Branch 1 ✅</span>
+<span class="w">    </span><span class="k">else</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;Inactive&quot;</span><span class="p">;</span><span class="w">                   </span><span class="c1">// Branch 2 ✅</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><strong>Branch Coverage: 100%</strong> (both paths tested)</p>
+<p>To achieve 100% branch coverage, you need tests for:
+- <code>isActive=true, isVerified=true</code> → "Active"
+- <code>isActive=false, isVerified=false</code> → "Inactive"
+- <code>isActive=true, isVerified=false</code> → "Inactive"
+- <code>isActive=false, isVerified=true</code> → "Inactive"</p>
+<h2 id="common-patterns-in-coverage-reports">Common Patterns in Coverage Reports<a class="headerlink" href="#common-patterns-in-coverage-reports" title="Permanent link">&para;</a></h2>
+<h3 id="pattern-1-high-method-coverage-low-line-coverage">Pattern 1: High Method Coverage, Low Line Coverage<a class="headerlink" href="#pattern-1-high-method-coverage-low-line-coverage" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Method Coverage: 95%
+Line Coverage: 45%
+</code></pre></div>
+<p><strong>Meaning:</strong> Most methods are called, but many code paths within methods aren't tested.</p>
+<p><strong>Action:</strong> Focus on testing all branches and paths within existing test methods.</p>
+<h3 id="pattern-2-high-line-coverage-low-branch-coverage">Pattern 2: High Line Coverage, Low Branch Coverage<a class="headerlink" href="#pattern-2-high-line-coverage-low-branch-coverage" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Line Coverage: 85%
+Branch Coverage: 40%
+</code></pre></div>
+<p><strong>Meaning:</strong> Most code is executed, but error/edge cases aren't tested.</p>
+<p><strong>Action:</strong> Add tests for:
+- Error conditions
+- Validation failures
+- Edge cases (null, empty, boundary values)</p>
+<h3 id="pattern-3-0-coverage-on-entire-feature">Pattern 3: 0% Coverage on Entire Feature<a class="headerlink" href="#pattern-3-0-coverage-on-entire-feature" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>ClientRepository: 0%
+CreateClientUseCase: 0%
+UpdateClientUseCase: 0%
+</code></pre></div>
+<p><strong>Meaning:</strong> Feature is completely untested.</p>
+<p><strong>Action:</strong> This is the highest priority. Start with basic happy-path tests, then expand to edge cases.</p>
+<h2 id="drilling-down-into-low-coverage">Drilling Down into Low Coverage<a class="headerlink" href="#drilling-down-into-low-coverage" title="Permanent link">&para;</a></h2>
+<h3 id="step-1-find-the-class">Step 1: Find the Class<a class="headerlink" href="#step-1-find-the-class" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Open <code>coverage-report/index.html</code></li>
+<li>Click on assembly (e.g., "OpenIdentityStack.Infrastructure")</li>
+<li>Find classes with low coverage (red/orange)</li>
+</ol>
+<h3 id="step-2-view-details">Step 2: View Details<a class="headerlink" href="#step-2-view-details" title="Permanent link">&para;</a></h3>
+<p>Click on a class name to see line-by-line coverage:</p>
+<div class="highlight"><pre><span></span><code><span class="mi">1</span><span class="w">  </span><span class="err">✅</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">ClientRepository</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">IClientRepository</span>
+<span class="mi">2</span><span class="w">  </span><span class="err">✅</span><span class="w"> </span><span class="p">{</span>
+<span class="mi">3</span><span class="w">  </span><span class="err">✅</span><span class="w">     </span><span class="k">private</span><span class="w"> </span><span class="k">readonly</span><span class="w"> </span><span class="n">OpenIdentityStackDbContext</span><span class="w"> </span><span class="n">_context</span><span class="p">;</span>
+<span class="mi">4</span>
+<span class="mi">5</span><span class="w">  </span><span class="err">✅</span><span class="w">     </span><span class="k">public</span><span class="w"> </span><span class="n">ClientRepository</span><span class="p">(</span><span class="n">OpenIdentityStackDbContext</span><span class="w"> </span><span class="n">context</span><span class="p">)</span>
+<span class="mi">6</span><span class="w">  </span><span class="err">✅</span><span class="w">     </span><span class="p">{</span>
+<span class="mi">7</span><span class="w">  </span><span class="err">✅</span><span class="w">         </span><span class="n">_context</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">context</span><span class="p">;</span>
+<span class="mi">8</span><span class="w">  </span><span class="err">✅</span><span class="w">     </span><span class="p">}</span>
+<span class="mi">9</span>
+<span class="mi">10</span><span class="w"> </span><span class="err">✅</span><span class="w">     </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="o">&lt;</span><span class="n">Client</span><span class="o">?&gt;</span><span class="w"> </span><span class="n">GetByIdAsync</span><span class="p">(</span><span class="n">ClientId</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="w"> </span><span class="n">ct</span><span class="p">)</span>
+<span class="mi">11</span><span class="w"> </span><span class="err">✅</span><span class="w">     </span><span class="p">{</span>
+<span class="mi">12</span><span class="w"> </span><span class="err">✅</span><span class="w">         </span><span class="k">return</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">Clients</span>
+<span class="mi">13</span><span class="w"> </span><span class="err">✅</span><span class="w">             </span><span class="p">.</span><span class="n">FirstOrDefaultAsync</span><span class="p">(</span><span class="n">c</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">Id</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">ct</span><span class="p">);</span>
+<span class="mi">14</span><span class="w"> </span><span class="err">✅</span><span class="w">     </span><span class="p">}</span>
+<span class="mi">15</span>
+<span class="mi">16</span><span class="w"> </span><span class="err">❌</span><span class="w">     </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="o">&lt;</span><span class="n">Client</span><span class="o">?&gt;</span><span class="w"> </span><span class="n">GetByNameAsync</span><span class="p">(</span><span class="kt">string</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="w"> </span><span class="n">ct</span><span class="p">)</span>
+<span class="mi">17</span><span class="w"> </span><span class="err">❌</span><span class="w">     </span><span class="p">{</span>
+<span class="mi">18</span><span class="w"> </span><span class="err">❌</span><span class="w">         </span><span class="k">return</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">Clients</span>
+<span class="mi">19</span><span class="w"> </span><span class="err">❌</span><span class="w">             </span><span class="p">.</span><span class="n">FirstOrDefaultAsync</span><span class="p">(</span><span class="n">c</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">Name</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">ct</span><span class="p">);</span>
+<span class="mi">20</span><span class="w"> </span><span class="err">❌</span><span class="w">     </span><span class="p">}</span>
+<span class="mi">21</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p><strong>Analysis:</strong>
+- <code>GetByIdAsync</code> is fully tested ✅
+- <code>GetByNameAsync</code> has no tests ❌</p>
+<p><strong>Action:</strong> Add test for <code>GetByNameAsync</code>.</p>
+<h3 id="step-3-identify-missing-tests">Step 3: Identify Missing Tests<a class="headerlink" href="#step-3-identify-missing-tests" title="Permanent link">&para;</a></h3>
+<p>Look for patterns:
+- ❌ All lines red → No tests exist
+- ❌ Red lines in if/else → Missing branch tests
+- ❌ Red lines in error handling → Missing error case tests
+- ❌ Red lines in loops → Missing iteration tests</p>
+<h2 id="what-coverage-doesnt-tell-you">What Coverage Doesn't Tell You<a class="headerlink" href="#what-coverage-doesnt-tell-you" title="Permanent link">&para;</a></h2>
+<h3 id="high-coverage-good-tests">⚠️ High Coverage ≠ Good Tests<a class="headerlink" href="#high-coverage-good-tests" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1">// Bad test with 100% coverage</span>
+<span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">CreateUser_ShouldNotThrow</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">User</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span><span class="s">&quot;test@test.com&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Test User&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">// Achieves 100% coverage but validates nothing!</span>
+<span class="p">}</span>
+
+<span class="c1">// Good test with 100% coverage</span>
+<span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">CreateUser_WithValidData_ShouldSucceed</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">User</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span><span class="s">&quot;test@test.com&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Test User&quot;</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">IsSuccess</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">.</span><span class="n">Email</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="s">&quot;test@test.com&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">.</span><span class="n">DisplayName</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="s">&quot;Test User&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="coverage-doesnt-measure">Coverage Doesn't Measure<a class="headerlink" href="#coverage-doesnt-measure" title="Permanent link">&para;</a></h3>
+<ul>
+<li>❌ <strong>Test Quality</strong> - Tests could pass without asserting anything</li>
+<li>❌ <strong>Test Maintainability</strong> - Brittle tests can break easily</li>
+<li>❌ <strong>Integration Testing</strong> - Components working together</li>
+<li>❌ <strong>Performance</strong> - Code might be slow</li>
+<li>❌ <strong>Security</strong> - Vulnerabilities aren't caught</li>
+</ul>
+<h2 id="improving-coverage-strategically">Improving Coverage Strategically<a class="headerlink" href="#improving-coverage-strategically" title="Permanent link">&para;</a></h2>
+<h3 id="priority-framework">Priority Framework<a class="headerlink" href="#priority-framework" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Critical Business Logic</strong> (Highest Priority)</li>
+<li>Payment processing</li>
+<li>Authentication/Authorization</li>
+<li>
+<p>Data validation</p>
+</li>
+<li>
+<p><strong>Core Features</strong> (High Priority)</p>
+</li>
+<li>CRUD operations</li>
+<li>User workflows</li>
+<li>
+<p>API endpoints</p>
+</li>
+<li>
+<p><strong>Edge Cases</strong> (Medium Priority)</p>
+</li>
+<li>Error handling</li>
+<li>Boundary conditions</li>
+<li>
+<p>Null/empty scenarios</p>
+</li>
+<li>
+<p><strong>Nice to Have</strong> (Lower Priority)</p>
+</li>
+<li>Logging</li>
+<li>Configuration</li>
+<li>Helper utilities</li>
+</ol>
+<h3 id="dont-over-test">Don't Over-Test<a class="headerlink" href="#dont-over-test" title="Permanent link">&para;</a></h3>
+<p>Some code doesn't need 100% coverage:</p>
+<ul>
+<li><strong>Generated Code</strong> - EF migrations, auto-generated DTOs</li>
+<li><strong>Simple Properties</strong> - Auto-properties with no logic</li>
+<li><strong>Framework Code</strong> - Don't test ASP.NET Core, EF Core itself</li>
+<li><strong>Obsolete Code</strong> - Marked for deletion</li>
+</ul>
+<h2 id="taking-action">Taking Action<a class="headerlink" href="#taking-action" title="Permanent link">&para;</a></h2>
+<h3 id="for-classes-with-0-coverage">For Classes with 0% Coverage<a class="headerlink" href="#for-classes-with-0-coverage" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Start Simple:</strong> Basic happy-path test</li>
+<li><strong>Add Error Cases:</strong> Null, empty, invalid inputs</li>
+<li><strong>Add Edge Cases:</strong> Boundaries, special characters</li>
+<li><strong>Add Integration:</strong> Test with dependencies</li>
+</ol>
+<h3 id="for-classes-with-partial-coverage">For Classes with Partial Coverage<a class="headerlink" href="#for-classes-with-partial-coverage" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>View Coverage Details:</strong> Find red lines</li>
+<li><strong>Identify Patterns:</strong> Missing branches? Error paths?</li>
+<li><strong>Add Targeted Tests:</strong> Cover specific gaps</li>
+<li><strong>Verify:</strong> Re-run coverage to confirm</li>
+</ol>
+<h3 id="example-improving-clientrepository-from-40-to-90">Example: Improving ClientRepository from 40% to 90%<a class="headerlink" href="#example-improving-clientrepository-from-40-to-90" title="Permanent link">&para;</a></h3>
+<p><strong>Initial Coverage (40%):</strong>
+<div class="highlight"><pre><span></span><code>✅ GetByIdAsync - tested
+❌ GetByNameAsync - not tested
+❌ ListAsync - not tested
+❌ UpdateAsync - not tested
+❌ DeleteAsync - not tested
+</code></pre></div></p>
+<p><strong>Step 1:</strong> Add GetByNameAsync test (+12% coverage)
+<strong>Step 2:</strong> Add ListAsync test (+12% coverage)
+<strong>Step 3:</strong> Add UpdateAsync test (+13% coverage)
+<strong>Step 4:</strong> Add DeleteAsync test (+13% coverage)
+<strong>Final Coverage:</strong> 90%</p>
+<h2 id="using-coverage-in-code-reviews">Using Coverage in Code Reviews<a class="headerlink" href="#using-coverage-in-code-reviews" title="Permanent link">&para;</a></h2>
+<h3 id="before-merging">Before Merging<a class="headerlink" href="#before-merging" title="Permanent link">&para;</a></h3>
+<ol>
+<li>✅ Run coverage on PR branch</li>
+<li>✅ Check coverage didn't decrease</li>
+<li>✅ Verify new code has &gt;80% coverage</li>
+<li>✅ Review coverage report for critical paths</li>
+</ol>
+<h3 id="coverage-gates">Coverage Gates<a class="headerlink" href="#coverage-gates" title="Permanent link">&para;</a></h3>
+<p>Set up automated checks:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Example: Fail PR if coverage drops below 75%</span>
+<span class="nt">if coverage &lt; 75%</span><span class="p">:</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">fail_build()</span>
+</code></pre></div>
+<h2 id="tools-and-commands">Tools and Commands<a class="headerlink" href="#tools-and-commands" title="Permanent link">&para;</a></h2>
+<h3 id="generate-coverage-report">Generate Coverage Report<a class="headerlink" href="#generate-coverage-report" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>./scripts/coverage.sh<span class="w">              </span><span class="c1"># Linux/macOS</span>
+./scripts/coverage.ps1<span class="w">             </span><span class="c1"># Windows</span>
+</code></pre></div>
+<h3 id="view-coverage-for-specific-project">View Coverage for Specific Project<a class="headerlink" href="#view-coverage-for-specific-project" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>dotnet<span class="w"> </span><span class="nb">test</span><span class="w"> </span>tests/OpenIdentityStack.Infrastructure.Tests<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--coverage<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--coverage-output-format<span class="w"> </span>cobertura
+</code></pre></div>
+<h3 id="compare-coverage-over-time">Compare Coverage Over Time<a class="headerlink" href="#compare-coverage-over-time" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Baseline</span>
+./scripts/coverage.sh<span class="w"> </span>&gt;<span class="w"> </span>baseline.txt
+
+<span class="c1"># After changes</span>
+./scripts/coverage.sh<span class="w"> </span>&gt;<span class="w"> </span>after.txt
+
+<span class="c1"># Compare</span>
+diff<span class="w"> </span>baseline.txt<span class="w"> </span>after.txt
+</code></pre></div>
+<h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h2>
+<h3 id="do">✅ Do<a class="headerlink" href="#do" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Focus on business-critical code first</li>
+<li>Test behavior, not implementation</li>
+<li>Write meaningful assertions</li>
+<li>Cover happy path AND error paths</li>
+<li>Use coverage to find gaps, not as only metric</li>
+</ul>
+<h3 id="dont">❌ Don't<a class="headerlink" href="#dont" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Chase 100% coverage at all costs</li>
+<li>Write tests just to increase numbers</li>
+<li>Test framework code or generated code</li>
+<li>Ignore test quality for coverage quantity</li>
+<li>Skip testing because coverage is "good enough"</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="coverage-shows-0-but-i-have-tests">"Coverage shows 0% but I have tests"<a class="headerlink" href="#coverage-shows-0-but-i-have-tests" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Tests aren't calling the code, or coverage tool not configured.</p>
+<p><strong>Fix:</strong>
+1. Verify tests actually run: <code>dotnet test --verbosity normal</code>
+2. Check test fixture setup
+3. Ensure code is actually being called</p>
+<h3 id="coverage-report-not-generating">"Coverage report not generating"<a class="headerlink" href="#coverage-report-not-generating" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Coverage tool not installed or path issues.</p>
+<p><strong>Fix:</strong>
+<div class="highlight"><pre><span></span><code>dotnet<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>--global<span class="w"> </span>dotnet-reportgenerator-globaltool
+dotnet<span class="w"> </span>tool<span class="w"> </span>update<span class="w"> </span>--global<span class="w"> </span>dotnet-reportgenerator-globaltool
+</code></pre></div></p>
+<h3 id="coverage-decreased-after-refactoring">"Coverage decreased after refactoring"<a class="headerlink" href="#coverage-decreased-after-refactoring" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Code was reorganized and tests didn't move.</p>
+<p><strong>Fix:</strong>
+1. Find which classes lost coverage
+2. Update tests to target new structure
+3. Add tests for newly exposed code</p>
+<h2 id="resources">Resources<a class="headerlink" href="#resources" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../CODE_COVERAGE_ANALYSIS/">CODE_COVERAGE_ANALYSIS.md</a> - Detailed analysis</li>
+<li><a href="../CODE_COVERAGE_GUIDE/">CODE_COVERAGE_GUIDE.md</a> - Testing patterns</li>
+<li><a href="../CODE_COVERAGE_SUMMARY/">CODE_COVERAGE_SUMMARY.md</a> - Quick reference</li>
+<li><a href="https://reportgenerator.io/">ReportGenerator Documentation</a></li>
+<li><a href="https://cobertura.github.io/cobertura/">Cobertura Format Specification</a></li>
+</ul>
+<hr />
+<p><strong>Remember:</strong> Coverage is a tool to find untested code, not a goal in itself. Focus on writing meaningful tests that verify behavior and catch bugs.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "navigation.sections", "navigation.expand", "search.highlight", "search.suggest", "content.code.copy"], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f1b6f286.min.js"></script>
+      
+    
+  </body>
+</html>

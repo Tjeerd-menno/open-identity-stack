@@ -1,0 +1,3146 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="OpenIdentityStack documentation for identity operators and platform teams.">
+      
+      
+      
+        <link rel="canonical" href="https://tjeerd-menno.github.io/open-identity-stack/certification/run-oidf-conformance-suite/">
+      
+      
+        <link rel="prev" href="../openid-connect-certification-scope/">
+      
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.5">
+    
+    
+      
+        <title>OIDC conformance suite - OpenIdentityStack</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.8608ea7d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#running-the-openid-foundation-conformance-suite" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="OpenIdentityStack" class="md-header__button md-logo" aria-label="OpenIdentityStack" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenIdentityStack
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              OIDC conformance suite
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-hidden="true"  type="radio" name="__palette" id="__palette_1">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Tjeerd-menno/open-identity-stack" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Tjeerd-menno/open-identity-stack
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="OpenIdentityStack" class="md-nav__button md-logo" aria-label="OpenIdentityStack" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenIdentityStack
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Tjeerd-menno/open-identity-stack" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Tjeerd-menno/open-identity-stack
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Getting started
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Getting started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/guided-setup/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Guided setup
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quick-start/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick start
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Features
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Features
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Installation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/local/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Local development
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/containers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Containers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/production/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Production (Kubernetes)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/windows-service/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Windows service
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../configuration/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Configuration
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Configuration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/runtime-settings/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Runtime settings
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/environment-variables/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Environment variables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../operations/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Operations
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Operations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/health-and-observability/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Health and observability
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/database-operations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Database operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/upgrades/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrades
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications-migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Applications migration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Administration
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Administration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin-applications/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Applications
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/users-and-roles/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Users and roles
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/groups-and-delegation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Groups and delegation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/clients/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Client applications
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/service-accounts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service accounts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/federation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Federation providers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/sessions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Sessions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Management Web
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Management Web
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../management-web/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../integrations/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Integrations
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Integrations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/web-app-oidc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web app OIDC integration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/api-protection/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API protection
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/machine-to-machine/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Machine-to-machine access
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/verify-integration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Verify an integration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            Troubleshooting
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/startup-failures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Startup failures
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/database-and-migration-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Database and migration issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/login-and-token-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Login and token issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/certificates-and-key-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificates and key issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/reverse-proxy-and-cors-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Reverse proxy and CORS issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/clients-and-service-accounts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Clients and service accounts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Security
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Security
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/hardening-checklist/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hardening checklist
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/secrets-management/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Secrets management
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/certificates-and-keys/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificates and keys
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/backup-and-recovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Backup and recovery
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" checked>
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_2" id="__nav_12_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Product reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_2">
+            <span class="md-nav__icon md-icon"></span>
+            Product reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/configuration-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/endpoint-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Endpoint reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/standards-and-flows/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Standards and flows
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/glossary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Glossary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_3" id="__nav_12_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Internal reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_3">
+            <span class="md-nav__icon md-icon"></span>
+            Internal reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/API-VS-CONTRACT-TESTING-SUMMARY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API vs Contract Testing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CODE_COVERAGE_GUIDE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Code coverage guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CODE_COVERAGE_SUMMARY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage summary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CODE_COVERAGE_ANALYSIS/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CONTRACT-TEST-MIGRATION-GUIDE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Contract test migration guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/TESTING-STRATEGY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Testing strategy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/UNDERSTANDING_COVERAGE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage interpretation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/GHCR-PUBLISHING/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GHCR publishing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/OPENIDENTITYSTACK_PRODUCTION/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Production config guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../engineering/application-permission-transaction-notes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Application permission transaction notes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_4" id="__nav_12_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Architecture decisions
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_4">
+            <span class="md-nav__icon md-icon"></span>
+            Architecture decisions
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-dual-admin-ui-strategy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dual admin UI strategy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-dual-host-management-ui/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dual-host management UI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0003-unified-release-train-for-breaking-api-changes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Unified release train for breaking API changes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_12_5" id="__nav_12_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Certification workbench
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_12_5">
+            <span class="md-nav__icon md-icon"></span>
+            Certification workbench
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oidf-negative-review-automation-plan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OIDC negative review automation plan
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openid-connect-certification-scope/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OpenID Connect certification scope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    OIDC conformance suite
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    OIDC conformance suite
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      Purpose
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-target" class="md-nav__link">
+    <span class="md-ellipsis">
+      Test Target
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discovery-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      Discovery URL
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initial-test-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      Initial Test Plan
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#client-registration-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      Client Registration Mode
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-preparation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Required Preparation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#suggested-suite-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Suggested Suite Configuration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manual-review-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Manual-Review Tests
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Manual-Review Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#these-four-are-excluded-from-automated-sweeps" class="md-nav__link">
+    <span class="md-ellipsis">
+      These four are excluded from automated sweeps
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-correct-behaviour-looks-like" class="md-nav__link">
+    <span class="md-ellipsis">
+      What correct behaviour looks like
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#capture-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Capture rules
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#result-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Result Handling
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Result Handling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runner-exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Runner exit codes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#first-run-on-a-fresh-checkout" class="md-nav__link">
+    <span class="md-ellipsis">
+      First run on a fresh checkout
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      Credentials
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      Purpose
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-target" class="md-nav__link">
+    <span class="md-ellipsis">
+      Test Target
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discovery-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      Discovery URL
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initial-test-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      Initial Test Plan
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#client-registration-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      Client Registration Mode
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-preparation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Required Preparation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#suggested-suite-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Suggested Suite Configuration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manual-review-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Manual-Review Tests
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Manual-Review Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#these-four-are-excluded-from-automated-sweeps" class="md-nav__link">
+    <span class="md-ellipsis">
+      These four are excluded from automated sweeps
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-correct-behaviour-looks-like" class="md-nav__link">
+    <span class="md-ellipsis">
+      What correct behaviour looks like
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#capture-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Capture rules
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#result-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Result Handling
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Result Handling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runner-exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Runner exit codes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#first-run-on-a-fresh-checkout" class="md-nav__link">
+    <span class="md-ellipsis">
+      First run on a fresh checkout
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      Credentials
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="running-the-openid-foundation-conformance-suite">Running the OpenID Foundation Conformance Suite<a class="headerlink" href="#running-the-openid-foundation-conformance-suite" title="Permanent link">&para;</a></h1>
+<h2 id="purpose">Purpose<a class="headerlink" href="#purpose" title="Permanent link">&para;</a></h2>
+<p>This document explains how to run the OpenID Foundation conformance tests against OpenIdentityStack.</p>
+<h2 id="test-target">Test Target<a class="headerlink" href="#test-target" title="Permanent link">&para;</a></h2>
+<p>OpenIdentityStack certification environment:</p>
+<div class="highlight"><pre><span></span><code>https://&lt;public-issuer-host&gt;/
+</code></pre></div>
+<h2 id="discovery-url">Discovery URL<a class="headerlink" href="#discovery-url" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>https://&lt;public-issuer-host&gt;/.well-known/openid-configuration
+</code></pre></div>
+<h2 id="initial-test-plan">Initial Test Plan<a class="headerlink" href="#initial-test-plan" title="Permanent link">&para;</a></h2>
+<p>Use the hosted OpenID Foundation conformance suite and select:</p>
+<div class="highlight"><pre><span></span><code>OpenID Connect Core: Basic Certification Profile Authorization server test
+</code></pre></div>
+<p>Use a test plan in the "Test an OpenID Provider" section.</p>
+<h2 id="client-registration-mode">Client Registration Mode<a class="headerlink" href="#client-registration-mode" title="Permanent link">&para;</a></h2>
+<p>Use static client registration for the first certification milestone.</p>
+<p>Seeded clients:</p>
+<div class="highlight"><pre><span></span><code>oidf-code-client
+oidf-code-client-post
+oidf-code-client-takeover
+</code></pre></div>
+<p>The initial milestone does not advertise or certify Dynamic Client Registration, Implicit, Hybrid, Logout, FAPI, Federation, or eKYC profiles.</p>
+<h2 id="required-preparation">Required Preparation<a class="headerlink" href="#required-preparation" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Deploy the dedicated certification environment using your private operational deployment assets.</li>
+<li>Seed certification users and clients with <code>OPENIDENTITYSTACK_SEED_PROFILE=certification</code>.</li>
+<li>Configure the OpenID Foundation alias in <code>Seed__Certification__Alias</code>.</li>
+<li>Verify the public discovery document.</li>
+<li>Verify the JWKS endpoint.</li>
+<li>Verify login works for the certification users.</li>
+<li>Register the OpenID Foundation redirect URI for the chosen alias:</li>
+</ul>
+<div class="highlight"><pre><span></span><code>https://www.certification.openid.net/test/a/&lt;ALIAS&gt;/callback
+</code></pre></div>
+<p>When using the staging conformance suite, also register:</p>
+<div class="highlight"><pre><span></span><code>https://staging.certification.openid.net/test/a/&lt;ALIAS&gt;/callback
+</code></pre></div>
+<h2 id="suggested-suite-configuration">Suggested Suite Configuration<a class="headerlink" href="#suggested-suite-configuration" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Server metadata discovery URL: <code>https://&lt;public-issuer-host&gt;/.well-known/openid-configuration</code></li>
+<li>Client authentication method for <code>oidf-code-client</code>: <code>client_secret_basic</code></li>
+<li>Client authentication method for <code>oidf-code-client-post</code>: <code>client_secret_post</code></li>
+<li>Use PKCE where the suite asks for it.</li>
+<li>Use the dedicated certification test users only.</li>
+</ul>
+<h2 id="manual-review-tests">Manual-Review Tests<a class="headerlink" href="#manual-review-tests" title="Permanent link">&para;</a></h2>
+<p>Four Basic OP modules cannot complete on their own. They park in <code>WAITING</code>
+until a human confirms what the provider displayed, and their ceiling is
+<code>REVIEW</code>, which is certifiable. <strong>Do not chase <code>PASSED</code> on these — it is
+unreachable by design.</strong> Config OP pauses for nothing.</p>
+<p>It was five until authorization errors began redirecting to a validated
+<code>redirect_uri</code> (<a href="https://github.com/Tjeerd-menno/open-identity-stack/pull/331">#331</a>).
+<code>oidcc-response-type-missing</code> now answers with a <code>302</code> to the registered
+callback carrying <code>error=invalid_request</code> and the original <code>state</code>, which the
+suite verifies by itself — so it reaches <code>PASSED</code> unattended and is an ordinary
+sweep module. <strong>If you see it pause for review, something has regressed.</strong>
+This is why membership below is stated as observed provider behaviour rather
+than by test name: the same module can move in or out of this list when the
+provider changes.</p>
+<p>The suite is the system of record for this evidence: screenshot what the
+provider rendered and <strong>upload it on the test's log detail page</strong>, so it becomes
+part of the test log and travels inside the exported results ZIP. Nothing is
+copied into this repository.</p>
+<h3 id="these-four-are-excluded-from-automated-sweeps">These four are excluded from automated sweeps<a class="headerlink" href="#these-four-are-excluded-from-automated-sweeps" title="Permanent link">&para;</a></h3>
+<p>The Playwright runner drives browser URLs but has no way to acknowledge a
+review, so a manual-review module stays <code>WAITING</code> until the per-test deadline
+expires. That is worse than slow: a test still holding the alias when the next
+one starts is killed by the suite with an alias conflict, which silently
+corrupts every result after it.</p>
+<p>The runner therefore <strong>skips all four by default</strong> and names them on startup.
+Two ways to drive them anyway:</p>
+<ul>
+<li><code>--only &lt;list&gt;</code> runs exactly the modules named, overriding the exclusion.
+  This is the right way to work one review test at a time. The value is a
+  <strong>single comma-separated list</strong> — repeating the flag keeps only the last
+  value, and the run then reports <code>modules: 1</code> while otherwise looking entirely
+  successful.</li>
+<li><code>--include-manual-review</code> puts them back into a full sweep. Only useful with a
+  human watching, ready to complete each review before the deadline.</li>
+</ul>
+<p>Either way the runner <strong>requires <code>--headed</code></strong> and <strong>pauses at the OP's login
+form</strong>, printing a prompt and waiting for Enter before submitting. Both are
+necessary rather than convenient: for <code>oidcc-prompt-login</code> and <code>oidcc-max-age-1</code>
+the evidence <em>is</em> the fresh login form, so a headless browser has nothing to
+photograph and an immediate submit destroys the only thing worth capturing.</p>
+<h3 id="what-correct-behaviour-looks-like">What correct behaviour looks like<a class="headerlink" href="#what-correct-behaviour-looks-like" title="Permanent link">&para;</a></h3>
+<p>Verified against the local stack before the hosted run
+(<a href="https://github.com/Tjeerd-menno/open-identity-stack/issues/310">#310</a>) and
+re-verified on the exact commit that was deployed for certification
+(<a href="https://github.com/Tjeerd-menno/open-identity-stack/issues/336">#336</a>), so a
+reviewer can tell a genuine pass from a plausible-looking failure.</p>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Correct provider behaviour</th>
+<th>What the screenshot must show</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>oidcc-ensure-registered-redirect-uri</code></td>
+<td>Rejects the request; <strong>no redirect issued</strong> — the <code>redirect_uri</code> is not registered, so it must never be used</td>
+<td>Provider error page, address bar still on <code>/connect/authorize</code></td>
+</tr>
+<tr>
+<td><code>oidcc-ensure-request-object-with-redirect-uri</code> (reject path)</td>
+<td>Answers <code>request_not_supported</code>; <strong>no redirect issued</strong> — request objects are rejected, so a <code>redirect_uri</code> inside the object cannot take effect</td>
+<td>Provider error page, address bar still on <code>/connect/authorize</code></td>
+</tr>
+<tr>
+<td><code>oidcc-prompt-login</code></td>
+<td>Forces a <strong>fresh login</strong> even though a session is already live</td>
+<td>Login form, address bar showing <code>prompt=login</code></td>
+</tr>
+<tr>
+<td><code>oidcc-max-age-1</code></td>
+<td>Forces a <strong>fresh login</strong> even though a session is already live</td>
+<td>Login form, address bar showing <code>max_age=1</code></td>
+</tr>
+</tbody>
+</table>
+<p>For the first two, the evidence is a <em>negative</em> — that no redirect happened.
+A cropped screenshot of an error page cannot show that. The address bar is the
+proof, so it is captured deliberately.</p>
+<p>Both remaining rejection rows are the cases where the requested <code>redirect_uri</code>
+is <strong>not</strong> one the provider may use, which is exactly why redirecting errors
+elsewhere did not touch them: OIDC Core §3.1.2.6 permits an error redirect only
+once the <code>redirect_uri</code> has been validated. A redirect appearing on either of
+these two is a defect, not an improvement.</p>
+<h3 id="capture-rules">Capture rules<a class="headerlink" href="#capture-rules" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Capture the full browser window, including the address bar.</strong> The authorize
+  URL carries <code>client_id</code>, <code>redirect_uri</code>, <code>state</code> and <code>nonce</code> — none of them
+  secrets, all of them needed to judge the test.</li>
+<li><strong>If the visible URL contains <code>code=</code>, discard the screenshot and retake it.</strong>
+  That is a callback, not a provider error page: the wrong moment was captured,
+  and an authorization code is the one value in this flow worth protecting.</li>
+<li><strong>No devtools or network panel open</strong> in the capture.</li>
+<li>Upload each screenshot to its own test's log detail page before moving on. A
+  test whose evidence is captured after the fact cannot be matched back
+  reliably.</li>
+<li>The human driving the suite performs the capture — agents never handle OIDF
+  credentials, and the capture happens in the authenticated suite session.</li>
+</ul>
+<p><a href="../oidf-negative-review-automation-plan/"><code>oidf-negative-review-automation-plan.md</code></a>
+is <strong>superseded for manual runs</strong>, including its <code>review.json</code> manifest: a local
+manifest would be a second copy of evidence that the actual reviewer never
+opens. The plan stands only as a record of intent for automation, which is out
+of scope for the certification effort.</p>
+<h2 id="result-handling">Result Handling<a class="headerlink" href="#result-handling" title="Permanent link">&para;</a></h2>
+<ul>
+<li>All required tests must finish successfully.</li>
+<li><code>FAILED</code> or <code>INTERRUPTED</code> results block certification.</li>
+<li>Review every warning and document why it is acceptable before submission.</li>
+<li>Export result ZIP files after the final run.</li>
+<li>Do not submit or archive logs containing reusable secrets.</li>
+</ul>
+<h3 id="runner-exit-codes">Runner exit codes<a class="headerlink" href="#runner-exit-codes" title="Permanent link">&para;</a></h3>
+<p>The runner's exit code is the quick check; the results JSON carries the detail.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Every module reached a verdict and none <code>FAILED</code>.</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>At least one module <code>FAILED</code>.</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>At least one module stalled. <strong>Discard the run</strong> — later results may be corrupted by alias conflicts.</td>
+</tr>
+<tr>
+<td><code>3</code></td>
+<td>At least one module produced no result at all (failed to start, <code>INTERRUPTED</code>, or no verdict). Evidence has holes in it.</td>
+</tr>
+</tbody>
+</table>
+<p>Codes <code>2</code> and <code>3</code> are not "mostly fine". A missing verdict is missing evidence,
+which blocks certification exactly as a <code>FAILED</code> does.</p>
+<h3 id="first-run-on-a-fresh-checkout">First run on a fresh checkout<a class="headerlink" href="#first-run-on-a-fresh-checkout" title="Permanent link">&para;</a></h3>
+<p><code>dotnet build</code> restores Playwright's driver but <strong>not</strong> the browser binaries, so
+the first run otherwise fails at launch. Install Chromium once:</p>
+<div class="highlight"><pre><span></span><code><span class="n">tests</span><span class="p">/</span><span class="n">OpenIdentityStack</span><span class="p">.</span><span class="n">Conformance</span><span class="p">.</span><span class="n">Runner</span><span class="p">/</span><span class="n">bin</span><span class="p">/</span><span class="n">Debug</span><span class="p">/</span><span class="n">net10</span><span class="p">.</span><span class="n">0</span><span class="p">/</span><span class="n">playwright</span><span class="p">.</span><span class="n">ps1</span> <span class="n">install</span> <span class="n">chromium</span>
+</code></pre></div>
+<p>Use <code>playwright.sh</code> on Linux and macOS. If it is missing, the runner says so and
+repeats this command rather than surfacing Playwright's own message.</p>
+<h3 id="credentials">Credentials<a class="headerlink" href="#credentials" title="Permanent link">&para;</a></h3>
+<p>The runner reads the OP password from the <strong><code>CONFORMANCE_PASSWORD</code> environment
+variable only</strong>. It refuses a <code>--password</code> argument: a sweep runs for tens of
+minutes, and its command line is readable by other processes for the whole of
+that time and is persisted to shell history afterwards.</p>
+<p>It also refuses to type the password into any page not served by the OP named in
+the plan config's <code>server.discoveryUrl</code>. The suite chooses the URL each flow
+starts from, and the runner disables certificate validation to accommodate the
+local self-signed certificate, so the origin check is what stands between a
+misconfigured <code>--suite</code> and a leaked certification credential.
+- Deactivate or rotate certification user passwords and client secrets after exporting final evidence.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "navigation.sections", "navigation.expand", "search.highlight", "search.suggest", "content.code.copy"], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f1b6f286.min.js"></script>
+      
+    
+  </body>
+</html>

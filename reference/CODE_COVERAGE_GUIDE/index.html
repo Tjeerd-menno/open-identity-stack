@@ -1,0 +1,3948 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="OpenIdentityStack documentation for identity operators and platform teams.">
+      
+      
+      
+        <link rel="canonical" href="https://tjeerd-menno.github.io/open-identity-stack/reference/CODE_COVERAGE_GUIDE/">
+      
+      
+        <link rel="prev" href="../API-VS-CONTRACT-TESTING-SUMMARY/">
+      
+      
+        <link rel="next" href="../CODE_COVERAGE_SUMMARY/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.5">
+    
+    
+      
+        <title>Code coverage guide - OpenIdentityStack</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.8608ea7d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#code-coverage-improvement-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="OpenIdentityStack" class="md-header__button md-logo" aria-label="OpenIdentityStack" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenIdentityStack
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Code coverage guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-hidden="true"  type="radio" name="__palette" id="__palette_1">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Tjeerd-menno/open-identity-stack" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Tjeerd-menno/open-identity-stack
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="OpenIdentityStack" class="md-nav__button md-logo" aria-label="OpenIdentityStack" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenIdentityStack
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Tjeerd-menno/open-identity-stack" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Tjeerd-menno/open-identity-stack
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Getting started
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Getting started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/guided-setup/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Guided setup
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quick-start/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick start
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Features
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Features
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Installation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/local/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Local development
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/containers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Containers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/production/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Production (Kubernetes)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/windows-service/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Windows service
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../configuration/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Configuration
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Configuration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/runtime-settings/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Runtime settings
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/environment-variables/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Environment variables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../operations/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Operations
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Operations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/health-and-observability/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Health and observability
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/database-operations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Database operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/upgrades/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrades
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications-migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Applications migration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Administration
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Administration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin-applications/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Applications
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/users-and-roles/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Users and roles
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/groups-and-delegation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Groups and delegation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/clients/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Client applications
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/service-accounts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service accounts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/federation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Federation providers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/sessions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Sessions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Management Web
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Management Web
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../management-web/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../integrations/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Integrations
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Integrations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/web-app-oidc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web app OIDC integration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/api-protection/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API protection
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/machine-to-machine/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Machine-to-machine access
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/verify-integration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Verify an integration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            Troubleshooting
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/startup-failures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Startup failures
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/database-and-migration-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Database and migration issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/login-and-token-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Login and token issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/certificates-and-key-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificates and key issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/reverse-proxy-and-cors-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Reverse proxy and CORS issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/clients-and-service-accounts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Clients and service accounts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Security
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Security
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/hardening-checklist/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hardening checklist
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/secrets-management/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Secrets management
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/certificates-and-keys/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificates and keys
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/backup-and-recovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Backup and recovery
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" checked>
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_2" id="__nav_12_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Product reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_2">
+            <span class="md-nav__icon md-icon"></span>
+            Product reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../endpoint-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Endpoint reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../standards-and-flows/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Standards and flows
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../glossary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Glossary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_12_3" id="__nav_12_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Internal reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_12_3">
+            <span class="md-nav__icon md-icon"></span>
+            Internal reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API-VS-CONTRACT-TESTING-SUMMARY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API vs Contract Testing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Code coverage guide
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Code coverage guide
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick Reference
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#running-coverage-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running Coverage Locally
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-specific-test-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      Run Specific Test Project
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-patterns-by-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      Test Patterns by Layer
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test Patterns by Layer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#domain-layer-tests-target-95" class="md-nav__link">
+    <span class="md-ellipsis">
+      Domain Layer Tests (Target: 95%+)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain Layer Tests (Target: 95%+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-entity-creation-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Entity Creation Test
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-value-object-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Value Object Test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#application-layer-tests-target-80" class="md-nav__link">
+    <span class="md-ellipsis">
+      Application Layer Tests (Target: 80%+)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Application Layer Tests (Target: 80%+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-use-case-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Use Case Test
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-query-handler-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Query Handler Test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#infrastructure-layer-tests-target-75" class="md-nav__link">
+    <span class="md-ellipsis">
+      Infrastructure Layer Tests (Target: 75%+)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Infrastructure Layer Tests (Target: 75%+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-repository-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Repository Test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apicontroller-tests-target-70" class="md-nav__link">
+    <span class="md-ellipsis">
+      API/Controller Tests (Target: 70%+)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API/Controller Tests (Target: 70%+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-api-integration-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: API Integration Test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coverage-anti-patterns-to-avoid" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coverage Anti-Patterns to Avoid
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Coverage Anti-Patterns to Avoid">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#testing-implementation-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Testing Implementation Details
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-framework-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Testing Framework Code
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shallow-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Shallow Tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#over-mocking" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Over-Mocking
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tips-for-high-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tips for High Coverage
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tips for High Coverage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-test-edge-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Test Edge Cases
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-use-theory-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Use Theory Tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-cover-error-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Cover Error Paths
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-test-validation-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Test Validation Logic
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coverage-tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coverage Tracking
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Coverage Tracking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#local-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      Local Development
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cicd-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      CI/CD Pipeline
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CODE_COVERAGE_SUMMARY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage summary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CODE_COVERAGE_ANALYSIS/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONTRACT-TEST-MIGRATION-GUIDE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Contract test migration guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TESTING-STRATEGY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Testing strategy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../UNDERSTANDING_COVERAGE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage interpretation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GHCR-PUBLISHING/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GHCR publishing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../OPENIDENTITYSTACK_PRODUCTION/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Production config guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../engineering/application-permission-transaction-notes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Application permission transaction notes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_4" id="__nav_12_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Architecture decisions
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_4">
+            <span class="md-nav__icon md-icon"></span>
+            Architecture decisions
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-dual-admin-ui-strategy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dual admin UI strategy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-dual-host-management-ui/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dual-host management UI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0003-unified-release-train-for-breaking-api-changes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Unified release train for breaking API changes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_5" id="__nav_12_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Certification workbench
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_5">
+            <span class="md-nav__icon md-icon"></span>
+            Certification workbench
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../certification/oidf-negative-review-automation-plan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OIDC negative review automation plan
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../certification/openid-connect-certification-scope/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OpenID Connect certification scope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../certification/run-oidf-conformance-suite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OIDC conformance suite
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick Reference
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#running-coverage-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running Coverage Locally
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-specific-test-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      Run Specific Test Project
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-patterns-by-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      Test Patterns by Layer
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test Patterns by Layer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#domain-layer-tests-target-95" class="md-nav__link">
+    <span class="md-ellipsis">
+      Domain Layer Tests (Target: 95%+)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain Layer Tests (Target: 95%+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-entity-creation-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Entity Creation Test
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-value-object-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Value Object Test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#application-layer-tests-target-80" class="md-nav__link">
+    <span class="md-ellipsis">
+      Application Layer Tests (Target: 80%+)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Application Layer Tests (Target: 80%+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-use-case-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Use Case Test
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-query-handler-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Query Handler Test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#infrastructure-layer-tests-target-75" class="md-nav__link">
+    <span class="md-ellipsis">
+      Infrastructure Layer Tests (Target: 75%+)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Infrastructure Layer Tests (Target: 75%+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-repository-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Repository Test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apicontroller-tests-target-70" class="md-nav__link">
+    <span class="md-ellipsis">
+      API/Controller Tests (Target: 70%+)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API/Controller Tests (Target: 70%+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-api-integration-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: API Integration Test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coverage-anti-patterns-to-avoid" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coverage Anti-Patterns to Avoid
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Coverage Anti-Patterns to Avoid">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#testing-implementation-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Testing Implementation Details
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-framework-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Testing Framework Code
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shallow-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Shallow Tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#over-mocking" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Over-Mocking
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tips-for-high-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tips for High Coverage
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tips for High Coverage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-test-edge-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Test Edge Cases
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-use-theory-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Use Theory Tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-cover-error-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Cover Error Paths
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-test-validation-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Test Validation Logic
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coverage-tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coverage Tracking
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Coverage Tracking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#local-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      Local Development
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cicd-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      CI/CD Pipeline
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="code-coverage-improvement-guide">Code Coverage Improvement Guide<a class="headerlink" href="#code-coverage-improvement-guide" title="Permanent link">&para;</a></h1>
+<p>This guide provides concrete examples and patterns for improving code coverage in the OpenIdentityStack solution.</p>
+<h2 id="quick-reference">Quick Reference<a class="headerlink" href="#quick-reference" title="Permanent link">&para;</a></h2>
+<h3 id="running-coverage-locally">Running Coverage Locally<a class="headerlink" href="#running-coverage-locally" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Run all tests with coverage</span>
+dotnet<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--coverage<span class="w"> </span>--coverage-output-format<span class="w"> </span>cobertura<span class="w"> </span>--coverage-output<span class="w"> </span>coverage.cobertura.xml
+
+<span class="c1"># Generate HTML report</span>
+reportgenerator<span class="w"> </span>-reports:<span class="s2">&quot;tests/**/TestResults/coverage.cobertura.xml&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">                </span>-targetdir:<span class="s2">&quot;coverage-report&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">                </span>-reporttypes:<span class="s2">&quot;Html;TextSummary&quot;</span>
+
+<span class="c1"># View report</span>
+open<span class="w"> </span>coverage-report/index.html<span class="w">  </span><span class="c1"># macOS</span>
+xdg-open<span class="w"> </span>coverage-report/index.html<span class="w">  </span><span class="c1"># Linux</span>
+start<span class="w"> </span>coverage-report/index.html<span class="w">  </span><span class="c1"># Windows</span>
+</code></pre></div>
+<h3 id="run-specific-test-project">Run Specific Test Project<a class="headerlink" href="#run-specific-test-project" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Run only infrastructure tests</span>
+dotnet<span class="w"> </span><span class="nb">test</span><span class="w"> </span>tests/OpenIdentityStack.Infrastructure.Tests<span class="w"> </span>--coverage
+
+<span class="c1"># Run only domain tests</span>
+dotnet<span class="w"> </span><span class="nb">test</span><span class="w"> </span>tests/OpenIdentityStack.Domain.Tests<span class="w"> </span>--coverage
+</code></pre></div>
+<h2 id="test-patterns-by-layer">Test Patterns by Layer<a class="headerlink" href="#test-patterns-by-layer" title="Permanent link">&para;</a></h2>
+<h3 id="domain-layer-tests-target-95">Domain Layer Tests (Target: 95%+)<a class="headerlink" href="#domain-layer-tests-target-95" title="Permanent link">&para;</a></h3>
+<p>Domain tests should be pure unit tests with no dependencies.</p>
+<h4 id="example-entity-creation-test">Example: Entity Creation Test<a class="headerlink" href="#example-entity-creation-test" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="k">public</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">ClientTests</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">CreateClient_WithValidInputs_ShouldSucceed</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">clientId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">ClientId</span><span class="p">(</span><span class="n">Guid</span><span class="p">.</span><span class="n">NewGuid</span><span class="p">());</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Test Client&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">clientType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ClientType</span><span class="p">.</span><span class="n">Confidential</span><span class="p">;</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Client</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span><span class="n">clientId</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">clientType</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">IsSuccess</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">;</span>
+<span class="w">        </span><span class="n">client</span><span class="p">.</span><span class="n">Id</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">clientId</span><span class="p">);</span>
+<span class="w">        </span><span class="n">client</span><span class="p">.</span><span class="n">Name</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">name</span><span class="p">);</span>
+<span class="w">        </span><span class="n">client</span><span class="p">.</span><span class="n">ClientType</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">clientType</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">CreateClient_WithEmptyName_ShouldFail</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">clientId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">ClientId</span><span class="p">(</span><span class="n">Guid</span><span class="p">.</span><span class="n">NewGuid</span><span class="p">());</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">clientType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ClientType</span><span class="p">.</span><span class="n">Confidential</span><span class="p">;</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Client</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span><span class="n">clientId</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">clientType</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">IsFailure</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">Error</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">ClientErrors</span><span class="p">.</span><span class="n">NameRequired</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">AddRedirectUri_WhenValid_ShouldAddToCollection</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CreateTestClient</span><span class="p">();</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">redirectUri</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">Uri</span><span class="p">(</span><span class="s">&quot;https://example.com/callback&quot;</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">AddRedirectUri</span><span class="p">(</span><span class="n">redirectUri</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">IsSuccess</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">        </span><span class="n">client</span><span class="p">.</span><span class="n">RedirectUris</span><span class="p">.</span><span class="n">ShouldContain</span><span class="p">(</span><span class="n">redirectUri</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="n">Client</span><span class="w"> </span><span class="nf">CreateTestClient</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Client</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span>
+<span class="w">            </span><span class="k">new</span><span class="w"> </span><span class="nf">ClientId</span><span class="p">(</span><span class="n">Guid</span><span class="p">.</span><span class="n">NewGuid</span><span class="p">()),</span>
+<span class="w">            </span><span class="s">&quot;Test Client&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">ClientType</span><span class="p">.</span><span class="n">Confidential</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="example-value-object-test">Example: Value Object Test<a class="headerlink" href="#example-value-object-test" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="k">public</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">ClaimMappingTests</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">Create_WithValidInputs_ShouldSucceed</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">sourceClaim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;email&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">targetClaim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress&quot;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ClaimMapping</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span><span class="n">sourceClaim</span><span class="p">,</span><span class="w"> </span><span class="n">targetClaim</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">IsSuccess</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">mapping</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">;</span>
+<span class="w">        </span><span class="n">mapping</span><span class="p">.</span><span class="n">SourceClaim</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">sourceClaim</span><span class="p">);</span>
+<span class="w">        </span><span class="n">mapping</span><span class="p">.</span><span class="n">TargetClaim</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">targetClaim</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Theory]</span>
+<span class="w">    </span><span class="na">[InlineData(&quot;&quot;, &quot;target&quot;)]</span>
+<span class="w">    </span><span class="na">[InlineData(&quot;source&quot;, &quot;&quot;)]</span>
+<span class="w">    </span><span class="na">[InlineData(null, &quot;target&quot;)]</span>
+<span class="w">    </span><span class="na">[InlineData(&quot;source&quot;, null)]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">Create_WithInvalidInputs_ShouldFail</span><span class="p">(</span><span class="kt">string</span><span class="w"> </span><span class="n">sourceClaim</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="n">targetClaim</span><span class="p">)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ClaimMapping</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span><span class="n">sourceClaim</span><span class="p">,</span><span class="w"> </span><span class="n">targetClaim</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">IsFailure</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="application-layer-tests-target-80">Application Layer Tests (Target: 80%+)<a class="headerlink" href="#application-layer-tests-target-80" title="Permanent link">&para;</a></h3>
+<p>Application tests focus on use case logic with mocked dependencies.</p>
+<h4 id="example-use-case-test">Example: Use Case Test<a class="headerlink" href="#example-use-case-test" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="k">public</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">CreateClientUseCaseTests</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="k">readonly</span><span class="w"> </span><span class="n">IClientRepository</span><span class="w"> </span><span class="n">_clientRepository</span><span class="p">;</span>
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="k">readonly</span><span class="w"> </span><span class="n">IDateTimeProvider</span><span class="w"> </span><span class="n">_dateTimeProvider</span><span class="p">;</span>
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="k">readonly</span><span class="w"> </span><span class="n">CreateClientUseCase</span><span class="w"> </span><span class="n">_sut</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="nf">CreateClientUseCaseTests</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="n">_clientRepository</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Substitute</span><span class="p">.</span><span class="n">For</span><span class="o">&lt;</span><span class="n">IClientRepository</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">        </span><span class="n">_dateTimeProvider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Substitute</span><span class="p">.</span><span class="n">For</span><span class="o">&lt;</span><span class="n">IDateTimeProvider</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">        </span><span class="n">_dateTimeProvider</span><span class="p">.</span><span class="n">UtcNow</span><span class="p">.</span><span class="n">Returns</span><span class="p">(</span><span class="n">DateTime</span><span class="p">.</span><span class="n">UtcNow</span><span class="p">);</span>
+
+<span class="w">        </span><span class="n">_sut</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">CreateClientUseCase</span><span class="p">(</span><span class="n">_clientRepository</span><span class="p">,</span><span class="w"> </span><span class="n">_dateTimeProvider</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">Execute_WithValidCommand_ShouldCreateClient</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">CreateClientCommand</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="n">Name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Test Client&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">ClientType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Confidential&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">RedirectUris</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">[]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s">&quot;https://example.com/callback&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">        </span><span class="p">};</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">ExecuteAsync</span><span class="p">(</span><span class="n">command</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">IsSuccess</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">.</span><span class="n">ClientId</span><span class="p">.</span><span class="n">ShouldNotBeEmpty</span><span class="p">();</span>
+
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_clientRepository</span><span class="p">.</span><span class="n">Received</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="n">AddAsync</span><span class="p">(</span>
+<span class="w">            </span><span class="n">Arg</span><span class="p">.</span><span class="n">Is</span><span class="o">&lt;</span><span class="n">Client</span><span class="o">&gt;</span><span class="p">(</span><span class="n">c</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">Name</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">command</span><span class="p">.</span><span class="n">Name</span><span class="p">),</span>
+<span class="w">            </span><span class="n">Arg</span><span class="p">.</span><span class="n">Any</span><span class="o">&lt;</span><span class="n">CancellationToken</span><span class="o">&gt;</span><span class="p">()</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">Execute_WithDuplicateName_ShouldFail</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">CreateClientCommand</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">Name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Existing Client&quot;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">        </span><span class="n">_clientRepository</span>
+<span class="w">            </span><span class="p">.</span><span class="n">GetByNameAsync</span><span class="p">(</span><span class="n">command</span><span class="p">.</span><span class="n">Name</span><span class="p">,</span><span class="w"> </span><span class="n">Arg</span><span class="p">.</span><span class="n">Any</span><span class="o">&lt;</span><span class="n">CancellationToken</span><span class="o">&gt;</span><span class="p">())</span>
+<span class="w">            </span><span class="p">.</span><span class="n">Returns</span><span class="p">(</span><span class="n">CreateTestClient</span><span class="p">(</span><span class="s">&quot;Existing Client&quot;</span><span class="p">));</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">ExecuteAsync</span><span class="p">(</span><span class="n">command</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">IsFailure</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">Error</span><span class="p">.</span><span class="n">Code</span><span class="p">.</span><span class="n">ShouldContain</span><span class="p">(</span><span class="s">&quot;Duplicate&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">Execute_WhenRepositoryFails_ShouldReturnError</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">CreateClientCommand</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">Name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Test&quot;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">        </span><span class="n">_clientRepository</span>
+<span class="w">            </span><span class="p">.</span><span class="n">AddAsync</span><span class="p">(</span><span class="n">Arg</span><span class="p">.</span><span class="n">Any</span><span class="o">&lt;</span><span class="n">Client</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="n">Arg</span><span class="p">.</span><span class="n">Any</span><span class="o">&lt;</span><span class="n">CancellationToken</span><span class="o">&gt;</span><span class="p">())</span>
+<span class="w">            </span><span class="p">.</span><span class="n">Returns</span><span class="p">(</span><span class="n">Task</span><span class="p">.</span><span class="n">FromException</span><span class="o">&lt;</span><span class="n">Client</span><span class="o">&gt;</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">InvalidOperationException</span><span class="p">(</span><span class="s">&quot;DB error&quot;</span><span class="p">)));</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">ExecuteAsync</span><span class="p">(</span><span class="n">command</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">IsFailure</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="n">Client</span><span class="w"> </span><span class="nf">CreateTestClient</span><span class="p">(</span><span class="kt">string</span><span class="w"> </span><span class="n">name</span><span class="p">)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Client</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">ClientId</span><span class="p">(</span><span class="n">Guid</span><span class="p">.</span><span class="n">NewGuid</span><span class="p">()),</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">ClientType</span><span class="p">.</span><span class="n">Confidential</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="example-query-handler-test">Example: Query Handler Test<a class="headerlink" href="#example-query-handler-test" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="k">public</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">ListClientsQueryHandlerTests</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="k">readonly</span><span class="w"> </span><span class="n">IClientRepository</span><span class="w"> </span><span class="n">_clientRepository</span><span class="p">;</span>
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="k">readonly</span><span class="w"> </span><span class="n">ListClientsQueryHandler</span><span class="w"> </span><span class="n">_sut</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="nf">ListClientsQueryHandlerTests</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="n">_clientRepository</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Substitute</span><span class="p">.</span><span class="n">For</span><span class="o">&lt;</span><span class="n">IClientRepository</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">        </span><span class="n">_sut</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">ListClientsQueryHandler</span><span class="p">(</span><span class="n">_clientRepository</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">Handle_WithNoFilters_ShouldReturnAllClients</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">query</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">ListClientsQuery</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">Page</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">PageSize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="p">};</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">clients</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">[]</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="n">CreateTestClient</span><span class="p">(</span><span class="s">&quot;Client 1&quot;</span><span class="p">),</span>
+<span class="w">            </span><span class="n">CreateTestClient</span><span class="p">(</span><span class="s">&quot;Client 2&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">        </span><span class="n">_clientRepository</span>
+<span class="w">            </span><span class="p">.</span><span class="n">ListAsync</span><span class="p">(</span><span class="n">query</span><span class="p">.</span><span class="n">Page</span><span class="p">,</span><span class="w"> </span><span class="n">query</span><span class="p">.</span><span class="n">PageSize</span><span class="p">,</span><span class="w"> </span><span class="n">Arg</span><span class="p">.</span><span class="n">Any</span><span class="o">&lt;</span><span class="n">CancellationToken</span><span class="o">&gt;</span><span class="p">())</span>
+<span class="w">            </span><span class="p">.</span><span class="n">Returns</span><span class="p">((</span><span class="n">clients</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">));</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">HandleAsync</span><span class="p">(</span><span class="n">query</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">IsSuccess</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">.</span><span class="n">Items</span><span class="p">.</span><span class="n">ShouldHaveCount</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">.</span><span class="n">TotalCount</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">Handle_WithPagination_ShouldReturnCorrectPage</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">query</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">ListClientsQuery</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">Page</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">PageSize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">};</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">clients</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">[]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">CreateTestClient</span><span class="p">(</span><span class="s">&quot;Client 6&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
+<span class="w">        </span><span class="n">_clientRepository</span>
+<span class="w">            </span><span class="p">.</span><span class="n">ListAsync</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="n">Arg</span><span class="p">.</span><span class="n">Any</span><span class="o">&lt;</span><span class="n">CancellationToken</span><span class="o">&gt;</span><span class="p">())</span>
+<span class="w">            </span><span class="p">.</span><span class="n">Returns</span><span class="p">((</span><span class="n">clients</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">));</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">HandleAsync</span><span class="p">(</span><span class="n">query</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">.</span><span class="n">Items</span><span class="p">.</span><span class="n">ShouldHaveCount</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">.</span><span class="n">TotalCount</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">.</span><span class="n">Page</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="infrastructure-layer-tests-target-75">Infrastructure Layer Tests (Target: 75%+)<a class="headerlink" href="#infrastructure-layer-tests-target-75" title="Permanent link">&para;</a></h3>
+<p>Infrastructure tests are integration tests using real EF Core with in-memory or test database.</p>
+<h4 id="example-repository-test">Example: Repository Test<a class="headerlink" href="#example-repository-test" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="k">public</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">ClientRepositoryTests</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">IAsyncLifetime</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="n">OpenIdentityStackDbContext</span><span class="w"> </span><span class="n">_context</span><span class="p">;</span>
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="n">ClientRepository</span><span class="w"> </span><span class="n">_sut</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">InitializeAsync</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">options</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">DbContextOptionsBuilder</span><span class="o">&lt;</span><span class="n">OpenIdentityStackDbContext</span><span class="o">&gt;</span><span class="p">()</span>
+<span class="w">            </span><span class="p">.</span><span class="n">UseInMemoryDatabase</span><span class="p">(</span><span class="s">$&quot;ClientRepo_{Guid.NewGuid()}&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="p">.</span><span class="n">Options</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">_context</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">OpenIdentityStackDbContext</span><span class="p">(</span><span class="n">options</span><span class="p">);</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">Database</span><span class="p">.</span><span class="n">EnsureCreatedAsync</span><span class="p">();</span>
+<span class="w">        </span><span class="n">_sut</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">ClientRepository</span><span class="p">(</span><span class="n">_context</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">DisposeAsync</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">Database</span><span class="p">.</span><span class="n">EnsureDeletedAsync</span><span class="p">();</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">DisposeAsync</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">AddAsync_ShouldPersistClient</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CreateTestClient</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">AddAsync</span><span class="p">(</span><span class="n">client</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">SaveChangesAsync</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">retrieved</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">GetByIdAsync</span><span class="p">(</span><span class="n">client</span><span class="p">.</span><span class="n">Id</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+<span class="w">        </span><span class="n">retrieved</span><span class="p">.</span><span class="n">ShouldNotBeNull</span><span class="p">();</span>
+<span class="w">        </span><span class="n">retrieved</span><span class="p">.</span><span class="n">Id</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">client</span><span class="p">.</span><span class="n">Id</span><span class="p">);</span>
+<span class="w">        </span><span class="n">retrieved</span><span class="p">.</span><span class="n">Name</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">client</span><span class="p">.</span><span class="n">Name</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">GetByNameAsync_WhenExists_ShouldReturnClient</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CreateTestClient</span><span class="p">(</span><span class="s">&quot;Unique Name&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">AddAsync</span><span class="p">(</span><span class="n">client</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">SaveChangesAsync</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">GetByNameAsync</span><span class="p">(</span><span class="s">&quot;Unique Name&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">ShouldNotBeNull</span><span class="p">();</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">Name</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="s">&quot;Unique Name&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">GetByNameAsync_WhenNotExists_ShouldReturnNull</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">GetByNameAsync</span><span class="p">(</span><span class="s">&quot;NonExistent&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">ShouldBeNull</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">UpdateAsync_ShouldModifyExistingClient</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CreateTestClient</span><span class="p">(</span><span class="s">&quot;Original Name&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">AddAsync</span><span class="p">(</span><span class="n">client</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">SaveChangesAsync</span><span class="p">();</span>
+
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">updateResult</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">UpdateName</span><span class="p">(</span><span class="s">&quot;Updated Name&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="n">updateResult</span><span class="p">.</span><span class="n">IsSuccess</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">UpdateAsync</span><span class="p">(</span><span class="n">client</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">SaveChangesAsync</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">retrieved</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">GetByIdAsync</span><span class="p">(</span><span class="n">client</span><span class="p">.</span><span class="n">Id</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+<span class="w">        </span><span class="n">retrieved</span><span class="p">.</span><span class="n">Name</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="s">&quot;Updated Name&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">DeleteAsync_ShouldRemoveClient</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CreateTestClient</span><span class="p">();</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">AddAsync</span><span class="p">(</span><span class="n">client</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">SaveChangesAsync</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">DeleteAsync</span><span class="p">(</span><span class="n">client</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">SaveChangesAsync</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">retrieved</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">GetByIdAsync</span><span class="p">(</span><span class="n">client</span><span class="p">.</span><span class="n">Id</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+<span class="w">        </span><span class="n">retrieved</span><span class="p">.</span><span class="n">ShouldBeNull</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">ListAsync_WithPagination_ShouldReturnCorrectPage</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mi">15</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">AddAsync</span><span class="p">(</span><span class="n">CreateTestClient</span><span class="p">(</span><span class="s">$&quot;Client {i}&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="n">_context</span><span class="p">.</span><span class="n">SaveChangesAsync</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="p">(</span><span class="n">items</span><span class="p">,</span><span class="w"> </span><span class="n">totalCount</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">ListAsync</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">items</span><span class="p">.</span><span class="n">ShouldHaveCount</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
+<span class="w">        </span><span class="n">totalCount</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="mi">15</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="n">Client</span><span class="w"> </span><span class="nf">CreateTestClient</span><span class="p">(</span><span class="kt">string</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Test Client&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Client</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span>
+<span class="w">            </span><span class="k">new</span><span class="w"> </span><span class="nf">ClientId</span><span class="p">(</span><span class="n">Guid</span><span class="p">.</span><span class="n">NewGuid</span><span class="p">()),</span>
+<span class="w">            </span><span class="n">name</span><span class="p">,</span>
+<span class="w">            </span><span class="n">ClientType</span><span class="p">.</span><span class="n">Confidential</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">Value</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="apicontroller-tests-target-70">API/Controller Tests (Target: 70%+)<a class="headerlink" href="#apicontroller-tests-target-70" title="Permanent link">&para;</a></h3>
+<p>API tests verify HTTP endpoints with Aspire integration.</p>
+<h4 id="example-api-integration-test">Example: API Integration Test<a class="headerlink" href="#example-api-integration-test" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="k">public</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">ClientsControllerTests</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">IClassFixture</span><span class="o">&lt;</span><span class="n">AppHostFixture</span><span class="o">&gt;</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="k">readonly</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="n">_client</span><span class="p">;</span>
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="k">readonly</span><span class="w"> </span><span class="n">AppHostFixture</span><span class="w"> </span><span class="n">_fixture</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="nf">ClientsControllerTests</span><span class="p">(</span><span class="n">AppHostFixture</span><span class="w"> </span><span class="n">fixture</span><span class="p">)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="n">_fixture</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fixture</span><span class="p">;</span>
+<span class="w">        </span><span class="n">_client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fixture</span><span class="p">.</span><span class="n">CreateHttpClient</span><span class="p">(</span><span class="s">&quot;openidentitystack-api&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">CreateClient_WithValidData_ShouldReturn201</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">CreateClientCommand</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="n">Name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">$&quot;Test Client {Guid.NewGuid()}&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">ClientType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Confidential&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">RedirectUris</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">[]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s">&quot;https://example.com/callback&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">        </span><span class="p">};</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_client</span><span class="p">.</span><span class="n">PostAsJsonAsync</span><span class="p">(</span><span class="s">&quot;/api/admin/clients&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">request</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">response</span><span class="p">.</span><span class="n">StatusCode</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">HttpStatusCode</span><span class="p">.</span><span class="n">Created</span><span class="p">);</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">response</span><span class="p">.</span><span class="n">Content</span><span class="p">.</span><span class="n">ReadFromJsonAsync</span><span class="o">&lt;</span><span class="n">CreateClientResult</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">ClientId</span><span class="p">.</span><span class="n">ShouldNotBeEmpty</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">GetClient_WhenExists_ShouldReturn200</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">createResponse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">CreateTestClient</span><span class="p">();</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">clientId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createResponse</span><span class="p">.</span><span class="n">ClientId</span><span class="p">;</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_client</span><span class="p">.</span><span class="n">GetAsync</span><span class="p">(</span><span class="s">$&quot;/api/admin/clients/{clientId}&quot;</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">response</span><span class="p">.</span><span class="n">StatusCode</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">HttpStatusCode</span><span class="p">.</span><span class="n">OK</span><span class="p">);</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">response</span><span class="p">.</span><span class="n">Content</span><span class="p">.</span><span class="n">ReadFromJsonAsync</span><span class="o">&lt;</span><span class="n">ClientDetails</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">        </span><span class="n">client</span><span class="p">.</span><span class="n">Id</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">clientId</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">GetClient_WhenNotExists_ShouldReturn404</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">nonExistentId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Guid</span><span class="p">.</span><span class="n">NewGuid</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_client</span><span class="p">.</span><span class="n">GetAsync</span><span class="p">(</span><span class="s">$&quot;/api/admin/clients/{nonExistentId}&quot;</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">response</span><span class="p">.</span><span class="n">StatusCode</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">HttpStatusCode</span><span class="p">.</span><span class="n">NotFound</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">ListClients_ShouldReturnPaginatedResults</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="nf">CreateTestClient</span><span class="p">();</span>
+<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="nf">CreateTestClient</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_client</span><span class="p">.</span><span class="n">GetAsync</span><span class="p">(</span><span class="s">&quot;/api/admin/clients?page=1&amp;pageSize=10&quot;</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">response</span><span class="p">.</span><span class="n">StatusCode</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">HttpStatusCode</span><span class="p">.</span><span class="n">OK</span><span class="p">);</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">response</span><span class="p">.</span><span class="n">Content</span><span class="p">.</span><span class="n">ReadFromJsonAsync</span><span class="o">&lt;</span><span class="n">ListClientsResult</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">        </span><span class="n">result</span><span class="p">.</span><span class="n">Items</span><span class="p">.</span><span class="n">ShouldNotBeEmpty</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">UpdateClient_WithValidData_ShouldReturn200</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">createResponse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">CreateTestClient</span><span class="p">();</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">updateRequest</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">UpdateClientCommand</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="n">ClientId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createResponse</span><span class="p">.</span><span class="n">ClientId</span><span class="p">,</span>
+<span class="w">            </span><span class="n">Name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Updated Name&quot;</span>
+<span class="w">        </span><span class="p">};</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_client</span><span class="p">.</span><span class="n">PutAsJsonAsync</span><span class="p">(</span>
+<span class="w">            </span><span class="s">$&quot;/api/admin/clients/{createResponse.ClientId}&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">updateRequest</span>
+<span class="w">        </span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">response</span><span class="p">.</span><span class="n">StatusCode</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">HttpStatusCode</span><span class="p">.</span><span class="n">OK</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="na">[Fact]</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">DeleteClient_WhenExists_ShouldReturn204</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Arrange</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">createResponse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">CreateTestClient</span><span class="p">();</span>
+
+<span class="w">        </span><span class="c1">// Act</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_client</span><span class="p">.</span><span class="n">DeleteAsync</span><span class="p">(</span><span class="s">$&quot;/api/admin/clients/{createResponse.ClientId}&quot;</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Assert</span>
+<span class="w">        </span><span class="n">response</span><span class="p">.</span><span class="n">StatusCode</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">HttpStatusCode</span><span class="p">.</span><span class="n">NoContent</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">private</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="o">&lt;</span><span class="n">CreateClientResult</span><span class="o">&gt;</span><span class="w"> </span><span class="n">CreateTestClient</span><span class="p">()</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">CreateClientCommand</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="n">Name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">$&quot;Test Client {Guid.NewGuid()}&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">ClientType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Confidential&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">RedirectUris</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">[]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s">&quot;https://example.com/callback&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">        </span><span class="kt">var</span><span class="w"> </span><span class="n">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_client</span><span class="p">.</span><span class="n">PostAsJsonAsync</span><span class="p">(</span><span class="s">&quot;/api/admin/clients&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">request</span><span class="p">);</span>
+<span class="w">        </span><span class="n">response</span><span class="p">.</span><span class="n">EnsureSuccessStatusCode</span><span class="p">();</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">response</span><span class="p">.</span><span class="n">Content</span><span class="p">.</span><span class="n">ReadFromJsonAsync</span><span class="o">&lt;</span><span class="n">CreateClientResult</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="coverage-anti-patterns-to-avoid">Coverage Anti-Patterns to Avoid<a class="headerlink" href="#coverage-anti-patterns-to-avoid" title="Permanent link">&para;</a></h2>
+<h3 id="testing-implementation-details">❌ Testing Implementation Details<a class="headerlink" href="#testing-implementation-details" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1">// Bad - testing private methods</span>
+<span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="n">PrivateMethod_Should</span><span class="p">...()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* uses reflection */</span><span class="w"> </span><span class="p">}</span>
+
+<span class="c1">// Good - test through public API</span>
+<span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">PublicMethod_WithCondition_ShouldBehavior</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<h3 id="testing-framework-code">❌ Testing Framework Code<a class="headerlink" href="#testing-framework-code" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1">// Bad - testing EF Core, not your code</span>
+<span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">DbContext_CanSaveChanges</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span>
+
+<span class="c1">// Good - test your repository logic</span>
+<span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">Repository_SaveClient_ShouldPersist</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<h3 id="shallow-tests">❌ Shallow Tests<a class="headerlink" href="#shallow-tests" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1">// Bad - tests nothing meaningful</span>
+<span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">Client_Constructor_ShouldNotThrow</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">Client</span><span class="p">();</span>
+<span class="w">    </span><span class="n">client</span><span class="p">.</span><span class="n">ShouldNotBeNull</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="c1">// Good - tests actual behavior</span>
+<span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">CreateClient_WithInvalidEmail_ShouldReturnValidationError</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Client</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;invalid-email&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">...);</span>
+<span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">IsFailure</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">Error</span><span class="p">.</span><span class="n">Code</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="s">&quot;Client.InvalidEmail&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="over-mocking">❌ Over-Mocking<a class="headerlink" href="#over-mocking" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1">// Bad - mocking everything, testing nothing</span>
+<span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="n">UseCase_Should</span><span class="p">...()</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">repo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Substitute</span><span class="p">.</span><span class="n">For</span><span class="o">&lt;</span><span class="n">IRepo</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">    </span><span class="n">repo</span><span class="p">.</span><span class="n">Get</span><span class="p">().</span><span class="n">Returns</span><span class="p">(</span><span class="n">substitute</span><span class="p">.</span><span class="n">For</span><span class="o">&lt;</span><span class="n">Entity</span><span class="o">&gt;</span><span class="p">());</span>
+<span class="w">    </span><span class="c1">// Test tells you nothing</span>
+<span class="p">}</span>
+
+<span class="c1">// Good - use real objects where possible</span>
+<span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">UseCase_WithValidEntity_ShouldProcess</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">repo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Substitute</span><span class="p">.</span><span class="n">For</span><span class="o">&lt;</span><span class="n">IRepo</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">    </span><span class="n">repo</span><span class="p">.</span><span class="n">Get</span><span class="p">().</span><span class="n">Returns</span><span class="p">(</span><span class="n">CreateRealEntity</span><span class="p">());</span><span class="w">  </span><span class="c1">// Real entity</span>
+<span class="w">    </span><span class="c1">// Now testing actual logic</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="tips-for-high-coverage">Tips for High Coverage<a class="headerlink" href="#tips-for-high-coverage" title="Permanent link">&para;</a></h2>
+<h3 id="1-test-edge-cases">1. Test Edge Cases<a class="headerlink" href="#1-test-edge-cases" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Null/empty inputs</li>
+<li>Boundary values (0, -1, max)</li>
+<li>Special characters</li>
+<li>Large datasets</li>
+<li>Concurrent access</li>
+</ul>
+<h3 id="2-use-theory-tests">2. Use Theory Tests<a class="headerlink" href="#2-use-theory-tests" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="na">[Theory]</span>
+<span class="na">[InlineData(&quot;&quot;, ClientErrors.NameRequired)]</span>
+<span class="na">[InlineData(&quot;   &quot;, ClientErrors.NameRequired)]</span>
+<span class="na">[InlineData(null, ClientErrors.NameRequired)]</span>
+<span class="na">[InlineData(&quot;A&quot;, ClientErrors.NameTooShort)]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">CreateClient_WithInvalidName_ShouldReturnError</span><span class="p">(</span><span class="kt">string</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">DomainError</span><span class="w"> </span><span class="n">expectedError</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Client</span><span class="p">.</span><span class="n">Create</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="p">);</span>
+<span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">IsFailure</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">Error</span><span class="p">.</span><span class="n">ShouldBe</span><span class="p">(</span><span class="n">expectedError</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="3-cover-error-paths">3. Cover Error Paths<a class="headerlink" href="#3-cover-error-paths" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="nf">CreateClient_WhenDatabaseFails_ShouldReturnError</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">_repository</span><span class="p">.</span><span class="n">AddAsync</span><span class="p">(</span><span class="n">Arg</span><span class="p">.</span><span class="n">Any</span><span class="o">&lt;</span><span class="n">Client</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="n">Arg</span><span class="p">.</span><span class="n">Any</span><span class="o">&lt;</span><span class="n">CancellationToken</span><span class="o">&gt;</span><span class="p">())</span>
+<span class="w">        </span><span class="p">.</span><span class="n">Returns</span><span class="p">(</span><span class="n">Task</span><span class="p">.</span><span class="n">FromException</span><span class="o">&lt;</span><span class="n">Client</span><span class="o">&gt;</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">DbUpdateException</span><span class="p">()));</span>
+
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">_sut</span><span class="p">.</span><span class="n">ExecuteAsync</span><span class="p">(</span><span class="n">command</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="p">.</span><span class="n">None</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">IsFailure</span><span class="p">.</span><span class="n">ShouldBeTrue</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="4-test-validation-logic">4. Test Validation Logic<a class="headerlink" href="#4-test-validation-logic" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="na">[Fact]</span>
+<span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">ValidateCommand_WithMissingRequiredFields_ShouldFail</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">CreateClientCommand</span><span class="p">();</span><span class="w"> </span><span class="c1">// Empty</span>
+
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">validator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">CreateClientCommandValidator</span><span class="p">();</span>
+<span class="w">    </span><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">validator</span><span class="p">.</span><span class="n">Validate</span><span class="p">(</span><span class="n">command</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">IsValid</span><span class="p">.</span><span class="n">ShouldBeFalse</span><span class="p">();</span>
+<span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">Errors</span><span class="p">.</span><span class="n">ShouldContain</span><span class="p">(</span><span class="n">e</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">PropertyName</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="k">nameof</span><span class="p">(</span><span class="n">command</span><span class="p">.</span><span class="n">Name</span><span class="p">));</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="coverage-tracking">Coverage Tracking<a class="headerlink" href="#coverage-tracking" title="Permanent link">&para;</a></h2>
+<h3 id="local-development">Local Development<a class="headerlink" href="#local-development" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Generate and view coverage</span>
+./scripts/coverage.sh
+
+<span class="c1"># Or manually</span>
+dotnet<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--coverage
+reportgenerator<span class="w"> </span>-reports:tests/**/coverage.cobertura.xml<span class="w"> </span>-targetdir:coverage-report
+</code></pre></div>
+<h3 id="cicd-pipeline">CI/CD Pipeline<a class="headerlink" href="#cicd-pipeline" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># .github/workflows/test.yml</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Test with Coverage</span>
+<span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dotnet test --coverage --coverage-output coverage.cobertura.xml</span>
+
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Coverage Report</span>
+<span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">reportgenerator \</span>
+<span class="w">      </span><span class="no">-reports:tests/**/coverage.cobertura.xml \</span>
+<span class="w">      </span><span class="no">-targetdir:coverage-report \</span>
+<span class="w">      </span><span class="no">-reporttypes:Html;Badges</span>
+
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Upload to Codecov</span>
+<span class="w">  </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">codecov/codecov-action@v3</span>
+<span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">files</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tests/**/coverage.cobertura.xml</span>
+</code></pre></div>
+<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Start with Domain Layer</strong> - Already at 91%, push to 95%</li>
+<li><strong>Fix Test Infrastructure</strong> - Stabilize Aspire tests</li>
+<li><strong>Client Management</strong> - Zero coverage, highest business value</li>
+<li><strong>Repositories</strong> - Core infrastructure, needed for all features</li>
+<li><strong>Continuous Improvement</strong> - Make coverage part of DoD</li>
+</ol>
+<h2 id="resources">Resources<a class="headerlink" href="#resources" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://xunit.net/">xUnit Documentation</a></li>
+<li><a href="https://nsubstitute.github.io/help.html">NSubstitute Guide</a></li>
+<li><a href="https://docs.shouldly.org/">Shouldly Assertions</a></li>
+<li><a href="https://learn.microsoft.com/ef/core/testing/">EF Core Testing</a></li>
+<li><a href="https://reportgenerator.io/">ReportGenerator</a></li>
+</ul>
+<hr />
+<p><strong>Note:</strong> This is a living document. Update with new patterns as you discover them.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "navigation.sections", "navigation.expand", "search.highlight", "search.suggest", "content.code.copy"], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f1b6f286.min.js"></script>
+      
+    
+  </body>
+</html>
