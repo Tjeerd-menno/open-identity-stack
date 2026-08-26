@@ -8,11 +8,14 @@ using System.IO;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
+using Xunit;
+using Xunit.Sdk;
+using Xunit.v3;
 
 [assembly: AssemblyFixture(typeof(ManagementWebAppHostFixture))]
 // Tests share one ephemeral database, one browser and one signed-in admin account, so they
 // must not run concurrently.
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Parallelization(Mode = ParallelMode.None)]
 
 namespace OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 
