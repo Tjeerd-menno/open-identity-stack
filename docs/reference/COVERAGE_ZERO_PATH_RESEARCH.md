@@ -28,12 +28,12 @@ Tests will use a fake `AdminApiClient` and assert the public contract methods' c
 
 - SonarQube project coverage API: `component_tree` for `Tjeerd-menno_open-identity-stack`, queried on 2026-08-23.
 - SonarQube line source API: `sources/lines` for the selected contract modules, queried on 2026-08-23.
-- [Admin API client transport](../../src/frontend-packages/admin-api-client/src/index.ts)
-- [Applications contract](../../src/frontend-packages/admin-api-client/src/applications.ts)
-- [Application permissions contract](../../src/frontend-packages/admin-api-client/src/application-permissions.ts)
-- [Groups contract](../../src/frontend-packages/admin-api-client/src/groups.ts)
-- [Users contract](../../src/frontend-packages/admin-api-client/src/users.ts)
-- [Remaining contract modules](../../src/frontend-packages/admin-api-client/src)
-- [Existing transport tests](../../src/frontend-packages/admin-api-client/src/index.test.ts)
+- [Admin API client transport](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/src/frontend-packages/admin-api-client/src/index.ts)
+- [Applications contract](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/src/frontend-packages/admin-api-client/src/applications.ts)
+- [Application permissions contract](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/src/frontend-packages/admin-api-client/src/application-permissions.ts)
+- [Groups contract](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/src/frontend-packages/admin-api-client/src/groups.ts)
+- [Users contract](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/src/frontend-packages/admin-api-client/src/users.ts)
+- [Remaining contract modules](https://github.com/Tjeerd-menno/open-identity-stack/tree/main/src/frontend-packages/admin-api-client/src)
+- [Existing transport tests](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/src/frontend-packages/admin-api-client/src/index.test.ts)
 - [Repository testing strategy](TESTING-STRATEGY.md)
-- [Repository domain vocabulary](../../CONTEXT.md)
+- [Repository domain vocabulary](https://github.com/Tjeerd-menno/open-identity-stack/blob/main/CONTEXT.md)

@@ -542,8 +542,8 @@ public sealed class ApplicationPermissionManifestUseCases
             return -1;
         }
 
-        string[] parsedLeft = left?.Split('.', StringSplitOptions.None) ?? Array.Empty<string>();
-        string[] parsedRight = right?.Split('.', StringSplitOptions.None) ?? Array.Empty<string>();
+        string[] parsedLeft = left.Split('.', StringSplitOptions.None);
+        string[] parsedRight = right.Split('.', StringSplitOptions.None);
 
         int maxLength = Math.Min(parsedLeft.Length, parsedRight.Length);
         for (int i = 0; i < maxLength; i++)
