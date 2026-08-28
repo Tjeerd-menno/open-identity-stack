@@ -126,7 +126,7 @@ internal static class AuthenticationSettingsApi
 
         if (result.IsFailure)
         {
-            if (result.Error.Code.Contains("NotFound"))
+            if (result.Error.Code.Contains("NotFound", StringComparison.Ordinal))
             {
                 return TypedResults.NotFound(new { error = result.Error.Description });
             }
