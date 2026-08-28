@@ -126,7 +126,7 @@ internal static class ProvidersApi
 
         if (result.IsFailure)
         {
-            if (result.Error.Code.Contains("Conflict") || result.Error.Code.Contains("Exists"))
+            if (result.Error.Code.Contains("Conflict", StringComparison.Ordinal) || result.Error.Code.Contains("Exists", StringComparison.Ordinal))
             {
                 return TypedResults.Conflict(new { error = result.Error.Description });
             }
@@ -169,7 +169,7 @@ internal static class ProvidersApi
 
         if (result.IsFailure)
         {
-            if (result.Error.Code.Contains("NotFound"))
+            if (result.Error.Code.Contains("NotFound", StringComparison.Ordinal))
             {
                 return TypedResults.NotFound(new { error = result.Error.Description });
             }
@@ -208,7 +208,7 @@ internal static class ProvidersApi
 
         // Soft delete by disabling
         Result result = provider.Disable();
-        if (result.IsFailure && !result.Error.Code.Contains("AlreadyDisabled"))
+        if (result.IsFailure && !result.Error.Code.Contains("AlreadyDisabled", StringComparison.Ordinal))
         {
             return TypedResults.BadRequest(new { error = result.Error.Description });
         }
@@ -232,7 +232,7 @@ internal static class ProvidersApi
         }
 
         Result result = provider.Disable();
-        if (result.IsFailure && !result.Error.Code.Contains("AlreadyDisabled"))
+        if (result.IsFailure && !result.Error.Code.Contains("AlreadyDisabled", StringComparison.Ordinal))
         {
             return TypedResults.BadRequest(new { error = result.Error.Description });
         }
@@ -257,7 +257,7 @@ internal static class ProvidersApi
         }
 
         Result result = provider.Enable();
-        if (result.IsFailure && !result.Error.Code.Contains("AlreadyActive"))
+        if (result.IsFailure && !result.Error.Code.Contains("AlreadyActive", StringComparison.Ordinal))
         {
             return TypedResults.BadRequest(new { error = result.Error.Description });
         }

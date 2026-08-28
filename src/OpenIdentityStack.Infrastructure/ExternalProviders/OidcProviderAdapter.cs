@@ -10,17 +10,17 @@ namespace OpenIdentityStack.Infrastructure.ExternalProviders;
 /// </summary>
 public sealed class OidcProviderAdapter
 {
+    private static readonly JsonSerializerOptions jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNameCaseInsensitive = true,
+    };
+
     private readonly HttpClient httpClient;
-    private readonly JsonSerializerOptions jsonOptions;
 
     public OidcProviderAdapter(HttpClient httpClient)
     {
         this.httpClient = httpClient;
-        this.jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-            PropertyNameCaseInsensitive = true,
-        };
     }
 
     /// <summary>
@@ -38,7 +38,7 @@ public sealed class OidcProviderAdapter
             return null;
         }
 
-        return await response.Content.ReadFromJsonAsync<OidcDiscoveryDocument>(this.jsonOptions, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<OidcDiscoveryDocument>(jsonOptions, cancellationToken);
     }
 
     /// <summary>
@@ -79,7 +79,7 @@ public sealed class OidcProviderAdapter
             return null;
         }
 
-        return await response.Content.ReadFromJsonAsync<TokenResponse>(this.jsonOptions, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<TokenResponse>(jsonOptions, cancellationToken);
     }
 
     /// <summary>
@@ -100,7 +100,7 @@ public sealed class OidcProviderAdapter
             return null;
         }
 
-        return await response.Content.ReadFromJsonAsync<UserInfoResponse>(this.jsonOptions, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<UserInfoResponse>(jsonOptions, cancellationToken);
     }
 }
 

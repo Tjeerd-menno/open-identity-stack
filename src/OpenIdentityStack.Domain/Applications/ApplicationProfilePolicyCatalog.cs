@@ -1,8 +1,10 @@
+using System.Collections.Frozen;
+
 namespace OpenIdentityStack.Domain.Applications;
 
 public static class ApplicationProfilePolicyCatalog
 {
-    private static readonly Dictionary<ApplicationProfile, ApplicationProfilePolicy> policies = new()
+    private static readonly FrozenDictionary<ApplicationProfile, ApplicationProfilePolicy> policies = new Dictionary<ApplicationProfile, ApplicationProfilePolicy>
     {
         [ApplicationProfile.Web] = new(
             ApplicationProfile.Web,
@@ -215,7 +217,7 @@ public static class ApplicationProfilePolicyCatalog
             DefaultRequirePkce: false,
             DefaultRequireConsent: true,
             RequiresRedirectUris: false)
-    };
+    }.ToFrozenDictionary();
 
     public static ApplicationProfilePolicy GetPolicy(ApplicationProfile profile) => policies[profile];
 

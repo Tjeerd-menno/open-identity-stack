@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Microsoft.EntityFrameworkCore;
 using OpenIdentityStack.Domain.Roles;
 
@@ -5,7 +6,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Applications;
 
 public sealed class ApplicationPermissionMigration
 {
-    private static readonly Dictionary<string, string> permissionMappings = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly FrozenDictionary<string, string> permissionMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["clients:read"] = "applications:read",
         ["clients:write"] = "applications:write",
@@ -18,7 +19,7 @@ public sealed class ApplicationPermissionMigration
         ["service-accounts:rotate-secret"] = "applications:manage-credentials",
         ["service-accounts:manage-certificates"] = "applications:manage-certificates",
         ["service-accounts:*"] = "applications:*"
-    };
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     private readonly OpenIdentityStackDbContext dbContext;
 
