@@ -32,6 +32,7 @@ public class AccountController : Controller
     private readonly IDynamicAuthenticationSchemeService schemeService;
     private readonly IJitProvisionUserUseCase jitProvisionUseCase;
     private readonly IAuditLog audit;
+    private readonly ICredentialBoundaryStore credentialBoundary;
 
     public AccountController(
         IValidateUserCredentialsUseCase validateCredentialsUseCase,
@@ -42,7 +43,8 @@ public class AccountController : Controller
         IUserRepository userRepository,
         IDynamicAuthenticationSchemeService schemeService,
         IJitProvisionUserUseCase jitProvisionUseCase,
-        IAuditLog audit)
+        IAuditLog audit,
+        ICredentialBoundaryStore credentialBoundary)
     {
         this.validateCredentialsUseCase = validateCredentialsUseCase;
         this.createSessionUseCase = createSessionUseCase;
@@ -53,6 +55,7 @@ public class AccountController : Controller
         this.schemeService = schemeService;
         this.jitProvisionUseCase = jitProvisionUseCase;
         this.audit = audit;
+        this.credentialBoundary = credentialBoundary;
     }
 
     /// <summary>
@@ -164,6 +167,8 @@ public class AccountController : Controller
             }
         };
 
+        properties.SetString(CredentialBoundaryClaims.Epoch, (await this.credentialBoundary.GetEpochAsync(this.HttpContext.RequestAborted)).ToString());
+
         // If fresh login is required, pass prompt=login to the upstream IdP
         // This forces the external IdP (like Authentik) to show its login page
         if (fresh)
@@ -191,6 +196,11 @@ public class AccountController : Controller
         // Consume the authenticated external ticket before any validation or JIT denial can return.
         await this.HttpContext.SignOutAsync("ExternalCookie");
         ClaimsPrincipal externalUser = authenticateResult.Principal;
+        string? credentialEpoch = authenticateResult.Properties?.GetString(CredentialBoundaryClaims.Epoch);
+        if (!await this.credentialBoundary.IsCurrentAsync(credentialEpoch, this.HttpContext.RequestAborted))
+        {
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
+        }
         string? verifiedEvidenceEmail = null;
         authenticateResult.Properties?.Items.TryGetValue(ExternalIdentityProperties.VerifiedEmail, out verifiedEvidenceEmail);
 
@@ -257,6 +267,7 @@ public class AccountController : Controller
             new(ClaimTypes.Name, user.DisplayName),
             new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
             new("auth_method", "external"),
+            new(CredentialBoundaryClaims.Epoch, credentialEpoch ?? Guid.Empty.ToString()),
             new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, user.Id.Value.ToString()),
             new("provider", authenticatedProvider)
         };
@@ -320,6 +331,7 @@ public class AccountController : Controller
             return this.View(model);
         }
 
+        Guid credentialEpoch = await this.credentialBoundary.GetEpochAsync(this.HttpContext.RequestAborted);
         var command = new ValidateUserCredentialsCommand(model.Email, model.Password);
         Result<ValidateUserCredentialsResult> result = await this.validateCredentialsUseCase.ExecuteAsync(command);
 
@@ -335,6 +347,7 @@ public class AccountController : Controller
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, result.Value.UserId.Value.ToString()),
+            new(CredentialBoundaryClaims.Epoch, credentialEpoch.ToString()),
             new(ClaimTypes.Email, result.Value.Email),
             new(ClaimTypes.Name, result.Value.DisplayName),
             new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),

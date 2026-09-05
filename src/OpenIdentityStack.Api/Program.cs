@@ -76,6 +76,7 @@ builder.Services.AddAuthentication(options =>
     options.LogoutPath = "/Account/Logout";
     options.ExpireTimeSpan = TimeSpan.FromHours(1);
     options.SlidingExpiration = true;
+    options.Events.OnValidatePrincipal = CredentialBoundaryCookieValidation.ValidateAsync;
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")
@@ -204,6 +205,7 @@ if (app.Environment.IsDevelopment())
 // Authentication and Authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapCredentialCutoverApi();
 app.UseMiddleware<AdministrativeApprovalOutcomeMiddleware>();
 
 // Map MVC Controllers for authentication endpoints (/connect/*, /Account/*)
