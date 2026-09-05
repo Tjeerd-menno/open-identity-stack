@@ -38,8 +38,8 @@ public sealed class RolesEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
         string clientId = $"roles-contract-{Guid.NewGuid():N}";
         const string clientSecret = "test-secret-123";
 
-        await this._fixture.CreateServiceAccountAsync(clientId, clientSecret);
-        this._accessToken = await this._fixture.GetAccessTokenAsync(clientId, clientSecret);
+        using HttpClient authenticated = await this._fixture.CreateAuthenticatedClientAsync(clientId, clientSecret);
+        this._accessToken = authenticated.DefaultRequestHeaders.Authorization!.Parameter;
     }
 
     private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string url, object? content = null)
@@ -509,15 +509,13 @@ public sealed class RolesEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
     }
 
     [Fact]
-    public async Task RolesEndpoints_WithoutAdminRole_Returns403Forbidden()
+    public async Task RolesEndpoints_WithoutRolesPermission_Returns403Forbidden()
     {
         // Arrange
         string clientId = $"roles-limited-{Guid.NewGuid():N}";
         const string clientSecret = "test-secret-123";
-        string[] limitedScopes = new[] { "limited" };
-
-        await this._fixture.CreateServiceAccountAsync(clientId, clientSecret, limitedScopes);
-        string token = await this._fixture.GetAccessTokenAsync(clientId, clientSecret, "limited");
+        using HttpClient limited = await this._fixture.CreateAuthenticatedClientAsync(clientId, clientSecret, administrativePermissions: ["users:read"]);
+        string token = limited.DefaultRequestHeaders.Authorization!.Parameter!;
 
         var request = new HttpRequestMessage(HttpMethod.Get, "/api/admin/roles");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);

@@ -6,6 +6,8 @@ OpenIdentityStack now uses **Applications** as the administrator-facing model fo
 
 `AddExplicitResourceAccess` creates `ProtectedResources` and `ClientResourceGrants`. Existing applications with resource-like scopes are marked `RequiresMigrationReview` with migration source `resource-access-boundary-v1`. It creates **no client grants**: historical scope lists, scope resource strings, similarly named clients/namespaces, and the former `api` shortcut are insufficient evidence of authorization.
 
+ManagementWeb requests the dedicated `ois.admin` scope and requires an explicit delegated grant for the reserved Admin resource. The following administrative-access policy layer adds current entitlement checks at Admin API entry points; resource projection already requires this client configuration.
+
 1. Inventory each client’s actual target APIs and approve its delegated ceiling and machine permissions separately. Record ambiguous mappings for operator review; leave them ungranted until resolved.
 2. Run DbMigrator. It initializes the reserved Admin audience/scope without granting existing clients access. Establish the controlled Management Web entitlement through the administrative bootstrap/approval procedure.
 3. Register each business API’s audience, resource scope, and existing permission namespaces through Applications → Resource access. Configure explicit grants for each approved client and permit the resource scope in that client’s OAuth configuration.

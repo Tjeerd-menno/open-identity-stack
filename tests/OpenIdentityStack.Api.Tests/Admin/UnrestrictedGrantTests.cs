@@ -1,12 +1,6 @@
 using OpenIdentityStack.Domain.Common;
 using System.Net;
 using System.Net.Http.Json;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using OpenIdentityStack.Domain.Roles;
 using SharedKernel;
@@ -90,45 +84,8 @@ public sealed class UnrestrictedGrantTests(AppHostFixture fixture)
         denial.ShouldContain("AdministrativeApproval.AuthorityRequired");
     }
 
-    private async Task<HttpClient> SignInHumanAsync(string email, string password)
-    {
-        string clientId = $"human-{Guid.NewGuid():N}";
-        const string clientSecret = "test-client-secret";
-        const string redirectUri = "https://localhost/callback";
-        await fixture.CreateServiceAccountAsync(clientId, clientSecret, ["openid", "api"],
-            ["authorization_code"], [redirectUri]);
-        string verifier = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-        string challenge = WebEncoders.Base64UrlEncode(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
-        string query = await new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["response_type"] = "code", ["client_id"] = clientId, ["redirect_uri"] = redirectUri,
-            ["scope"] = "openid api", ["code_challenge"] = challenge, ["code_challenge_method"] = "S256",
-        }).ReadAsStringAsync();
-        HttpClient client = fixture.CreateClient(allowAutoRedirect: false);
-        HttpResponseMessage page = await client.GetAsync("/Account/Login");
-        string html = await page.Content.ReadAsStringAsync();
-        Match match = Regex.Match(html, "<input[^>]+name=\"__RequestVerificationToken\"[^>]+value=\"(?<value>[^\"]+)\"", RegexOptions.IgnoreCase);
-        match.Success.ShouldBeTrue();
-        HttpResponseMessage login = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["Email"] = email, ["Password"] = password, ["returnUrl"] = "/connect/authorize?" + query,
-            ["__RequestVerificationToken"] = WebUtility.HtmlDecode(match.Groups["value"].Value),
-        }));
-        login.StatusCode.ShouldBe(HttpStatusCode.Redirect);
-        HttpResponseMessage authorize = await client.GetAsync(login.Headers.Location);
-        authorize.StatusCode.ShouldBe(HttpStatusCode.Redirect);
-        string code = QueryHelpers.ParseQuery(authorize.Headers.Location!.Query)["code"].Single()!;
-        HttpResponseMessage tokenResponse = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["grant_type"] = "authorization_code", ["code"] = code, ["redirect_uri"] = redirectUri,
-            ["code_verifier"] = verifier, ["client_id"] = clientId, ["client_secret"] = clientSecret,
-        }));
-        tokenResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        JsonNode tokens = (await tokenResponse.Content.ReadFromJsonAsync<JsonNode>())!;
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens["access_token"]!.GetValue<string>());
-        return client;
-    }
-
+    private async Task<HttpClient> SignInHumanAsync(string email, string password) =>
+        (await HumanAdministrativeSession.SignInAsync(fixture, email, password, ["*"])).Client;
     [Fact]
     public async Task MachineCannotCreateUnrestrictedRoleEvenWhenAcknowledged()
     {

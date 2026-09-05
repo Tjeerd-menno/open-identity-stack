@@ -24,7 +24,7 @@ function createUserManager(): UserManager {
     post_logout_redirect_uri: `${baseUrl}/`,
     silent_redirect_uri: `${baseUrl}/auth/silent-callback`,
     response_type: 'code',
-    scope: 'openid profile email api',
+    scope: 'openid profile email ois.admin',
     automaticSilentRenew: true,
     userStore: new WebStorageStateStore({ store: globalThis.sessionStorage }),
   };
