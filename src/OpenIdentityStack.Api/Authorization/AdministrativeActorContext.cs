@@ -53,7 +53,11 @@ public sealed class AdministrativeActorContext(IHttpContextAccessor accessor) : 
             bool acknowledged = string.Equals(context!.Request.Headers[ApprovalHeader], "acknowledge", StringComparison.Ordinal);
             string[] subjects = principal.FindAll(HumanSubjectClaim).Select(claim => claim.Value).ToArray();
             bool isHuman = subjects.Length == 1 && string.Equals(subjects[0], userId.ToString(), StringComparison.Ordinal);
-            return new AdministrativeActor(new UserId(userId), authenticatedAt, isHuman, acknowledged);
+            string[] localSessions = principal.FindAll(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession).Select(claim => claim.Value).ToArray();
+            Guid? localSessionId = isHuman && localSessions.Length == 1 && Guid.TryParse(localSessions[0], out Guid sessionId) ? sessionId : null;
+            string[] epochs = principal.FindAll(CredentialBoundaryClaims.Epoch).Select(claim => claim.Value).ToArray();
+            Guid? epoch = epochs.Length == 1 && Guid.TryParse(epochs[0], out Guid capturedEpoch) ? capturedEpoch : null;
+            return new AdministrativeActor(new UserId(userId), authenticatedAt, isHuman, acknowledged, localSessionId, epoch);
         }
     }
 }

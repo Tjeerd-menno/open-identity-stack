@@ -1,0 +1,48 @@
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import type { CutoverPreflight } from '@openidentitystack/admin-api-client';
+import { makeAuth, renderManagementWeb } from '@/test/render';
+import { mockApi, resetApiMocks } from '@/test/mock-api';
+import { CutoverReadinessPage } from './CutoverReadinessPage';
+
+vi.mock('@/lib/api', async () => {
+  const { mockApi } = await import('@/test/mock-api');
+  return { api: mockApi, getApiErrorMessage: (error: unknown) => String(error) };
+});
+const ready: CutoverPreflight = {
+  epoch: 'epoch', evaluatedAt: '2026-09-05T00:00:00Z', ready: true, blockers: [], emergencyAccess: null,
+  identities: { quarantinedLinks: 0, affectedUsers: 0, federationOnlyUsers: 0, passwordCandidates: 0, disabledUsers: 0, verifiedEmails: 0, providerEvidence: 0, withdrawnEvidence: 0 },
+  administrativeClients: [], businessResources: [], outstandingAccessTokens: 0, latestAccessTokenExpiry: null,
+};
+beforeEach(resetApiMocks);
+it('keeps quarantined identities blocked even with a password candidate and acknowledgement', async () => {
+  mockApi.cutover.getReadiness.mockResolvedValue({ ...ready, ready: false, identities: { ...ready.identities, quarantinedLinks: 1, passwordCandidates: 1 }, blockers: [{ code: 'Identity.Quarantined', message: 'Quarantined identities require a separate recovery design.', count: 1 }] });
+  renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });
+  expect(await screen.findByText('Quarantined identities require a separate recovery design.')).toBeInTheDocument();
+  expect(screen.getByText(/A configured password is only a candidate/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('checkbox', { name: /I accept/ }));
+  expect(screen.getByRole('button', { name: 'Execute credential cutover' })).toBeDisabled();
+  expect(mockApi.cutover.execute).not.toHaveBeenCalled();
+});
+it('records only the authenticated local session and preserves the block on failure', async () => {
+  mockApi.cutover.getReadiness.mockResolvedValue({ ...ready, ready: false });
+  mockApi.cutover.recordEmergencyAccess.mockRejectedValue(new Error('A fresh local password login is required'));
+  renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });
+  fireEvent.click(await screen.findByRole('button', { name: 'Verify my emergency access' }));
+  expect(await screen.findByText(/A fresh local password login is required/)).toBeInTheDocument();
+  expect(mockApi.cutover.recordEmergencyAccess).toHaveBeenCalledWith();
+  expect(screen.getByRole('button', { name: 'Execute credential cutover' })).toBeDisabled();
+});
+it('requires acknowledgement and retains the operation ID when the live server gate rejects', async () => {
+  mockApi.cutover.getReadiness.mockResolvedValue(ready);
+  mockApi.cutover.execute.mockRejectedValue(new Error('Prerequisites changed; refresh readiness'));
+  renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });
+  const execute = await screen.findByRole('button', { name: 'Execute credential cutover' });
+  expect(execute).toBeDisabled();
+  fireEvent.click(screen.getByRole('checkbox', { name: /I accept/ }));
+  fireEvent.click(execute);
+  expect(await screen.findByText(/Prerequisites changed/)).toBeInTheDocument();
+  fireEvent.click(execute);
+  await waitFor(() => expect(mockApi.cutover.execute).toHaveBeenCalledTimes(2));
+  expect(mockApi.cutover.execute.mock.calls[0]).toEqual(mockApi.cutover.execute.mock.calls[1]);
+});

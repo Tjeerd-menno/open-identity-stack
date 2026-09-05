@@ -10,6 +10,7 @@ import { vi } from 'vitest';
  *   });
  */
 export const mockApi = {
+  cutover: { getReadiness: vi.fn(), recordEmergencyAccess: vi.fn(), reviewResourceWindow: vi.fn(), execute: vi.fn() },
   users: {
     getUsers: vi.fn(),
     getUser: vi.fn(),

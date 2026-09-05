@@ -374,6 +374,7 @@ public class AccountController : Controller
         string sessionId = sessionResult.Value.SessionId.Value.ToString();
         claims.Add(new Claim("sid", sessionId));
         claims.Add(new Claim("session_id", sessionId));
+        claims.Add(new Claim(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession, sessionId));
 
         var claimsIdentity = new ClaimsIdentity(claims, "Cookies");
         var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
