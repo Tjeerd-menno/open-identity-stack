@@ -47,7 +47,7 @@ public sealed class GetGroupClaimsForUserQueryHandler : IGetGroupClaimsForUserQu
         {
             foreach (GroupMapping mapping in group.Mappings)
             {
-                if (mapping.Type == MappingType.Claim && mapping.Value != null)
+                if (mapping.Type == MappingType.Claim && mapping.Value != null && !ReservedGroupClaimTypes.IsReserved(mapping.Target))
                 {
                     claims.Add(new GroupClaimDto(mapping.Target, mapping.Value, mapping.TokenTarget));
                 }

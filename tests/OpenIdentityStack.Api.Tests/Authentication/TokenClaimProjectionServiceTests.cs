@@ -16,6 +16,28 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 
 public sealed class TokenClaimProjectionServiceTests
 {
+    [Fact]
+    public void GroupMappingsCannotForgeHumanProofOrPrivilegeClaims()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [],
+            [new GroupClaimDto("permission", "*", TokenTarget.Both),
+             new GroupClaimDto("ois_human_subject", user.Id.Value.ToString(), TokenTarget.Both),
+             new GroupClaimDto("ois_human_authenticated_at", "9999999999", TokenTarget.Both)],
+            ["openid", "api"], [], null, null, null));
+        principal.HasClaim(claim => claim.Type == "permission" || claim.Type.StartsWith("ois_human_", StringComparison.Ordinal)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void TokenRenewalPreservesOriginalHumanAuthenticationProof()
+    {
+        Claim[] claims = [new("sub", Guid.NewGuid().ToString()), new("ois_human_authenticated_at", "100")];
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "token"));
+        ClaimsPrincipal renewed = this.service.ProjectExistingPrincipal(principal, DateTimeOffset.UtcNow);
+        renewed.FindFirst("ois_human_authenticated_at")!.Value.ShouldBe("100");
+    }
+
     private const string RequestedUserInfoClaim = "requested_userinfo_claim";
 
     private readonly IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();

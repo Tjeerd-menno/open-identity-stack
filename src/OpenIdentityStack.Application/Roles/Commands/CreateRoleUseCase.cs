@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Authorization;
 
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Roles;
@@ -24,22 +25,20 @@ public interface ICreateRoleUseCase
 public sealed class CreateRoleUseCase : ICreateRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
+    private readonly IAdministrativeApproval approval;
     private readonly IPermissionAssignmentValidator permissionAssignmentValidator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CreateRoleUseCase"/> class.
     /// </summary>
     /// <param name="roleRepository">The role repository.</param>
-    internal CreateRoleUseCase(IRoleRepository roleRepository)
-        : this(roleRepository, new AllowAllPermissionAssignmentValidator())
-    {
-    }
-
     public CreateRoleUseCase(
         IRoleRepository roleRepository,
-        IPermissionAssignmentValidator permissionAssignmentValidator)
+        IPermissionAssignmentValidator permissionAssignmentValidator,
+        IAdministrativeApproval approval)
     {
         this.roleRepository = roleRepository;
+        this.approval = approval;
         this.permissionAssignmentValidator = permissionAssignmentValidator;
     }
 
@@ -67,6 +66,12 @@ public sealed class CreateRoleUseCase : ICreateRoleUseCase
         // Set permissions if provided
         if (command.Permissions is { Count: > 0 })
         {
+            if (UnrestrictedGrantPolicy.IncludesAllPermissions(command.Permissions))
+            {
+                Result approvalResult = await this.approval.RequireAsync("Role.CreateUnrestricted", role.Id.Value.ToString(), command.AcknowledgeWildcardGrant, cancellationToken);
+                if (approvalResult.IsFailure) { return approvalResult.Error; }
+            }
+
             Result validationResult = await this.permissionAssignmentValidator
                 .ValidateAssignableAsync(command.Permissions, command.AcknowledgeWildcardGrant, cancellationToken)
                 .ConfigureAwait(false);
@@ -81,6 +86,7 @@ public sealed class CreateRoleUseCase : ICreateRoleUseCase
         // Persist the role
         await this.roleRepository.AddAsync(role, cancellationToken);
         await this.roleRepository.SaveChangesAsync(cancellationToken);
+        await this.approval.RecordOutcomeAsync(true, cancellationToken);
 
         return new CreateRoleResponse(
             role.Id.Value,
@@ -91,21 +97,4 @@ public sealed class CreateRoleUseCase : ICreateRoleUseCase
             role.Permissions);
     }
 
-    private sealed class AllowAllPermissionAssignmentValidator : IPermissionAssignmentValidator
-    {
-        public Task<Result> ValidateAssignableAsync(
-            IEnumerable<string> permissions,
-            CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(Result.Success());
-        }
-
-        public Task<Result> ValidateAssignableAsync(
-            IEnumerable<string> permissions,
-            bool acknowledgeWildcardGrant,
-            CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(Result.Success());
-        }
-    }
 }

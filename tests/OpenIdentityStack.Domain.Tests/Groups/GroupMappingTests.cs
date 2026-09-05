@@ -5,6 +5,21 @@ namespace OpenIdentityStack.Domain.Tests.Groups;
 
 public class GroupMappingTests
 {
+    [Theory]
+    [InlineData("permission")]
+    [InlineData("permissions")]
+    [InlineData("scope")]
+    [InlineData("sub")]
+    [InlineData("role")]
+    [InlineData("auth_time")]
+    [InlineData("ois_human_subject")]
+    [InlineData("ois_human_authenticated_at")]
+    [InlineData("oi_prst")]
+    public void SecurityClaimsCannotBeSuppliedByGroupMappings(string type)
+    {
+        GroupMapping.Create(MappingType.Claim, type, "*", TokenTarget.Both).IsFailure.ShouldBeTrue();
+    }
+
     [Fact]
     public void Create_ShouldCreateMapping_WhenValidValues()
     {

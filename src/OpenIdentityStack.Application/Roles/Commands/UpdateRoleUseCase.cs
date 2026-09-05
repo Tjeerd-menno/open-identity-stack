@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Domain.Roles;
@@ -25,13 +26,16 @@ public interface IUpdateRoleUseCase
 public sealed class UpdateRoleUseCase : IUpdateRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
+    private readonly IAdministrativeApproval approval;
     private readonly IPermissionAssignmentValidator permissionAssignmentValidator;
 
     public UpdateRoleUseCase(
         IRoleRepository roleRepository,
-        IPermissionAssignmentValidator permissionAssignmentValidator)
+        IPermissionAssignmentValidator permissionAssignmentValidator,
+        IAdministrativeApproval approval)
     {
         this.roleRepository = roleRepository;
+        this.approval = approval;
         this.permissionAssignmentValidator = permissionAssignmentValidator;
     }
 
@@ -46,17 +50,16 @@ public sealed class UpdateRoleUseCase : IUpdateRoleUseCase
             return RoleErrors.NotFound;
         }
 
-        role.UpdateDescription(command.Description);
-        if (command.DisplayName is not null)
-        {
-            role.UpdateDisplayName(command.DisplayName);
-        }
-
         if (command.Permissions is not null)
         {
             IReadOnlyList<string> newPermissions = command.Permissions
                 .Except(role.Permissions, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            if (UnrestrictedGrantPolicy.IncludesAllPermissions(newPermissions))
+            {
+                Result approvalResult = await this.approval.RequireAsync("Role.GrantUnrestricted", role.Id.Value.ToString(), command.AcknowledgeWildcardGrant, cancellationToken);
+                if (approvalResult.IsFailure) { return approvalResult.Error; }
+            }
             Result validationResult = await this.permissionAssignmentValidator.ValidateAssignableAsync(
                 newPermissions,
                 command.AcknowledgeWildcardGrant,
@@ -69,7 +72,10 @@ public sealed class UpdateRoleUseCase : IUpdateRoleUseCase
             role.SetPermissions(command.Permissions);
         }
 
+        role.UpdateDescription(command.Description);
+        if (command.DisplayName is not null) { role.UpdateDisplayName(command.DisplayName); }
         await this.roleRepository.SaveChangesAsync(cancellationToken);
+        await this.approval.RecordOutcomeAsync(true, cancellationToken);
 
         return RoleDtoMapper.ToDto(role);
     }

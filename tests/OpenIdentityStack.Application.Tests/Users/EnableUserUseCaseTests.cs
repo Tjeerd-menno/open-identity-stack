@@ -19,7 +19,9 @@ public sealed class EnableUserUseCaseTests
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._auditLog = Substitute.For<IAuditLog>();
         this._dateTimeProvider.UtcNow.Returns(this._now);
-        this._sut = new EnableUserUseCase(this._userRepository, this._dateTimeProvider, this._auditLog);
+        IAdministrativeApproval approval = Substitute.For<IAdministrativeApproval>();
+        approval.RequireForUserAccessAsync(Arg.Any<UserId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
+        this._sut = new EnableUserUseCase(this._userRepository, this._dateTimeProvider, this._auditLog, approval);
     }
 
     [Fact]

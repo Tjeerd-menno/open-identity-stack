@@ -15,6 +15,13 @@ internal static class ErrorResultMapper
             return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Identity evidence must be retained",
                 detail: error.Description, extensions: new Dictionary<string, object?> { ["code"] = error.Code });
         }
+        if (error.Code.StartsWith("Forbidden.AdministrativeApproval.", StringComparison.Ordinal))
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: "Administrative approval required", detail: error.Description,
+                extensions: new Dictionary<string, object?> { ["errorCode"] = error.Code });
+        }
+
         if (error.Code.StartsWith("NotFound.", StringComparison.Ordinal) ||
             error.Code.Equals("User.NotFound", StringComparison.Ordinal))
         {

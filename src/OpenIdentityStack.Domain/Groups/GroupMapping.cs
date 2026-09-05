@@ -30,6 +30,11 @@ public class GroupMapping : ValueObject
             return GroupMappingErrors.RoleMappingValueNotAllowed;
         }
 
+        if (type == MappingType.Claim && ReservedGroupClaimTypes.IsReserved(target))
+        {
+            return DomainError.Validation("GroupMapping.ReservedClaim", "Identity and authorization claims cannot be supplied by group mappings.");
+        }
+
         return new GroupMapping(type, target, value, tokenTarget);
     }
 
