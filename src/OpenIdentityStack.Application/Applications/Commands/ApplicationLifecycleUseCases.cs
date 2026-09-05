@@ -36,7 +36,6 @@ public sealed class ApplicationLifecycleUseCases
         CreateApplicationCommand command,
         CancellationToken cancellationToken = default)
     {
-        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         Result<ApplicationCreateCommandResult> result = await this.ExecuteCreateAsync(
             command,
             initialSecretCommand: null,
@@ -51,6 +50,7 @@ public sealed class ApplicationLifecycleUseCases
         CreateApplicationInitialSecretCommand? initialSecretCommand,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         if (!ApplicationProfilePolicyCatalog.GetPolicy(command.Profile).IsSelectable)
         {
             return ApplicationErrors.ProfileNotAvailable;
@@ -207,7 +207,6 @@ public sealed class ApplicationLifecycleUseCases
 
     public async Task<Result> ExecuteAsync(DisableApplicationCommand command, CancellationToken cancellationToken = default)
     {
-        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         Result<ApplicationCommandResult> result = await this.ExecuteWithDetailsAsync(command, cancellationToken);
         return result.IsSuccess
             ? Result.Success()
@@ -218,6 +217,7 @@ public sealed class ApplicationLifecycleUseCases
         DisableApplicationCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {
@@ -244,7 +244,6 @@ public sealed class ApplicationLifecycleUseCases
 
     public async Task<Result> ExecuteAsync(EnableApplicationCommand command, CancellationToken cancellationToken = default)
     {
-        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         Result<ApplicationCommandResult> result = await this.ExecuteWithDetailsAsync(command, cancellationToken);
         return result.IsSuccess
             ? Result.Success()
@@ -255,6 +254,7 @@ public sealed class ApplicationLifecycleUseCases
         EnableApplicationCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {
