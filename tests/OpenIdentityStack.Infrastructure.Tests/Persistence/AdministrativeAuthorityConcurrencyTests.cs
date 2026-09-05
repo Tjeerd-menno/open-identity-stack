@@ -14,7 +14,7 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
-public sealed class AdministrativeAuthorityConcurrencyTests(SqliteTestFixture fixture) : IClassFixture<SqliteTestFixture>
+public sealed class AdministrativeAuthorityConcurrencyTests(AdministrativeAuthorityTestFixture fixture) : IClassFixture<AdministrativeAuthorityTestFixture>
 {
     [Fact]
     public async Task SnapshotDropsCachedStateWhenChangeCommittedBeforeCapture()
