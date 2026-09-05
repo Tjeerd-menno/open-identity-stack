@@ -6,7 +6,7 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Infrastructure.Persistence.Federation;
 
-public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext, IAuditLog auditLog) : IProviderEmailTrustStore
+public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext, IAuditLog auditLog, IEmailTrustCredentialInvalidator invalidator) : IProviderEmailTrustStore
 {
     public async Task<Result> SetAsync(UpstreamProviderId providerId, bool trusted, string actorId, CancellationToken cancellationToken)
     {
@@ -51,7 +51,12 @@ public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext
                 List<User> affectedUsers = await dbContext.Users.Where(user => userIds.Contains(user.Id)).ToListAsync(cancellationToken);
                 foreach (User user in affectedUsers)
                 {
-                    user.WithdrawProviderEmailVerification(providerId.Value, withdrawnAt);
+                    if (user.WithdrawProviderEmailVerification(providerId.Value, withdrawnAt))
+                    {
+                        EmailTrustCredentialInvalidation revoked = await invalidator.RevokeAsync(user.Id, cancellationToken);
+                        await auditLog.LogAsync(actorId, "Provider.EmailTrustCredentialsRevoked", "User", user.Id.Value.ToString(),
+                            $"Provider {providerId.Value}: {revoked.Tokens} tokens, {revoked.Authorizations} authorizations, {revoked.Sessions} sessions revoked.", cancellationToken);
+                    }
                 }
                 await dbContext.SaveChangesAsync(cancellationToken);
                 // The transaction and provider lock survive detachment; previous batches cannot accumulate in memory.

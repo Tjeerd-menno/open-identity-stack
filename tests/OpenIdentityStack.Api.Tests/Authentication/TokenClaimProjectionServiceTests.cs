@@ -108,6 +108,30 @@ public sealed class TokenClaimProjectionServiceTests
     }
 
     [Fact]
+    public void UserProjectionCapturesCredentialRevisionForLocalValidation()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [], [], [], [], null, null, null));
+
+        projected.GetClaim("ois_credential_revision").ShouldBe(Guid.Empty.ToString());
+        projected.FindFirst("ois_credential_revision")!.GetDestinations().ShouldContain(OpenIddictConstants.Destinations.AccessToken);
+        projected.FindFirst("ois_credential_revision")!.GetDestinations().ShouldNotContain(OpenIddictConstants.Destinations.IdentityToken);
+    }
+
+    [Fact]
+    public void RefreshPreservesCapturedRevisionToPreventConcurrentWithdrawalFromLaunderingCredentials()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
+        string captured = Guid.NewGuid().ToString();
+        principal.SetClaim("ois_credential_revision", captured);
+
+        this.service.ProjectExistingPrincipal(principal, persistedUser: user)
+            .GetClaim("ois_credential_revision").ShouldBe(captured);
+    }
+
+    [Fact]
     public void ActiveFederatedAccount_WithoutEvidence_DoesNotAssertVerifiedEmail()
     {
         User user = CreateUser();

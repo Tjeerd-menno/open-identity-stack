@@ -158,7 +158,8 @@ export function ProviderDetailPage() {
                   ? setEmailTrust.mutate(true)
                   : confirmEmailTrustWithdrawalControls.open()}
               />
-              <Text size="xs" c="dimmed" mt="sm">Withdrawing trust invalidates evidence supplied solely by this provider. Independent verification is retained.</Text>
+              <Text size="xs" c="dimmed" mt="sm">Withdrawing trust invalidates provider evidence and revokes credentials that lose sufficient verification. Affected users must sign in again. Independent verification is retained.</Text>
+              <Text size="xs" c="dimmed" mt="sm">Offline APIs may accept existing JWTs until expiry. Coordinate their revocation or introspection policy before withdrawing trust.</Text>
             </SectionCard>
 
             <SectionCard title="Provisioning">
@@ -194,7 +195,7 @@ export function ProviderDetailPage() {
       <ConfirmModal
         opened={confirmEmailTrustWithdrawalOpened}
         title="Withdraw email verification trust"
-        message="Existing proofs from this provider remain withdrawn even if trust is enabled again. Users verified solely by this provider remain unverified until a later sign-in supplies a fresh verified-email assertion. This action does not revoke existing credentials or sessions. For affected users, open Sessions and revoke every active session. Revoke known tokens or deny affected subjects until they expire at every downstream service that validates tokens locally."
+        message="Existing proofs from this provider remain withdrawn even if trust is enabled again. Users verified solely by this provider remain unverified until a later sign-in supplies a fresh verified-email assertion. This action revokes affected credentials and sessions for users who lose sufficient verification. Affected users must sign in again. Offline APIs may accept existing JWTs until expiry; coordinate their revocation or introspection policy before withdrawing trust."
         confirmLabel="Withdraw trust"
         loading={setEmailTrust.isPending}
         onConfirm={() => setEmailTrust.mutate(false)}
