@@ -182,6 +182,7 @@ public static class ServiceCollectionExtensions
     private static void AddRepositories(IServiceCollection services)
     {
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IJitProvisioningPersistence, JitProvisioningPersistence>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IApplicationPermissionRegistryRepository, ApplicationPermissionRegistryRepository>();
         services.AddScoped<IPermissionAssignmentStore, RolePermissionAssignmentStore>();

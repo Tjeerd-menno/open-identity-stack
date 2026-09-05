@@ -15,6 +15,7 @@ public sealed class JitProvisionUserUseCaseTests
     private readonly IUpstreamProviderRepository _providerRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly IJitProvisionUserUseCase _sut;
+    private readonly IJitProvisioningPersistence persistence = Substitute.For<IJitProvisioningPersistence>();
     private static readonly IDateTimeProvider StaticDateTimeProvider = new TestDateTimeProviderImpl();
 
     private sealed class TestDateTimeProviderImpl : IDateTimeProvider
@@ -29,11 +30,12 @@ public sealed class JitProvisionUserUseCaseTests
         this._providerRepository = Substitute.For<IUpstreamProviderRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
+        this.persistence.CommitAsync(Arg.Any<UserId>(), Arg.Any<UpstreamProviderId>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
 
         this._sut = new JitProvisionUserUseCase(
             this._userRepository,
             this._providerRepository,
-            Substitute.For<IAuditLog>());
+            Substitute.For<IAuditLog>(), this.persistence);
     }
 
     [Fact]
@@ -100,7 +102,7 @@ public sealed class JitProvisionUserUseCaseTests
         result.Value.IsNewUser.ShouldBeTrue();
         result.Value.UserId.ShouldNotBe(default);
         await this._userRepository.Received(1).AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
-        await this._userRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await this.persistence.Received(1).CommitAsync(Arg.Any<UserId>(), providerId, true, Arg.Any<CancellationToken>());
     }
 
     [Fact]
