@@ -20,6 +20,7 @@ using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
 using OpenIdentityStack.Application.Users.Queries;
+using OpenIdentityStack.Application.Resources;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Users;
@@ -47,6 +48,7 @@ public class AuthorizationControllerTests
     private readonly IApplicationPermissionRegistryRepository _applicationPermissionRegistryRepository;
     private readonly AuthorizationController _controller;
     private readonly IAuditLog audit = Substitute.For<IAuditLog>();
+    private readonly IResourcePermissionService resourcePermissions = Substitute.For<IResourcePermissionService>();
 
     public AuthorizationControllerTests()
     {
@@ -70,7 +72,10 @@ public class AuthorizationControllerTests
             this._validateSessionQueryHandler,
             this._requestService,
             this.audit,
-            this._applicationPermissionRegistryRepository);
+            this._applicationPermissionRegistryRepository,
+            resourcePermissionService: this.resourcePermissions);
+        this.resourcePermissions.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>())
+            .Returns((Result<ResourceTokenProjection>)new ResourceTokenProjection([], [], new Dictionary<Guid, long>()));
 
         var httpContext = new DefaultHttpContext();
         this._controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
@@ -434,7 +439,7 @@ public class AuthorizationControllerTests
     }
 
     [Fact]
-    public async Task Authorize_ExpandsWildcardRolePermissionsToConcretePermissionClaims()
+    public async Task Authorize_DoesNotEmitPlatformRolePermissionsWithoutResourceGrant()
     {
         var userId = Guid.NewGuid();
         var request = new OpenIddictRequest { ClientId = "test-client" };
@@ -464,13 +469,11 @@ public class AuthorizationControllerTests
 
         SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
         IReadOnlyList<string> permissionClaims = signIn.Principal!.FindAll("permission").Select(claim => claim.Value).ToList();
-        permissionClaims.ShouldContain(Permissions.Users.Read);
-        permissionClaims.ShouldContain(Permissions.Users.Write);
-        permissionClaims.ShouldNotContain(Permissions.Users.All);
+        permissionClaims.ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task Authorize_EmitsConcreteDynamicPermissionClaims()
+    public async Task Authorize_DoesNotEmitDynamicRolePermissionsWithoutResourceGrant()
     {
         var userId = Guid.NewGuid();
         var request = new OpenIddictRequest { ClientId = "orders-api" };
@@ -500,11 +503,11 @@ public class AuthorizationControllerTests
 
         SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
         IReadOnlyList<string> permissionClaims = signIn.Principal!.FindAll("permission").Select(claim => claim.Value).ToList();
-        permissionClaims.ShouldBe(["orders-api:order:read"]);
+        permissionClaims.ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task Authorize_ExpandsDynamicWildcardRolePermissionsToConcretePermissionClaims()
+    public async Task Authorize_DoesNotExpandDynamicWildcardOutsideGrantedResource()
     {
         var userId = Guid.NewGuid();
         var request = new OpenIddictRequest { ClientId = "orders-api" };
@@ -549,12 +552,12 @@ public class AuthorizationControllerTests
 
         SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
         IReadOnlyList<string> permissionClaims = signIn.Principal!.FindAll("permission").Select(claim => claim.Value).ToList();
-        permissionClaims.ShouldBe(["orders-api:order:read", "orders-api:order:write"]);
+        permissionClaims.ShouldBeEmpty();
         permissionClaims.ShouldNotContain("orders-api:order:*");
     }
 
     [Fact]
-    public async Task Authorize_FailsClosedWhenDynamicWildcardCannotBeExpanded()
+    public async Task Authorize_DoesNotExpandUnrequestedDynamicWildcard()
     {
         var userId = Guid.NewGuid();
         var request = new OpenIddictRequest { ClientId = "orders-api" };
@@ -580,7 +583,8 @@ public class AuthorizationControllerTests
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
             .Returns(AsyncEnumerable.Empty<string>());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => this._controller.Authorize());
+        SignInResult result = Assert.IsType<SignInResult>(await this._controller.Authorize());
+        result.Principal!.FindAll("permission").ShouldBeEmpty();
     }
 
     [Fact]
@@ -619,6 +623,34 @@ public class AuthorizationControllerTests
     #endregion
 
     #region Exchange Tests
+
+    [Fact]
+    public async Task Exchange_RefreshToken_ReprojectsCurrentResourceAuthorityWithinOriginalTokenCeiling()
+    {
+        var request = new OpenIddictRequest { ClientId = "browser-client", GrantType = OpenIddictConstants.GrantTypes.RefreshToken };
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim("sub", "8584eb76-59b6-4a7b-a24e-815310862c59"),
+            new Claim("permission", "orders:invoice:read"),
+            new Claim("permission", "orders:invoice:write"),
+            new Claim("permissions", "*"),
+            new Claim("client_id", "old-client")
+        ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
+        principal.SetScopes("orders");
+        principal.SetResources("https://orders.example.com");
+        this.SetupMockServices(principal);
+        this.resourcePermissions.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>()).Returns(
+            (Result<ResourceTokenProjection>)new ResourceTokenProjection(["https://orders.example.com"], ["orders:invoice:read"], new Dictionary<Guid, long>()));
+
+        SignInResult result = Assert.IsType<SignInResult>(await this._controller.Exchange());
+
+        result.Principal!.FindAll("permission").Select(static claim => claim.Value).ShouldBe(["orders:invoice:read"]);
+        result.Principal.FindAll("permissions").ShouldBeEmpty();
+        result.Principal.GetClaim("client_id").ShouldBe("browser-client");
+        await this.resourcePermissions.Received().ProjectAsync(Arg.Is<ResourceTokenRequest>(input => input.ClientId == "browser-client"
+            && input.OriginalPermissions!.Count == 2 && input.OriginalPermissions.Contains("orders:invoice:write")
+            && input.OriginalAudiences!.Count == 1 && input.OriginalAudiences[0] == "https://orders.example.com"), Arg.Any<CancellationToken>());
+    }
 
     [Fact]
     public async Task Exchange_WhenRequestIsNull_ThrowsInvalidOperationException()
@@ -664,7 +696,7 @@ public class AuthorizationControllerTests
     }
 
     [Fact]
-    public async Task Exchange_ClientCredentials_WithApiScope_AddsAdminPermission()
+    public async Task Exchange_ClientCredentials_WithApiScope_DoesNotManufactureAdminPermission()
     {
         // Arrange
         var request = new OpenIddictRequest
@@ -693,7 +725,7 @@ public class AuthorizationControllerTests
 
         // Assert
         SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
-        Assert.Contains(signIn.Principal!.Claims, c => c.Type == "permission" && c.Value == "*");
+        Assert.DoesNotContain(signIn.Principal!.Claims, c => c.Type == "permission" || c.Type == "role");
     }
 
     [Fact]
@@ -754,6 +786,7 @@ public class AuthorizationControllerTests
         // Arrange
         var request = new OpenIddictRequest
         {
+            ClientId = "test-client",
             GrantType = OpenIddictConstants.GrantTypes.AuthorizationCode
         };
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
@@ -774,11 +807,12 @@ public class AuthorizationControllerTests
         // Arrange
         var request = new OpenIddictRequest
         {
+            ClientId = "test-client",
             GrantType = OpenIddictConstants.GrantTypes.AuthorizationCode
         };
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
-        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, "user-123") };
+        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59") };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
@@ -1083,13 +1117,14 @@ public class AuthorizationControllerTests
         // Arrange
         var request = new OpenIddictRequest
         {
+            ClientId = "test-client",
             GrantType = OpenIddictConstants.GrantTypes.AuthorizationCode
         };
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
         Claim[] claims = new[]
         {
-            new Claim(OpenIddictConstants.Claims.Subject, "user-123"),
+            new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59"),
             new Claim("session_id", Guid.NewGuid().ToString()),
             new Claim("oi_tkn_id", "token-id"),
             new Claim("oi_au_id", "authorization-id")
@@ -1125,6 +1160,7 @@ public class AuthorizationControllerTests
         // Arrange
         var request = new OpenIddictRequest
         {
+            ClientId = "test-client",
             GrantType = OpenIddictConstants.GrantTypes.AuthorizationCode
         };
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
@@ -1132,7 +1168,7 @@ public class AuthorizationControllerTests
         long authTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         Claim[] claims = new[]
         {
-            new Claim(OpenIddictConstants.Claims.Subject, "user-123")
+            new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59")
         };
 
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
@@ -1159,12 +1195,13 @@ public class AuthorizationControllerTests
         // Arrange
         var request = new OpenIddictRequest
         {
+            ClientId = "test-client",
             GrantType = OpenIddictConstants.GrantTypes.RefreshToken
         };
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
         var sessionId = SessionId.Create();
-        Claim[] claims = new[] { new Claim("session_id", sessionId.Value.ToString()) };
+        Claim[] claims = new[] { new Claim("sub", "8584eb76-59b6-4a7b-a24e-815310862c59"), new Claim("session_id", sessionId.Value.ToString()) };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
@@ -1186,12 +1223,13 @@ public class AuthorizationControllerTests
         // Arrange
         var request = new OpenIddictRequest
         {
+            ClientId = "test-client",
             GrantType = OpenIddictConstants.GrantTypes.RefreshToken
         };
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
         var sessionId = SessionId.Create();
-        Claim[] claims = new[] { new Claim("session_id", sessionId.Value.ToString()) };
+        Claim[] claims = new[] { new Claim("sub", "8584eb76-59b6-4a7b-a24e-815310862c59"), new Claim("session_id", sessionId.Value.ToString()) };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
@@ -1212,12 +1250,13 @@ public class AuthorizationControllerTests
         // Arrange
         var request = new OpenIddictRequest
         {
+            ClientId = "test-client",
             GrantType = OpenIddictConstants.GrantTypes.RefreshToken
         };
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
         var sessionId = SessionId.Create();
-        Claim[] claims = new[] { new Claim("session_id", sessionId.Value.ToString()) };
+        Claim[] claims = new[] { new Claim("sub", "8584eb76-59b6-4a7b-a24e-815310862c59"), new Claim("session_id", sessionId.Value.ToString()) };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
@@ -1240,12 +1279,13 @@ public class AuthorizationControllerTests
         // Arrange
         var request = new OpenIddictRequest
         {
+            ClientId = "test-client",
             GrantType = OpenIddictConstants.GrantTypes.RefreshToken
         };
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
         // No session_id claim
-        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, "user-id") };
+        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59") };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
@@ -1264,6 +1304,7 @@ public class AuthorizationControllerTests
         // Arrange
         var request = new OpenIddictRequest
         {
+            ClientId = "test-client",
             GrantType = "unsupported_grant"
         };
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
@@ -1293,7 +1334,7 @@ public class AuthorizationControllerTests
     public async Task UserInfo_WhenAuthSucceeds_ReturnsOkWithSubject()
     {
         // Arrange
-        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, "user-123") };
+        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59") };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
@@ -1304,7 +1345,7 @@ public class AuthorizationControllerTests
         // Assert
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result);
         Dictionary<string, object> claims_result = Assert.IsType<Dictionary<string, object>>(ok.Value);
-        Assert.Equal("user-123", claims_result[OpenIddictConstants.Claims.Subject]);
+        Assert.Equal("8584eb76-59b6-4a7b-a24e-815310862c59", claims_result[OpenIddictConstants.Claims.Subject]);
     }
 
     [Fact]
@@ -1313,7 +1354,7 @@ public class AuthorizationControllerTests
         // Arrange
         Claim[] claims = new[]
         {
-            new Claim(OpenIddictConstants.Claims.Subject, "user-123"),
+            new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59"),
             new Claim(OpenIddictConstants.Claims.Name, "John Doe")
         };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
@@ -1336,7 +1377,7 @@ public class AuthorizationControllerTests
         // Arrange
         Claim[] claims = new[]
         {
-            new Claim(OpenIddictConstants.Claims.Subject, "user-123"),
+            new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59"),
             new Claim(OpenIddictConstants.Claims.Name, "John Doe"),
             new Claim(RequestedUserInfoClaim, OpenIddictConstants.Claims.Name)
         };
@@ -1360,7 +1401,7 @@ public class AuthorizationControllerTests
         // Arrange
         Claim[] claims = new[]
         {
-            new Claim(OpenIddictConstants.Claims.Subject, "user-123"),
+            new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59"),
             new Claim(OpenIddictConstants.Claims.Name, "John Doe"),
             new Claim(OpenIddictConstants.Claims.GivenName, "John"),
             new Claim(OpenIddictConstants.Claims.FamilyName, "Doe"),
@@ -1398,7 +1439,7 @@ public class AuthorizationControllerTests
         // Arrange
         Claim[] claims = new[]
         {
-            new Claim(OpenIddictConstants.Claims.Subject, "user-123"),
+            new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59"),
             new Claim(OpenIddictConstants.Claims.Email, "john@example.com")
         };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
@@ -1419,7 +1460,7 @@ public class AuthorizationControllerTests
     public async Task UserInfo_OmitsNameClaim_WhenNotPresent()
     {
         // Arrange
-        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, "user-123") };
+        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59") };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
@@ -1439,7 +1480,7 @@ public class AuthorizationControllerTests
         // Arrange
         Claim[] claims = new[]
         {
-            new Claim(OpenIddictConstants.Claims.Subject, "user-123"),
+            new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59"),
             new Claim(OpenIddictConstants.Claims.Name, "John Doe"),
             new Claim(OpenIddictConstants.Claims.Email, "john@example.com")
         };
@@ -1464,7 +1505,7 @@ public class AuthorizationControllerTests
         // Arrange
         Claim[] claims = new[]
         {
-            new Claim(OpenIddictConstants.Claims.Subject, "user-123"),
+            new Claim(OpenIddictConstants.Claims.Subject, "8584eb76-59b6-4a7b-a24e-815310862c59"),
             new Claim(OpenIddictConstants.Claims.Name, "John Doe"),
             new Claim(OpenIddictConstants.Claims.Email, "john@example.com"),
             new Claim(OpenIddictConstants.Claims.EmailVerified, "true", ClaimValueTypes.Boolean)

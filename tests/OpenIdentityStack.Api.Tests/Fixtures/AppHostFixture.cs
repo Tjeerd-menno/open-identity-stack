@@ -131,10 +131,11 @@ public class AppHostFixture : IAsyncLifetime
     public async Task<HttpClient> CreateAuthenticatedClientAsync(
         string clientId,
         string clientSecret,
-        string scope = "api",
+        string scope = "ois.admin",
         IReadOnlyList<string>? allowedScopes = null)
     {
-        await this.CreateServiceAccountAsync(clientId, clientSecret, allowedScopes);
+        await this.CreateServiceAccountAsync(clientId, clientSecret, allowedScopes ?? [scope]);
+        if (scope == "ois.admin") { await this.TestSeeder!.GrantAdministrativeFixtureAccessAsync(clientId); }
         string token = await this.GetAccessTokenAsync(clientId, clientSecret, scope);
         
         HttpClient client = this.CreateClient();

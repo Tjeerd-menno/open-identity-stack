@@ -128,6 +128,8 @@ public static class DependencyInjection
         services.AddScoped<ListApplicationProfilePoliciesQueryHandler>();
         services.AddScoped<IListApplicationProfilePoliciesQueryHandler>(provider => provider.GetRequiredService<ListApplicationProfilePoliciesQueryHandler>());
         services.AddScoped<IApplicationsAdminWorkflow, ApplicationsAdminWorkflow>();
+        services.AddScoped<Resources.IResourcePermissionService, Resources.ResourcePermissionService>();
+        services.AddScoped<Resources.ResourceAccessWorkflow>();
     }
 
     private static void AddApplicationPermissionUseCases(IServiceCollection services)
