@@ -124,10 +124,18 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
             Role duplicate = Role.Create(role.Name, "Duplicate fails unique constraint", null).Value;
             db.Roles.Add(duplicate);
             await Should.ThrowAsync<DbUpdateException>(() => db.SaveChangesAsync());
+        });
+        (await client.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.OK);
 
-            (await client.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        // A failed authority mutation is discarded. A new request reloads current state
+        // and deliberately reapplies the withdrawal instead of replaying tracked objects.
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            Role role = await db.Roles.SingleAsync(value => value.Id == authority.RoleId);
+            role.Permissions.ShouldContain("users:read");
             (await db.AuditLogEntries.AnyAsync(entry => entry.Action == "AdministrativeAuthorityChanged" && entry.EntityId == role.Id.Value.ToString())).ShouldBeFalse();
-            db.Roles.Remove(duplicate);
+            (await db.Roles.CountAsync(value => value.Name == role.Name)).ShouldBe(1);
+            role.RemovePermission("users:read").IsSuccess.ShouldBeTrue();
             await db.SaveChangesAsync();
         });
         (await client.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
