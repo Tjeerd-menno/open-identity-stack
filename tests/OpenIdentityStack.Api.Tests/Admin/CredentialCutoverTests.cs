@@ -19,6 +19,37 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 public sealed class CredentialCutoverTests
 {
     [Fact]
+    public async Task RemovedSessionRejectsItsAlreadyIssuedRefreshToken()
+    {
+        await using var fixture = new AppHostFixture($"removed-session-{Guid.NewGuid():N}");
+        await fixture.InitializeAsync();
+        string email = $"session-{Guid.NewGuid():N}@example.test";
+        const string password = "Password123!@#";
+        Guid userId = await fixture.CreateTestUserAsync(email, "Session test", password);
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            Role role = Role.Create("session-reader", null).Value;
+            role.SetPermissions(["users:read"]);
+            db.Roles.Add(role);
+            db.RoleAssignments.Add(RoleAssignment.Create(new UserId(userId), role.Id, DateTimeOffset.UtcNow).Value);
+            await db.SaveChangesAsync();
+        });
+        HumanAdministrativeSession session = await HumanAdministrativeSession.SignInAsync(fixture, email, password, ["users:read"]);
+        using HttpClient client = session.Client;
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            db.UserSessions.RemoveRange(await db.UserSessions.Where(candidate => candidate.UserId == new UserId(userId)).ToListAsync());
+            await db.SaveChangesAsync();
+        });
+        HttpResponseMessage response = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["grant_type"] = "refresh_token", ["refresh_token"] = session.RefreshToken,
+            ["client_id"] = session.ClientId, ["client_secret"] = session.ClientSecret
+        }));
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task CutoverRequiresHumanApprovalRejectsOldCredentialsAndFreshLoginRecovers()
     {
         await using var fixture = new AppHostFixture($"cutover-{Guid.NewGuid():N}");

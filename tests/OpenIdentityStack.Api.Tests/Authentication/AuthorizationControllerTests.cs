@@ -1250,8 +1250,10 @@ public class AuthorizationControllerTests
         Assert.DoesNotContain(signIn.Principal!.Claims, claim => claim.Type == OpenIddictConstants.Claims.AuthenticationTime);
     }
 
-    [Fact]
-    public async Task Exchange_RefreshToken_WithInvalidSession_ReturnsForbid()
+    [Theory]
+    [InlineData("Revoked")]
+    [InlineData("Session not found")]
+    public async Task Exchange_RefreshToken_WithInvalidSession_ReturnsForbid(string reason)
     {
         // Arrange
         var request = new OpenIddictRequest
@@ -1268,7 +1270,7 @@ public class AuthorizationControllerTests
         this.SetupMockServices(principal);
 
         this._validateSessionQueryHandler.HandleAsync(Arg.Is<ValidateSessionQuery>(q => q!.SessionId == sessionId), Arg.Any<CancellationToken>())
-            .Returns(new ValidateSessionResult(false, "Revoked"));
+            .Returns(new ValidateSessionResult(false, reason));
 
         // Act
         IActionResult result = await this._controller.Exchange();
