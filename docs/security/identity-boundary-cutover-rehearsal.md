@@ -1,5 +1,7 @@
 # Identity boundary cutover rehearsal
 
+See the [implementation evidence](identity-boundary-implementation-evidence.md) for the twelve-ticket delivery, test results, resolved review findings and remaining release risks.
+
 The readiness gate implements the release prerequisites in [ADR 0005](../adr/0005-identity-and-administrative-trust-boundaries.md). Implementing or testing this workflow does **not** authorize a production cutover. A successful rehearsal is evidence for an operator change decision, not formal OpenID Connect certification.
 
 ## Deployment order
