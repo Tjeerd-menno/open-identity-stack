@@ -29,7 +29,14 @@ namespace OpenIdentityStack.Api.Tests.Fixtures;
 public class AppHostFixture : IAsyncLifetime
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
-    private const string ConnectionString = "Data Source=file:openidentitystack_api_tests;Mode=Memory;Cache=Shared";
+    private readonly string ConnectionString;
+
+    public AppHostFixture() : this("openidentitystack_api_tests") { }
+
+    internal AppHostFixture(string databaseName)
+    {
+        this.ConnectionString = new SqliteConnectionStringBuilder { DataSource = "file:" + databaseName, Mode = SqliteOpenMode.Memory, Cache = SqliteCacheMode.Shared }.ToString();
+    }
 
     private SqliteConnection? Connection { get; set; }
     private OpenIdentityStackApiFactory? Factory { get; set; }
@@ -58,7 +65,7 @@ public class AppHostFixture : IAsyncLifetime
 
         this.TestSeeder = await OpenIdentityStackTestSeeder.CreateAsync(ConnectionString);
 
-        this.Factory = new OpenIdentityStackApiFactory();
+        this.Factory = new OpenIdentityStackApiFactory(this.ConnectionString);
         this.HttpClient = this.CreateClient();
         this.HttpClient.Timeout = RequestTimeout;
     }
@@ -337,7 +344,7 @@ public class AppHostFixture : IAsyncLifetime
         GC.SuppressFinalize(this);
     }
 
-    private sealed class OpenIdentityStackApiFactory : WebApplicationFactory<Program>
+    private sealed class OpenIdentityStackApiFactory(string connectionString) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -346,7 +353,7 @@ public class AppHostFixture : IAsyncLifetime
             {
                 configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:openidentitystack"] = ConnectionString,
+                    ["ConnectionStrings:openidentitystack"] = connectionString,
                     ["OpenIddict:Issuer"] = "https://issuer.example.com"
                 });
             });
@@ -358,7 +365,7 @@ public class AppHostFixture : IAsyncLifetime
 
                 services.AddDbContext<OpenIdentityStackDbContext>(options =>
                 {
-                    options.UseSqlite(ConnectionString);
+                    options.UseSqlite(connectionString);
                     options.UseOpenIddict();
                 });
 

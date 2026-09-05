@@ -54,6 +54,8 @@ public class AccountControllerTests : IDisposable
         this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(defaultSettings));
 
+        ICredentialBoundaryStore boundary = Substitute.For<ICredentialBoundaryStore>();
+        boundary.IsCurrentAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(true);
         this._controller = new AccountController(
             this._validateCredentialsUseCase,
             this._createSessionUseCase,
@@ -62,7 +64,9 @@ public class AccountControllerTests : IDisposable
             this._permissionChecker,
             this._userRepository,
             this._schemeService,
-            this._jitProvisionUseCase, this.audit);
+            this._jitProvisionUseCase,
+            this.audit,
+            boundary);
 
         this.SetupHttpContext();
     }

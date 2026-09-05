@@ -190,13 +190,22 @@ public sealed class AuthorizationCodeFlowTests
         error["error_description"]!.GetValue<string>().ShouldBe("The credentials are no longer valid.");
         HttpResponseMessage cookieReuse = await browser.GetAsync(authorizeUrl);
         cookieReuse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
-        QueryHelpers.ParseQuery(cookieReuse.Headers.Location!.Query)["error"].Single().ShouldBe("access_denied");
+        cookieReuse.Headers.Location!.ToString().ShouldContain("/Account/Login");
 
         HttpResponseMessage enable = await administrator.PostAsync($"/api/admin/users/{userId}/enable", null);
         enable.IsSuccessStatusCode.ShouldBeTrue();
         HttpResponseMessage authorizedAgain = await browser.GetAsync(authorizeUrl);
         authorizedAgain.StatusCode.ShouldBe(HttpStatusCode.Redirect);
-        QueryHelpers.ParseQuery(authorizedAgain.Headers.Location!.Query)["code"].Single().ShouldNotBeNullOrWhiteSpace();
+        authorizedAgain.Headers.Location!.ToString().ShouldContain("/Account/Login");
+        // Re-enablement does not resurrect a rejected cookie; prove local control again.
+        string freshLoginPage = await browser.GetStringAsync(authorizedAgain.Headers.Location);
+        HttpResponseMessage freshLogin = await browser.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email, ["Password"] = password, ["returnUrl"] = authorizeUrl,
+            ["__RequestVerificationToken"] = ExtractAntiForgeryToken(freshLoginPage)
+        }));
+        HttpResponseMessage freshAuthorization = await browser.GetAsync(freshLogin.Headers.Location);
+        QueryHelpers.ParseQuery(freshAuthorization.Headers.Location!.Query)["code"].Single().ShouldNotBeNullOrWhiteSpace();
     }
 
     [Fact]

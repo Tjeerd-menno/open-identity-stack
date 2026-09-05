@@ -104,7 +104,7 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             identity.AddClaim(new Claim("permission", permission));
         }
 
-        foreach (string type in new[] { OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim })
+        foreach (string type in new[] { OpenIdentityStack.Application.Abstractions.CredentialBoundaryClaims.Epoch, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim })
         {
             Claim[] sourceClaims = request.Principal.FindAll(type).ToArray();
             if (sourceClaims.Length == 1) { identity.AddClaim(sourceClaims[0]); }
