@@ -66,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<IUnlinkUpstreamIdentityUseCase, UnlinkUpstreamIdentityUseCase>();
         services.AddScoped<IFindUserByUpstreamIdentityQueryHandler, FindUserByUpstreamIdentityQueryHandler>();
         services.AddScoped<IListUserUpstreamIdentitiesQueryHandler, ListUserUpstreamIdentitiesQueryHandler>();
+        services.AddScoped<IIdentityMigrationInventoryQueryHandler, IdentityMigrationInventoryQueryHandler>();
     }
 
     private static void AddRoleUseCases(IServiceCollection services)

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OpenIdentityStack.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using OpenIdentityStack.Infrastructure.Persistence;
 namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(OpenIdentityStackDbContext))]
-    partial class OpenIdentityStackDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260905185849_QuarantineUnprovenIdentityAssociations")]
+    partial class QuarantineUnprovenIdentityAssociations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -650,7 +653,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasColumnName("display_name");
 
                     b.Property<bool>("JitProvisioningEnabled")
-                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
@@ -1331,32 +1333,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("UserId");
                         });
 
-                    b.OwnsMany("OpenIdentityStack.Domain.Users.EmailVerificationEvidence", "EmailVerificationEvidence", b1 =>
-                        {
-                            b1.Property<Guid>("Id")
-                                .HasColumnType("uuid");
-
-                            b1.Property<string>("NormalizedEmail")
-                                .IsRequired()
-                                .HasMaxLength(256)
-                                .HasColumnType("character varying(256)");
-
-                            b1.Property<Guid>("UserId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<DateTimeOffset>("VerifiedAt")
-                                .HasColumnType("timestamp with time zone");
-
-                            b1.HasKey("Id");
-
-                            b1.HasIndex("UserId");
-
-                            b1.ToTable("UserEmailVerificationEvidence", (string)null);
-
-                            b1.WithOwner()
-                                .HasForeignKey("UserId");
-                        });
-
                     b.OwnsMany("OpenIdentityStack.Domain.Users.UpstreamIdentity", "UpstreamIdentities", b1 =>
                         {
                             b1.Property<int>("Id")
@@ -1420,8 +1396,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Address");
-
-                    b.Navigation("EmailVerificationEvidence");
 
                     b.Navigation("UpstreamIdentities");
                 });

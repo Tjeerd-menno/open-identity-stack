@@ -184,6 +184,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
                 .HasMaxLength(512)
                 .IsRequired();
 
+            identityBuilder.Property(i => i.AssociationEvidence).HasConversion<string>().HasMaxLength(64);
+            identityBuilder.Ignore(i => i.IsQuarantined);
+
             identityBuilder.Property(i => i.Issuer).HasMaxLength(2048);
 
             identityBuilder.Property(i => i.Email)

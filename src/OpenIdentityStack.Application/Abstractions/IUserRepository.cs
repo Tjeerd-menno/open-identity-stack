@@ -87,6 +87,9 @@ public interface IUserRepository
         string? search = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Lists users with retained federation links in stable order for operator inventory.</summary>
+    Task<(IReadOnlyList<User> Items, int TotalCount)> ListWithUpstreamIdentitiesAsync(int page, int pageSize, UpstreamProviderId? providerId = null, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Finds a user by their upstream identity.
     /// </summary>

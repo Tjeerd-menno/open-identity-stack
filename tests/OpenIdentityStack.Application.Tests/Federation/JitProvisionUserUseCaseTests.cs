@@ -94,6 +94,19 @@ public sealed class JitProvisionUserUseCaseTests
         await this._providerRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
     [Fact]
+    public async Task ExecuteAsync_IssuerAloneDoesNotProveExistingAssociation()
+    {
+        var providerId = UpstreamProviderId.Create();
+        UpstreamProvider provider = CreateActiveProvider(providerId);
+        User user = User.CreateFederated("user@example.com", "User", providerId, provider.Name, "upstream-subject-123", issuer: "https://issuer.example/").Value;
+        this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>()).Returns(provider);
+        this._userRepository.FindByUpstreamIdentityAsync(providerId, "upstream-subject-123", Arg.Any<CancellationToken>()).Returns(user);
+        Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(new JitProvisionUserCommand(providerId, "upstream-subject-123", user.Email, user.DisplayName, "https://issuer.example/", provider.Authority));
+        result.IsFailure.ShouldBeTrue();
+        await this._userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+        await this._userRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+    [Fact]
     public async Task ExecuteAsync_LegacyLinkWithoutIssuerEvidence_CannotAuthenticate()
     {
         var providerId = UpstreamProviderId.Create();
@@ -356,7 +369,7 @@ public sealed class JitProvisionUserUseCaseTests
 
     private static User CreateFederatedUser(UpstreamProviderId providerId)
     {
-        User user = User.CreateFederated(
+        User user = User.ProvisionFederated(
             "user@example.com",
             "John Doe",
             providerId,

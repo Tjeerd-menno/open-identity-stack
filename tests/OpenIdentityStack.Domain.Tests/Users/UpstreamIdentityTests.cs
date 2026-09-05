@@ -11,6 +11,40 @@ namespace OpenIdentityStack.Domain.Tests.Users;
 public sealed class UpstreamIdentityTests
 {
     [Fact]
+    public void Unlink_DoesNotEraseQuarantinedAssociationEvidence()
+    {
+        var providerId = UpstreamProviderId.Create();
+        User user = User.CreateFederated("legacy@example.com", "Legacy", providerId, "provider", "subject", issuer: "https://issuer.example").Value;
+        user.UnlinkUpstreamIdentity(providerId).IsFailure.ShouldBeTrue();
+        user.UpstreamIdentities.Single().IsQuarantined.ShouldBeTrue();
+    }
+    [Fact]
+    public void RawIdentity_RemainsQuarantinedAfterIssuerAndEmailAreSupplied()
+    {
+        var providerId = UpstreamProviderId.Create();
+        UpstreamIdentity identity = UpstreamIdentity.Create(providerId, "provider", "subject", "mail@example.com", "https://issuer.example").Value;
+        identity.RecordLogin();
+        identity.AssociationEvidence.ShouldBe(IdentityAssociationEvidence.Unknown);
+        identity.IsQuarantined.ShouldBeTrue();
+        UpstreamIdentity updated = identity.UpdateEmail("updated@example.com").Value;
+        updated.AssociationEvidence.ShouldBe(IdentityAssociationEvidence.Unknown);
+        updated.IsQuarantined.ShouldBeTrue();
+        updated.LinkedAt.ShouldBe(identity.LinkedAt);
+    }
+
+    [Fact]
+    public void ProvisionedNewAccount_PreservesAssociationEvidenceAcrossEmailUpdates()
+    {
+        User user = User.ProvisionFederated("new@example.com", "New account", UpstreamProviderId.Create(), "provider", "subject", "https://issuer.example").Value;
+        UpstreamIdentity identity = user.UpstreamIdentities.Single();
+        identity.AssociationEvidence.ShouldBe(IdentityAssociationEvidence.NewAccountProvisioning);
+        identity.IsQuarantined.ShouldBeFalse();
+        UpstreamIdentity updated = identity.UpdateEmail("updated@example.com").Value;
+        updated.AssociationEvidence.ShouldBe(IdentityAssociationEvidence.NewAccountProvisioning);
+        updated.Issuer.ShouldBe("https://issuer.example");
+        updated.IsQuarantined.ShouldBeFalse();
+    }
+    [Fact]
     public void Create_WithValidParameters_ReturnsUpstreamIdentity()
     {
         // Arrange
