@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 using OpenIdentityStack.Api.CurrentUser;
+using OpenIdentityStack.Api.Authorization;
 
 namespace OpenIdentityStack.Api.UnitTests.Endpoints;
 
@@ -32,7 +33,7 @@ public sealed class CurrentUserRouteMappingTests
         endpoint.Metadata.GetMetadata<ITagsMetadata>()?.Tags.ShouldContain(nameof(CurrentUserApi));
 
         IAuthorizeData authorizeData = endpoint.Metadata.OfType<IAuthorizeData>().Single();
-        authorizeData.Policy.ShouldBeNull();
+        authorizeData.Policy.ShouldBe(AuthorizationOptionsExtensions.AdminPolicy);
     }
 
     private static WebApplication CreateApplication()
