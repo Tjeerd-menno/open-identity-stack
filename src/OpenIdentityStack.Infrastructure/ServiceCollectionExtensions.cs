@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using OpenIdentityStack.Application;
 using OpenIdentityStack.Application.Abstractions;
@@ -179,6 +180,7 @@ public static class ServiceCollectionExtensions
 
     private static void AddPlatformServices(IServiceCollection services)
     {
+        services.TryAddSingleton<IAdministrativeActorContext, UnauthenticatedAdministrativeActorContext>();
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddSingleton<IEnvironmentProvider, EnvironmentProvider>();
         services.AddScoped<IAuditLog, AuditLogService>();
