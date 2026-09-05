@@ -7,7 +7,13 @@ namespace OpenIdentityStack.Api.Tests.Common;
 
 public sealed class PermissionAuthorizationHandlerTests
 {
-    private readonly PermissionAuthorizationHandler handler = new();
+    private readonly PermissionAuthorizationHandler handler = new(new AdministrativeRequestAuthorization(new ApprovedAccessEvaluator()));
+
+    private sealed class ApprovedAccessEvaluator : OpenIdentityStack.Application.Abstractions.IAdministrativeAccessEvaluator
+    {
+        public Task<SharedKernel.Result<IReadOnlyList<string>>> EvaluateAsync(OpenIdentityStack.Application.Abstractions.AdministrativeAccessRequest request, CancellationToken cancellationToken = default) =>
+            Task.FromResult((SharedKernel.Result<IReadOnlyList<string>>)request.TokenPermissions.ToList());
+    }
 
     [Fact]
     public async Task Unauthenticated_user_does_not_succeed()
@@ -23,7 +29,7 @@ public sealed class PermissionAuthorizationHandlerTests
     [Fact]
     public async Task Exact_permission_claim_succeeds()
     {
-        var identity = new ClaimsIdentity(new[] { new Claim("permission", Permissions.Users.Read) }, "mock");
+        var identity = new ClaimsIdentity(AdminClaims(new Claim("permission", Permissions.Users.Read)), "mock");
         var user = new ClaimsPrincipal(identity);
         AuthorizationHandlerContext context = CreateContext(Permissions.Users.Read, user);
 
@@ -35,7 +41,7 @@ public sealed class PermissionAuthorizationHandlerTests
     [Fact]
     public async Task Wildcard_permission_claim_succeeds_for_child_operations()
     {
-        var identity = new ClaimsIdentity(new[] { new Claim("permission", Permissions.Users.All) }, "mock");
+        var identity = new ClaimsIdentity(AdminClaims(new Claim("permission", Permissions.Users.All)), "mock");
         var user = new ClaimsPrincipal(identity);
         AuthorizationHandlerContext context = CreateContext(Permissions.Users.Delete, user);
 
@@ -45,15 +51,15 @@ public sealed class PermissionAuthorizationHandlerTests
     }
 
     [Fact]
-    public async Task Scope_claim_is_treated_as_permission()
+    public async Task Scope_claim_does_not_convey_administrative_permission()
     {
-        var identity = new ClaimsIdentity(new[] { new Claim("scope", $"{Permissions.Users.Read} extra") }, "mock");
+        var identity = new ClaimsIdentity(AdminClaims(new Claim("scope", $"{Permissions.Users.Read} extra")), "mock");
         var user = new ClaimsPrincipal(identity);
         AuthorizationHandlerContext context = CreateContext(Permissions.Users.Read, user);
 
         await this.handler.HandleAsync(context);
 
-        context.HasSucceeded.ShouldBeTrue();
+        context.HasSucceeded.ShouldBeFalse();
     }
 
     [Fact]
@@ -67,6 +73,21 @@ public sealed class PermissionAuthorizationHandlerTests
 
         context.HasSucceeded.ShouldBeFalse();
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("https://business.example/api")]
+    [InlineData("urn:openidentitystack:admin-api https://business.example/api")]
+    public async Task Administrative_permission_rejects_missing_wrong_and_combined_audiences(string audiences)
+    {
+        var claims = new List<Claim> { new("permission", Permissions.Users.Read), new("scope", "ois.admin"), new("client_id", "approved-client"), new("sub", "approved-client") };
+        claims.AddRange(audiences.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(value => new Claim("aud", value)));
+        AuthorizationHandlerContext context = CreateContext(Permissions.Users.Read, new ClaimsPrincipal(new ClaimsIdentity(claims, "mock")));
+        await this.handler.HandleAsync(context);
+        context.HasSucceeded.ShouldBeFalse();
+    }
+
+    private static Claim[] AdminClaims(Claim permission) => [new("aud", "urn:openidentitystack:admin-api"), new("scope", "ois.admin"), new("client_id", "approved-client"), new("sub", "approved-client"), permission];
 
     private static AuthorizationHandlerContext CreateContext(string requiredPermission, ClaimsPrincipal user)
     {

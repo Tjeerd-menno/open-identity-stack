@@ -1,9 +1,8 @@
 using System.Security.Claims;
 
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenIddict.Abstractions;
-using OpenIddict.Validation.AspNetCore;
+using OpenIdentityStack.Api.Authorization;
 
 namespace OpenIdentityStack.Api.CurrentUser;
 
@@ -19,10 +18,7 @@ public static partial class CurrentUserApi
     public static IEndpointRouteBuilder MapCurrentUserApi(this IEndpointRouteBuilder app)
     {
         app.MapGet("api/me", GetCurrentUser)
-            .RequireAuthorization(new AuthorizeAttribute
-            {
-                AuthenticationSchemes = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme,
-            })
+            .RequireAuthorization(AuthorizationOptionsExtensions.AdminPolicy)
             .Produces<CurrentUserResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized)
             .WithTags(nameof(CurrentUserApi))

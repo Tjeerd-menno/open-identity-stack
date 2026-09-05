@@ -98,7 +98,9 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPermissionPolicies();
 });
-builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<AdministrativeRequestAuthorization>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, AdministrativeAccessAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, AdministrativeGrantRevisionHandler>();
 
 // T043: Configure CORS for Management Web
@@ -211,6 +213,7 @@ app.MapControllers();
 // Map Minimal API endpoints
 app.MapCurrentUserApi();
 app.MapApplicationsApi();
+app.MapAdministrativeAccessApi();
 app.MapUsersApi();
 app.MapPublicProfilesApi();
 app.MapRolesApi();

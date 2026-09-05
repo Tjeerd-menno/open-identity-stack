@@ -10,7 +10,7 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 /// </summary>
 public class DelegatedAdminTests
 {
-    private readonly PermissionAuthorizationHandler handler = new();
+    private readonly PermissionAuthorizationHandler handler = new(new AdministrativeRequestAuthorization(new OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess()));
 
     [Fact]
     public async Task Delegated_admin_with_user_read_cannot_read_roles()
@@ -80,7 +80,7 @@ public class DelegatedAdminTests
     private static AuthorizationHandlerContext CreateContext(string requiredPermission, Claim[] claims)
     {
         var identity = new ClaimsIdentity(claims, "mock");
-        var user = new ClaimsPrincipal(identity);
+        ClaimsPrincipal user = OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess.Principal(identity);
         var requirement = new PermissionRequirement(requiredPermission);
         return new AuthorizationHandlerContext(new[] { requirement }, user, resource: null);
     }

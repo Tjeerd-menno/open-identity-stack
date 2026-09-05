@@ -215,12 +215,14 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
         IApplicationProtocolProjection projection = Substitute.For<IApplicationProtocolProjection>();
         projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success());
+        IAdministrativeClientGuard administrativeGuard = Substitute.For<IAdministrativeClientGuard>();
+        administrativeGuard.RequireAsync(Arg.Any<OpenIdentityStack.Domain.Applications.ApplicationId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         var useCase = new ApplicationCredentialUseCases(
             this.repository,
             projection,
             new PasswordHasher(),
             this.dateTimeProvider,
-            Substitute.For<IAuditLog>());
+            Substitute.For<IAuditLog>(), administrativeGuard);
 
         Result<ApplicationCredentialCommandResult> result = await useCase.ExecuteAsync(
             new AddApplicationSecretCommand(application.Id, "Primary secret", this.now.AddDays(30), RevokeExisting: false));

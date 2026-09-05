@@ -14,19 +14,22 @@ public sealed class ApplicationLifecycleUseCases
     private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeClientGuard administrativeGuard;
 
     public ApplicationLifecycleUseCases(
         IApplicationRepository repository,
         IApplicationProtocolProjection projection,
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,
-        IAuditLog auditLog)
+        IAuditLog auditLog,
+        IAdministrativeClientGuard administrativeGuard)
     {
         this.repository = repository;
         this.projection = projection;
         this.passwordHasher = passwordHasher;
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
+        this.administrativeGuard = administrativeGuard;
     }
 
     public async Task<Result<ApplicationCommandResult>> ExecuteAsync(
@@ -168,6 +171,9 @@ public sealed class ApplicationLifecycleUseCases
             return ApplicationErrors.NotFound;
         }
 
+        Result administrativeApproval = await this.administrativeGuard.RequireAsync(application.Id, "AdministrativeClient.ConfigureOAuth", cancellationToken);
+        if (administrativeApproval.IsFailure) { return administrativeApproval.Error; }
+
         Result configureResult = application.ConfigureOAuth(
             command.Profile,
             command.ClientType,
@@ -190,6 +196,7 @@ public sealed class ApplicationLifecycleUseCases
         }
 
         await this.repository.SaveChangesAsync(cancellationToken);
+        await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.AuditAsync("Application.OAuthConfigured", application, cancellationToken);
 
         return ToCommandResult(application);
@@ -249,6 +256,9 @@ public sealed class ApplicationLifecycleUseCases
             return ApplicationErrors.NotFound;
         }
 
+        Result administrativeApproval = await this.administrativeGuard.RequireAsync(application.Id, "AdministrativeClient.Enable", cancellationToken);
+        if (administrativeApproval.IsFailure) { return administrativeApproval.Error; }
+
         Result result = application.Enable(this.dateTimeProvider);
         if (result.IsFailure)
         {
@@ -262,6 +272,7 @@ public sealed class ApplicationLifecycleUseCases
         }
 
         await this.repository.SaveChangesAsync(cancellationToken);
+        await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.AuditAsync("Application.Enabled", application, cancellationToken);
 
         return ToCommandResult(application);
@@ -380,19 +391,22 @@ public sealed class ApplicationCredentialUseCases
     private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeClientGuard administrativeGuard;
 
     public ApplicationCredentialUseCases(
         IApplicationRepository repository,
         IApplicationProtocolProjection projection,
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,
-        IAuditLog auditLog)
+        IAuditLog auditLog,
+        IAdministrativeClientGuard administrativeGuard)
     {
         this.repository = repository;
         this.projection = projection;
         this.passwordHasher = passwordHasher;
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
+        this.administrativeGuard = administrativeGuard;
     }
 
     public async Task<Result<ApplicationCredentialCommandResult>> ExecuteAsync(
@@ -404,6 +418,9 @@ public sealed class ApplicationCredentialUseCases
         {
             return ApplicationErrors.NotFound;
         }
+
+        Result administrativeApproval = await this.administrativeGuard.RequireAsync(application.Id, "AdministrativeClient.AddSecret", cancellationToken);
+        if (administrativeApproval.IsFailure) { return administrativeApproval.Error; }
 
         if (command.RevokeExisting)
         {
@@ -438,6 +455,7 @@ public sealed class ApplicationCredentialUseCases
         }
 
         await this.repository.SaveChangesAsync(cancellationToken);
+        await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.auditLog.LogAsync(
             "system",
             "ApplicationCredential.SecretAdded",
@@ -463,6 +481,9 @@ public sealed class ApplicationCredentialUseCases
             return ApplicationErrors.NotFound;
         }
 
+        Result administrativeApproval = await this.administrativeGuard.RequireAsync(application.Id, "AdministrativeClient.AddCertificate", cancellationToken);
+        if (administrativeApproval.IsFailure) { return administrativeApproval.Error; }
+
         Result<ApplicationCredential> addResult = application.AddCertificate(
             command.Thumbprint,
             command.Subject,
@@ -475,6 +496,7 @@ public sealed class ApplicationCredentialUseCases
         }
 
         await this.repository.SaveChangesAsync(cancellationToken);
+        await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.auditLog.LogAsync(
             "system",
             "ApplicationCredential.CertificateAdded",
