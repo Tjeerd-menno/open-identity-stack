@@ -81,7 +81,8 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
             }
 
             provider.BindIssuer(command.ValidatedIssuer, command.AuthenticationAuthority);
-            await this.providerRepository.SaveChangesAsync(cancellationToken);
+            Result committed = await this.persistence.CommitAsync(existingUser.Id, command.ProviderId, isNewUser: false, cancellationToken);
+            if (committed.IsFailure) { return committed.Error; }
             // User already linked with matching issuer evidence
             return new JitProvisionUserResult(
                 existingUser.Id,
