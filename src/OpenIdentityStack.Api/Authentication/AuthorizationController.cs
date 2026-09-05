@@ -21,6 +21,7 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using OpenIdentityStack.Application.Roles.Queries;
+using OpenIdentityStack.Application.Resources;
 
 using SharedKernel;
 namespace OpenIdentityStack.Api.Authentication;
@@ -35,7 +36,6 @@ public class AuthorizationController : ControllerBase
     private const string supportedAcrValue = "1";
 
     private readonly IOpenIddictApplicationManager applicationManager;
-    private readonly IOpenIddictScopeManager scopeManager;
     private readonly IUserRepository userRepository;
     private readonly IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler;
     private readonly IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler;
@@ -43,10 +43,8 @@ public class AuthorizationController : ControllerBase
     private readonly IValidateSessionQueryHandler validateSessionQueryHandler;
     private readonly IOpenIddictRequestService requestService;
     private readonly IAuditLog auditLog;
-    private readonly IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository;
-    private readonly IPermissionClaimProjectionService permissionClaimProjectionService;
     private readonly ITokenClaimProjectionService tokenClaimProjectionService;
-    private readonly IHostEnvironment? environment;
+    private readonly IResourcePermissionService? resourcePermissionService;
 
     public AuthorizationController(
         IOpenIddictApplicationManager applicationManager,
@@ -61,10 +59,10 @@ public class AuthorizationController : ControllerBase
         IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null,
         IHostEnvironment? environment = null,
         IPermissionClaimProjectionService? permissionClaimProjectionService = null,
-        ITokenClaimProjectionService? tokenClaimProjectionService = null)
+        ITokenClaimProjectionService? tokenClaimProjectionService = null,
+        IResourcePermissionService? resourcePermissionService = null)
     {
         this.applicationManager = applicationManager;
-        this.scopeManager = scopeManager;
         this.userRepository = userRepository;
         this.getUserEffectiveRolesQueryHandler = getUserEffectiveRolesQueryHandler;
         this.getGroupClaimsForUserQueryHandler = getGroupClaimsForUserQueryHandler;
@@ -72,11 +70,8 @@ public class AuthorizationController : ControllerBase
         this.validateSessionQueryHandler = validateSessionQueryHandler;
         this.requestService = requestService;
         this.auditLog = auditLog;
-        this.applicationPermissionRegistryRepository = applicationPermissionRegistryRepository;
-        this.permissionClaimProjectionService = permissionClaimProjectionService
-            ?? new PermissionClaimProjectionService(applicationPermissionRegistryRepository);
         this.tokenClaimProjectionService = tokenClaimProjectionService ?? new TokenClaimProjectionService();
-        this.environment = environment;
+        this.resourcePermissionService = resourcePermissionService;
     }
 
     /// <summary>
@@ -188,7 +183,7 @@ public class AuthorizationController : ControllerBase
         }
 
         var roleNames = new List<string>();
-        var permissions = new List<string>();
+
         IReadOnlyList<GroupClaimDto> groupClaims = [];
 
         // Add role claims (direct + group mapped)
@@ -201,9 +196,7 @@ public class AuthorizationController : ControllerBase
                  foreach (RoleDto role in rolesResult.Value)
                  {
                      roleNames.Add(role.Name);
-                     permissions.AddRange(await this.permissionClaimProjectionService
-                         .ExpandAssignedPermissionsAsync(role.Permissions, this.HttpContext.RequestAborted)
-                         .ConfigureAwait(false));
+
                  }
              }
 
@@ -215,19 +208,22 @@ public class AuthorizationController : ControllerBase
              }
         }
 
+        Result<ResourceTokenProjection> resourceAccess = await this.ProjectResourcesAsync(request, request.GetScopes(), userId);
+        if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error); }
+
         ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectSubjectClaims(
             new TokenClaimProjectionRequest(
                 user,
                 persistedUser,
                 roleNames,
-                permissions,
+                resourceAccess.Value.Permissions,
                 groupClaims,
                 request.GetScopes(),
                 GetRequestedUserInfoClaims(request),
                 authenticationTime,
                 GetSupportedAcrValue(request),
                 sessionIdValue));
-        projectedPrincipal.SetResources(await this.scopeManager.ListResourcesAsync(projectedPrincipal.GetScopes()).ToListAsync().ConfigureAwait(false));
+        ApplyResourceAccess(projectedPrincipal, request.ClientId!, resourceAccess.Value);
 
         return this.SignIn(
             projectedPrincipal,
@@ -266,45 +262,14 @@ public class AuthorizationController : ControllerBase
                 identity.AddClaim(new Claim(Claims.Name, displayName));
             }
 
-            if ((this.environment is null || this.environment.IsDevelopment() || this.environment.IsEnvironment("Testing"))
-                && request.GetScopes().Contains("api"))
-            {
-                identity.AddClaim(new Claim("permission", OpenIdentityStack.Application.Authorization.Permissions.All));
-            }
-
-            // Add isotope-related roles based on requested scopes
-            // These roles are required by TraceableIsotopes.Api authorization policies
-            ImmutableArray<string> scopes = request.GetScopes();
-
-            // isotopes:read grants the Reader role
-            if (scopes.Contains("isotopes:read") || scopes.Contains("api"))
-            {
-                identity.AddClaim(new Claim(Claims.Role, "isotope:reader"));
-            }
-
-            // isotopes:write grants the Editor role
-            if (scopes.Contains("isotopes:write") || scopes.Contains("api"))
-            {
-                identity.AddClaim(new Claim(Claims.Role, "isotope:editor"));
-            }
-
-            // isotopes:approve grants the Approver role
-            if (scopes.Contains("isotopes:approve") || scopes.Contains("api"))
-            {
-                identity.AddClaim(new Claim(Claims.Role, "isotope:approver"));
-            }
-
-            // isotopes:audit grants the Auditor role
-            if (scopes.Contains("isotopes:audit") || scopes.Contains("api"))
-            {
-                identity.AddClaim(new Claim(Claims.Role, "isotope:auditor"));
-            }
-
+            Result<ResourceTokenProjection> resourceAccess = await this.ProjectResourcesAsync(request, request.GetScopes(), null);
+            if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error); }
             identity.SetScopes(request.GetScopes());
-            identity.SetResources(await this.scopeManager.ListResourcesAsync(identity.GetScopes()).ToListAsync().ConfigureAwait(false));
+            var principal = new ClaimsPrincipal(identity);
+            ApplyResourceAccess(principal, request.ClientId!, resourceAccess.Value);
             identity.SetDestinations(TokenClaimProjectionService.GetDestinations);
 
-            return this.SignIn(new ClaimsPrincipal(identity), OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            return this.SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         }
 
         if (request.IsAuthorizationCodeGrantType() || request.IsRefreshTokenGrantType())
@@ -359,7 +324,19 @@ public class AuthorizationController : ControllerBase
             }
 
             DateTimeOffset? authenticationTime = GetAuthenticationTime(result.Properties, result.Principal!);
+            ImmutableArray<string> scopes = request.GetScopes().IsEmpty ? result.Principal!.GetScopes() : request.GetScopes();
+            if (scopes.Any(scope => !result.Principal!.HasScope(scope)))
+            {
+                return this.ResourceAccessDenied(Domain.Resources.ResourceAccessErrors.NotGranted);
+            }
+            UserId? subjectId = TryParseUserId(result.Principal!.GetClaim(Claims.Subject) ?? string.Empty);
+            if (subjectId is null) { return this.ResourceAccessDenied(Domain.Resources.ResourceAccessErrors.NotGranted); }
+            Result<ResourceTokenProjection> resourceAccess = await this.ProjectResourcesAsync(request, scopes, subjectId,
+                result.Principal.FindAll("permission").Select(static claim => claim.Value).ToArray(), result.Principal.GetResources());
+            if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error); }
             ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, authenticationTime, tokenUser);
+            projectedPrincipal.SetScopes(scopes);
+            ApplyResourceAccess(projectedPrincipal, request.ClientId!, resourceAccess.Value);
             return this.SignIn(
                 projectedPrincipal,
                 CreateOpenIddictAuthenticationProperties(authenticationTime),
@@ -413,150 +390,39 @@ public class AuthorizationController : ControllerBase
             [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The credentials are no longer valid."
         }));
 
-    private async Task<IReadOnlyList<string>> ResolveIntrospectionPermissionsAsync(
-        ClaimsPrincipal principal,
-        string? subject,
-        string? requestingClientId,
-        CancellationToken cancellationToken)
+    private Task<Result<ResourceTokenProjection>> ProjectResourcesAsync(OpenIddictRequest request, IReadOnlyList<string> scopes, UserId? userId,
+        IReadOnlyList<string>? originalPermissions = null, IReadOnlyList<string>? originalAudiences = null) =>
+        this.resourcePermissionService is null
+            ? Task.FromResult<Result<ResourceTokenProjection>>(Domain.Resources.ResourceAccessErrors.NotGranted)
+            : this.resourcePermissionService.ProjectAsync(new ResourceTokenRequest(request.ClientId ?? string.Empty, scopes,
+                request.GetResources(), userId, originalPermissions, originalAudiences), this.HttpContext.RequestAborted);
+
+    private ForbidResult ResourceAccessDenied(DomainError error) => this.Forbid(
+        authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
+        properties: new AuthenticationProperties(new Dictionary<string, string?>
+        {
+            [OpenIddictServerAspNetCoreConstants.Properties.Error] = error == Domain.Resources.ResourceAccessErrors.UnknownResource ? "invalid_target" : Errors.InvalidGrant,
+            [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "Access to the requested resource is unavailable."
+        }));
+
+    private static void ApplyResourceAccess(ClaimsPrincipal principal, string clientId, ResourceTokenProjection access)
     {
-        var permissions = new List<string>();
-        bool resolvedFromFreshRoles = false;
-
-        if (Guid.TryParse(subject, out Guid userId))
+        foreach (ClaimsIdentity identity in principal.Identities)
         {
-            Result<IReadOnlyList<RoleDto>> rolesResult =
-                await this.getUserEffectiveRolesQueryHandler.HandleAsync(new UserId(userId), cancellationToken);
-
-            if (rolesResult.IsSuccess)
+            foreach (Claim claim in identity.Claims.Where(static claim => claim.Type is "permission" or "permissions" or "client_id" or "ois.grant_revision").ToArray())
             {
-                resolvedFromFreshRoles = true;
-                foreach (RoleDto role in rolesResult.Value)
-                {
-                    permissions.AddRange(role.Permissions);
-                }
+                identity.RemoveClaim(claim);
             }
         }
-
-        if (!resolvedFromFreshRoles)
+        var target = (ClaimsIdentity)principal.Identity!;
+        target.AddClaim(new Claim(Claims.ClientId, clientId).SetDestinations(Destinations.AccessToken));
+        foreach (string permission in access.Permissions) { target.AddClaim(new Claim("permission", permission).SetDestinations(Destinations.AccessToken)); }
+        foreach ((Guid resourceId, long revision) in access.GrantRevisions)
         {
-            permissions.AddRange(GetPermissionClaims(principal));
+            target.AddClaim(new Claim("ois.grant_revision", $"{resourceId:D}:{revision}").SetDestinations(Destinations.AccessToken));
         }
-
-        return FilterPermissionsForCaller(permissions, requestingClientId);
-    }
-
-    private static List<string> FilterPermissionsForCaller(
-        IEnumerable<string> permissions,
-        string? requestingClientId)
-    {
-        if (string.IsNullOrWhiteSpace(requestingClientId))
-        {
-            return [];
-        }
-
-        var filtered = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (string permission in permissions)
-        {
-            if (!IsPermissionRelevantToCaller(permission, requestingClientId)
-                || !seen.Add(permission))
-            {
-                continue;
-            }
-
-            filtered.Add(permission);
-        }
-
-        return filtered;
-    }
-
-    private static bool IsPermissionRelevantToCaller(string permission, string requestingClientId) =>
-        string.Equals(permission, OpenIdentityStack.Application.Authorization.Permissions.All, StringComparison.Ordinal)
-        || permission.StartsWith($"{requestingClientId}:", StringComparison.OrdinalIgnoreCase);
-
-    private static IEnumerable<string> GetPermissionClaims(ClaimsPrincipal principal) =>
-        principal.FindAll("permission")
-            .Concat(principal.FindAll("permissions"))
-            .SelectMany(static claim => claim.Value.Split(
-                [' ', ','],
-                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-
-    private async Task<IReadOnlyList<string>> ExpandPermissionClaimsAsync(IEnumerable<string> assignedPermissions)
-    {
-        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var result = new List<string>();
-
-        foreach (string assignedPermission in assignedPermissions)
-        {
-            string normalized = assignedPermission.Trim().ToLowerInvariant();
-            if (string.IsNullOrWhiteSpace(normalized))
-            {
-                continue;
-            }
-
-            if (!normalized.Contains('*', StringComparison.Ordinal))
-            {
-                if (emitted.Add(normalized))
-                {
-                    result.Add(normalized);
-                }
-
-                continue;
-            }
-
-            IReadOnlyList<string> expanded = await this.ExpandWildcardPermissionAsync(normalized).ConfigureAwait(false);
-
-            if (expanded.Count == 0)
-            {
-                throw new InvalidOperationException($"Permission wildcard '{normalized}' could not be expanded.");
-            }
-
-            foreach (string permission in expanded)
-            {
-                if (emitted.Add(permission))
-                {
-                    result.Add(permission);
-                }
-            }
-        }
-
-        return result;
-    }
-
-    private async Task<IReadOnlyList<string>> ExpandWildcardPermissionAsync(string normalizedPermission)
-    {
-        IReadOnlyList<string> platformPermissions = normalizedPermission == OpenIdentityStack.Application.Authorization.Permissions.All
-            ? OpenIdentityStack.Application.Authorization.Permissions.GetAllPermissions()
-            : OpenIdentityStack.Application.Authorization.Permissions.GetAllPermissions()
-                .Where(requiredPermission => OpenIdentityStack.Application.Authorization.Permissions.Matches(normalizedPermission, requiredPermission))
-                .ToList();
-
-        if (platformPermissions.Count > 0)
-        {
-            return platformPermissions;
-        }
-
-        string[] parts = normalizedPermission.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length != 3 || parts[2] != "*" || this.applicationPermissionRegistryRepository is null)
-        {
-            return [];
-        }
-
-        Domain.ApplicationPermissions.RegisteredApplication? application =
-            await this.applicationPermissionRegistryRepository.GetByIdentifierAsync(parts[0], this.HttpContext.RequestAborted).ConfigureAwait(false);
-
-        if (application is null || application.Status != Domain.ApplicationPermissions.ApplicationLifecycleStatus.Active)
-        {
-            return [];
-        }
-
-        string prefix = $"{parts[1]}:";
-        return application.Permissions
-            .Where(permission => permission.PermissionKey.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            .Select(permission => permission.FullPermissionKey)
-            .Order(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        principal.SetResources(access.Audiences);
+        principal.SetPresenters(clientId);
     }
 
     private static ImmutableHashSet<string> GetRequestedUserInfoClaims(OpenIddictRequest request)

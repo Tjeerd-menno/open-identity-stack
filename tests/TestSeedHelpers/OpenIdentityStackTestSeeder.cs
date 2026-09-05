@@ -31,6 +31,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
     private static readonly string[] BaseScopes =
     [
         "api",
+        "ois.admin",
         "openid",
         "profile",
         "email",
@@ -252,6 +253,20 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         db.Roles.Add(role);
         db.RoleAssignments.Add(RoleAssignment.Create(user.Id, role.Id, DateTimeOffset.UtcNow).Value);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task GrantAdministrativeFixtureAccessAsync(string clientId, CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<OpenIdentityStack.Infrastructure.Resources.ResourceAccessBootstrapper>().InitializeAsync(cancellationToken);
+        OpenIdentityStackDbContext db = scope.ServiceProvider.GetRequiredService<OpenIdentityStackDbContext>();
+        DomainApplication application = await db.Applications.SingleAsync(application => application.ClientId == clientId, cancellationToken);
+        if (!await db.ClientResourceGrants.AnyAsync(grant => grant.ClientApplicationId == application.Id && grant.ResourceId == OpenIdentityStack.Domain.Resources.ProtectedResource.AdministrativeResourceId, cancellationToken))
+        {
+            db.ClientResourceGrants.Add(OpenIdentityStack.Domain.Resources.ClientResourceGrant.Create(application.Id,
+                OpenIdentityStack.Domain.Resources.ProtectedResource.AdministrativeResourceId, ["*"], ["*"]).Value);
+            await db.SaveChangesAsync(cancellationToken);
+        }
     }
 
     public async Task<Guid> CreateTestUserAsync(

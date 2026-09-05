@@ -42,6 +42,7 @@ OpenIdentityStackDbContext dbContext = services.GetRequiredService<OpenIdentityS
 
 logger.LogInformation("Applying OpenIdentityStack database migrations...");
 await dbContext.Database.MigrateAsync();
+await scope.ServiceProvider.GetRequiredService<OpenIdentityStack.Infrastructure.Resources.ResourceAccessBootstrapper>().InitializeAsync();
 logger.LogInformation("Database migrations applied successfully.");
 
 await SeedData.SeedAsync(dbContext, logger);
