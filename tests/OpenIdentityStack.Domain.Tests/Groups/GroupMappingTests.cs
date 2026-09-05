@@ -13,6 +13,8 @@ public class GroupMappingTests
     [InlineData("role")]
     [InlineData("auth_time")]
     [InlineData("ois_human_subject")]
+    [InlineData("ois.example")]
+    [InlineData("OIS.example")]
     [InlineData("ois_human_authenticated_at")]
     [InlineData("oi_prst")]
     public void SecurityClaimsCannotBeSuppliedByGroupMappings(string type)

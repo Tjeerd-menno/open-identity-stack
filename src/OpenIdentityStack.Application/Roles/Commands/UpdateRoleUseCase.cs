@@ -44,6 +44,7 @@ public sealed class UpdateRoleUseCase : IUpdateRoleUseCase
         UpdateRoleCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         Role? role = await this.roleRepository.GetByIdAsync(command.RoleId, cancellationToken);
         if (role is null)
         {

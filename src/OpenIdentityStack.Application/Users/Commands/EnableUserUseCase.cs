@@ -31,6 +31,7 @@ public sealed class EnableUserUseCase : IEnableUserUseCase
         EnableUserCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         User? user = await this.userRepository.GetByIdAsync(command.UserId, cancellationToken);
         if (user is null)
         {

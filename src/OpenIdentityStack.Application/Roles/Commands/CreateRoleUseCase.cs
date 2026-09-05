@@ -47,6 +47,7 @@ public sealed class CreateRoleUseCase : ICreateRoleUseCase
         CreateRoleCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         // Validate and create the role with display name
         Result<Role> roleResult = Role.Create(command.Name, command.DisplayName, command.Description);
         if (roleResult.IsFailure)

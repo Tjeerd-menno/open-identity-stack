@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OpenIdentityStack.Infrastructure.Persistence;
@@ -11,9 +12,10 @@ using OpenIdentityStack.Infrastructure.Persistence;
 namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(OpenIdentityStackDbContext))]
-    partial class OpenIdentityStackDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260905195000_GuardAdministrativeAuthorityReads")]
+    partial class GuardAdministrativeAuthorityReads
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -676,7 +678,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasColumnName("email_trust_version");
 
                     b.Property<bool>("JitProvisioningEnabled")
-                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
@@ -1390,10 +1391,6 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                                 .HasColumnType("timestamp with time zone");
 
                             b1.HasKey("Id");
-
-                            b1.HasIndex("ProviderId", "UserId")
-                                .HasDatabaseName("IX_EmailEvidence_ActiveProviderUser")
-                                .HasFilter("\"WithdrawnAt\" IS NULL");
 
                             b1.HasIndex("UserId", "ProviderId");
 
