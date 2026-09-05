@@ -1,3 +1,4 @@
+import { CutoverReadinessPage } from '@/features/security/CutoverReadinessPage';
 import { Box, Button, Card, Center, Loader, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
@@ -112,6 +113,7 @@ export function AppRoutes() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<OverviewPage />} />
+        <Route path="security/cutover" element={<RequirePermissions permissions={['sessions:revoke']}><CutoverReadinessPage /></RequirePermissions>} />
         <Route
           path="users"
           element={
@@ -247,5 +249,3 @@ export function AppRoutes() {
     </Routes>
   );
 }
-
-

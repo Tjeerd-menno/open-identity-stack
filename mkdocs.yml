@@ -92,6 +92,7 @@ nav:
       - Unrestricted administration: security/unrestricted-administration.md
       - Administrative client access: security/administrative-client-access.md
       - Credential boundary cutover: security/credential-boundary-cutover.md
+      - Identity boundary rehearsal: security/identity-boundary-cutover-rehearsal.md
       - Hardening checklist: security/hardening-checklist.md
       - Secrets management: security/secrets-management.md
       - Certificates and keys: security/certificates-and-keys.md

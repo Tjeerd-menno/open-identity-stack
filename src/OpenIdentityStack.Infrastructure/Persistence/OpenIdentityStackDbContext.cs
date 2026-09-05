@@ -43,6 +43,9 @@ public partial class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyC
     /// </summary>
     public DbSet<User> Users => this.Set<User>();
 
+    public DbSet<EmergencyAccessRecord> EmergencyAccessEvidence => this.Set<EmergencyAccessRecord>();
+    public DbSet<ResourceWindowReviewRecord> ResourceTokenWindowReviews => this.Set<ResourceWindowReviewRecord>();
+
     /// <summary>
     /// Gets or sets the UpstreamProviders DbSet.
     /// </summary>

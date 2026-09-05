@@ -30,6 +30,7 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
+  { label: 'Credential cutover', to: '/security/cutover', icon: 'shield-check', match: ['/security/cutover'], permissions: ['sessions:revoke'] },
   { label: 'Overview', to: '/', icon: 'layout-dashboard', match: ['/'] },
   { label: 'Users', to: '/users', icon: 'users', match: ['/users'], permissions: ['users:read'] },
   { label: 'Groups', to: '/groups', icon: 'users-round', match: ['/groups'], permissions: ['groups:read'] },
