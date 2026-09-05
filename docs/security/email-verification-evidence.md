@@ -12,7 +12,7 @@ Turning trust off withdraws that provider's evidence in the same transaction as 
 
 The earlier `RecordIndependentEmailVerificationEvidence` migration creates the evidence table and performs that bounded local-password backfill. `RecordEmailVerificationEvidence` then extends the table with provider provenance and defaults every provider to untrusted. No seed routine should call email verification merely to activate an account. Use forward corrective migrations and preserve evidence backups once evidence has been recorded.
 
-Withdrawal of evidence controls subsequent issuance and UserInfo. It does not revoke existing credentials, tokens, or sessions. Operators responding to a provider compromise must follow the separate credential and session revocation procedure in the provider-trust withdrawal lifecycle ticket and cutover runbook, including downstream services that validate tokens locally.
+Withdrawal also revokes affected OP credentials and advances a durable user revision checked on both OP validation paths. See [provider email-trust withdrawal](provider-email-trust-withdrawal.md) for transaction guarantees, session-boundary deployment, retries, and independently validating API windows.
 
 Verification covers the trusted/assertion matrix, provisioning independence, stale refresh claims, management API persistence and audit, source-specific withdrawal, relational stale-write rejection, and provider UI permissions. These checks are implementation evidence, not an OpenID certification claim.
 

@@ -33,21 +33,22 @@ it.each([true, false])('only provider writers can change email verification trus
   }
 });
 
-it('requires explicit confirmation before withdrawing trust', async () => {
-  mockApi.providers.getProvider.mockResolvedValue({ id: 'p1', name: 'provider', displayName: 'Provider', authority: 'https://issuer.example', clientId: 'client', scopes: [], status: 'Active', createdAt: '2026-06-01T00:00:00Z', jitProvisioningEnabled: true, trustEmailVerification: true });
+it('confirms withdrawal, explains revocation, and preserves the switch after failure', async () => {
   const user = userEvent.setup();
+  mockApi.providers.getProvider.mockResolvedValue({ id: 'p1', name: 'provider', displayName: 'Provider', authority: 'https://issuer.example', clientId: 'client', scopes: [], status: 'Active', createdAt: '2026-06-01T00:00:00Z', jitProvisioningEnabled: true, trustEmailVerification: true });
+  mockApi.providers.setEmailVerificationTrust.mockRejectedValue(new Error('Withdrawal failed; retry'));
   renderManagementWeb(<Routes><Route path="/providers/:providerId" element={<ProviderDetailPage />} /></Routes>, {
     auth: makeAuth({ permissions: ['providers:read', 'providers:write'] }), initialEntries: ['/providers/p1'],
   });
   await user.click(await screen.findByRole('tab', { name: 'Settings' }));
-
-  await user.click(screen.getByRole('switch', { name: 'Trust email verification' }));
-
+  expect(screen.getByText(/Affected users must sign in again/)).toBeVisible();
+  expect(screen.getByText(/Offline APIs may accept existing JWTs until expiry/)).toBeVisible();
+  const toggle = screen.getByRole('switch', { name: 'Trust email verification' });
+  await user.click(toggle);
   expect(mockApi.providers.setEmailVerificationTrust).not.toHaveBeenCalled();
   expect(screen.getByText(/existing proofs from this provider remain withdrawn/i)).toBeInTheDocument();
-  expect(screen.getByText(/does not revoke existing credentials or sessions/i)).toBeInTheDocument();
-  expect(screen.getByText(/follow the separate credential and session revocation procedure/i)).toBeInTheDocument();
-  expect(screen.getByRole('switch', { name: 'Trust email verification' })).toBeChecked();
   await user.click(screen.getByRole('button', { name: 'Withdraw trust' }));
   await waitFor(() => expect(mockApi.providers.setEmailVerificationTrust).toHaveBeenCalledWith('p1', false));
+  await waitFor(() => expect(toggle).not.toBeDisabled());
+  expect(toggle).toBeChecked();
 });

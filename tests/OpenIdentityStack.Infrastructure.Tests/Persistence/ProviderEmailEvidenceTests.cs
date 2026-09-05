@@ -36,7 +36,7 @@ public sealed class ProviderEmailEvidenceTests(FederationPolicyTestFixture fixtu
         if (newUser) { stale.Add(staleUser); }
         await using (OpenIdentityStackDbContext withdrawal = fixture.CreateDbContext())
         {
-            var store = new ProviderEmailTrustStore(withdrawal, Substitute.For<IAuditLog>());
+            var store = new ProviderEmailTrustStore(withdrawal, Substitute.For<IAuditLog>(), Substitute.For<IEmailTrustCredentialInvalidator>());
             (await store.SetAsync(provider.Id, false, "operator", default)).IsSuccess.ShouldBeTrue();
         }
 

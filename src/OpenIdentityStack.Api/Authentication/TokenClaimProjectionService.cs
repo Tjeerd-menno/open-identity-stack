@@ -6,6 +6,7 @@ using System.Text.Json;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 using OpenIdentityStack.Application.Groups.Queries;
+using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Users;
 using OpenIddict.Abstractions;
@@ -64,6 +65,7 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
         if (request.PersistedUser is not null)
         {
+            identity.AddClaim(new Claim(UserCredentialClaims.Revision, request.PersistedUser.CredentialRevision.ToString()));
             AddPersistedProfileClaims(identity, request.PersistedUser);
         }
         else
