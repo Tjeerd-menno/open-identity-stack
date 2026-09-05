@@ -18,7 +18,7 @@ The table below captures the most important deployment variables surfaced by the
 | `Seed__AdminUser__Email` | Seed admin email | Production bootstrap |
 | `Seed__AdminUser__Password` | Seed admin password | Production bootstrap |
 | `Seed__AdminUser__DisplayName` | Seed admin display name | Production bootstrap |
-| `Seed__AdminUser__ResetPasswordOnExistingUser` | Reset existing seeded user password when allowed | Controlled bootstrap updates |
+| `Seed__AdminUser__ResetPasswordOnExistingUser` | Obsolete; existing accounts are preserved | Remove this setting; use authorized password recovery |
 | `OpenIddict__Certificates__Signing__CertificatePath` | PEM certificate path for signing | Production token signing |
 | `OpenIddict__Certificates__Signing__PrivateKeyPath` | PEM private key path for signing | Production token signing |
 | `OpenIddict__Certificates__Encryption__CertificatePath` | PEM certificate path for encryption | Production token encryption |

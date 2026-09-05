@@ -207,6 +207,26 @@ public sealed partial class User : AggregateRoot<UserId>
     }
 
     /// <summary>
+    /// Creates a new active local account for controlled installation bootstrap.
+    /// Activation is independent of email verification and cannot reactivate an existing account.
+    /// </summary>
+    public static Result<User> CreateBootstrap(
+        string email,
+        string displayName,
+        string passwordHash,
+        IDateTimeProvider dateTimeProvider,
+        UserProfileData? profile = null)
+    {
+        Result<User> result = CreateLocal(email, displayName, passwordHash, dateTimeProvider, profile);
+        if (result.IsSuccess)
+        {
+            result.Value.Status = UserStatus.Active;
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Creates a new federated user (no password).
     /// </summary>
     public static Result<User> CreateFederated(

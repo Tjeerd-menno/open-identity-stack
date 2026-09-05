@@ -125,12 +125,6 @@ public static partial class SeedData
 
             if (existingRole is not null)
             {
-                // Update permissions on existing system roles to ensure they have the latest permissions
-                if (existingRole.IsSystemRole)
-                {
-                    existingRole.SetPermissions(permissions);
-                }
-
                 if (logger is not null)
                 {
                     LogRoleAlreadyExists(logger, name);

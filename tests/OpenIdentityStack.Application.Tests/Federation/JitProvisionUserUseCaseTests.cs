@@ -134,6 +134,23 @@ public sealed class JitProvisionUserUseCaseTests
         }
 
     [Fact]
+    public async Task ExecuteAsync_WithLocallyDisabledLinkedUser_DeniesProvisioning()
+    {
+        var providerId = UpstreamProviderId.Create();
+        User user = CreateFederatedUser(providerId);
+        user.Disable("Local administrative decision", this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>()).Returns(CreateActiveProvider(providerId));
+        this._userRepository.FindByUpstreamIdentityAsync(providerId, "upstream-subject-123", Arg.Any<CancellationToken>()).Returns(user);
+
+        Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(
+            new JitProvisionUserCommand(providerId, "upstream-subject-123", user.Email, "Upstream name"));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Forbidden.User.AccountDisabled");
+        user.Status.ShouldBe(UserStatus.Disabled);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithNonExistentProvider_ReturnsError()
     {
         // Arrange

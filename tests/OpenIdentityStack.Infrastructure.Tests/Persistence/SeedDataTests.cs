@@ -29,6 +29,21 @@ public class SeedDataTests : IClassFixture<SqliteTestFixture>, IAsyncLifetime
     private OpenIdentityStackDbContext CreateContext() => this._fixture.CreateDbContext();
 
     [Fact]
+    public async Task SeedAsync_RerunPreservesWithdrawnAdministrativePermissions()
+    {
+        await SeedData.SeedAsync(this._context);
+        Role role = await this._context.Roles.SingleAsync(role => role.Name == SeedData.SystemRoles.SuperAdmin);
+        role.SetPermissions(["users:read"]);
+        await this._context.SaveChangesAsync();
+
+        await SeedData.SeedAsync(this._context);
+
+        await using OpenIdentityStackDbContext verification = this.CreateContext();
+        Role persisted = await verification.Roles.SingleAsync(candidate => candidate.Id == role.Id);
+        persisted.Permissions.ShouldBe(["users:read"]);
+    }
+
+    [Fact]
     public async Task SeedAsync_ShouldCreateSystemRoles_WhenTheyDoNotExist()
     {
         // Arrange

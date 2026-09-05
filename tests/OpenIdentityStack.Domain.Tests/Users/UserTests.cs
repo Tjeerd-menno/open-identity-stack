@@ -21,6 +21,16 @@ public sealed class UserTests
     #region CreateLocal Tests
 
     [Fact]
+    public void CreateBootstrap_ActivatesNewAccountWithoutEmailVerificationEvidence()
+    {
+        Result<User> result = User.CreateBootstrap("bootstrap@example.com", "Bootstrap", "hashed_password", this._dateTimeProvider);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Status.ShouldBe(UserStatus.Active);
+        result.Value.DomainEvents.OfType<UserDomainEvents.UserEmailVerified>().ShouldBeEmpty();
+    }
+
+    [Fact]
     public void CreateLocal_WithValidData_ReturnsSuccessWithUser()
     {
         // Arrange

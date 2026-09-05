@@ -64,6 +64,41 @@ public class AccountControllerTests : IDisposable
         this.SetupHttpContext();
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExternalLoginCallback_WithDisabledLocalUser_DoesNotCreateSessionOrCookie(bool provisioned)
+    {
+        var providerId = Domain.Federation.UpstreamProviderId.Create();
+        Domain.Users.User user = Domain.Users.User.CreateFederated("disabled@example.com", "Disabled", providerId, "provider", "subject").Value;
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        user.Disable("Local administrative decision", clock).IsSuccess.ShouldBeTrue();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "subject")], "ExternalCookie"));
+        var properties = new AuthenticationProperties(new Dictionary<string, string?> { ["providerId"] = providerId.Value.ToString() });
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie")
+            .Returns(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "ExternalCookie")));
+        if (provisioned)
+        {
+            this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
+                .Returns(new JitProvisionUserResult(user.Id, false, user.Email, user.DisplayName));
+            this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        }
+        else
+        {
+            this._userRepository.FindByUpstreamIdentityAsync(providerId, "subject", Arg.Any<CancellationToken>()).Returns(user);
+        }
+
+        this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new CreateSessionResult(SessionId.Create()));
+        IActionResult result = await this._controller.ExternalLoginCallback("provider");
+
+        RedirectToActionResult redirect = result.ShouldBeOfType<RedirectToActionResult>();
+        redirect.RouteValues!["error"].ShouldBe("external_auth_failed");
+        await this._createSessionUseCase.DidNotReceive().ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>());
+        await this._authService.DidNotReceive().SignInAsync(Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
+    }
+
     public void Dispose()
     {
         this._controller.Dispose();
@@ -206,7 +241,7 @@ public class AccountControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Login_Post_WithDisabledAccount_ReturnsViewWithDisabledError()
+    public async Task Login_Post_WithDisabledAccount_ReturnsGenericCredentialError()
     {
         // Arrange
         var model = new LoginViewModel { Email = "disabled@example.com", Password = "pass" };
@@ -220,7 +255,7 @@ public class AccountControllerTests : IDisposable
         // Assert
         ViewResult viewResult = Assert.IsType<ViewResult>(result);
         ModelErrorCollection errors = this._controller.ModelState[string.Empty]!.Errors;
-        Assert.Contains("disabled", errors[0].ErrorMessage.ToLower(CultureInfo.InvariantCulture));
+        Assert.Equal("Invalid email or password.", errors[0].ErrorMessage);
     }
 
     [Fact]

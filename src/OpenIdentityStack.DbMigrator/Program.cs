@@ -53,10 +53,6 @@ bool seedDevData = builder.Environment.IsDevelopment()
     || builder.Configuration.GetValue<bool>("Seed:DevelopmentData");
 
 await SeedManagementWebClientAsync(services);
-if (seedCertificationProfile)
-{
-    await SeedCertificationDataAsync(services);
-}
 
 if (ShouldSeedDemoClients(builder.Configuration, builder.Environment, seedDevData, seedCertificationProfile))
 {
@@ -71,6 +67,11 @@ if (seedDevData)
     logger.LogInformation("Seeding development/test data...");
     await SeedDefaultAdminUserAsync(services);
     logger.LogInformation("Development/test data seeding complete.");
+}
+
+if (seedCertificationProfile)
+{
+    await SeedCertificationDataAsync(services);
 }
 
 
@@ -230,7 +231,7 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
 
     logger.LogInformation("Seeding OpenID Foundation certification users and clients...");
 
-    await UpsertCertificationUserAsync(
+    await SeedCertificationUserAsync(
         serviceProvider,
         "alice@example.test",
         "Alice Certification",
@@ -253,10 +254,9 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
                 PostalCode: "1015 CJ",
                 Country: "Netherlands"),
             phoneNumber: "+31 20 555 0100"),
-        GetRequiredConfiguration(configuration, "Seed:Certification:Users:Alice:Password"),
-        resetPassword: configuration.GetValue("Seed:Certification:ResetExistingUsers", defaultValue: true));
+        GetRequiredConfiguration(configuration, "Seed:Certification:Users:Alice:Password"));
 
-    await UpsertCertificationUserAsync(
+    await SeedCertificationUserAsync(
         serviceProvider,
         "bob@example.test",
         "Bob Certification",
@@ -279,8 +279,7 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
                 PostalCode: "1015 BS",
                 Country: "Netherlands"),
             phoneNumber: "+31 20 555 0101"),
-        GetRequiredConfiguration(configuration, "Seed:Certification:Users:Bob:Password"),
-        resetPassword: configuration.GetValue("Seed:Certification:ResetExistingUsers", defaultValue: true));
+        GetRequiredConfiguration(configuration, "Seed:Certification:Users:Bob:Password"));
 
     string[] redirectUris = GetCertificationRedirectUris(configuration);
     IReadOnlyList<string> scopes =
@@ -320,118 +319,18 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
     logger.LogInformation("OpenID Foundation certification seed profile completed.");
 }
 
-static async Task UpsertCertificationUserAsync(
+static async Task SeedCertificationUserAsync(
     IServiceProvider serviceProvider,
     string email,
     string displayName,
     UserProfileData profile,
-    string password,
-    bool resetPassword)
+    string password)
 {
-    OpenIdentityStackDbContext db = serviceProvider.GetRequiredService<OpenIdentityStackDbContext>();
-    ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-    IPasswordHasher passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
-    IPasswordPolicyValidator passwordPolicyValidator = serviceProvider.GetRequiredService<IPasswordPolicyValidator>();
-    IDateTimeProvider dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
-
-    Result passwordValidation = passwordPolicyValidator.ValidatePassword(password);
-    if (passwordValidation.IsFailure)
-    {
-        throw new InvalidOperationException($"Certification user password for '{email}' does not satisfy the password policy: {passwordValidation.Error.Description}");
-    }
-
-    string normalizedEmail = email.ToUpperInvariant();
-    User? existingUser = await db.Users.FirstOrDefaultAsync(user => user.NormalizedEmail == normalizedEmail);
-    if (existingUser is not null)
-    {
-        bool needsSave = false;
-
-        if (existingUser.Status == UserStatus.PendingVerification)
-        {
-            Result verifyResult = existingUser.VerifyEmail(dateTimeProvider);
-            if (verifyResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to verify certification user '{email}': {verifyResult.Error.Description}");
-            }
-
-            needsSave = true;
-        }
-        else if (existingUser.Status == UserStatus.Disabled)
-        {
-            Result enableResult = existingUser.Enable(dateTimeProvider);
-            if (enableResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to enable certification user '{email}': {enableResult.Error.Description}");
-            }
-
-            needsSave = true;
-        }
-
-        if (!string.Equals(existingUser.DisplayName, displayName, StringComparison.Ordinal))
-        {
-            Result updateNameResult = existingUser.UpdateDisplayName(displayName, dateTimeProvider);
-            if (updateNameResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to update certification user '{email}': {updateNameResult.Error.Description}");
-            }
-
-            needsSave = true;
-        }
-
-        if (existingUser.GetProfileData() != profile)
-        {
-            Result updateProfileResult = existingUser.UpdateProfile(profile, dateTimeProvider);
-            if (updateProfileResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to update certification user profile for '{email}': {updateProfileResult.Error.Description}");
-            }
-
-            needsSave = true;
-        }
-
-        if (resetPassword || !existingUser.HasPassword())
-        {
-            Result setPasswordResult = existingUser.SetPassword(passwordHasher.HashPassword(password), dateTimeProvider);
-            if (setPasswordResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to set certification user password for '{email}': {setPasswordResult.Error.Description}");
-            }
-
-            needsSave = true;
-        }
-
-        if (needsSave)
-        {
-            await db.SaveChangesAsync();
-            logger.LogInformation("Updated certification user '{Email}'.", email);
-        }
-
-        return;
-    }
-
-    Result<User> userResult = User.CreateLocal(
-        email,
-        displayName,
-        passwordHasher.HashPassword(password),
-        dateTimeProvider,
-        profile);
-    if (userResult.IsFailure)
-    {
-        throw new InvalidOperationException($"Failed to create certification user '{email}': {userResult.Error.Description}");
-    }
-
-    User user = userResult.Value;
-    Result activationResult = user.VerifyEmail(dateTimeProvider);
-    if (activationResult.IsFailure)
-    {
-        throw new InvalidOperationException($"Failed to activate certification user '{email}': {activationResult.Error.Description}");
-    }
-
-    db.Users.Add(user);
-    await db.SaveChangesAsync();
-    logger.LogInformation("Created certification user '{Email}'.", email);
+    bool created = await serviceProvider.GetRequiredService<LocalUserBootstrapper>()
+        .CreateIfAbsentAsync(email, displayName, password, assignAdministrator: false, profile);
+    serviceProvider.GetRequiredService<ILogger<Program>>().LogInformation(
+        "Certification bootstrap completed (Created: {Created}); existing accounts are preserved.", created);
 }
-
 static UserProfileData CreateCertificationUserProfile(
     Uri issuer,
     string preferredUsername,
@@ -569,103 +468,17 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
 {
     ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
     IConfiguration configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    OpenIdentityStackDbContext db = serviceProvider.GetRequiredService<OpenIdentityStackDbContext>();
-    IPasswordHasher passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
-    IPasswordPolicyValidator passwordPolicyValidator = serviceProvider.GetRequiredService<IPasswordPolicyValidator>();
-    IDateTimeProvider dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
-
-    const string adminEmail = "admin@localhost.dev";
-    const string adminDisplayName = "Default Admin";
-    string? adminSecret = configuration["Seed:DefaultAdmin:Password"];
-
-    if (string.IsNullOrWhiteSpace(adminSecret))
+    string? password = configuration["Seed:DefaultAdmin:Password"];
+    if (string.IsNullOrWhiteSpace(password))
     {
-        logger.LogInformation(
-            "Skipping default admin user seeding. Configure Seed:DefaultAdmin:Password to enable the development admin account.");
+        logger.LogInformation("Skipping development admin bootstrap; no password is configured.");
         return;
     }
 
-    Role? superAdminRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == "super-admin");
-
-    User? existingAdmin = await db.Users.FirstOrDefaultAsync(u => u.Email == adminEmail);
-    if (existingAdmin is not null)
-    {
-        bool needsSave = false;
-
-        if (existingAdmin.Status != UserStatus.Active)
-        {
-            existingAdmin.VerifyEmail(dateTimeProvider);
-            needsSave = true;
-            logger.LogDebug("Activated existing admin user '{Email}'", adminEmail);
-        }
-
-        if (superAdminRole is not null)
-        {
-            bool hasRole = await db.RoleAssignments.AnyAsync(
-                ra => ra.UserId == existingAdmin.Id && ra.RoleId == superAdminRole.Id);
-
-            if (!hasRole)
-            {
-                Result<RoleAssignment> assignmentResult = RoleAssignment.Create(
-                    existingAdmin.Id, superAdminRole.Id, dateTimeProvider.UtcNow);
-                if (assignmentResult.IsSuccess)
-                {
-                    db.RoleAssignments.Add(assignmentResult.Value);
-                    needsSave = true;
-                    logger.LogInformation("Assigned super-admin role to existing admin user '{Email}'", adminEmail);
-                }
-            }
-        }
-
-        if (needsSave)
-        {
-            await db.SaveChangesAsync();
-        }
-        else
-        {
-            logger.LogDebug("Default admin user '{Email}' already exists and is properly configured", adminEmail);
-        }
-        return;
-    }
-
-    Result passwordValidation = passwordPolicyValidator.ValidatePassword(adminSecret);
-    if (passwordValidation.IsFailure)
-    {
-        throw new InvalidOperationException($"Default admin password does not satisfy the password policy: {passwordValidation.Error.Description}");
-    }
-
-    string passwordHash = passwordHasher.HashPassword(adminSecret);
-    Result<User> userResult = User.CreateLocal(adminEmail, adminDisplayName, passwordHash, dateTimeProvider);
-
-    if (userResult.IsFailure)
-    {
-        logger.LogWarning("Failed to create default admin user: {Error}", userResult.Error.Description);
-        return;
-    }
-
-    User adminUser = userResult.Value;
-    adminUser.VerifyEmail(dateTimeProvider);
-
-    db.Users.Add(adminUser);
-
-    if (superAdminRole is not null)
-    {
-        Result<RoleAssignment> assignmentResult = RoleAssignment.Create(
-            adminUser.Id, superAdminRole.Id, dateTimeProvider.UtcNow);
-        if (assignmentResult.IsSuccess)
-        {
-            db.RoleAssignments.Add(assignmentResult.Value);
-        }
-    }
-
-    await db.SaveChangesAsync();
-
-    logger.LogInformation(
-        "Created default admin user '{Email}' with super-admin role (Status: {Status}). Configure Seed:DefaultAdmin:Password to set a stable development password.",
-        adminEmail,
-        adminUser.Status);
+    bool created = await serviceProvider.GetRequiredService<LocalUserBootstrapper>()
+        .CreateIfAbsentAsync("admin@localhost.dev", "Default Admin", password, assignAdministrator: true);
+    logger.LogInformation("Development admin bootstrap completed (Created: {Created}); existing accounts are preserved.", created);
 }
-
 static async Task SeedTraceableIsotopesWebClientAsync(IServiceProvider serviceProvider)
 {
     ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
@@ -849,7 +662,6 @@ static async Task SeedConfiguredAdminUserAsync(IServiceProvider serviceProvider)
         { Length: > 0 } configuredDisplayName => configuredDisplayName,
         _ => "Production Admin"
     };
-    bool resetPasswordOnExistingUser = configuration.GetValue<bool>("Seed:AdminUser:ResetPasswordOnExistingUser");
 
     if (string.IsNullOrWhiteSpace(email))
     {
@@ -861,155 +673,20 @@ static async Task SeedConfiguredAdminUserAsync(IServiceProvider serviceProvider)
         throw new InvalidOperationException("Seed:AdminUser:Password must be configured when Seed:AdminUser:Enabled is true.");
     }
 
-    await UpsertAdminUserAsync(serviceProvider, email, displayName, password, resetPasswordOnExistingUser);
+    await CreateConfiguredAdminUserAsync(serviceProvider, email, displayName, password);
 }
 
-static async Task UpsertAdminUserAsync(
+static async Task CreateConfiguredAdminUserAsync(
     IServiceProvider serviceProvider,
-    string adminEmail,
-    string adminDisplayName,
-    string adminPassword,
-    bool resetPasswordOnExistingUser)
+    string email,
+    string displayName,
+    string password)
 {
-    ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-    OpenIdentityStackDbContext db = serviceProvider.GetRequiredService<OpenIdentityStackDbContext>();
-    IPasswordHasher passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
-    IPasswordPolicyValidator passwordPolicyValidator = serviceProvider.GetRequiredService<IPasswordPolicyValidator>();
-    IDateTimeProvider dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
-    string? passwordHash = null;
-    string normalizedAdminEmail = adminEmail.ToUpperInvariant();
-    Role? superAdminRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == "super-admin");
-    User? existingAdmin = await db.Users.FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedAdminEmail);
-
-    if (existingAdmin is not null)
-    {
-        bool needsSave = false;
-
-        if (existingAdmin.Status == UserStatus.PendingVerification)
-        {
-            Result verifyResult = existingAdmin.VerifyEmail(dateTimeProvider);
-            if (verifyResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to verify configured admin user '{adminEmail}': {verifyResult.Error.Description}");
-            }
-            needsSave = true;
-        }
-        else if (existingAdmin.Status == UserStatus.Disabled)
-        {
-            Result enableResult = existingAdmin.Enable(dateTimeProvider);
-            if (enableResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to enable configured admin user '{adminEmail}': {enableResult.Error.Description}");
-            }
-            needsSave = true;
-        }
-
-        if (!string.Equals(existingAdmin.DisplayName, adminDisplayName, StringComparison.Ordinal))
-        {
-            Result updateDisplayNameResult = existingAdmin.UpdateDisplayName(adminDisplayName, dateTimeProvider);
-            if (updateDisplayNameResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to update configured admin user display name for '{adminEmail}': {updateDisplayNameResult.Error.Description}");
-            }
-            needsSave = true;
-        }
-
-        bool hadPassword = existingAdmin.HasPassword();
-        if (!hadPassword || resetPasswordOnExistingUser)
-        {
-            Result setPasswordResult = existingAdmin.SetPassword(GetPasswordHash(), dateTimeProvider);
-            if (setPasswordResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to set configured admin password for '{adminEmail}': {setPasswordResult.Error.Description}");
-            }
-            needsSave = true;
-            logger.LogInformation(
-                "Updated password for configured admin user '{Email}' ({Reason}).",
-                adminEmail,
-                hadPassword ? "reset requested" : "password was missing");
-        }
-
-        if (superAdminRole is not null)
-        {
-            bool hasRole = await db.RoleAssignments.AnyAsync(
-                ra => ra.UserId == existingAdmin.Id && ra.RoleId == superAdminRole.Id);
-
-            if (!hasRole)
-            {
-                Result<RoleAssignment> assignmentResult = RoleAssignment.Create(
-                    existingAdmin.Id, superAdminRole.Id, dateTimeProvider.UtcNow);
-                if (assignmentResult.IsFailure)
-                {
-                    throw new InvalidOperationException($"Failed to assign super-admin role to configured admin user '{adminEmail}': {assignmentResult.Error.Description}");
-                }
-
-                db.RoleAssignments.Add(assignmentResult.Value);
-                needsSave = true;
-            }
-        }
-
-        if (needsSave)
-        {
-            await db.SaveChangesAsync();
-            logger.LogInformation("Upserted configured admin user '{Email}'.", adminEmail);
-        }
-        else
-        {
-            logger.LogInformation("Configured admin user '{Email}' already exists and is correctly configured.", adminEmail);
-        }
-
-        return;
-    }
-
-    string newUserPasswordHash = GetPasswordHash();
-    Result<User> userResult = User.CreateLocal(adminEmail, adminDisplayName, newUserPasswordHash, dateTimeProvider);
-    if (userResult.IsFailure)
-    {
-        throw new InvalidOperationException($"Failed to create configured admin user '{adminEmail}': {userResult.Error.Description}");
-    }
-
-    User adminUser = userResult.Value;
-    Result activateResult = adminUser.VerifyEmail(dateTimeProvider);
-    if (activateResult.IsFailure)
-    {
-        throw new InvalidOperationException($"Failed to activate configured admin user '{adminEmail}': {activateResult.Error.Description}");
-    }
-
-    db.Users.Add(adminUser);
-
-    if (superAdminRole is not null)
-    {
-        Result<RoleAssignment> assignmentResult = RoleAssignment.Create(
-            adminUser.Id, superAdminRole.Id, dateTimeProvider.UtcNow);
-        if (assignmentResult.IsFailure)
-        {
-            throw new InvalidOperationException($"Failed to assign super-admin role to configured admin user '{adminEmail}': {assignmentResult.Error.Description}");
-        }
-
-        db.RoleAssignments.Add(assignmentResult.Value);
-    }
-
-    await db.SaveChangesAsync();
-    logger.LogInformation("Created configured admin user '{Email}' with super-admin role.", adminEmail);
-
-    string GetPasswordHash()
-    {
-        if (passwordHash is not null)
-        {
-            return passwordHash;
-        }
-
-        Result passwordValidation = passwordPolicyValidator.ValidatePassword(adminPassword);
-        if (passwordValidation.IsFailure)
-        {
-            throw new InvalidOperationException($"Configured admin password does not satisfy the password policy: {passwordValidation.Error.Description}");
-        }
-
-        passwordHash = passwordHasher.HashPassword(adminPassword);
-        return passwordHash;
-    }
+    bool created = await serviceProvider.GetRequiredService<LocalUserBootstrapper>()
+        .CreateIfAbsentAsync(email, displayName, password, assignAdministrator: true);
+    serviceProvider.GetRequiredService<ILogger<Program>>().LogInformation(
+        "Configured admin bootstrap completed (Created: {Created}); existing accounts are preserved.", created);
 }
-
 static string[] GetConfiguredUris(IConfiguration configuration, string key)
 {
     string[]? values = configuration.GetSection(key).Get<string[]>();

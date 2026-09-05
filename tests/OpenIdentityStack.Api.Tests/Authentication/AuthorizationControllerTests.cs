@@ -106,6 +106,32 @@ public class AuthorizationControllerTests
 
     #region Authorize Tests
 
+    [Theory]
+    [InlineData("authorization")]
+    [InlineData("authorization_code")]
+    [InlineData("refresh_token")]
+    public async Task ExistingCredentials_ForLocallyDisabledUser_CannotIssueTokens(string flow)
+    {
+        User user = User.CreateFederated("disabled@example.com", "Disabled", Domain.Federation.UpstreamProviderId.Create(), "provider", "subject").Value;
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        user.Disable("Local administrative decision", clock).IsSuccess.ShouldBeTrue();
+        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
+        this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>()).Returns(AsyncEnumerable.Empty<string>());
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, user.Id.Value.ToString()),
+            new Claim(OpenIddictConstants.Claims.Subject, user.Id.Value.ToString())], "Cookies"));
+        this.SetupMockServices(principal);
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest { ClientId = "test-client", GrantType = flow });
+
+        IActionResult result = flow == "authorization" ? await this._controller.Authorize() : await this._controller.Exchange();
+
+        ForbidResult denied = result.ShouldBeOfType<ForbidResult>();
+        denied.Properties!.Items[OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription].ShouldBe("The credentials are no longer valid.");
+    }
+
     [Fact]
     public async Task Authorize_WhenRequestIsNull_ThrowsInvalidOperationException()
     {

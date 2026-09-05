@@ -42,6 +42,31 @@ public sealed class UserRepositoryTests : IClassFixture<SqliteTestFixture>, IAsy
     #region AddAsync Tests
 
     [Fact]
+    public async Task UpdateAsync_StaleProfileCannotOverwriteCommittedDisablement()
+    {
+        User user = this.CreateUser("concurrent@example.com", "Before", "hashed_password");
+        user.VerifyEmail(this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        await this._repository.AddAsync(user);
+        await this._repository.SaveChangesAsync();
+
+        await using OpenIdentityStackDbContext administratorContext = this._fixture.CreateDbContext();
+        var administratorRepository = new UserRepository(administratorContext);
+        User administratorUser = (await administratorRepository.GetByIdAsync(user.Id))!;
+        administratorUser.Disable("Administrative disablement", this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        await administratorRepository.UpdateAsync(administratorUser);
+        await administratorRepository.SaveChangesAsync();
+
+        user.UpdateDisplayName("Stale upstream profile", this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        await this._repository.UpdateAsync(user);
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(() => this._repository.SaveChangesAsync());
+
+        await using OpenIdentityStackDbContext verificationContext = this._fixture.CreateDbContext();
+        User persisted = (await new UserRepository(verificationContext).GetByIdAsync(user.Id))!;
+        persisted.Status.ShouldBe(UserStatus.Disabled);
+        persisted.DisplayName.ShouldBe("Before");
+    }
+
+    [Fact]
     public async Task AddAsync_AddsUserToDatabase()
     {
         // Arrange

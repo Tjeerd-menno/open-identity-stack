@@ -245,6 +245,11 @@ public class AccountController : Controller
         // Sign out of the external cookie
         await this.HttpContext.SignOutAsync("ExternalCookie");
 
+        if (user.Status != Domain.Users.UserStatus.Active)
+        {
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
+        }
+
         DateTimeOffset authenticationTime = DateTimeOffset.UtcNow;
 
         // Create claims for the authenticated user
@@ -468,7 +473,7 @@ public class AccountController : Controller
         return errorCode switch
         {
             "Unauthorized.User.InvalidCredentials" => "Invalid email or password.",
-            "Forbidden.User.AccountDisabled" => "Your account has been disabled. Please contact support.",
+            "Forbidden.User.AccountDisabled" => "Invalid email or password.",
             "Forbidden.User.AccountNotVerified" => "Please verify your email address before logging in.",
             "Forbidden.AuthenticationSettings.LocalAuthNotPermitted" => "Authentication method not permitted.",
             _ => "An error occurred during login. Please try again."

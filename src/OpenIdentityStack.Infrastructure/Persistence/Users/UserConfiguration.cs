@@ -112,6 +112,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.Status)
             .IsRequired()
+            .IsConcurrencyToken()
             .HasConversion<int>();
 
         builder.Property(u => u.MfaEnabled)

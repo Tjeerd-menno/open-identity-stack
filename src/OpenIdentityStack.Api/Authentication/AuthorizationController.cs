@@ -150,6 +150,11 @@ public class AuthorizationController : ControllerBase
             ? await this.userRepository.GetByIdAsync(parsedUserId)
             : null;
 
+        if (persistedUser?.Status == Domain.Users.UserStatus.Disabled)
+        {
+            return this.RejectUnavailableCredentials(Errors.AccessDenied);
+        }
+
         string? sessionIdValue = null;
         if (user.FindFirstValue("sid") is { } sessionIdStr && Guid.TryParse(sessionIdStr, out Guid sessionIdGuid))
         {
@@ -314,6 +319,16 @@ public class AuthorizationController : ControllerBase
                     }));
             }
 
+            string? subject = result.Principal.GetClaim(Claims.Subject) ?? result.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (TryParseUserId(subject ?? string.Empty) is { } tokenUserId)
+            {
+                Domain.Users.User? tokenUser = await this.userRepository.GetByIdAsync(tokenUserId, this.HttpContext.RequestAborted);
+                if (tokenUser?.Status == Domain.Users.UserStatus.Disabled)
+                {
+                    return this.RejectUnavailableCredentials();
+                }
+            }
+
             string? sessionIdStr = result.Principal.FindFirst("sid")?.Value
                 ?? result.Principal.FindFirst(legacySessionIdClaim)?.Value;
 
@@ -375,6 +390,14 @@ public class AuthorizationController : ControllerBase
 
     // NOTE: Logout endpoint is handled by LogoutController which implements
     // full Single Logout (SLO) with front-channel and back-channel support.
+
+    private ForbidResult RejectUnavailableCredentials(string error = Errors.InvalidGrant) => this.Forbid(
+        authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
+        properties: new AuthenticationProperties(new Dictionary<string, string?>
+        {
+            [OpenIddictServerAspNetCoreConstants.Properties.Error] = error,
+            [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The credentials are no longer valid."
+        }));
 
     private async Task<IReadOnlyList<string>> ResolveIntrospectionPermissionsAsync(
         ClaimsPrincipal principal,
