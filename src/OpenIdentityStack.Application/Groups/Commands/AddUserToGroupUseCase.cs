@@ -35,6 +35,7 @@ public sealed class AddUserToGroupUseCase : IAddUserToGroupUseCase
 
     public async Task<Result> ExecuteAsync(AddUserToGroupCommand command, CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         // Fetch entities sequentially to avoid DbContext concurrency issues
         Group? group = await this.groupRepository.GetByIdAsync(command.GroupId, cancellationToken);
         User? user = await this.userRepository.GetByIdAsync(command.UserId, cancellationToken);

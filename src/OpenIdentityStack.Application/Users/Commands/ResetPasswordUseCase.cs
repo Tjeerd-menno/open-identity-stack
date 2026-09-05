@@ -37,6 +37,7 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
         ResetPasswordCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         // Validate password policy
         Result passwordValidation = this.passwordPolicyValidator.ValidatePassword(command.NewPassword);
         if (passwordValidation.IsFailure)

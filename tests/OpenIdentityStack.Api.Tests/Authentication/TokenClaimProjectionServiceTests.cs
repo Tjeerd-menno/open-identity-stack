@@ -24,9 +24,12 @@ public sealed class TokenClaimProjectionServiceTests
             CreateCookiePrincipal(user.Id.Value), user, [], [],
             [new GroupClaimDto("permission", "*", TokenTarget.Both),
              new GroupClaimDto("ois_human_subject", user.Id.Value.ToString(), TokenTarget.Both),
+             new GroupClaimDto("ois.example", "forged", TokenTarget.Both),
+             new GroupClaimDto("OIS.example", "forged", TokenTarget.Both),
              new GroupClaimDto("ois_human_authenticated_at", "9999999999", TokenTarget.Both)],
             ["openid", "api"], [], null, null, null));
         principal.HasClaim(claim => claim.Type == "permission" || claim.Type.StartsWith("ois_human_", StringComparison.Ordinal)).ShouldBeFalse();
+        principal.HasClaim(claim => claim.Type.StartsWith("ois.", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
     }
 
     [Fact]

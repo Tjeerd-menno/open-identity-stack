@@ -40,6 +40,7 @@ public sealed class EnableRoleUseCase : IEnableRoleUseCase
         EnableRoleCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         Role? role = await this.roleRepository.GetByIdAsync(command.RoleId, cancellationToken);
         if (role is null)
         {

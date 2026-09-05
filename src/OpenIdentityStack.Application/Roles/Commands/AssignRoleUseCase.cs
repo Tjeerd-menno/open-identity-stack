@@ -63,6 +63,7 @@ public sealed class AssignRoleUseCase : IAssignRoleUseCase
         AssignRoleCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         // Fetch entities sequentially to avoid DbContext concurrency issues
         User? user = await this.userRepository.GetByIdAsync(command.UserId, cancellationToken);
         Role? role = await this.roleRepository.GetByIdAsync(command.RoleId, cancellationToken);

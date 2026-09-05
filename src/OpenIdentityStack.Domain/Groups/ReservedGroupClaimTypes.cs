@@ -14,5 +14,5 @@ public static class ReservedGroupClaimTypes
 
     public static bool IsReserved(string claimType) =>
         reserved.Contains(claimType.Trim()) || claimType.StartsWith("oi_", StringComparison.OrdinalIgnoreCase) ||
-        claimType.StartsWith("ois_", StringComparison.OrdinalIgnoreCase);
+        claimType.StartsWith("ois_", StringComparison.OrdinalIgnoreCase) || claimType.StartsWith("ois.", StringComparison.OrdinalIgnoreCase);
 }

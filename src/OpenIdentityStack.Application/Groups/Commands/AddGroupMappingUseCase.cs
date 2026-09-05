@@ -31,6 +31,7 @@ public sealed class AddGroupMappingUseCase : IAddGroupMappingUseCase
 
     public async Task<Result> ExecuteAsync(AddGroupMappingCommand command, CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         Group? group = await this.groupRepository.GetByIdAsync(command.GroupId, cancellationToken);
         if (group is null)
         {

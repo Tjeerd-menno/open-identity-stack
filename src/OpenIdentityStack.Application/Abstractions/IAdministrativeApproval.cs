@@ -17,9 +17,16 @@ public sealed class UnauthenticatedAdministrativeActorContext : IAdministrativeA
 
 public interface IAdministrativeApproval
 {
+    Task CaptureAuthorityAsync(CancellationToken cancellationToken = default);
     Task<Result> RequireAsync(string operation, string targetId, bool acknowledged = false, CancellationToken cancellationToken = default);
     Task<Result> RequireForUserAccessAsync(UserId userId, string operation, CancellationToken cancellationToken = default);
     Task RecordOutcomeAsync(bool succeeded, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Captures authority read dependencies before an access-changing use case reads its entities.</summary>
+public interface IAdministrativeAuthoritySnapshot
+{
+    Task CaptureAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>Persists approval audit independently of the mutation's tracked state.</summary>

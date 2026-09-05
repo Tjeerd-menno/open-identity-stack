@@ -10,9 +10,12 @@ public sealed class AdministrativeApproval(
     IUserRepository users,
     IGetUserEffectiveRolesQueryHandler roles,
     IDateTimeProvider clock,
-    IAdministrativeApprovalAudit audit) : IAdministrativeApproval
+    IAdministrativeApprovalAudit audit,
+    IAdministrativeAuthoritySnapshot authoritySnapshot) : IAdministrativeApproval
 {
     private readonly List<ApprovalIntent> pending = [];
+
+    public Task CaptureAuthorityAsync(CancellationToken cancellationToken = default) => authoritySnapshot.CaptureAsync(cancellationToken);
 
     public async Task<Result> RequireForUserAccessAsync(UserId userId, string operation, CancellationToken cancellationToken = default)
     {

@@ -175,6 +175,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IEnvironmentProvider, EnvironmentProvider>();
         services.AddScoped<IAuditLog, AuditLogService>();
         services.AddScoped<IAdministrativeApprovalAudit, AdministrativeApprovalAudit>();
+        services.AddScoped<IAdministrativeAuthoritySnapshot, AdministrativeAuthoritySnapshot>();
         services.AddSingleton<ISecretProtector, AesSecretProtector>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IPasswordPolicyValidator, PasswordPolicyValidator>();

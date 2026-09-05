@@ -30,6 +30,8 @@ The API returns HTTP 403 Problem Details for approval failures, with an `errorCo
 | `ReauthenticationRequired` | Sign in again through a method that establishes actual authentication time. |
 | `AcknowledgementRequired` | Review and explicitly acknowledge unrestricted access. |
 
+Authority is captured before the operation reads users, roles, or groups. Changes to these authority dependencies and the protected mutation share a database revision fence: concurrent changes reject the stale operation with HTTP 409 and roll back its mutation. Reload and review the operation before retrying; approval is never automatically replayed. Ordinary login timestamp updates do not invalidate this snapshot.
+
 Codes have the prefix `Forbidden.AdministrativeApproval.`. The acknowledgement applies to one request; it does not establish authentication or authority.
 
 ## Audit and rollout
