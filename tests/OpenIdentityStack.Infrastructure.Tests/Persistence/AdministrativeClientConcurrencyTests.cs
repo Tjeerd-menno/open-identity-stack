@@ -1,0 +1,54 @@
+using Microsoft.EntityFrameworkCore;
+using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Applications;
+using OpenIdentityStack.Application.Applications.Commands;
+using OpenIdentityStack.Domain.Applications;
+using OpenIdentityStack.Domain.Resources;
+using OpenIdentityStack.Infrastructure.Persistence;
+using OpenIdentityStack.Infrastructure.Tests.Common;
+using SharedKernel;
+using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
+
+namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
+
+public sealed class AdministrativeClientConcurrencyTests(AdministrativeAuthorityTestFixture fixture) : IClassFixture<AdministrativeAuthorityTestFixture>
+{
+    [Fact]
+    public async Task ActualAdminWorkflowRejectsEnableWhenClientGainsAdministrativeGrantAfterRead()
+    {
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        await using OpenIdentityStackDbContext writer = fixture.CreateDbContext();
+        DomainApplication client = DomainApplication.Create($"enable-race-{Guid.NewGuid():N}", "Client", null,
+            ApplicationProfile.Web, OAuthClientType.Confidential, ["authorization_code"], ["openid", "ois.admin"],
+            ["https://example.com/callback"], [], true, false, clock).Value;
+        client.Disable(clock);
+        writer.AddRange(client, ProtectedResource.CreateAdministrative());
+        await writer.SaveChangesAsync();
+        await using OpenIdentityStackDbContext stale = fixture.CreateDbContext();
+        IAdministrativeClientGuard guard = Substitute.For<IAdministrativeClientGuard>();
+        guard.CaptureAuthorityAsync(Arg.Any<CancellationToken>()).Returns(_ => new AdministrativeAuthoritySnapshot(stale).CaptureAsync());
+        guard.RequireAsync(client.Id, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            // The old read found no Admin entitlement and required no privileged approval.
+            writer.ClientResourceGrants.Add(ClientResourceGrant.Create(client.Id, ProtectedResource.AdministrativeResourceId, ["users:read"], []).Value);
+            await writer.SaveChangesAsync();
+            return Result.Success();
+        });
+        IApplicationRepository repository = Substitute.For<IApplicationRepository>();
+        repository.GetByIdAsync(client.Id, Arg.Any<CancellationToken>()).Returns(async _ => (DomainApplication?)await stale.Applications.SingleAsync(value => value.Id == client.Id));
+        repository.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(async _ => await stale.SaveChangesAsync());
+        IApplicationProtocolProjection projection = Substitute.For<IApplicationProtocolProjection>();
+        projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
+        IPasswordHasher hasher = Substitute.For<IPasswordHasher>();
+        IAuditLog audit = Substitute.For<IAuditLog>();
+        var workflow = new ApplicationsAdminWorkflow(new ApplicationLifecycleUseCases(repository, projection, hasher, clock, audit, guard),
+            new ApplicationCredentialUseCases(repository, projection, hasher, clock, audit, guard));
+
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(() => workflow.EnableAsync(new(client.Id)));
+
+        await using OpenIdentityStackDbContext verification = fixture.CreateDbContext();
+        (await verification.Applications.SingleAsync(value => value.Id == client.Id)).Status.ShouldBe(ApplicationStatus.Disabled);
+        await guard.DidNotReceive().RecordOutcomeAsync(Arg.Any<CancellationToken>());
+    }
+}
