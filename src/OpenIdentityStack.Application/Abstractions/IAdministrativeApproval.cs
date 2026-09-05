@@ -7,6 +7,7 @@ public sealed record AdministrativeActor(UserId UserId, DateTimeOffset? Authenti
 public interface IAdministrativeActorContext
 {
     AdministrativeActor? Current { get; }
+    string AuditActorId => this.Current?.UserId.Value.ToString() ?? "system";
 }
 
 /// <summary>Non-HTTP hosts have no authenticated human approval context.</summary>

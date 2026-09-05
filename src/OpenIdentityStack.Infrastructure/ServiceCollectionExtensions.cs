@@ -88,8 +88,12 @@ public static class ServiceCollectionExtensions
             string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase)
             && IsSqliteConnectionString(connectionString);
 
-        services.AddDbContext<OpenIdentityStackDbContext>(options =>
-            ConfigureDbContext(options, connectionString, useSqliteForTesting));
+        services.AddScoped<AdministrativeAuthorityAuditInterceptor>();
+        services.AddDbContext<OpenIdentityStackDbContext>((provider, options) =>
+        {
+            ConfigureDbContext(options, connectionString, useSqliteForTesting);
+            options.AddInterceptors(provider.GetRequiredService<AdministrativeAuthorityAuditInterceptor>());
+        });
 
         AddCommonServices(services, configuration, environmentName);
 
@@ -120,8 +124,12 @@ public static class ServiceCollectionExtensions
             environment.IsEnvironment("Testing")
             && IsSqliteConnectionString(connectionString);
 
-        services.AddDbContext<OpenIdentityStackDbContext>(options =>
-            ConfigureDbContext(options, connectionString, useSqliteForTesting));
+        services.AddScoped<AdministrativeAuthorityAuditInterceptor>();
+        services.AddDbContext<OpenIdentityStackDbContext>((provider, options) =>
+        {
+            ConfigureDbContext(options, connectionString, useSqliteForTesting);
+            options.AddInterceptors(provider.GetRequiredService<AdministrativeAuthorityAuditInterceptor>());
+        });
 
         AddCommonServices(services, configuration, environment.EnvironmentName);
 

@@ -12,6 +12,17 @@ public sealed class AdministrativeActorContext(IHttpContextAccessor accessor) : 
     public const string ApprovalHeader = "X-OIS-Administrative-Approval";
     public const string ApprovalAcknowledgement = "acknowledge";
 
+    public string AuditActorId
+    {
+        get
+        {
+            ClaimsPrincipal? principal = accessor.HttpContext?.User;
+            return principal?.Identity?.IsAuthenticated == true
+                ? principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? "system"
+                : "system";
+        }
+    }
+
     public AdministrativeActor? Current
     {
         get
