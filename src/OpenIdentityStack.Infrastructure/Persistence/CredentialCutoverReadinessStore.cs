@@ -2,6 +2,7 @@ using System.Data;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using OpenIddict.EntityFrameworkCore.Models;
+using OpenIddict.Abstractions;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Groups;
@@ -52,8 +53,10 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
 
         CutoverResourceInventory inventory = await resources.ReadAsync(cancellationToken);
         blockers.AddRange(inventory.Blockers);
+        // OpenIddict 7 stores URI identifiers; direct EF reads must also retain pre-7 hint-style rows.
         List<DateTime?> expiries = await db.Set<OpenIddictEntityFrameworkCoreToken>().AsNoTracking()
-            .Where(token => token.Type == "access_token" && (token.ExpirationDate == null || token.ExpirationDate > now.UtcDateTime))
+            .Where(token => (token.Type == OpenIddictConstants.TokenTypeIdentifiers.AccessToken || token.Type == OpenIddictConstants.TokenTypeHints.AccessToken)
+                && (token.ExpirationDate == null || token.ExpirationDate > now.UtcDateTime))
             .Select(token => token.ExpirationDate).ToListAsync(cancellationToken);
         DateTimeOffset? latestExpiry = expiries.Any(x => x.HasValue)
             ? new DateTimeOffset(DateTime.SpecifyKind(expiries.Where(x => x.HasValue).Max()!.Value, DateTimeKind.Utc)) : null;

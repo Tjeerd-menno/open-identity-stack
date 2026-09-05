@@ -111,6 +111,35 @@ public sealed class CredentialCutoverReadinessStoreTests
         (await database.Store.EvaluateAsync()).Ready.ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData(OpenIddict.Abstractions.OpenIddictConstants.TokenTypeIdentifiers.AccessToken, false)]
+    [InlineData(OpenIddict.Abstractions.OpenIddictConstants.TokenTypeIdentifiers.AccessToken, true)]
+    [InlineData(OpenIddict.Abstractions.OpenIddictConstants.TokenTypeHints.AccessToken, false)]
+    [InlineData(OpenIddict.Abstractions.OpenIddictConstants.TokenTypeHints.AccessToken, true)]
+    public async Task OfflineWindowIncludesCurrentAndLegacyRevokedAccessTokenMetadata(string tokenType, bool unknownExpiry)
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        var resource = new CutoverProtectedResource(Guid.NewGuid(), "Business", "urn:business", "business", 1);
+        database.Resources.ReadAsync(Arg.Any<CancellationToken>()).Returns(new CutoverResourceInventory([], [resource], []));
+        database.Db.Add(new OpenIddictEntityFrameworkCoreToken
+        {
+            Id = Guid.NewGuid().ToString(), Type = tokenType, Status = "revoked",
+            ExpirationDate = unknownExpiry ? null : database.Clock.UtcNow.AddHours(1).UtcDateTime
+        });
+        await database.Db.SaveChangesAsync();
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OfflineExpiry", 0, "fixture:zero-window"), actor.UserId.Value.ToString());
+        CredentialCutoverPreflight rejected = await database.Store.EvaluateAsync();
+        rejected.OutstandingAccessTokens.ShouldBe(1);
+        rejected.BusinessResources.Single().Reviewed.ShouldBeFalse();
+        rejected.Ready.ShouldBeFalse();
+        rejected.Blockers.ShouldContain(x => x.Code == "Resource.TokenWindowUnresolved");
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OfflineExpiry", 7200, "fixture:measured-window"), actor.UserId.Value.ToString());
+        CredentialCutoverPreflight bounded = await database.Store.EvaluateAsync();
+        bounded.BusinessResources.Single().Reviewed.ShouldBe(!unknownExpiry);
+        bounded.Ready.ShouldBe(!unknownExpiry);
+    }
     private sealed class TestDatabase : IAsyncDisposable
     {
         private readonly SqliteConnection connection = new("DataSource=:memory:");
