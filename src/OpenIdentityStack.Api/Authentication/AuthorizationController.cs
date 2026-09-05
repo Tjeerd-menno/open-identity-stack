@@ -303,10 +303,7 @@ public class AuthorizationController : ControllerBase
                 ValidateSessionResult validateResult = await this.validateSessionQueryHandler.HandleAsync(
                     new ValidateSessionQuery(new SessionId(sessionIdGuid)));
 
-                // Only reject if session was explicitly revoked or expired.
-                // "Session not found" is allowed (can happen after DB reset in dev mode).
-                if (!validateResult.IsValid &&
-                    validateResult.Reason != "Session not found")
+                if (!validateResult.IsValid)
                 {
                     return this.Forbid(
                         authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
