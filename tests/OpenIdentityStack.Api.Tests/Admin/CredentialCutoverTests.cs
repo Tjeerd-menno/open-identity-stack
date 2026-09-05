@@ -10,7 +10,6 @@ using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Sessions;
-using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Infrastructure.Persistence;
 using SharedKernel;
 
@@ -74,15 +73,6 @@ public sealed class CredentialCutoverTests
         const string grantSecret = "grant-secret";
         const string redirectUri = "https://localhost/callback";
         await fixture.CreateServiceAccountAsync(grantClient, grantSecret, ["openid", "offline_access"], ["authorization_code", "refresh_token"], [redirectUri]);
-        await fixture.ExecuteDbContextAsync(async db =>
-        {
-            IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
-            clock.UtcNow.Returns(DateTimeOffset.UtcNow);
-            db.Applications.Add(OpenIdentityStack.Domain.Applications.Application.Create(grantClient, "Cutover grants", null,
-                ApplicationProfile.Web, OAuthClientType.Confidential, ["authorization_code", "refresh_token"],
-                ["openid", "offline_access"], [redirectUri], [], true, false, clock).Value);
-            await db.SaveChangesAsync();
-        });
         string verifier = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
         string challenge = WebEncoders.Base64UrlEncode(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
         string authorizeUrl = $"/connect/authorize?client_id={grantClient}&response_type=code&redirect_uri={Uri.EscapeDataString(redirectUri)}&scope=openid%20offline_access&code_challenge={challenge}&code_challenge_method=S256";
