@@ -49,7 +49,7 @@ public sealed class JitProvisionUserUseCaseTests
             .IsSuccess.ShouldBeTrue();
 
         Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(
-            new JitProvisionUserCommand(providerId, "new-subject", "new@example.com", "New User"));
+            new JitProvisionUserCommand(providerId, "new-subject", "new@example.com", "New User", "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0"));
 
         result.IsFailure.ShouldBeTrue();
         await this._userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
@@ -69,12 +69,40 @@ public sealed class JitProvisionUserUseCaseTests
             .IsSuccess.ShouldBeTrue();
 
         Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(
-            new JitProvisionUserCommand(providerId, "upstream-subject-123", "user@example.com", "John Doe"));
+            new JitProvisionUserCommand(providerId, "upstream-subject-123", "user@example.com", "John Doe", "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0"));
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.UserId.ShouldBe(existingUser.Id);
     }
 
+    [Theory]
+    [InlineData("https://other-issuer.example/", "https://login.microsoftonline.com/tenant/v2.0")]
+    [InlineData("https://issuer.example/", "https://old-authority.example")]
+    [InlineData(null, "https://login.microsoftonline.com/tenant/v2.0")]
+    public async Task ExecuteAsync_MismatchedIssuerOrAuthorityCannotTransferExistingIdentity(string? issuer, string authority)
+    {
+        var providerId = UpstreamProviderId.Create();
+        UpstreamProvider provider = CreateActiveProvider(providerId);
+        provider.BindIssuer("https://issuer.example/", provider.Authority).IsSuccess.ShouldBeTrue();
+        User user = CreateFederatedUser(providerId);
+        this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>()).Returns(provider);
+        this._userRepository.FindByUpstreamIdentityAsync(providerId, "upstream-subject-123", Arg.Any<CancellationToken>()).Returns(user);
+        Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(new JitProvisionUserCommand(providerId, "upstream-subject-123", user.Email, user.DisplayName, issuer, authority));
+        result.IsFailure.ShouldBeTrue();
+        await this._userRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await this._providerRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+    [Fact]
+    public async Task ExecuteAsync_LegacyLinkWithoutIssuerEvidence_CannotAuthenticate()
+    {
+        var providerId = UpstreamProviderId.Create();
+        UpstreamProvider provider = CreateActiveProvider(providerId);
+        User user = User.CreateFederated("user@example.com", "User", providerId, provider.Name, "upstream-subject-123").Value;
+        this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>()).Returns(provider);
+        this._userRepository.FindByUpstreamIdentityAsync(providerId, "upstream-subject-123", Arg.Any<CancellationToken>()).Returns(user);
+        Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(new JitProvisionUserCommand(providerId, "upstream-subject-123", user.Email, user.DisplayName, "https://issuer.example/", provider.Authority));
+        result.IsFailure.ShouldBeTrue();
+    }
     [Fact]
     public async Task ExecuteAsync_WithNewUser_CreatesUserWithUpstreamIdentity()
     {
@@ -85,7 +113,7 @@ public sealed class JitProvisionUserUseCaseTests
             providerId,
             "upstream-subject-123",
             "user@example.com",
-            "John Doe");
+            "John Doe", "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0");
 
         this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>())
             .Returns(provider);
@@ -101,6 +129,7 @@ public sealed class JitProvisionUserUseCaseTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.IsNewUser.ShouldBeTrue();
         result.Value.UserId.ShouldNotBe(default);
+        await this._userRepository.Received(1).AddAsync(Arg.Is<User>(u => u.UpstreamIdentities.Single().Issuer == "https://issuer.example/"), Arg.Any<CancellationToken>());
         await this._userRepository.Received(1).AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
         await this.persistence.Received(1).CommitAsync(Arg.Any<UserId>(), providerId, true, Arg.Any<CancellationToken>());
     }
@@ -116,7 +145,7 @@ public sealed class JitProvisionUserUseCaseTests
             providerId,
             "upstream-subject-123",
             "user@example.com",
-            "John Doe");
+            "John Doe", "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0");
 
         this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>())
             .Returns(provider);
@@ -128,10 +157,10 @@ public sealed class JitProvisionUserUseCaseTests
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
-            result.Value.IsNewUser.ShouldBeFalse();
-            result.Value.UserId.ShouldBe(existingUser.Id);
-            await this._userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
-        }
+        result.Value.IsNewUser.ShouldBeFalse();
+        result.Value.UserId.ShouldBe(existingUser.Id);
+        await this._userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+    }
 
     [Fact]
     public async Task ExecuteAsync_WithLocallyDisabledLinkedUser_DeniesProvisioning()
@@ -143,7 +172,7 @@ public sealed class JitProvisionUserUseCaseTests
         this._userRepository.FindByUpstreamIdentityAsync(providerId, "upstream-subject-123", Arg.Any<CancellationToken>()).Returns(user);
 
         Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(
-            new JitProvisionUserCommand(providerId, "upstream-subject-123", user.Email, "Upstream name"));
+            new JitProvisionUserCommand(providerId, "upstream-subject-123", user.Email, "Upstream name", "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0"));
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Forbidden.User.AccountDisabled");
@@ -159,7 +188,7 @@ public sealed class JitProvisionUserUseCaseTests
             providerId,
             "upstream-subject-123",
             "user@example.com",
-            "John Doe");
+            "John Doe", "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0");
 
         this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>())
             .Returns((UpstreamProvider?)null);
@@ -182,7 +211,7 @@ public sealed class JitProvisionUserUseCaseTests
             providerId,
             "upstream-subject-123",
             "user@example.com",
-            "John Doe");
+            "John Doe", "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0");
 
         this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>())
             .Returns(provider);
@@ -206,7 +235,7 @@ public sealed class JitProvisionUserUseCaseTests
             providerId,
             "upstream-subject-123",
             "existing@example.com",
-            "John Doe");
+            "John Doe", "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0");
 
         this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>())
             .Returns(provider);
@@ -232,7 +261,7 @@ public sealed class JitProvisionUserUseCaseTests
             providerId,
             string.Empty,
             "user@example.com",
-            "John Doe");
+            "John Doe", "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0");
 
         // Act
         Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(command);
@@ -252,7 +281,7 @@ public sealed class JitProvisionUserUseCaseTests
             providerId,
             "upstream-subject-123",
             null,
-            "John Doe");
+            "John Doe", "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0");
 
         this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>())
             .Returns(provider);
@@ -278,7 +307,7 @@ public sealed class JitProvisionUserUseCaseTests
             providerId,
             "upstream-subject-123",
             "user@example.com",
-            null);
+            null, "https://issuer.example/", "https://login.microsoftonline.com/tenant/v2.0");
 
         this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>())
             .Returns(provider);
@@ -325,7 +354,7 @@ public sealed class JitProvisionUserUseCaseTests
             "John Doe",
             providerId,
             "azure-ad",
-            "upstream-subject-123").Value;
+            "upstream-subject-123", issuer: "https://issuer.example/").Value;
         return user;
     }
 

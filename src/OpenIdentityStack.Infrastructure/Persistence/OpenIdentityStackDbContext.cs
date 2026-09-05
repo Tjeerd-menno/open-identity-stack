@@ -99,6 +99,38 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
     /// </summary>
     public DbSet<DelegatedMaintainer> DelegatedMaintainers => this.Set<DelegatedMaintainer>();
 
+    /// <inheritdoc />
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        foreach (UpstreamProviderId providerId in this.GetAddedIdentityProviderIds())
+        {
+            this.UpstreamProviders.Find(providerId)?.LockIdentityConfiguration();
+        }
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    /// <inheritdoc />
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        await this.LockLinkedProvidersAsync(cancellationToken);
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private async Task LockLinkedProvidersAsync(CancellationToken cancellationToken)
+    {
+        // Every insertion, including legacy/raw domain links, locks the provider in the same save.
+        // Updating the concurrency token prevents a stale authority edit from racing the first link.
+        foreach (UpstreamProviderId providerId in this.GetAddedIdentityProviderIds())
+        {
+            UpstreamProvider? provider = await this.UpstreamProviders.FindAsync([providerId], cancellationToken);
+            provider?.LockIdentityConfiguration();
+        }
+    }
+
+    private UpstreamProviderId[] GetAddedIdentityProviderIds() => this.ChangeTracker.Entries<UpstreamIdentity>()
+        .Where(entry => entry.State == EntityState.Added)
+        .Select(entry => entry.Entity.ProviderId).Distinct().ToArray();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

@@ -25,6 +25,22 @@ public sealed class FederatedLoginTests
     }
 
     [Fact]
+    public async Task ProviderManagement_RejectsAuthorityReplacementAndPreservesNonIdentityEdits()
+    {
+        HttpClient client = await this._fixture.CreateAuthenticatedClientAsync($"issuer-admin-{Guid.NewGuid():N}", "admin-secret-123!");
+        HttpResponseMessage created = await client.PostAsJsonAsync("/api/admin/providers", new { name = $"immutable-{Guid.NewGuid():N}", authority = "https://original.example", clientId = "client" });
+        created.EnsureSuccessStatusCode();
+        JsonNode provider = (await created.Content.ReadFromJsonAsync<JsonNode>())!;
+        string path = $"/api/admin/providers/{provider["id"]!.GetValue<Guid>()}";
+        HttpResponseMessage replacement = await client.PatchAsJsonAsync(path, new { authority = "https://replacement.example" });
+        replacement.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        HttpResponseMessage renamed = await client.PatchAsJsonAsync(path, new { displayName = "Renamed provider" });
+        renamed.EnsureSuccessStatusCode();
+        JsonNode after = (await renamed.Content.ReadFromJsonAsync<JsonNode>())!;
+        after["authority"]!.GetValue<string>().ShouldBe("https://original.example");
+        after["displayName"]!.GetValue<string>().ShouldBe("Renamed provider");
+    }
+    [Fact]
     public async Task UpstreamProvider_CanBeCreatedViaAdminApi()
     {
         // Arrange
