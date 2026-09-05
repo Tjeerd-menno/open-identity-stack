@@ -28,6 +28,7 @@ public sealed class AdministrativeAccessWorkflow(
 
     public async Task<Result<AdministrativeAccessDto>> SaveAsync(Guid applicationId, AdministrativeAccessConfiguration request, string actorId, CancellationToken cancellationToken = default)
     {
+        await approval.CaptureAuthorityAsync(cancellationToken);
         if (request.DelegatedPermissions is null || request.ApplicationPermissions is null
             || request.DelegatedPermissions.Count > 500 || request.ApplicationPermissions.Count > 500)
         {
@@ -82,6 +83,7 @@ public sealed class AdministrativeAccessWorkflow(
     }
 
     public Task RecordOutcomeAsync(CancellationToken cancellationToken = default) => approval.RecordOutcomeAsync(true, cancellationToken);
+    public Task CaptureAuthorityAsync(CancellationToken cancellationToken = default) => approval.CaptureAuthorityAsync(cancellationToken);
 
     private static bool IsPlatformPermission(string permission) => !string.IsNullOrWhiteSpace(permission) && (permission == "*"
         || Permissions.GetAllPermissions().Contains(permission, StringComparer.OrdinalIgnoreCase)
