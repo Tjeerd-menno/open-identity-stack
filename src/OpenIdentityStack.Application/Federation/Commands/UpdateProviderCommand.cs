@@ -46,7 +46,10 @@ public sealed record UpdateProviderResult(
     IReadOnlyList<string> Scopes,
     bool JitProvisioningEnabled,
     string Status,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt)
+{
+    public bool TrustEmailVerification { get; init; }
+}
 
 /// <summary>
 /// Interface for the update provider use case.
@@ -197,7 +200,7 @@ public sealed class UpdateProviderUseCase : IUpdateProviderUseCase
             command.Scopes ?? [],
             provider.JitProvisioningEnabled,
             provider.Status.ToString(),
-            provider.CreatedAt);
+            provider.CreatedAt) { TrustEmailVerification = provider.TrustEmailVerification };
     }
 
     private sealed class NoopSecretProtector : ISecretProtector

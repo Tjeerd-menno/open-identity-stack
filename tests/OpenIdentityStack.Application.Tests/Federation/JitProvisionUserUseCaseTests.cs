@@ -56,6 +56,29 @@ public sealed class JitProvisionUserUseCaseTests
         await this._userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    public async Task NewAccountEmailEvidenceRequiresExplicitTrustAndAssertion(bool trusted, bool asserted, bool expected)
+    {
+        var providerId = UpstreamProviderId.Create();
+        UpstreamProvider provider = CreateActiveProvider(providerId);
+        provider.SetEmailVerificationTrust(trusted);
+        this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>()).Returns(provider);
+        User? provisioned = null;
+        this._userRepository.AddAsync(Arg.Do<User>(user => provisioned = user), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+
+        Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(new JitProvisionUserCommand(
+            providerId, "new-subject", "person@example.com", "Person", provider.Authority, provider.Authority, asserted));
+
+        result.IsSuccess.ShouldBeTrue();
+        provisioned.ShouldNotBeNull();
+        provisioned.EmailVerified.ShouldBe(expected);
+        provisioned.CanAuthenticate().ShouldBeTrue();
+    }
+
     [Fact]
     public async Task ExecuteAsync_WhenProvisioningTurnedOff_PreservesExistingLinkedLogin()
     {

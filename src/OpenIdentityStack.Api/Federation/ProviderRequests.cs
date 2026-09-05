@@ -84,6 +84,7 @@ public sealed record UpdateProviderRequest
 /// </summary>
 public sealed record ProviderResponse
 {
+    public bool TrustEmailVerification { get; init; }
     /// <summary>
     /// Gets or sets the provider ID.
     /// </summary>
@@ -128,4 +129,9 @@ public sealed record ProviderResponse
     /// Gets or sets when the provider was created.
     /// </summary>
     public DateTimeOffset CreatedAt { get; init; }
+}
+
+public sealed record ProviderEmailVerificationTrustRequest
+{
+    public required bool Trusted { get; init; }
 }

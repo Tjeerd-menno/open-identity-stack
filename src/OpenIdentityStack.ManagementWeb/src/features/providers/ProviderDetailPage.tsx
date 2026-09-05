@@ -61,6 +61,15 @@ export function ProviderDetailPage() {
     onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
 
+  const setEmailTrust = useMutation({
+    mutationFn: (trusted: boolean) => api.providers.setEmailVerificationTrust(providerId, trusted),
+    onSuccess: () => {
+      notifications.show({ message: 'Email verification trust updated', color: 'green' });
+      invalidate();
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
   if (providerQuery.isLoading) {
     return <CenteredState loading title="Loading provider…" />;
   }
@@ -137,6 +146,16 @@ export function ProviderDetailPage() {
         <Tabs.Panel value="settings">
           <Stack gap="lg">
             <ProviderConfigForm provider={provider} canWrite={canWrite} onSaved={invalidate} />
+
+            <SectionCard title="Email verification" description="Trust this provider's verified-email evidence. This does not permit linking existing accounts or reactivate disabled users.">
+              <Switch
+                label="Trust email verification"
+                checked={provider.trustEmailVerification ?? false}
+                disabled={!canWrite || setEmailTrust.isPending}
+                onChange={(event) => setEmailTrust.mutate(event.currentTarget.checked)}
+              />
+              <Text size="xs" c="dimmed" mt="sm">Withdrawing trust invalidates evidence supplied solely by this provider. Independent verification is retained.</Text>
+            </SectionCard>
 
             <SectionCard title="Provisioning">
               <Group justify="space-between" wrap="nowrap">

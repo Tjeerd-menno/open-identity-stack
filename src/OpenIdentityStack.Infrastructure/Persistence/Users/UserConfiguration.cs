@@ -148,10 +148,8 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             evidence.HasKey(e => e.Id);
             evidence.Property(e => e.Id).ValueGeneratedNever();
             evidence.Property(e => e.NormalizedEmail).HasMaxLength(256).IsRequired();
-            evidence.Ignore(e => e.ProviderId);
-            evidence.Ignore(e => e.Issuer);
-            evidence.Ignore(e => e.WithdrawnAt);
-            evidence.HasIndex("UserId");
+            evidence.Property(e => e.Issuer).HasMaxLength(2048);
+            evidence.HasIndex("UserId", nameof(EmailVerificationEvidence.ProviderId));
         });
 
         // Configure owned UpstreamIdentities collection using navigation property and backing field

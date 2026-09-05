@@ -344,6 +344,12 @@ function ProfileCard({ user, canWrite }: { user: User; canWrite: boolean }) {
       <Stack gap={0} mt="md">
         <FieldRow label="User ID" value={user.id} mono />
         <FieldRow label="Email" value={user.email} />
+        <FieldRow label="Email verification" value={user.emailVerified ? 'Verified' : 'No current verification evidence'} />
+        {(user.emailVerificationEvidence ?? []).map((evidence, index) => (
+          <FieldRow key={`${evidence.providerId ?? 'local'}-${evidence.verifiedAt}-${index}`}
+            label={evidence.providerId ? 'Provider evidence' : 'Independent evidence'}
+            value={`${evidence.issuer ?? 'Local email verification'} · ${formatDateTime(evidence.verifiedAt)}${evidence.withdrawnAt ? ' · Withdrawn' : ''}`} />
+        ))}
         <FieldRow label="MFA" value={user.mfaEnabled ? 'Enabled' : 'Not enabled'} />
         <FieldRow label="Last sign-in" value={formatRelativeTime(user.lastLoginAt)} />
         <FieldRow label="Created" value={formatDateTime(user.createdAt)} last />

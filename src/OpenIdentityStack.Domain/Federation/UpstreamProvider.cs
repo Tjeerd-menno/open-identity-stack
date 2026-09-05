@@ -137,6 +137,19 @@ public sealed class UpstreamProvider
     /// </summary>
     public bool IsActive => this.Status == ProviderStatus.Active;
 
+    public bool TrustEmailVerification { get; private set; }
+
+    public Guid EmailTrustVersion { get; private set; } = Guid.NewGuid();
+
+    internal void ConsumeEmailVerificationTrust() => this.EmailTrustVersion = Guid.NewGuid();
+
+    public void SetEmailVerificationTrust(bool trusted)
+    {
+        this.TrustEmailVerification = trusted;
+        this.ConsumeEmailVerificationTrust();
+        this.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
     /// <summary>
     /// Gets whether an authenticated upstream identity may provision a new local account.
     /// </summary>

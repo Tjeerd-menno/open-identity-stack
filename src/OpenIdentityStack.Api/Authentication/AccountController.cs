@@ -191,6 +191,8 @@ public class AccountController : Controller
         // Consume the authenticated external ticket before any validation or JIT denial can return.
         await this.HttpContext.SignOutAsync("ExternalCookie");
         ClaimsPrincipal externalUser = authenticateResult.Principal;
+        string? verifiedEvidenceEmail = null;
+        authenticateResult.Properties?.Items.TryGetValue("ois.verified_email", out verifiedEvidenceEmail);
 
         // Extract claims from the external identity
         string? subjectId = externalUser.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -224,7 +226,8 @@ public class AccountController : Controller
         }
 
         // Existing and new identities pass the same issuer-bound authentication checks.
-        var jitCommand = new JitProvisionUserCommand(UpstreamProviderId.From(providerGuid), subjectId, email, name, issuer, authority);
+        var jitCommand = new JitProvisionUserCommand(UpstreamProviderId.From(providerGuid), subjectId, email, name, issuer, authority,
+            !string.IsNullOrWhiteSpace(email) && string.Equals(verifiedEvidenceEmail, email, StringComparison.Ordinal));
         Result<JitProvisionUserResult> jitResult = await this.jitProvisionUseCase.ExecuteAsync(jitCommand);
         if (jitResult.IsFailure)
         {

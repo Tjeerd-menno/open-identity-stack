@@ -84,7 +84,7 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
                 OnTokenValidated = context =>
                 {
                     string? issuer = context.SecurityToken?.Issuer;
-                    if (string.IsNullOrWhiteSpace(issuer) || context.Properties is null)
+                    if (context.SecurityToken is null || string.IsNullOrWhiteSpace(issuer) || context.Properties is null)
                     {
                         context.Fail("External authentication could not be completed.");
                         return Task.CompletedTask;
@@ -95,6 +95,12 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
                     context.Properties.SetString(ExternalIdentityProperties.ProviderId, provider.Id.Value.ToString());
                     context.Properties.SetString(ExternalIdentityProperties.ProviderName, context.Scheme.Name);
                     context.Properties.SetString(ExternalIdentityProperties.Authority, context.Options.Authority);
+                    string? email = context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+                    bool verified = string.Equals(context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email_verified")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    if (context.Properties is { } properties)
+                    {
+                        properties.Items["ois.verified_email"] = verified ? email : null;
+                    }
                     return Task.CompletedTask;
                 },
                 // Pass prompt=login to upstream IdP when requested

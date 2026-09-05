@@ -18,8 +18,11 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 /// </summary>
 public sealed class DynamicAuthenticationSchemeServiceTests
 {
-    [Fact]
-    public async Task RegisterSchemeAsync_ValidatedIssuerIsCapturedIndependentlyOfDiscoveryAuthority()
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("false", null)]
+    [InlineData("true", "person@example.com")]
+    public async Task RegisterSchemeAsync_CapturesOnlyValidatedIssuerAndEmailEvidence(string? verified, string? expectedEvidence)
     {
         IAuthenticationSchemeProvider schemes = Substitute.For<IAuthenticationSchemeProvider>();
         var cache = new OptionsCache<OpenIdConnectOptions>();
@@ -32,12 +35,14 @@ public sealed class DynamicAuthenticationSchemeServiceTests
         var properties = new AuthenticationProperties();
         var context = new TokenValidatedContext(new Microsoft.AspNetCore.Http.DefaultHttpContext(), new AuthenticationScheme("tenant", "Tenant", typeof(OpenIdConnectHandler)), options, new System.Security.Claims.ClaimsPrincipal(), properties)
         {
-            SecurityToken = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(issuer: "https://issuer.example/tenant/")
+            SecurityToken = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(issuer: "https://issuer.example/tenant/",
+                claims: verified is null ? [] : [new System.Security.Claims.Claim("email", "person@example.com"), new System.Security.Claims.Claim("email_verified", verified)])
         };
         await options.Events.TokenValidated(context);
         properties.GetString("ois.validated_issuer").ShouldBe("https://issuer.example/tenant/");
         properties.GetString("ois.provider_id").ShouldBe(provider.Id.Value.ToString());
         properties.GetString("ois.authentication_authority").ShouldBe("https://discovery.example/common");
+        properties.GetString("ois.verified_email").ShouldBe(expectedEvidence);
     }
     [Fact]
     public async Task RegisterSchemeAsync_AddsSchemeToProvider()

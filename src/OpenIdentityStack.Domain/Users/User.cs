@@ -19,6 +19,31 @@ public sealed partial class User : AggregateRoot<UserId>
 
     public bool EmailVerified => !string.IsNullOrWhiteSpace(this.Email) &&
         this.emailVerificationEvidence.Any(e => e.WithdrawnAt is null && e.NormalizedEmail == this.NormalizedEmail);
+    public void RecordProviderEmailVerification(
+        UpstreamProvider provider, string? issuer, string? email, bool verified, DateTimeOffset verifiedAt)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        if (!provider.TrustEmailVerification || !verified || string.IsNullOrWhiteSpace(issuer) ||
+            string.IsNullOrWhiteSpace(email) || !string.Equals(email.Trim(), this.NormalizedEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        provider.ConsumeEmailVerificationTrust();
+        if (!this.emailVerificationEvidence.Any(e => e.ProviderId == provider.Id.Value &&
+            e.Issuer == issuer && e.NormalizedEmail == this.NormalizedEmail && e.WithdrawnAt is null))
+        {
+            this.emailVerificationEvidence.Add(new EmailVerificationEvidence(this.Email, provider.Id.Value, issuer, verifiedAt));
+        }
+    }
+
+    public void WithdrawProviderEmailVerification(Guid providerId, DateTimeOffset withdrawnAt)
+    {
+        foreach (EmailVerificationEvidence evidence in this.emailVerificationEvidence.Where(e => e.ProviderId == providerId))
+        {
+            evidence.Withdraw(withdrawnAt);
+        }
+    }
 
     /// <summary>
     /// Gets the user's email address.
