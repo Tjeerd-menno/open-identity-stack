@@ -113,7 +113,7 @@ public sealed class JitProvisionUserUseCaseTests
         this._userRepository.FindByUpstreamIdentityAsync(providerId, "upstream-subject-123", Arg.Any<CancellationToken>()).Returns(user);
         Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(new JitProvisionUserCommand(providerId, "upstream-subject-123", user.Email, user.DisplayName, issuer, authority));
         result.IsFailure.ShouldBeTrue();
-        await this._userRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await this.persistence.DidNotReceive().CommitAsync(Arg.Any<UserId>(), Arg.Any<UpstreamProviderId>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         await this._providerRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
     [Fact]
@@ -127,7 +127,7 @@ public sealed class JitProvisionUserUseCaseTests
         Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(new JitProvisionUserCommand(providerId, "upstream-subject-123", user.Email, user.DisplayName, "https://issuer.example/", provider.Authority));
         result.IsFailure.ShouldBeTrue();
         await this._userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
-        await this._userRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await this.persistence.DidNotReceive().CommitAsync(Arg.Any<UserId>(), Arg.Any<UpstreamProviderId>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
     [Fact]
     public async Task ExecuteAsync_LegacyLinkWithoutIssuerEvidence_CannotAuthenticate()
