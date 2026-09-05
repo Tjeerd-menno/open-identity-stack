@@ -142,7 +142,9 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
             "management-web-client",
             "Management Web Client",
             new[] { $"{baseUrl}/auth/callback" },
-            new[] { $"{baseUrl}/" });
+            new[] { $"{baseUrl}/" },
+            ["openid", "profile", "email", "ois.admin"]);
+        await TestSeeder.GrantDelegatedAdministrativeFixtureAccessAsync("management-web-client");
     }
 
     /// <summary>
@@ -218,7 +220,15 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
         await page.Locator("button[type=submit]").ClickAsync();
 
         // After code redemption the SPA lands on the authenticated Overview shell.
-        await page.GetByRole(AriaRole.Heading, new() { Name = "Overview", Exact = true }).WaitForAsync();
+        try
+        {
+            await page.GetByRole(AriaRole.Heading, new() { Name = "Overview", Exact = true }).WaitForAsync();
+        }
+        catch (TimeoutException)
+        {
+            string body = await page.InnerTextAsync("body");
+            throw new InvalidOperationException($"Sign-in did not reach Overview. URL={new Uri(page.Url).GetLeftPart(UriPartial.Path)}\n{body}");
+        }
     }
 
     private string BaseUrlOrThrow =>

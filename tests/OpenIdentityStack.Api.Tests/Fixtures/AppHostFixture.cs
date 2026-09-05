@@ -41,6 +41,9 @@ public class AppHostFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
+        // Quartz 3 retains a process-wide logger factory after an isolated host is disposed.
+        // The suite runs hosts sequentially; clear that reference before constructing another.
+        Quartz.Logging.LogContext.SetCurrentLogProvider(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         this.Connection = new SqliteConnection(ConnectionString);
         await this.Connection.OpenAsync();
 
@@ -132,16 +135,56 @@ public class AppHostFixture : IAsyncLifetime
         string clientId,
         string clientSecret,
         string scope = "ois.admin",
-        IReadOnlyList<string>? allowedScopes = null)
+        IReadOnlyList<string>? allowedScopes = null,
+        IReadOnlyList<string>? administrativePermissions = null)
     {
         await this.CreateServiceAccountAsync(clientId, clientSecret, allowedScopes ?? [scope]);
         if (scope == "ois.admin") { await this.TestSeeder!.GrantAdministrativeFixtureAccessAsync(clientId); }
+        if (administrativePermissions is not null)
+        {
+            await this.ExecuteDbContextAsync(async db =>
+            {
+                OpenIdentityStack.Domain.Applications.Application application = await db.Applications.SingleAsync(application => application.ClientId == clientId);
+                OpenIdentityStack.Domain.Resources.ClientResourceGrant grant = await db.ClientResourceGrants.SingleAsync(grant => grant.ClientApplicationId == application.Id
+                    && grant.ResourceId == OpenIdentityStack.Domain.Resources.ProtectedResource.AdministrativeResourceId);
+                grant.Configure([], administrativePermissions);
+                await db.SaveChangesAsync();
+            });
+        }
         string token = await this.GetAccessTokenAsync(clientId, clientSecret, scope);
         
         HttpClient client = this.CreateClient();
         client.Timeout = RequestTimeout;
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         return client;
+    }
+
+    /// <summary>Explicit business resource setup for token-flow tests; grants no administrative access.</summary>
+    public async Task GrantBusinessResourceFixtureAccessAsync(string clientId, string resourceScope = "api")
+    {
+        SharedKernel.IDateTimeProvider clock = Substitute.For<SharedKernel.IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        await this.ExecuteDbContextAsync(async db =>
+        {
+            const string permissionNamespace = "fixture-business";
+            if (!await db.RegisteredApplications.AnyAsync(application => application.ApplicationIdentifier == permissionNamespace))
+            {
+                db.RegisteredApplications.Add(OpenIdentityStack.Domain.ApplicationPermissions.RegisteredApplication.Register(
+                    permissionNamespace, "Fixture business API", null, "test-fixture", OpenIdentityStack.Domain.ApplicationPermissions.OwnerType.User,
+                    [("records:read", "Read records", null, null)], "test-fixture", clock).Value);
+            }
+            OpenIdentityStack.Domain.Resources.ProtectedResource? resource = await db.ProtectedResources.SingleOrDefaultAsync(resource => resource.Scope == resourceScope);
+            if (resource is null)
+            {
+                resource = OpenIdentityStack.Domain.Resources.ProtectedResource.Create($"urn:fixture:business:{resourceScope}", resourceScope,
+                    "Fixture business API", [permissionNamespace]).Value;
+                db.ProtectedResources.Add(resource);
+            }
+            OpenIdentityStack.Domain.Applications.Application client = await db.Applications.SingleAsync(application => application.ClientId == clientId);
+            db.ClientResourceGrants.Add(OpenIdentityStack.Domain.Resources.ClientResourceGrant.Create(client.Id, resource.Id,
+                [], [$"{permissionNamespace}:records:read"]).Value);
+            await db.SaveChangesAsync();
+        });
     }
 
     public HttpClient CreateClient(bool allowAutoRedirect = true)
@@ -283,6 +326,7 @@ public class AppHostFixture : IAsyncLifetime
         if (this.Factory is not null)
         {
             await this.Factory.DisposeAsync();
+            Quartz.Logging.LogContext.SetCurrentLogProvider(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         }
         if (this.Connection is not null)
         {
