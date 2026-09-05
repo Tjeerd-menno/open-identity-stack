@@ -1,5 +1,6 @@
 # Administrative client access
 
+
 The Admin API accepts tokens whose only audience is `urn:openidentitystack:admin-api`, with the `ois.admin` scope. Generic `api`, missing audiences, business audiences, and combined administrative/business audiences are rejected. Business access requires a separate token.
 
 ## Entitlement and ceilings
@@ -29,3 +30,11 @@ For controlled initial deployment, explicitly set `Seed:AdministrativeAccess:Boo
 An existing grant is never expanded or restored by bootstrap reruns, including an empty grant retained after withdrawal. The bootstrap does not approve ordinary registrations or provide a runtime recovery endpoint. Other integrations must receive explicit human approval.
 
 Before enabling the boundary, preserve and test an independently accessible emergency human administrator and review the Management Web deployment configuration. Apply resource persistence migrations, prepare registrations, perform the controlled bootstrap if required, approve other integrations, and execute the coordinated credential cutover in [ADR 0005](../adr/0005-identity-and-administrative-trust-boundaries.md). Require fresh administrative tokens. There is no generic-`api` compatibility mode. Downgrading reopens the old administrative boundary.
+
+## Browser verification
+
+The following screenshots show the approval workflow exercised by the real-browser test against an isolated PostgreSQL database. Cancelling approval leaves the client unapproved; acknowledgement enables the requested scoped grant.
+
+![Administrative approval requires explicit acknowledgement](images/identity-boundaries/administrative-approval.png)
+
+![Approved machine ceiling with no delegated authority](images/identity-boundaries/administrative-approved.png)
