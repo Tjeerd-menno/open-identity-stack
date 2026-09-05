@@ -23,7 +23,8 @@ public sealed class ResourceAccessWorkflow(IResourceAccessRepository resources, 
 
     public async Task<Result<ProtectedResourceDto>> SaveResourceAsync(Guid? id, ResourceConfiguration request, string actorId, CancellationToken cancellationToken = default)
     {
-        if (request.PermissionNamespaces is null) { return ResourceAccessErrors.InvalidConfiguration; }
+        if (request.PermissionNamespaces is null || request.PermissionNamespaces.Count is 0 or > 50
+            || request.PermissionNamespaces.Any(string.IsNullOrWhiteSpace)) { return ResourceAccessErrors.InvalidConfiguration; }
         ProtectedResource? resource = id is { } resourceId ? await resources.GetResourceAsync(resourceId, cancellationToken) : null;
         if (id is not null && resource is null) { return ResourceAccessErrors.UnknownResource; }
         if (resource?.IsAdministrative == true) { return ResourceAccessErrors.Reserved; }

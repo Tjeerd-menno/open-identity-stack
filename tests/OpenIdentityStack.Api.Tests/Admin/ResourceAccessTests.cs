@@ -13,6 +13,16 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 public sealed class ResourceAccessTests(AppHostFixture fixture)
 {
     [Fact]
+    public async Task ResourceConfiguration_WithNullNamespace_ReturnsValidationProblem()
+    {
+        using HttpClient admin = await fixture.CreateAuthenticatedClientAsync("invalid-resource-" + Guid.NewGuid().ToString("N"), "fixture-secret");
+        using HttpResponseMessage response = await admin.PostAsJsonAsync("/api/admin/applications/resources",
+            new ResourceConfiguration("urn:test:invalid", "test.invalid", "Invalid", [null!]));
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadFromJsonAsync<JsonObject>())!["status"]!.GetValue<int>().ShouldBe(400);
+    }
+
+    [Fact]
     public async Task ResourcesAndGrants_HttpWorkflowPersistsExactMachinePermissionsAndRejectsUnknownResource()
     {
         string suffix = Guid.NewGuid().ToString("N")[..12];
