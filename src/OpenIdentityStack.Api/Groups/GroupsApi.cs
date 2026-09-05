@@ -417,6 +417,10 @@ internal static class GroupsApi
     /// </summary>
     private static IResult MapFailure(DomainError error)
     {
+        if (error.Code.StartsWith("Forbidden.AdministrativeApproval.", StringComparison.Ordinal))
+        {
+            return OpenIdentityStack.Api.Common.ErrorResultMapper.ToErrorResult(error);
+        }
         if (error.Code is "Group.NotFound" or "GroupMapping.NotFound")
         {
             return TypedResults.NotFound();

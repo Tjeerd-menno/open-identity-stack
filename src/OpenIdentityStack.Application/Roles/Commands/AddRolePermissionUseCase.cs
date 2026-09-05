@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Domain.Roles;
@@ -25,13 +26,16 @@ public interface IAddRolePermissionUseCase
 public sealed class AddRolePermissionUseCase : IAddRolePermissionUseCase
 {
     private readonly IRoleRepository roleRepository;
+    private readonly IAdministrativeApproval approval;
     private readonly IPermissionAssignmentValidator permissionAssignmentValidator;
 
     public AddRolePermissionUseCase(
         IRoleRepository roleRepository,
-        IPermissionAssignmentValidator permissionAssignmentValidator)
+        IPermissionAssignmentValidator permissionAssignmentValidator,
+        IAdministrativeApproval approval)
     {
         this.roleRepository = roleRepository;
+        this.approval = approval;
         this.permissionAssignmentValidator = permissionAssignmentValidator;
     }
 
@@ -44,6 +48,13 @@ public sealed class AddRolePermissionUseCase : IAddRolePermissionUseCase
         if (role is null)
         {
             return RoleErrors.NotFound;
+        }
+
+        if (UnrestrictedGrantPolicy.IncludesAllPermissions([command.Permission]) &&
+            !UnrestrictedGrantPolicy.IncludesAllPermissions(role.Permissions))
+        {
+            Result approvalResult = await this.approval.RequireAsync("Role.GrantUnrestricted", role.Id.Value.ToString(), command.AcknowledgeWildcardGrant, cancellationToken);
+            if (approvalResult.IsFailure) { return approvalResult.Error; }
         }
 
         Result validationResult = await this.permissionAssignmentValidator.ValidateAssignableAsync(
@@ -62,6 +73,7 @@ public sealed class AddRolePermissionUseCase : IAddRolePermissionUseCase
         }
 
         await this.roleRepository.SaveChangesAsync(cancellationToken);
+        await this.approval.RecordOutcomeAsync(true, cancellationToken);
 
         return RoleDtoMapper.ToDto(role);
     }

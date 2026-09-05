@@ -57,7 +57,7 @@ public sealed class PermissionAuthorizationHandlerTests
     }
 
     [Fact]
-    public async Task Admin_role_grants_all_permissions()
+    public async Task Admin_role_name_does_not_grant_permissions()
     {
         var identity = new ClaimsIdentity(new[] { new Claim(ClaimTypes.Role, "admin") }, "mock");
         var user = new ClaimsPrincipal(identity);
@@ -65,7 +65,7 @@ public sealed class PermissionAuthorizationHandlerTests
 
         await this.handler.HandleAsync(context);
 
-        context.HasSucceeded.ShouldBeTrue();
+        context.HasSucceeded.ShouldBeFalse();
     }
 
     private static AuthorizationHandlerContext CreateContext(string requiredPermission, ClaimsPrincipal user)

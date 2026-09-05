@@ -4,6 +4,7 @@ export type AdminApiClientOptions = {
   baseUrl: string | (() => string);
   getAccessToken?: () => Promise<string | null>;
   onUnauthorized?: () => void;
+  onAdministrativeApprovalRequired?: (error: ApiError) => Promise<boolean>;
 };
 
 export type ApiError = Error & {
@@ -36,7 +37,8 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
   async function request<T>(
     path: string,
     requestOptions: RequestInit = {},
-    params?: RequestParams
+    params?: RequestParams,
+    approvalAttempted = false
   ): Promise<T> {
     const headers = new Headers(requestOptions.headers);
     headers.set('Content-Type', 'application/json');
@@ -61,7 +63,17 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
         options.onUnauthorized?.();
       }
 
-      throw createApiError(response.status, await readErrorPayload(response));
+      const error = createApiError(response.status, await readErrorPayload(response));
+      const approvalRequired = error.errorCode === 'Forbidden.AdministrativeApproval.AcknowledgementRequired'
+        || error.errorCode === 'Forbidden.AdministrativeApproval.ReauthenticationRequired';
+      if (!approvalAttempted && requestOptions.method && requestOptions.method !== 'GET'
+        && response.status === 403 && approvalRequired
+        && await options.onAdministrativeApprovalRequired?.(error)) {
+        const approvedHeaders = new Headers(requestOptions.headers);
+        approvedHeaders.set('X-OIS-Administrative-Approval', 'acknowledge');
+        return request<T>(path, { ...requestOptions, headers: approvedHeaders }, params, true);
+      }
+      throw error;
     }
 
     if (response.status === 204) {

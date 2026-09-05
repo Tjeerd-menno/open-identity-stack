@@ -12,15 +12,18 @@ public sealed class EnableUserUseCase : IEnableUserUseCase
     private readonly IUserRepository userRepository;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeApproval approval;
 
     public EnableUserUseCase(
         IUserRepository userRepository,
         IDateTimeProvider dateTimeProvider,
-        IAuditLog auditLog)
+        IAuditLog auditLog,
+        IAdministrativeApproval approval)
     {
         this.userRepository = userRepository;
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
+        this.approval = approval;
     }
 
     /// <inheritdoc />
@@ -34,6 +37,9 @@ public sealed class EnableUserUseCase : IEnableUserUseCase
             return UserErrors.NotFound;
         }
 
+        Result approvalResult = await this.approval.RequireForUserAccessAsync(user.Id, "User.EnableUserUnrestricted", cancellationToken);
+        if (approvalResult.IsFailure) { return approvalResult.Error; }
+
         Result result = user.Enable(this.dateTimeProvider);
         if (result.IsFailure)
         {
@@ -41,6 +47,7 @@ public sealed class EnableUserUseCase : IEnableUserUseCase
         }
 
         await this.userRepository.SaveChangesAsync(cancellationToken);
+        await this.approval.RecordOutcomeAsync(true, cancellationToken);
 
         await this.auditLog.LogAsync(
             command.ActorId,

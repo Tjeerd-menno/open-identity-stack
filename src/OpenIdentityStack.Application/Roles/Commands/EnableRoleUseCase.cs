@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Domain.Roles;
@@ -25,10 +26,13 @@ public interface IEnableRoleUseCase
 public sealed class EnableRoleUseCase : IEnableRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
+    private readonly IAdministrativeApproval approval;
 
-    public EnableRoleUseCase(IRoleRepository roleRepository)
+    public EnableRoleUseCase(IRoleRepository roleRepository,
+        IAdministrativeApproval approval)
     {
         this.roleRepository = roleRepository;
+        this.approval = approval;
     }
 
     /// <inheritdoc />
@@ -42,6 +46,11 @@ public sealed class EnableRoleUseCase : IEnableRoleUseCase
             return RoleErrors.NotFound;
         }
 
+        if (!role.IsActive && UnrestrictedGrantPolicy.IncludesAllPermissions(role.Permissions))
+        {
+            Result approvalResult = await this.approval.RequireAsync("Role.EnableUnrestricted", role.Id.Value.ToString(), cancellationToken: cancellationToken);
+            if (approvalResult.IsFailure) { return approvalResult.Error; }
+        }
         Result result = role.Enable();
         if (result.IsFailure)
         {
@@ -49,6 +58,7 @@ public sealed class EnableRoleUseCase : IEnableRoleUseCase
         }
 
         await this.roleRepository.SaveChangesAsync(cancellationToken);
+        await this.approval.RecordOutcomeAsync(true, cancellationToken);
 
         return RoleDtoMapper.ToDto(role);
     }
