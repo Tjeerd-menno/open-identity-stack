@@ -105,7 +105,7 @@ internal static class ProvidersApi
 
     private static async Task<IResult> SetEmailVerificationTrust(
         Guid id, ProviderEmailVerificationTrustRequest request, HttpContext context,
-        SetProviderEmailVerificationTrust useCase, CancellationToken cancellationToken)
+        [FromServices] SetProviderEmailVerificationTrust useCase, CancellationToken cancellationToken)
     {
         string actorId = context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? context.User.FindFirstValue("sub") ?? string.Empty;
         Result result = await useCase.ExecuteAsync(id, request.Trusted, actorId, cancellationToken);
