@@ -13,7 +13,7 @@ public sealed class CutoverReadinessTests(ManagementWebAppHostFixture fixture) :
     public async Task IssuedBrowserAccessCredentialAppearsInReadinessInventory()
     {
         IReadOnlyList<TokenMetadataAggregate> metadata = await Fixture.ReadTokenMetadataAsync();
-                int expectedAccessTokens = metadata.Where(row => row.Type == OpenIddictConstants.TokenTypeIdentifiers.AccessToken || row.Type == OpenIddictConstants.TokenTypeHints.AccessToken)
+        int expectedAccessTokens = metadata.Where(row => row.Type == OpenIddictConstants.TokenTypeIdentifiers.AccessToken || row.Type == OpenIddictConstants.TokenTypeHints.AccessToken)
             .Sum(row => row.Unexpired + row.UnknownExpiry);
         expectedAccessTokens.ShouldBeGreaterThan(0);
         JsonNode readiness = await ApiGetAsync("/api/admin/security/cutover-readiness");

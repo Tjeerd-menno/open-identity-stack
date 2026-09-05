@@ -34,6 +34,8 @@ OpenID Provider revocation does not recall JWTs at offline resource servers, ID 
 
 These are operator-recorded external rehearsal results, not automatic verification of a remote consumer. Use evidence references to measured results, deployment configurations and responsible owners; do not enter zero merely to clear a blocker. Account for in-flight issuance and tokens issued after a preliminary snapshot. If the residual duration cannot be bounded, stop the change until a consumer control exists.
 
+If multiple reviews have the same latest timestamp, the gate requires a new review instead of choosing an operator decision by random record ID. Save one later review to resolve that ambiguity; earlier evidence remains retained.
+
 The inventory recognizes both OpenIddict 7 URI-style access-token identifiers and legacy `access_token` rows. Direct database queries cannot rely on the token manager to map legacy hints; see the [OpenIddict 7 migration guide](https://documentation.openiddict.com/guides/migration/60-to-70.html). The PostgreSQL browser regression checks a real issued access credential against the inventory and confirms that a zero-second offline window remains blocked.
 
 The server conservatively compares the offline window against all persisted, non-expired or unknown-expiry OP access-token rows, including revoked rows that an offline validator might still accept. Token rows do not provide a reliable historical resource index. Pruned rows, externally issued credentials and relying-party sessions are outside this database inventory and must be covered by the consumer's measured maximum lifetime/control. No readiness response claims they were recalled. A disabled resource still requires a review.

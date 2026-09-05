@@ -135,10 +135,34 @@ public sealed class CredentialCutoverReadinessStoreTests
         rejected.BusinessResources.Single().Reviewed.ShouldBeFalse();
         rejected.Ready.ShouldBeFalse();
         rejected.Blockers.ShouldContain(x => x.Code == "Resource.TokenWindowUnresolved");
+        database.Clock.UtcNow.Returns(database.Clock.UtcNow.AddSeconds(1));
         await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OfflineExpiry", 7200, "fixture:measured-window"), actor.UserId.Value.ToString());
         CredentialCutoverPreflight bounded = await database.Store.EvaluateAsync();
         bounded.BusinessResources.Single().Reviewed.ShouldBe(!unknownExpiry);
         bounded.Ready.ShouldBe(!unknownExpiry);
+    }
+
+    [Fact]
+    public async Task ReviewsAtTheSameInstantRequireAnUnambiguousLaterReview()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        var resource = new CutoverProtectedResource(Guid.NewGuid(), "Business", "urn:business", "business", 1);
+        database.Resources.ReadAsync(Arg.Any<CancellationToken>()).Returns(new CutoverResourceInventory([], [resource], []));
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OnlineIntrospection", 60, "fixture:first"), actor.UserId.Value.ToString());
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OnlineIntrospection", 30, "fixture:second"), actor.UserId.Value.ToString());
+
+        CredentialCutoverPreflight ambiguous = await database.Store.EvaluateAsync();
+        ambiguous.Ready.ShouldBeFalse();
+        ambiguous.BusinessResources.Single().Reviewed.ShouldBeFalse();
+        ambiguous.Blockers.ShouldContain(x => x.Code == "Resource.TokenWindowUnresolved");
+
+        database.Clock.UtcNow.Returns(database.Clock.UtcNow.AddSeconds(1));
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OnlineIntrospection", 30, "fixture:resolved"), actor.UserId.Value.ToString());
+        CredentialCutoverPreflight resolved = await database.Store.EvaluateAsync();
+        resolved.Ready.ShouldBeTrue();
+        resolved.BusinessResources.Single().EvidenceReference.ShouldBe("fixture:resolved");
     }
     private sealed class TestDatabase : IAsyncDisposable
     {

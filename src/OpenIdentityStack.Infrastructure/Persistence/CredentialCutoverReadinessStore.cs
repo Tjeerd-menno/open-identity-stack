@@ -66,6 +66,11 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
         foreach (CutoverProtectedResource resource in inventory.BusinessResources.OrderBy(x => x.Id))
         {
             ResourceWindowReviewRecord? review = reviews.FirstOrDefault(x => x.ResourceId == resource.Id && x.ResourceRevision == resource.Revision);
+            // A random record ID cannot establish which simultaneous operator decision supersedes the other.
+            if (review is not null && reviews.Count(x => x.ResourceId == resource.Id && x.ResourceRevision == resource.Revision && x.ReviewedAt == review.ReviewedAt) > 1)
+            {
+                review = null;
+            }
             bool reviewed = review is not null;
             if (review?.Mechanism == "OfflineExpiry")
             {
