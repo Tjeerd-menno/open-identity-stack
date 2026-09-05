@@ -95,6 +95,20 @@ public sealed class UpstreamProvider
     public bool IsActive => this.Status == ProviderStatus.Active;
 
     /// <summary>
+    /// Gets whether an authenticated upstream identity may provision a new local account.
+    /// </summary>
+    public bool JitProvisioningEnabled { get; private set; } = true;
+
+    /// <summary>
+    /// Changes the provisioning policy without affecting existing linked accounts.
+    /// </summary>
+    public void SetJitProvisioningEnabled(bool enabled)
+    {
+        this.JitProvisioningEnabled = enabled;
+        this.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
     /// Gets the claim mappings for this provider.
     /// </summary>
     public IReadOnlyList<ClaimMapping> ClaimMappings => this.claimMappings.AsReadOnly();

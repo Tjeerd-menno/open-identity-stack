@@ -294,7 +294,7 @@ internal static class ProvidersApi
             Authority = provider.Authority,
             ClientId = provider.ClientId,
             Scopes = [],
-            JitProvisioningEnabled = true,
+            JitProvisioningEnabled = provider.JitProvisioningEnabled,
             Status = provider.Status.ToString(),
             CreatedAt = provider.CreatedAt
         };

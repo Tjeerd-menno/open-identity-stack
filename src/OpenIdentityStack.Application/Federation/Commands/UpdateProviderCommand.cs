@@ -159,6 +159,11 @@ public sealed class UpdateProviderUseCase : IUpdateProviderUseCase
             }
         }
 
+        if (command.JitProvisioningEnabled is { } jitProvisioningEnabled)
+        {
+            provider.SetJitProvisioningEnabled(jitProvisioningEnabled);
+        }
+
         await this.providerRepository.SaveChangesAsync(cancellationToken);
 
         return new UpdateProviderResult(
@@ -168,7 +173,7 @@ public sealed class UpdateProviderUseCase : IUpdateProviderUseCase
             provider.Authority,
             provider.ClientId,
             command.Scopes ?? [],
-            command.JitProvisioningEnabled ?? true,
+            provider.JitProvisioningEnabled,
             provider.Status.ToString(),
             provider.CreatedAt);
     }

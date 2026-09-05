@@ -115,6 +115,7 @@ public sealed class CreateProviderUseCase : ICreateProviderUseCase
         }
 
         UpstreamProvider provider = createResult.Value;
+        provider.SetJitProvisioningEnabled(command.JitProvisioningEnabled);
 
         // Set optional client secret
         if (!string.IsNullOrWhiteSpace(command.ClientSecret))
@@ -148,7 +149,7 @@ public sealed class CreateProviderUseCase : ICreateProviderUseCase
             provider.Authority,
             provider.ClientId,
             command.Scopes ?? [],
-            command.JitProvisioningEnabled,
+            provider.JitProvisioningEnabled,
             provider.Status.ToString(),
             provider.CreatedAt);
     }

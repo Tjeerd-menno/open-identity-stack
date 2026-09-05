@@ -33,7 +33,44 @@ public sealed class JitProvisionUserUseCaseTests
         this._sut = new JitProvisionUserUseCase(
             this._userRepository,
             this._providerRepository,
-            this._dateTimeProvider);
+            Substitute.For<IAuditLog>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenProvisioningTurnedOff_RejectsNewUser()
+    {
+        var providerId = UpstreamProviderId.Create();
+        UpstreamProvider provider = CreateActiveProvider(providerId);
+        this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>()).Returns(provider);
+        var update = new UpdateProviderUseCase(this._providerRepository);
+        (await update.ExecuteAsync(new UpdateProviderCommand(providerId.Value, JitProvisioningEnabled: false)))
+            .IsSuccess.ShouldBeTrue();
+
+        Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(
+            new JitProvisionUserCommand(providerId, "new-subject", "new@example.com", "New User"));
+
+        result.IsFailure.ShouldBeTrue();
+        await this._userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenProvisioningTurnedOff_PreservesExistingLinkedLogin()
+    {
+        var providerId = UpstreamProviderId.Create();
+        UpstreamProvider provider = CreateActiveProvider(providerId);
+        User existingUser = CreateFederatedUser(providerId);
+        this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>()).Returns(provider);
+        this._userRepository.FindByUpstreamIdentityAsync(providerId, "upstream-subject-123", Arg.Any<CancellationToken>())
+            .Returns(existingUser);
+        var update = new UpdateProviderUseCase(this._providerRepository);
+        (await update.ExecuteAsync(new UpdateProviderCommand(providerId.Value, JitProvisioningEnabled: false)))
+            .IsSuccess.ShouldBeTrue();
+
+        Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(
+            new JitProvisionUserCommand(providerId, "upstream-subject-123", "user@example.com", "John Doe"));
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.UserId.ShouldBe(existingUser.Id);
     }
 
     [Fact]
@@ -140,7 +177,7 @@ public sealed class JitProvisionUserUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithExistingEmailUser_LinksUpstreamIdentity()
+    public async Task ExecuteAsync_WithExistingEmailUser_RejectsAssociationWithoutChangingAccount()
     {
         // Arrange
         var providerId = UpstreamProviderId.Create();
@@ -163,11 +200,8 @@ public sealed class JitProvisionUserUseCaseTests
         Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(command);
 
         // Assert
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.IsNewUser.ShouldBeFalse();
-        result.Value.UserId.ShouldBe(existingUser.Id);
-        await this._userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
-        await this._userRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        result.IsFailure.ShouldBeTrue();
+        existingUser.UpstreamIdentities.ShouldBeEmpty();
     }
 
     [Fact]

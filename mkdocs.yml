@@ -87,6 +87,7 @@ nav:
   - Security:
       - Overview: security.md
       - OIDC and IAM assessment: security/oidc-iam-conformance-assessment.md
+      - Identity boundary rollout: security/identity-boundary-rollout.md
       - Hardening checklist: security/hardening-checklist.md
       - Secrets management: security/secrets-management.md
       - Certificates and keys: security/certificates-and-keys.md
