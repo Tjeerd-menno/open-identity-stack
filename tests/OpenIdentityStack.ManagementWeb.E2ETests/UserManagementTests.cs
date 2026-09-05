@@ -205,21 +205,17 @@ public sealed class UserManagementTests : ManagementWebPageTest
     }
 
     [Fact]
-    public async Task OperatorCanUnlinkAnUpstreamIdentity()
+    public async Task OperatorCanInspectQuarantineButCannotEraseAssociationEvidence()
     {
-        await Fixture.SeedLegacyIdentityAsync(_adaId, _providerId, $"google-{Unique}", "google-subject-to-unlink");
-
+        await Fixture.SeedLegacyIdentityAsync(_adaId, _providerId, $"google-{Unique}", "legacy-quarantined-subject");
         await GotoAsync($"/users/{_adaId}");
         await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Upstream identities", RegexOptions.IgnoreCase) }).ClickAsync();
-
-        // The unlink button is labelled with the provider's stored name; match the single
-        // identity row's button by its "Unlink …" prefix rather than the display name.
-        await Page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^Unlink ", RegexOptions.IgnoreCase) }).First.ClickAsync();
-        ILocator toast = Page.GetByText(new Regex("Identity unlinked", RegexOptions.IgnoreCase));
-        await toast.WaitForAsync();
-        (await toast.IsVisibleAsync()).ShouldBeTrue();
+        await Page.GetByText("Quarantined — authentication and migration blocked", new() { Exact = true }).WaitForAsync();
+        (await Page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^Unlink ", RegexOptions.IgnoreCase) }).CountAsync()).ShouldBe(0);
+        JsonNode identities = await ApiGetAsync($"/api/admin/users/{_adaId}/upstream-identities");
+        identities.ToJsonString().ShouldContain("legacy-quarantined-subject");
+        identities.ToJsonString().ShouldContain("\"isQuarantined\":true");
     }
-
     private static readonly string[] OpenidScope = ["openid"];
 }

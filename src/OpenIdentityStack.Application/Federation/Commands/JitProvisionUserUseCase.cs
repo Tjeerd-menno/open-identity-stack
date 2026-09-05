@@ -138,7 +138,6 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
         Result created = await this.persistence.CommitAsync(userResult.Value.Id, command.ProviderId, isNewUser: true, cancellationToken);
         if (created.IsFailure) { return created.Error; }
 
-        await this.auditLog.LogAsync("federation", "Federation.NewAccountAssociationRecorded", "User", userResult.Value.Id.Value.ToString(), "Independent new-account provisioning evidence recorded.", cancellationToken);
 
         return new JitProvisionUserResult(
             userResult.Value.Id,
