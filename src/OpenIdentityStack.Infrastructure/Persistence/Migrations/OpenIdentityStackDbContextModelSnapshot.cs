@@ -787,6 +787,98 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.ToTable("GroupMemberships", (string)null);
                 });
 
+            modelBuilder.Entity("OpenIdentityStack.Domain.Resources.ClientResourceGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientApplicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.PrimitiveCollection<string>("applicationPermissions")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("ApplicationPermissions");
+
+                    b.PrimitiveCollection<string>("delegatedPermissions")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("DelegatedPermissions");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResourceId");
+
+                    b.HasIndex("ClientApplicationId", "ResourceId")
+                        .IsUnique();
+
+                    b.ToTable("ClientResourceGrants", (string)null);
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Domain.Resources.ProtectedResource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.PrimitiveCollection<string>("permissionNamespaces")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("PermissionNamespaces");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Audience")
+                        .IsUnique();
+
+                    b.HasIndex("Scope")
+                        .IsUnique();
+
+                    b.ToTable("ProtectedResources", (string)null);
+                });
+
             modelBuilder.Entity("OpenIdentityStack.Domain.Roles.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1269,6 +1361,21 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .WithMany("Memberships")
                         .HasForeignKey("GroupId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Domain.Resources.ClientResourceGrant", b =>
+                {
+                    b.HasOne("OpenIdentityStack.Domain.Applications.Application", null)
+                        .WithMany()
+                        .HasForeignKey("ClientApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpenIdentityStack.Domain.Resources.ProtectedResource", null)
+                        .WithMany()
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

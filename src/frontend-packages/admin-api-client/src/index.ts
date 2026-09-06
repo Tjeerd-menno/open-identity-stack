@@ -164,9 +164,11 @@ export function createApiError(status: number, payload: unknown): ApiError {
     errorCode:
       typeof problem.errorCode === 'string'
         ? problem.errorCode
-        : typeof problem.error === 'string'
-          ? problem.error
-          : undefined,
+        : typeof problem.code === 'string'
+          ? problem.code
+          : typeof problem.error === 'string'
+            ? problem.error
+            : undefined,
   });
 }
 
