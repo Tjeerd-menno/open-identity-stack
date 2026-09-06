@@ -26,7 +26,7 @@ public sealed class CredentialBoundaryTests(SqliteTestFixture fixture) : IClassF
         db.ChangeTracker.Clear();
 
         OpenIdentityStack.Application.Abstractions.CredentialCutoverResult result =
-            await CreateStore(db, clock: clock).ExecuteAsync(Guid.NewGuid(), "operator");
+            (await CreateStore(db, clock: clock).ExecuteAsync(Guid.NewGuid(), "operator")).Value;
 
         result.Sessions.ShouldBe(sessions.Length);
         db.ChangeTracker.Entries<UserSession>().ShouldBeEmpty();
