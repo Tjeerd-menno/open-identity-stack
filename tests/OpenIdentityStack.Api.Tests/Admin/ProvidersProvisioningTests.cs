@@ -26,6 +26,14 @@ public sealed class ProvidersProvisioningTests(AppHostFixture fixture)
         JsonNode body = (await created.Content.ReadFromJsonAsync<JsonNode>())!;
         Guid id = body["id"]!.GetValue<Guid>();
         body["jitProvisioningEnabled"]!.GetValue<bool>().ShouldBeFalse();
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            AuditLogEntry audit = await db.AuditLogEntries.SingleAsync(entry => entry.EntityId == id.ToString()
+                && entry.Action == "Federation.ProviderCreated");
+            audit.UserId.ShouldNotBeNullOrWhiteSpace();
+            audit.BeforeState.ShouldBeNull();
+            audit.AfterState.ShouldBe("{\"jitProvisioningEnabled\":false}");
+        });
 
         JsonNode read = (await client.GetFromJsonAsync<JsonNode>($"/api/admin/providers/{id}"))!;
         read["jitProvisioningEnabled"]!.GetValue<bool>().ShouldBeFalse();

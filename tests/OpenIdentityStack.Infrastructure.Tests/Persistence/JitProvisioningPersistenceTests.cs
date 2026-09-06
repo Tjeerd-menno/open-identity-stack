@@ -50,6 +50,25 @@ public sealed class JitProvisioningPersistenceTests
     }
 
     [Fact]
+    public async Task InitialProviderAuditFailureCannotCommitTheProvider()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using OpenIdentityStackDbContext attempt = database.CreateContext();
+        await attempt.Database.ExecuteSqlRawAsync("""
+            CREATE TRIGGER reject_provider_audit BEFORE INSERT ON "AuditLogEntries"
+            WHEN NEW."Action" = 'Federation.ProviderCreated'
+            BEGIN SELECT RAISE(ABORT, 'injected audit insertion failure'); END;
+            """);
+        var useCase = new CreateProviderUseCase(new UpstreamProviderRepository(attempt), Substitute.For<IEnvironmentProvider>(),
+            Substitute.For<ISecretProtector>(), new AuditLogService(NullLogger<AuditLogService>.Instance, attempt, new TestClock()));
+        await Should.ThrowAsync<DbUpdateException>(() => useCase.ExecuteAsync(
+            new CreateProviderCommand("audited-new-provider", "Provider", "https://new.example", "client", null, null, ActorId: "operator")));
+        await using OpenIdentityStackDbContext read = database.CreateContext();
+        (await read.UpstreamProviders.AnyAsync(provider => provider.Name == "audited-new-provider")).ShouldBeFalse();
+        (await read.AuditLogEntries.CountAsync(entry => entry.Action == "Federation.ProviderCreated")).ShouldBe(0);
+    }
+
+    [Fact]
     public async Task PolicyAuditFailureCannotCommitThePolicyChange()
     {
         await using TestDatabase database = await TestDatabase.CreateAsync();
