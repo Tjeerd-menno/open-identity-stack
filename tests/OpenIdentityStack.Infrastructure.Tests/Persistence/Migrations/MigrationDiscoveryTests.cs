@@ -21,4 +21,13 @@ public sealed class MigrationDiscoveryTests : IClassFixture<SqliteTestFixture>
         context.Database.GetMigrations()
             .ShouldContain("20260530172000_AddApplicationPermissionReplacementGuidance");
     }
+
+    [Fact]
+    public void Migrations_IncludesEmergencyProofCredentialRevisionBinding()
+    {
+        using OpenIdentityStackDbContext context = this.fixture.CreateDbContext();
+
+        context.Database.GetMigrations()
+            .ShouldContain("20260906171053_BindEmergencyProofToCredentialRevision");
+    }
 }

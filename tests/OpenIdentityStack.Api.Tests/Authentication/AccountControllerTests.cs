@@ -233,6 +233,30 @@ public class AccountControllerTests : IDisposable
         this._controller.Url = urlHelper;
     }
 
+    [Fact]
+    public async Task ExternalCallbackNeverEstablishesLocalPasswordProof()
+    {
+        var providerId = Guid.NewGuid();
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        Domain.Users.User user = Domain.Users.User.CreateLocal("operator@example.com", "Operator", "hash", clock).Value;
+        user.VerifyEmail(clock);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "subject")], "external"));
+        var properties = new AuthenticationProperties();
+        properties.SetString(ExternalIdentityProperties.ProviderId, providerId.ToString());
+        properties.SetString(ExternalIdentityProperties.ProviderName, "validated-provider");
+        properties.SetString(ExternalIdentityProperties.ValidatedIssuer, "https://issuer.example/");
+        properties.SetString(ExternalIdentityProperties.Authority, "https://issuer.example/");
+        var ticket = new AuthenticationTicket(principal, properties, "ExternalCookie");
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie").Returns(AuthenticateResult.Success(ticket));
+        this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new JitProvisionUserResult(user.Id, false, user.Email, user.DisplayName));
+        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>()).Returns(new CreateSessionResult(SessionId.Create()));
+        await this._controller.ExternalLoginCallback("validated-provider");
+        await this._authService.Received(1).SignInAsync(Arg.Any<HttpContext>(), "Cookies",
+            Arg.Is<ClaimsPrincipal>(cookie => !cookie.HasClaim(c => c.Type == "ois_local_password_session")), Arg.Any<AuthenticationProperties>());
+    }
     #region Login GET Tests
 
     [Fact]
@@ -468,7 +492,7 @@ public class AccountControllerTests : IDisposable
         await this._authService.Received(1).SignInAsync(
             Arg.Any<HttpContext>(),
             "Cookies",
-            Arg.Any<ClaimsPrincipal>(),
+            Arg.Is<ClaimsPrincipal>(principal => principal.FindFirst("ois_local_password_session")!.Value == sessionId.Value.ToString()),
             Arg.Any<AuthenticationProperties>());
         this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=protected-session-cookie");
         this.sessionMonitoringCookies.Received(1).Create(

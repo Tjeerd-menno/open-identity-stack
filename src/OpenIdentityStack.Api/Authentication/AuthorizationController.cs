@@ -449,6 +449,8 @@ public class AuthorizationController : ControllerBase
             target.AddClaim(new Claim("ois.grant_revision", $"{resourceId:D}:{revision}").SetDestinations(Destinations.AccessToken));
         }
         principal.SetResources(access.Audiences);
+        // Resource-sensitive proof destinations must use the final granted audience, including on refresh.
+        principal.SetDestinations(TokenClaimProjectionService.GetDestinations);
         principal.SetPresenters(clientId);
     }
 

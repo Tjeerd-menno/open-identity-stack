@@ -43,14 +43,31 @@ describe('admin api client', () => {
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     globalThis.fetch = fetchMock;
     const approve = vi.fn().mockResolvedValue(true);
+    const onRetry = vi.fn();
     const client = createAdminApiClient({ baseUrl: 'https://admin.example', onAdministrativeApprovalRequired: approve });
 
-    await client.post('/api/admin/users/user/roles/role');
+    await client.post('/api/admin/users/user/roles/role', undefined, onRetry);
 
     expect(approve).toHaveBeenCalledOnce();
+    expect(onRetry).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(new Headers(fetchMock.mock.calls[0][1].headers).has('X-OIS-Administrative-Approval')).toBe(false);
     expect(new Headers(fetchMock.mock.calls[1][1].headers).get('X-OIS-Administrative-Approval')).toBe('acknowledge');
+  });
+
+  it('does not report an approval retry when the operator cancels', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      errorCode: 'Forbidden.AdministrativeApproval.AcknowledgementRequired',
+    }), { status: 403 }));
+    const onRetry = vi.fn();
+    const client = createAdminApiClient({
+      baseUrl: 'https://admin.example',
+      onAdministrativeApprovalRequired: vi.fn().mockResolvedValue(false),
+    });
+
+    await expect(client.post('/api/admin/security/credential-cutovers', {}, onRetry)).rejects.toMatchObject({ status: 403 });
+
+    expect(onRetry).not.toHaveBeenCalled();
   });
 
   it('appends query parameters and omits undefined values', async () => {

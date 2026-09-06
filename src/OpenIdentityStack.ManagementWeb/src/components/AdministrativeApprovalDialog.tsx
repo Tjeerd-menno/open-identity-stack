@@ -30,14 +30,14 @@ export function AdministrativeApprovalDialog({ onReauthenticate }: { onReauthent
 
   const requiresAuthentication = request?.errorCode === 'Forbidden.AdministrativeApproval.ReauthenticationRequired';
   return (
-    <Modal opened={request !== null} onClose={() => close(false)} title="Approve administrative access" centered>
+    <Modal opened={request !== null} onClose={() => close(false)} title="Approve administrative operation" centered>
       <Stack>
-        <Text>This operation changes administrative access. Review the requested permissions. An all-permissions grant includes every current and future platform permission.</Text>
+        <Text>This operation requires fresh authentication and explicit approval. Review the requested change and its effects before continuing.</Text>
         {requiresAuthentication ? (
           <Text>Sign in again, then repeat this operation to review and approve it.</Text>
         ) : (
           <Checkbox checked={acknowledged} onChange={(event) => setAcknowledged(event.currentTarget.checked)}
-            label="I acknowledge the administrative access this operation grants." />
+            label="I acknowledge the effects of this operation." />
         )}
         <Group justify="flex-end">
           <Button variant="default" onClick={() => close(false)}>Cancel</Button>

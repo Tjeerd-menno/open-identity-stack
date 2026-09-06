@@ -87,4 +87,26 @@ public sealed class AdministrativeActorContextTests
         var adapter = new AdministrativeActorContext(new HttpContextAccessor { HttpContext = http });
         adapter.Current!.AuthenticatedAt.ShouldBeNull();
     }
-}
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public void IndependentLoginMarkerRequiresExactlyOneProtectedSession(bool duplicate, bool accepted)
+    {
+        var userId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var claims = new List<Claim>
+        {
+            new("sub", userId.ToString()),
+            new(AdministrativeActorContext.HumanSubjectClaim, userId.ToString()),
+            new(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession, sessionId.ToString()),
+            new(CredentialBoundaryClaims.Epoch, Guid.Empty.ToString())
+        };
+        if (duplicate)
+        {
+            claims.Add(new(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession, sessionId.ToString()));
+        }
+        var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Bearer")) };
+        AdministrativeActor actor = new AdministrativeActorContext(new HttpContextAccessor { HttpContext = http }).Current!;
+        actor.LocalPasswordSessionId.HasValue.ShouldBe(accepted);
+        actor.CredentialEpoch.ShouldBe(Guid.Empty);
+    }}

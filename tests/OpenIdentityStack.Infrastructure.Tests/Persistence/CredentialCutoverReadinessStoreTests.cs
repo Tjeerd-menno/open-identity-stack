@@ -1,0 +1,457 @@
+using System.Data.Common;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using OpenIddict.Abstractions;
+using OpenIddict.EntityFrameworkCore.Models;
+using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Domain.Federation;
+using OpenIdentityStack.Domain.Roles;
+using OpenIdentityStack.Domain.Sessions;
+using OpenIdentityStack.Domain.Users;
+using OpenIdentityStack.Infrastructure.Persistence;
+using SharedKernel;
+
+namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
+
+public sealed class CredentialCutoverReadinessStoreTests
+{
+    [Fact]
+    public async Task IdentityInventoryUsesDatabaseAggregatesWithoutMaterializingUsers()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        User user = User.CreateFederated("inventory@example.com", "Inventory", database.Clock).Value;
+        user.LinkUpstreamIdentity(UpstreamProviderId.Create(), "legacy", "subject", user.Email, issuer: null);
+        database.Db.Add(user);
+        await database.Db.SaveChangesAsync();
+        database.Commands.Clear();
+
+        CredentialCutoverPreflight preflight = await database.Store.EvaluateAsync();
+
+        preflight.Identities.QuarantinedLinks.ShouldBe(1);
+        string[] userQueries = database.Commands.Where(command =>
+            command.Contains("Users", StringComparison.Ordinal) ||
+            command.Contains("UserUpstreamIdentities", StringComparison.Ordinal) ||
+            command.Contains("UserEmailVerificationEvidence", StringComparison.Ordinal)).ToArray();
+        userQueries.Length.ShouldBeGreaterThanOrEqualTo(6);
+        userQueries.ShouldAllBe(command => command.Contains("SELECT COUNT(", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ResourceReviewLookupFiltersAndBoundsHistoryInDatabase()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        var resource = new CutoverProtectedResource(Guid.NewGuid(), "Business", "urn:business", "business", 7);
+        database.Resources.ReadAsync(Arg.Any<CancellationToken>()).Returns(new CutoverResourceInventory([], [resource], []));
+        for (int revision = 1; revision <= 7; revision++)
+        {
+            database.Db.ResourceTokenWindowReviews.Add(new ResourceWindowReviewRecord
+            {
+                Id = Guid.NewGuid(), ResourceId = resource.Id, ResourceRevision = revision, Epoch = Guid.Empty,
+                Mechanism = "OnlineIntrospection", ResidualSeconds = 30, EvidenceReference = $"fixture:{revision}",
+                ReviewedAt = database.Clock.UtcNow.AddMinutes(-revision)
+            });
+        }
+        await database.Db.SaveChangesAsync();
+        database.Commands.Clear();
+
+        await database.Store.EvaluateAsync();
+
+        string[] reviewQueries = database.Commands.Where(command => command.Contains("ResourceTokenWindowReviews", StringComparison.Ordinal)).ToArray();
+        reviewQueries.ShouldNotBeEmpty();
+        reviewQueries.ShouldAllBe(command => command.Contains("WHERE", StringComparison.OrdinalIgnoreCase)
+            && command.Contains("ResourceId", StringComparison.Ordinal)
+            && command.Contains("ResourceRevision", StringComparison.Ordinal));
+        reviewQueries.ShouldContain(command => command.Contains("LIMIT", StringComparison.OrdinalIgnoreCase));
+        reviewQueries.ShouldContain(command => command.Contains("SELECT COUNT(", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AccessTokenWindowUsesDatabaseAggregates()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        database.Db.AddRange(
+            new OpenIddictEntityFrameworkCoreToken { Id = Guid.NewGuid().ToString(), Type = OpenIddictConstants.TokenTypeIdentifiers.AccessToken, Status = "valid", ExpirationDate = database.Clock.UtcNow.AddMinutes(10).UtcDateTime },
+            new OpenIddictEntityFrameworkCoreToken { Id = Guid.NewGuid().ToString(), Type = OpenIddictConstants.TokenTypeHints.AccessToken, Status = "revoked", ExpirationDate = null });
+        await database.Db.SaveChangesAsync();
+        database.Commands.Clear();
+
+        CredentialCutoverPreflight preflight = await database.Store.EvaluateAsync();
+
+        preflight.OutstandingAccessTokens.ShouldBe(2);
+        preflight.LatestAccessTokenExpiry.ShouldBe(database.Clock.UtcNow.AddMinutes(10));
+        string[] tokenQueries = database.Commands.Where(command => command.Contains("OpenIddictTokens", StringComparison.Ordinal)).ToArray();
+        tokenQueries.ShouldContain(command => command.Contains("COUNT(", StringComparison.OrdinalIgnoreCase));
+        tokenQueries.ShouldContain(command => command.Contains("MAX(", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ExpiredEmergencyProofsAreFilteredBeforeMaterialization()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        database.Clock.UtcNow.Returns(database.Clock.UtcNow.AddMinutes(6));
+        database.Commands.Clear();
+
+        (await database.Store.EvaluateAsync()).Ready.ShouldBeFalse();
+
+        string proofQuery = database.Commands.Single(command => command.Contains("EmergencyAccessEvidence", StringComparison.Ordinal));
+        proofQuery.ShouldContain("AuthenticatedAt\" >=", Case.Insensitive);
+        proofQuery.ShouldContain("AuthenticatedAt\" <=", Case.Insensitive);
+    }
+
+    [Fact]
+    public async Task EmergencyAccessAuditDoesNotExposeTheLiveSessionIdentifier()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+
+        string afterState = (await database.Db.AuditLogEntries.SingleAsync(entry =>
+            entry.Action == "CredentialCutover.EmergencyAccessTested")).AfterState!;
+        afterState.ShouldNotContain(actor.LocalPasswordSessionId!.Value.ToString(), Case.Insensitive);
+        afterState.ShouldContain(actor.UserId.Value.ToString(), Case.Insensitive);
+    }
+
+    [Theory]
+    [InlineData(30, 15, true)]
+    [InlineData(300, 299, true)]
+    [InlineData(0, 0, true)]
+    [InlineData(301, 20, false)]
+    [InlineData(-1, 0, false)]
+    [InlineData(30, 31, false)]
+    [InlineData(30, -1, false)]
+    public async Task EmergencyProofUsesOneFreshnessWindowForAuthenticationAndSessionCreation(int authenticationAgeSeconds, int sessionDelaySeconds, bool accepted)
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        DateTimeOffset now = database.Clock.UtcNow;
+        DateTimeOffset authenticatedAt = now.AddSeconds(-authenticationAgeSeconds);
+        database.Clock.UtcNow.Returns(authenticatedAt.AddSeconds(sessionDelaySeconds));
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        database.Clock.UtcNow.Returns(now);
+
+        Result<EmergencyAccessEvidence> result = await database.Store.RecordEmergencyAccessAsync(actor with { AuthenticatedAt = authenticatedAt });
+
+        result.IsSuccess.ShouldBe(accepted);
+        (await database.Db.EmergencyAccessEvidence.CountAsync()).ShouldBe(accepted ? 1 : 0);
+        (await database.Store.EvaluateAsync()).Ready.ShouldBe(accepted);
+    }
+
+    [Fact]
+    public async Task FreshSessionMustBelongToTheAuthenticatedEmergencyUser()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        User other = User.CreateLocal("other@example.com", "Other", "hash", database.Clock).Value;
+        database.Db.Add(other);
+        UserSession session = UserSession.Create(other.Id, "127.0.0.1", "test", database.Clock).Value;
+        database.Db.Add(session);
+        await database.Db.SaveChangesAsync();
+
+        (await database.Store.RecordEmergencyAccessAsync(actor with { LocalPasswordSessionId = session.Id.Value })).IsFailure.ShouldBeTrue();
+        (await database.Db.EmergencyAccessEvidence.CountAsync()).ShouldBe(0);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task QuarantinedAssociationsBlockEvenWithConfiguredPasswordAndTestedEmergencyAccess(bool passwordCandidate)
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        UpstreamProvider provider = UpstreamProvider.Create("legacy", "Legacy", "https://issuer.example", "client").Value;
+        User legacy = passwordCandidate
+            ? User.CreateLocal("legacy@example.com", "Legacy", "hash", database.Clock).Value
+            : User.CreateFederated("legacy@example.com", "Legacy", database.Clock).Value;
+        legacy.LinkUpstreamIdentity(provider.Id, provider.Name, "historical-subject", legacy.Email, "https://issuer.example");
+        database.Db.Add(provider);
+        database.Db.Add(legacy);
+        await database.Db.SaveChangesAsync();
+
+        CredentialCutoverPreflight first = await database.Store.EvaluateAsync();
+        CredentialCutoverPreflight second = await database.Store.EvaluateAsync();
+
+        first.Ready.ShouldBeFalse();
+        first.Identities.QuarantinedLinks.ShouldBe(1);
+        first.Identities.PasswordCandidates.ShouldBe(passwordCandidate ? 1 : 0);
+        first.Identities.FederationOnlyUsers.ShouldBe(passwordCandidate ? 0 : 1);
+        first.EmergencyAccess!.CurrentlyUsable.ShouldBeTrue();
+        first.Blockers.ShouldContain(x => x.Code == "Identity.Quarantined");
+        second.Identities.ShouldBe(first.Identities);
+        (await database.Db.Users.SingleAsync(u => u.Id == legacy.Id)).UpstreamIdentities.Single().IsQuarantined.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task RoleNameOrDisabledPasswordUserCannotEstablishEmergencyAccess(bool wildcard, bool disabled)
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync(wildcard, disabled);
+
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsFailure.ShouldBeTrue();
+
+        (await database.Db.EmergencyAccessEvidence.CountAsync()).ShouldBe(0);
+        (await database.Store.EvaluateAsync()).Ready.ShouldBeFalse();
+        (await database.Db.Users.SingleAsync(u => u.Id == actor.UserId)).Status.ShouldBe(disabled ? UserStatus.Disabled : UserStatus.Active);
+    }
+
+    [Fact]
+    public async Task ProofExpiresAndCurrentAuthorityWithdrawalIsObservedDespiteTrackedRole()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        (await database.Store.EvaluateAsync()).Ready.ShouldBeTrue();
+        await using OpenIdentityStackDbContext other = database.CreateContext();
+        Role role = await other.Roles.SingleAsync();
+        role.SetPermissions([]);
+        await other.SaveChangesAsync();
+
+        (await database.Store.EvaluateAsync()).EmergencyAccess!.CurrentlyUsable.ShouldBeFalse();
+        (await database.Store.EvaluateAsync()).Blockers.ShouldContain(x => x.Code == "Emergency.IndependentAccessRequired");
+        role.SetPermissions(["*"]);
+        await other.SaveChangesAsync();
+        database.Clock.UtcNow.Returns(actor.AuthenticatedAt!.Value.AddMinutes(6));
+        (await database.Store.EvaluateAsync()).Ready.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MissingOrRevokedSessionCannotBeUsedAsIndependentProof()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor with { LocalPasswordSessionId = Guid.NewGuid() })).IsFailure.ShouldBeTrue();
+        UserSession session = await database.Db.UserSessions.SingleAsync();
+        session.Revoke(database.Clock);
+        await database.Db.SaveChangesAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsFailure.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task PasswordChangeInvalidatesPreviouslyRecordedEmergencyProof()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        (await database.Store.EvaluateAsync()).Ready.ShouldBeTrue();
+        User user = await database.Db.Users.SingleAsync(candidate => candidate.Id == actor.UserId);
+        Guid recordedRevision = user.CredentialRevision;
+
+        user.SetPassword("replacement-hash", database.Clock).IsSuccess.ShouldBeTrue();
+        await database.Db.SaveChangesAsync();
+
+        user.CredentialRevision.ShouldNotBe(recordedRevision);
+        CredentialCutoverPreflight preflight = await database.Store.EvaluateAsync();
+        preflight.EmergencyAccess!.CurrentlyUsable.ShouldBeFalse();
+        preflight.Ready.ShouldBeFalse();
+        preflight.Blockers.ShouldContain(blocker => blocker.Code == "Emergency.IndependentAccessRequired");
+        IOpenIddictTokenManager tokens = Substitute.For<IOpenIddictTokenManager>();
+        IOpenIddictAuthorizationManager grants = Substitute.For<IOpenIddictAuthorizationManager>();
+        var boundary = new CredentialBoundaryStore(database.Db, tokens, grants, database.Clock, database.Store);
+
+        Result<CredentialCutoverResult> cutover = await boundary.ExecuteAsync(Guid.NewGuid(), actor.UserId.Value.ToString());
+
+        cutover.IsFailure.ShouldBeTrue();
+        cutover.Error.Code.ShouldBe("Conflict.CredentialCutover.PrerequisitesUnresolved");
+        await tokens.DidNotReceive().RevokeAsync(
+            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        await grants.DidNotReceive().RevokeAsync(
+            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LegacyEmergencyProofWithoutCredentialRevisionFailsClosed()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        database.Db.EmergencyAccessEvidence.Add(new EmergencyAccessRecord
+        {
+            Id = Guid.NewGuid(),
+            UserId = actor.UserId.Value,
+            SessionId = actor.LocalPasswordSessionId!.Value,
+            Epoch = Guid.Empty,
+            CredentialRevision = null,
+            AuthenticatedAt = actor.AuthenticatedAt!.Value,
+            RecordedAt = database.Clock.UtcNow
+        });
+        await database.Db.SaveChangesAsync();
+
+        CredentialCutoverPreflight preflight = await database.Store.EvaluateAsync();
+
+        preflight.EmergencyAccess!.CurrentlyUsable.ShouldBeFalse();
+        preflight.Ready.ShouldBeFalse();
+        preflight.Blockers.ShouldContain(blocker => blocker.Code == "Emergency.IndependentAccessRequired");
+    }
+
+    [Fact]
+    public async Task ExternalWindowReviewIsExplicitBoundToResourceRevisionAndCannotHideUnknownExpiry()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        var resource = new CutoverProtectedResource(Guid.NewGuid(), "Business", "urn:business", "business", 1);
+        database.Resources.ReadAsync(Arg.Any<CancellationToken>()).Returns(new CutoverResourceInventory([], [resource], []));
+        (await database.Store.EvaluateAsync()).Blockers.ShouldContain(x => x.Code == "Resource.TokenWindowUnresolved");
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OnlineIntrospection", 30, "https://change.example/rehearsal/1"), actor.UserId.Value.ToString());
+        CredentialCutoverPreflight reviewed = await database.Store.EvaluateAsync();
+        reviewed.Ready.ShouldBeTrue();
+        reviewed.BusinessResources.Single().ResidualSeconds.ShouldBe(30);
+        database.Resources.ReadAsync(Arg.Any<CancellationToken>()).Returns(new CutoverResourceInventory([], [resource with { Revision = 2 }], []));
+        (await database.Store.EvaluateAsync()).Ready.ShouldBeFalse();
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OfflineExpiry", 3600, "https://change.example/rehearsal/2"), actor.UserId.Value.ToString());
+        database.Db.Add(new OpenIddictEntityFrameworkCoreToken { Id = Guid.NewGuid().ToString(), Type = "access_token", Status = "revoked", ExpirationDate = null });
+        await database.Db.SaveChangesAsync();
+        (await database.Store.EvaluateAsync()).Ready.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(OpenIddict.Abstractions.OpenIddictConstants.TokenTypeIdentifiers.AccessToken, false)]
+    [InlineData(OpenIddict.Abstractions.OpenIddictConstants.TokenTypeIdentifiers.AccessToken, true)]
+    [InlineData(OpenIddict.Abstractions.OpenIddictConstants.TokenTypeHints.AccessToken, false)]
+    [InlineData(OpenIddict.Abstractions.OpenIddictConstants.TokenTypeHints.AccessToken, true)]
+    public async Task OfflineWindowIncludesCurrentAndLegacyRevokedAccessTokenMetadata(string tokenType, bool unknownExpiry)
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        var resource = new CutoverProtectedResource(Guid.NewGuid(), "Business", "urn:business", "business", 1);
+        database.Resources.ReadAsync(Arg.Any<CancellationToken>()).Returns(new CutoverResourceInventory([], [resource], []));
+        database.Db.Add(new OpenIddictEntityFrameworkCoreToken
+        {
+            Id = Guid.NewGuid().ToString(), Type = tokenType, Status = "revoked",
+            ExpirationDate = unknownExpiry ? null : database.Clock.UtcNow.AddHours(1).UtcDateTime
+        });
+        await database.Db.SaveChangesAsync();
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OfflineExpiry", 0, "fixture:zero-window"), actor.UserId.Value.ToString());
+        CredentialCutoverPreflight rejected = await database.Store.EvaluateAsync();
+        rejected.OutstandingAccessTokens.ShouldBe(1);
+        rejected.BusinessResources.Single().Reviewed.ShouldBeFalse();
+        rejected.Ready.ShouldBeFalse();
+        rejected.Blockers.ShouldContain(x => x.Code == "Resource.TokenWindowUnresolved");
+        database.Clock.UtcNow.Returns(database.Clock.UtcNow.AddSeconds(1));
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OfflineExpiry", 7200, "fixture:measured-window"), actor.UserId.Value.ToString());
+        CredentialCutoverPreflight bounded = await database.Store.EvaluateAsync();
+        bounded.BusinessResources.Single().Reviewed.ShouldBe(!unknownExpiry);
+        bounded.Ready.ShouldBe(!unknownExpiry);
+    }
+
+    [Fact]
+    public async Task ConcurrentAuthorityChangeRejectsStaleEmergencyProofWithoutAudit()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        long originalRevision = await database.Db.Set<AdministrativeAuthorityRevision>().Select(value => value.Revision).SingleAsync();
+        await new AdministrativeAuthoritySnapshot(database.Db).CaptureAsync();
+        await using (OpenIdentityStackDbContext writer = database.CreateContext())
+        {
+            Role role = Role.Create($"concurrent-{Guid.NewGuid():N}", "Concurrent authority change", null).Value;
+            role.SetPermissions(["users:read"]);
+            writer.Roles.Add(role);
+            await writer.SaveChangesAsync();
+        }
+        await using (OpenIdentityStackDbContext changed = database.CreateContext())
+        {
+            (await changed.Set<AdministrativeAuthorityRevision>().Select(value => value.Revision).SingleAsync()).ShouldBe(originalRevision + 1);
+        }
+
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(async () => await database.Store.RecordEmergencyAccessAsync(actor));
+
+        await using OpenIdentityStackDbContext verification = database.CreateContext();
+        (await verification.EmergencyAccessEvidence.AnyAsync()).ShouldBeFalse();
+        (await verification.AuditLogEntries.AnyAsync(entry => entry.Action == "CredentialCutover.EmergencyAccessTested")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ReviewsAtTheSameInstantRequireAnUnambiguousLaterReview()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        var resource = new CutoverProtectedResource(Guid.NewGuid(), "Business", "urn:business", "business", 1);
+        database.Resources.ReadAsync(Arg.Any<CancellationToken>()).Returns(new CutoverResourceInventory([], [resource], []));
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OnlineIntrospection", 60, "fixture:first"), actor.UserId.Value.ToString());
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OnlineIntrospection", 30, "fixture:second"), actor.UserId.Value.ToString());
+
+        CredentialCutoverPreflight ambiguous = await database.Store.EvaluateAsync();
+        ambiguous.Ready.ShouldBeFalse();
+        ambiguous.BusinessResources.Single().Reviewed.ShouldBeFalse();
+        ambiguous.Blockers.ShouldContain(x => x.Code == "Resource.TokenWindowUnresolved");
+
+        database.Clock.UtcNow.Returns(database.Clock.UtcNow.AddSeconds(1));
+        await database.Store.ReviewResourceWindowAsync(new(resource.Id, "OnlineIntrospection", 30, "fixture:resolved"), actor.UserId.Value.ToString());
+        CredentialCutoverPreflight resolved = await database.Store.EvaluateAsync();
+        resolved.Ready.ShouldBeTrue();
+        resolved.BusinessResources.Single().EvidenceReference.ShouldBe("fixture:resolved");
+    }
+    private sealed class TestDatabase : IAsyncDisposable
+    {
+        private readonly SqliteConnection connection = new("DataSource=:memory:");
+        private readonly CommandCaptureInterceptor commandCapture = new();
+        private DbContextOptions<OpenIdentityStackDbContext> options = null!;
+        public IDateTimeProvider Clock { get; } = Substitute.For<IDateTimeProvider>();
+        public ICredentialCutoverResourceInventory Resources { get; } = Substitute.For<ICredentialCutoverResourceInventory>();
+        public OpenIdentityStackDbContext Db { get; private set; } = null!;
+        public CredentialCutoverReadinessStore Store => new(this.Db, this.Resources, this.Clock);
+        public List<string> Commands => this.commandCapture.Commands;
+
+        public static async Task<TestDatabase> CreateAsync()
+        {
+            var database = new TestDatabase();
+            await database.connection.OpenAsync();
+            database.options = new DbContextOptionsBuilder<OpenIdentityStackDbContext>().UseSqlite(database.connection).UseOpenIddict()
+                .AddInterceptors(database.commandCapture).Options;
+            database.Db = database.CreateContext();
+            await database.Db.Database.EnsureCreatedAsync();
+            database.Clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+            database.Resources.ReadAsync(Arg.Any<CancellationToken>()).Returns(new CutoverResourceInventory([], [], []));
+            return database;
+        }
+
+        public OpenIdentityStackDbContext CreateContext() => new(this.options);
+
+        public async Task<AdministrativeActor> SeedEmergencyAsync(bool wildcard = true, bool disabled = false)
+        {
+            User user = User.CreateLocal("emergency@example.com", "Emergency", "hash", this.Clock).Value;
+            user.VerifyEmail(this.Clock);
+            if (disabled) { user.Disable("Local administrative decision", this.Clock); }
+            Role role = Role.Create("admin", "Admin", null).Value;
+            role.SetPermissions(wildcard ? ["*"] : []);
+            this.Db.Add(user);
+            this.Db.Add(role);
+            this.Db.Add(RoleAssignment.Create(user.Id, role.Id, this.Clock.UtcNow).Value);
+            UserSession session = UserSession.Create(user.Id, "127.0.0.1", "test", this.Clock).Value;
+            this.Db.Add(session);
+            await this.Db.SaveChangesAsync();
+            return new(user.Id, this.Clock.UtcNow, true, true, session.Id.Value, Guid.Empty);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await this.Db.DisposeAsync();
+            await this.connection.DisposeAsync();
+        }
+
+        private sealed class CommandCaptureInterceptor : DbCommandInterceptor
+        {
+            public List<string> Commands { get; } = [];
+
+            public override InterceptionResult<DbDataReader> ReaderExecuting(DbCommand command, CommandEventData eventData,
+                InterceptionResult<DbDataReader> result)
+            {
+                this.Commands.Add(command.CommandText);
+                return result;
+            }
+
+            public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
+                CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+            {
+                this.Commands.Add(command.CommandText);
+                return ValueTask.FromResult(result);
+            }
+        }
+    }
+}

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Users;
+using AuthenticationSettingsEntity = OpenIdentityStack.Domain.Settings.AuthenticationSettings;
 
 namespace OpenIdentityStack.Infrastructure.Persistence;
 
@@ -24,11 +25,12 @@ public partial class OpenIdentityStackDbContext
 
     private bool NeedsAuthorityFence() => this.ChangeTracker.Entries().Any(entry =>
         entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
-        (entry.Entity is Role or RoleAssignment or Group or GroupMapping or GroupMembership
+        (entry.Entity is Role or RoleAssignment or Group or GroupMapping or GroupMembership or AuthenticationSettingsEntity
             || entry.Entity is User && (entry.State != EntityState.Modified || Changed(entry, nameof(User.Status), nameof(User.PasswordHash), "CredentialRevision"))
+            || entry.Entity is EmergencyAccessRecord
             // These later feature slices use the same save boundary; matching model names
             // keeps the fence independent of resource-domain contracts.
-            || entry.Metadata.ClrType.Name is "Application" or "ApplicationCredential" or "ClientResourceGrant" or "ProtectedResource" or "CredentialBoundaryState"));
+            || entry.Metadata.ClrType.Name is "Application" or "ApplicationCredential" or "ClientResourceGrant" or "ProtectedResource" or "CredentialBoundaryState" or "ResourceWindowReviewRecord"));
 
     private static bool Changed(EntityEntry entry, params string[] fields) => fields.Any(field =>
         entry.Metadata.FindProperty(field) is not null && entry.Property(field).IsModified);

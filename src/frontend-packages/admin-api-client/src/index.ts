@@ -27,7 +27,7 @@ export type PaginatedResponse<T> = {
 export type AdminApiClient = {
   request<T>(path: string, options?: RequestInit, params?: RequestParams): Promise<T>;
   get<T>(path: string, params?: RequestParams): Promise<T>;
-  post<T, TBody = unknown>(path: string, body?: TBody): Promise<T>;
+  post<T, TBody = unknown>(path: string, body?: TBody, onAdministrativeApprovalRetry?: () => void): Promise<T>;
   put<T, TBody = unknown>(path: string, body?: TBody): Promise<T>;
   patch<T, TBody = unknown>(path: string, body?: TBody): Promise<T>;
   delete<T>(path: string, params?: RequestParams): Promise<T>;
@@ -38,7 +38,8 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
     path: string,
     requestOptions: RequestInit = {},
     params?: RequestParams,
-    approvalAttempted = false
+    approvalAttempted = false,
+    onAdministrativeApprovalRetry?: () => void
   ): Promise<T> {
     const headers = new Headers(requestOptions.headers);
     headers.set('Content-Type', 'application/json');
@@ -76,7 +77,8 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
         && await options.onAdministrativeApprovalRequired?.(error)) {
         const approvedHeaders = new Headers(requestOptions.headers);
         approvedHeaders.set('X-OIS-Administrative-Approval', 'acknowledge');
-        return request<T>(path, { ...requestOptions, headers: approvedHeaders }, params, true);
+        onAdministrativeApprovalRetry?.();
+        return request<T>(path, { ...requestOptions, headers: approvedHeaders }, params, true, onAdministrativeApprovalRetry);
       }
       throw error;
     }
@@ -96,8 +98,8 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
   return {
     request,
     get: <T>(path: string, params?: RequestParams) => request<T>(path, {}, params),
-    post: <T, TBody = unknown>(path: string, body?: TBody) =>
-      request<T>(path, jsonRequest('POST', body)),
+    post: <T, TBody = unknown>(path: string, body?: TBody, onAdministrativeApprovalRetry?: () => void) =>
+      request<T>(path, jsonRequest('POST', body), undefined, false, onAdministrativeApprovalRetry),
     put: <T, TBody = unknown>(path: string, body?: TBody) =>
       request<T>(path, jsonRequest('PUT', body)),
     patch: <T, TBody = unknown>(path: string, body?: TBody) =>
@@ -137,6 +139,7 @@ export { createProvidersContract } from './providers';
 export * from './providers';
 export { createSettingsContract } from './settings';
 export * from './settings';
+export * from './cutover';
 export { createAuditEntriesContract } from './audit-entries';
 export * from './audit-entries';
 export { createApplicationPermissionsContract } from './application-permissions';
