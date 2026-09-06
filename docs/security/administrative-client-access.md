@@ -29,6 +29,8 @@ For controlled initial deployment, explicitly set `Seed:AdministrativeAccess:Boo
 
 An existing grant is never expanded or restored by bootstrap reruns, including an empty grant retained after withdrawal. The bootstrap does not approve ordinary registrations or provide a runtime recovery endpoint. Other integrations must receive explicit human approval.
 
+Every preparation run validates the existing registration against the complete reviewed configuration before protocol projection, even with bootstrap disabled or an existing grant. Redirects, logout redirects, scopes, grant types, public SPA profile, PKCE, consent policy, active status, and absence of credentials must match. Mismatches fail without changing the client or grant; reconcile them through the approved administrative workflow, including an intentionally removed `ois.admin` scope, before rerunning preparation. New registrations are persisted before projection; existing registrations are never silently repaired.
+
 Before enabling the boundary, preserve and test an independently accessible emergency human administrator and review the Management Web deployment configuration. Apply resource persistence migrations, prepare registrations, perform the controlled bootstrap if required, approve other integrations, and execute the coordinated credential cutover in [ADR 0005](../adr/0005-identity-and-administrative-trust-boundaries.md). Require fresh administrative tokens. There is no generic-`api` compatibility mode. Downgrading reopens the old administrative boundary.
 
 ## Browser verification

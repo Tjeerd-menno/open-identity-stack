@@ -38,6 +38,18 @@ public sealed class AdministrativeAccessWorkflowTests
         await this.resources.DidNotReceiveWithAnyArgs().SaveChangesAsync(default!, default!, default!, default, default);
     }
 
+    [Fact]
+    public async Task EmptyUnapprovedSaveReturnsCurrentStateWithoutApprovalOrMutation()
+    {
+        Result<AdministrativeAccessDto> result = await this.workflow.SaveAsync(this.client.Id.Value, new([], [], null), "operator");
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Approved.ShouldBeFalse();
+        result.Value.Revision.ShouldBeNull();
+        this.resources.DidNotReceive().AddGrant(Arg.Any<ClientResourceGrant>());
+        await this.approval.DidNotReceiveWithAnyArgs().RequireAsync(default!, default!, default, default);
+    }
+
     [Theory]
     [InlineData("users:read", "users:*", false)]
     [InlineData("users:*", "*", false)]
