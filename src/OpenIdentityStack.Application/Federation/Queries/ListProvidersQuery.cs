@@ -31,7 +31,10 @@ public sealed record ProviderDto(
     IReadOnlyList<string> Scopes,
     bool JitProvisioningEnabled,
     string Status,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt)
+{
+    public bool TrustEmailVerification { get; init; }
+}
 
 /// <summary>
 /// Interface for the list providers query handler.
@@ -82,7 +85,7 @@ public sealed class ListProvidersQueryHandler : IListProvidersQueryHandler
             [], // Scopes would be stored in a separate configuration
             p.JitProvisioningEnabled,
             p.Status.ToString(),
-            p.CreatedAt)).ToList();
+            p.CreatedAt) { TrustEmailVerification = p.TrustEmailVerification }).ToList();
 
         return dtos;
     }

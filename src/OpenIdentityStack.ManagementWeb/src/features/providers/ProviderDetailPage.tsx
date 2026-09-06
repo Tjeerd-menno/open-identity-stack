@@ -24,6 +24,7 @@ export function ProviderDetailPage() {
   // Deletion is authorized with providers:delete, independent of providers:write.
   const canDelete = hasPermission(auth.permissions, 'providers:delete');
   const [confirmDeleteOpened, confirmDeleteControls] = useDisclosure(false);
+  const [confirmEmailTrustWithdrawalOpened, confirmEmailTrustWithdrawalControls] = useDisclosure(false);
 
   const providerQuery = useQuery({ queryKey: ['provider', providerId], queryFn: () => api.providers.getProvider(providerId) });
 
@@ -57,6 +58,16 @@ export function ProviderDetailPage() {
       notifications.show({ message: 'Provider deleted', color: 'green' });
       void queryClient.invalidateQueries({ queryKey: ['providers'] });
       navigate('/providers');
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  const setEmailTrust = useMutation({
+    mutationFn: (trusted: boolean) => api.providers.setEmailVerificationTrust(providerId, trusted),
+    onSuccess: () => {
+      notifications.show({ message: 'Email verification trust updated', color: 'green' });
+      confirmEmailTrustWithdrawalControls.close();
+      invalidate();
     },
     onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
@@ -138,6 +149,18 @@ export function ProviderDetailPage() {
           <Stack gap="lg">
             <ProviderConfigForm provider={provider} canWrite={canWrite} onSaved={invalidate} />
 
+            <SectionCard title="Email verification" description="Trust this provider's verified-email evidence. This does not permit linking existing accounts or reactivate disabled users.">
+              <Switch
+                label="Trust email verification"
+                checked={provider.trustEmailVerification ?? false}
+                disabled={!canWrite || setEmailTrust.isPending}
+                onChange={(event) => event.currentTarget.checked
+                  ? setEmailTrust.mutate(true)
+                  : confirmEmailTrustWithdrawalControls.open()}
+              />
+              <Text size="xs" c="dimmed" mt="sm">Withdrawing trust invalidates evidence supplied solely by this provider. Independent verification is retained.</Text>
+            </SectionCard>
+
             <SectionCard title="Provisioning">
               <Group justify="space-between" wrap="nowrap">
                 <div>
@@ -167,6 +190,16 @@ export function ProviderDetailPage() {
           </Stack>
         </Tabs.Panel>
       </Tabs>
+
+      <ConfirmModal
+        opened={confirmEmailTrustWithdrawalOpened}
+        title="Withdraw email verification trust"
+        message="Existing proofs from this provider remain withdrawn even if trust is enabled again. Users verified solely by this provider remain unverified until a later sign-in supplies a fresh verified-email assertion. This action does not revoke existing credentials or sessions. For affected users, open Sessions and revoke every active session. Revoke known tokens or deny affected subjects until they expire at every downstream service that validates tokens locally."
+        confirmLabel="Withdraw trust"
+        loading={setEmailTrust.isPending}
+        onConfirm={() => setEmailTrust.mutate(false)}
+        onClose={confirmEmailTrustWithdrawalControls.close}
+      />
 
       <ConfirmModal
         opened={confirmDeleteOpened}
