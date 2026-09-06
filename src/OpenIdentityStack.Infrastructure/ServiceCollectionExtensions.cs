@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using OpenIdentityStack.Application;
 using OpenIdentityStack.Application.Abstractions;
@@ -88,8 +89,12 @@ public static class ServiceCollectionExtensions
             string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase)
             && IsSqliteConnectionString(connectionString);
 
-        services.AddDbContext<OpenIdentityStackDbContext>(options =>
-            ConfigureDbContext(options, connectionString, useSqliteForTesting));
+        services.AddScoped<AdministrativeAuthorityAuditInterceptor>();
+        services.AddDbContext<OpenIdentityStackDbContext>((provider, options) =>
+        {
+            ConfigureDbContext(options, connectionString, useSqliteForTesting);
+            options.AddInterceptors(provider.GetRequiredService<AdministrativeAuthorityAuditInterceptor>());
+        });
 
         AddCommonServices(services, configuration, environmentName);
 
@@ -120,8 +125,12 @@ public static class ServiceCollectionExtensions
             environment.IsEnvironment("Testing")
             && IsSqliteConnectionString(connectionString);
 
-        services.AddDbContext<OpenIdentityStackDbContext>(options =>
-            ConfigureDbContext(options, connectionString, useSqliteForTesting));
+        services.AddScoped<AdministrativeAuthorityAuditInterceptor>();
+        services.AddDbContext<OpenIdentityStackDbContext>((provider, options) =>
+        {
+            ConfigureDbContext(options, connectionString, useSqliteForTesting);
+            options.AddInterceptors(provider.GetRequiredService<AdministrativeAuthorityAuditInterceptor>());
+        });
 
         AddCommonServices(services, configuration, environment.EnvironmentName);
 
@@ -171,6 +180,7 @@ public static class ServiceCollectionExtensions
 
     private static void AddPlatformServices(IServiceCollection services)
     {
+        services.TryAddSingleton<IAdministrativeActorContext, UnauthenticatedAdministrativeActorContext>();
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddSingleton<IEnvironmentProvider, EnvironmentProvider>();
         services.AddScoped<IAuditLog, AuditLogService>();
