@@ -70,6 +70,27 @@ public sealed class AdminApiRouteMappingTests
         forbidden.ContentTypes.ShouldContain("application/problem+json");
     }
 
+    [Theory]
+    [MemberData(nameof(GetApprovalProtectedEndpoints))]
+    public void MapApi_ApprovalProtectedEndpointDeclaresConflict(ApprovalEndpointExpectation expectation)
+    {
+        using WebApplication app = CreateApplication();
+
+        InvokeMapMethod(expectation.TypeName, expectation.MapMethodName, app);
+
+        RouteEndpoint endpoint = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static dataSource => dataSource.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(candidate => string.Equals(
+                candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName,
+                expectation.EndpointName,
+                StringComparison.Ordinal));
+
+        endpoint.Metadata
+            .OfType<IProducesResponseTypeMetadata>()
+            .ShouldContain(metadata => metadata.StatusCode == StatusCodes.Status409Conflict);
+    }
+
     public static IEnumerable<object[]> GetApprovalProtectedEndpoints()
     {
         const string roles = "OpenIdentityStack.Api.Admin.RolesApi";

@@ -28,6 +28,30 @@ public sealed class AdministrativeApprovalContractTests
         responseContract.ShouldContain("$ref: '#/components/responses/AdministrativeApprovalRequired'");
     }
 
+    [Theory]
+    [InlineData("createRole")]
+    [InlineData("updateRole")]
+    [InlineData("enableRole")]
+    [InlineData("setRolePermissions")]
+    [InlineData("addRolePermission")]
+    [InlineData("enableUser")]
+    [InlineData("resetUserPassword")]
+    [InlineData("assignRoleToUser")]
+    [InlineData("addGroupMember")]
+    [InlineData("createGroupMapping")]
+    public void ApprovalProtectedMutationDocumentsConflict(string operationId)
+    {
+        string contract = ReadContract();
+        int operation = contract.IndexOf($"operationId: {operationId}", StringComparison.Ordinal);
+        operation.ShouldBeGreaterThan(0);
+        int responses = contract.IndexOf("      responses:", operation, StringComparison.Ordinal);
+        responses.ShouldBeGreaterThan(operation);
+        int operationEnd = contract.IndexOf("      x-required-permissions:", responses, StringComparison.Ordinal);
+        operationEnd.ShouldBeGreaterThan(responses);
+
+        contract[responses..operationEnd].ShouldContain("        '409':");
+    }
+
     [Fact]
     public void ApprovalProblemDeclaresErrorCodeDiscriminatorAndSupportedCodes()
     {

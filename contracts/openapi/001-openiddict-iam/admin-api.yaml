@@ -258,6 +258,8 @@ paths:
           $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['users:update']
 
   /users/{userId}/reset-password:
@@ -288,6 +290,8 @@ paths:
           $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['users:update']
 
   /users/{userId}/upstream-identities:
@@ -423,6 +427,8 @@ paths:
           $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['roles:assign']
 
   /users/{userId}/roles/{roleId}:
@@ -641,6 +647,8 @@ paths:
           $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['groups:update']
 
   /groups/{groupId}/members/{userId}:
@@ -712,6 +720,8 @@ paths:
           $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['groups:update']
 
   /groups/{groupId}/mappings/{mappingId}:
@@ -842,6 +852,8 @@ paths:
           $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['roles:update']
 
     delete:
@@ -887,6 +899,8 @@ paths:
           $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['roles:write']
 
   /roles/{roleId}/permissions:
@@ -926,6 +940,8 @@ paths:
           $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['roles:assign']
 
     post:

@@ -49,6 +49,7 @@ internal static class RolesApi
             .Produces<RoleResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
             .WithName("UpdateRole")
             .WithSummary("Updates a role");
 
@@ -75,6 +76,7 @@ internal static class RolesApi
             .Produces(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
             .WithName("EnableRole")
             .WithSummary("Enables a role");
 
@@ -92,6 +94,7 @@ internal static class RolesApi
             .Produces(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
             .WithName("SetRolePermissions")
             .WithSummary("Sets the permissions for a role, replacing any existing permissions");
 

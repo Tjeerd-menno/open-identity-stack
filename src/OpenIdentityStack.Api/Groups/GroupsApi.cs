@@ -74,6 +74,7 @@ internal static class GroupsApi
             .Produces(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
             .WithName("AddGroupMember")
             .WithSummary("Adds a user to a group");
 
@@ -99,6 +100,7 @@ internal static class GroupsApi
             .Produces(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
             .WithName("AddGroupMapping")
             .WithSummary("Adds a mapping (role or claim) to a group");
 
