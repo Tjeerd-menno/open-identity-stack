@@ -84,7 +84,7 @@ export function CutoverReadinessPage() {
           {data.administrativeClients.map((client) => <Table.Tr key={client.id}><Table.Td>{client.clientId}</Table.Td><Table.Td>{client.active ? 'Active' : 'Disabled'} · {client.approved ? 'Approved' : 'Unapproved'}{client.requiresMigrationReview ? ' · Migration review required' : ''}</Table.Td><Table.Td>{client.delegatedPermissions.join(', ') || 'None'}</Table.Td><Table.Td>{client.applicationPermissions.join(', ') || 'None'}</Table.Td></Table.Tr>)}
         </Table.Tbody></Table></SectionCard>
         <Text>Outstanding access tokens: {data.outstandingAccessTokens}. Latest known expiry: {data.latestAccessTokenExpiry ?? 'None'}. Offline validators and relying-party sessions are not globally recalled.</Text>
-        {data.businessResources.map((resource) => <ResourceReview key={`${resource.resourceId}-${resource.revision}`} resource={resource} refresh={refresh} />)}
+        {data.businessResources.map((resource) => <ResourceReview key={`${resource.resourceId}-${resource.revision}-${resource.reviewedAt ?? 'unreviewed'}`} resource={resource} refresh={refresh} />)}
         <SectionCard title="Execute cutover"><Stack>
           <Checkbox checked={acknowledged} onChange={(event) => setAcknowledged(event.currentTarget.checked)} label="I accept that all existing sessions and credentials will be invalidated, and accept the reviewed external residual windows." />
           {execute.isError && <ErrorState message={getApiErrorMessage(execute.error)} />}
