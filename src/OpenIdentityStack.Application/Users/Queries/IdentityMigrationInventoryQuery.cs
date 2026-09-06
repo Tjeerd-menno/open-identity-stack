@@ -34,7 +34,7 @@ public sealed class IdentityMigrationInventoryQueryHandler(IUserRepository users
         var inventory = items.Select(user =>
         {
             bool blocked = user.UpstreamIdentities.Any(identity => identity.IsQuarantined);
-            bool enabled = user.Status != UserStatus.Disabled;
+            bool enabled = user.Status == UserStatus.Active;
             Guid[] candidateProviders = user.UpstreamIdentities
                 .Where(identity => enabled && !identity.IsQuarantined && activeProviders.Any(provider => provider.Id == identity.ProviderId && provider.BoundIssuer == identity.Issuer))
                 .Select(identity => identity.ProviderId.Value).ToArray();

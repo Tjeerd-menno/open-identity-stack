@@ -8,14 +8,19 @@ namespace OpenIdentityStack.Application.Tests.Users;
 
 public sealed class IdentityMigrationInventoryQueryHandlerTests
 {
-    [Fact]
-    public async Task PasswordPresence_RemainsOnlyACandidateAndDoesNotClearMigrationBlock()
+    [Theory]
+    [InlineData(UserStatus.Active)]
+    [InlineData(UserStatus.PendingVerification)]
+    [InlineData(UserStatus.Disabled)]
+    public async Task PasswordPresence_RemainsOnlyACandidateAndDoesNotClearMigrationBlock(UserStatus status)
     {
         IUserRepository users = Substitute.For<IUserRepository>();
         IUpstreamProviderRepository providers = Substitute.For<IUpstreamProviderRepository>();
         IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         User user = User.CreateLocal("candidate@example.com", "Candidate", "password-hash", clock).Value;
+        if (status != UserStatus.PendingVerification) { user.VerifyEmail(clock).IsSuccess.ShouldBeTrue(); }
+        if (status == UserStatus.Disabled) { user.Disable("Disabled", clock).IsSuccess.ShouldBeTrue(); }
         user.LinkUpstreamIdentity(UpstreamProviderId.Create(), "legacy", "legacy-subject", null);
         users.ListWithUpstreamIdentitiesAsync(1, 20, null, Arg.Any<CancellationToken>()).Returns(((IReadOnlyList<User>)[user], 1));
         providers.GetActiveProvidersAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<UpstreamProvider>());
@@ -24,7 +29,7 @@ public sealed class IdentityMigrationInventoryQueryHandlerTests
         IdentityMigrationUser item = result.Value.Items.Single();
         item.HasPasswordCredential.ShouldBeTrue();
         item.MigrationBlocked.ShouldBeTrue();
-        item.RecoveryRequired.ShouldBeFalse();
+        item.RecoveryRequired.ShouldBe(status != UserStatus.Active);
         item.Identities.Single().AssociationEvidence.ShouldBe("Unknown");
     }
 
