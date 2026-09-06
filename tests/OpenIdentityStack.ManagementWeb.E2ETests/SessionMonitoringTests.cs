@@ -23,7 +23,21 @@ public sealed class SessionMonitoringTests(ManagementWebAppHostFixture fixture) 
             """);
         state.ShouldNotBeNullOrEmpty();
         IFrame monitor = await AddMonitorAsync(Page, opOrigin);
-        (await CheckAsync(Page, opOrigin, state)).ShouldBe("unchanged");
+        int pollRequests = 0;
+        Page.Request += (_, request) =>
+        {
+            if (request.Url.EndsWith("/connect/check_session", StringComparison.OrdinalIgnoreCase)
+                && request.Headers.ContainsKey("x-ois-session-poll"))
+            {
+                Interlocked.Increment(ref pollRequests);
+            }
+        };
+        string[] burst = await CheckBurstAsync(Page, opOrigin, state, count: 20);
+        burst.ShouldAllBe(result => result == "unchanged");
+        pollRequests.ShouldBeLessThanOrEqualTo(1);
+        string[] repeatedBurst = await CheckBurstAsync(Page, opOrigin, state, count: 20);
+        repeatedBurst.ShouldAllBe(result => result == "unchanged");
+        pollRequests.ShouldBeLessThanOrEqualTo(2);
         (await CheckAsync(Page, opOrigin, state, "other-client")).ShouldBe("changed");
         IPage otherOrigin = await Context.NewPageAsync();
         await otherOrigin.GotoAsync(opOrigin + "/Account/Login");
@@ -77,5 +91,30 @@ public sealed class SessionMonitoringTests(ManagementWebAppHostFixture fixture) 
             """, new { origin, state, clientId });
         await page.WaitForFunctionAsync("() => typeof window.sessionMonitorResult === 'string'");
         return await page.EvaluateAsync<string>("() => window.sessionMonitorResult");
+    }
+
+    private static async Task<string[]> CheckBurstAsync(IPage page, string origin, string state, int count)
+    {
+        await page.EvaluateAsync("""
+            ({ origin, state, count }) => {
+                window.sessionMonitorResults = [];
+                const monitor = document.getElementById('op-session-monitor').contentWindow;
+                const receive = event => {
+                    if (event.source === monitor && event.origin === origin &&
+                        ['changed', 'unchanged', 'error'].includes(event.data)) {
+                        window.sessionMonitorResults.push(event.data);
+                        if (window.sessionMonitorResults.length === count) {
+                            window.removeEventListener('message', receive);
+                        }
+                    }
+                };
+                window.addEventListener('message', receive);
+                for (let index = 0; index < count; index++) {
+                    monitor.postMessage('management-web-client ' + state, origin);
+                }
+            }
+            """, new { origin, state, count });
+        await page.WaitForFunctionAsync("count => window.sessionMonitorResults?.length === count", count);
+        return await page.EvaluateAsync<string[]>("() => window.sessionMonitorResults");
     }
 }
