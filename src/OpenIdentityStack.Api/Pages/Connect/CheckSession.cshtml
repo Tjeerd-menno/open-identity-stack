@@ -14,6 +14,10 @@
     (function () {
         "use strict";
         const sessionCookieName = "@Model.SessionCookieName";
+        const validationFreshnessMilliseconds = 250;
+        let validationPromise = null;
+        let lastValidationAt = 0;
+        let lastValidationSucceeded = false;
 
         function getCookie(name) {
             const cookies = document.cookie ? document.cookie.split(";") : [];
@@ -41,6 +45,29 @@
             return `${base64UrlEncode(hash)}.${salt}`;
         }
 
+        function validateServerSession() {
+            if (validationPromise) {
+                return validationPromise;
+            }
+
+            if (lastValidationAt !== 0 && Date.now() - lastValidationAt < validationFreshnessMilliseconds) {
+                return Promise.resolve(lastValidationSucceeded);
+            }
+
+            validationPromise = fetch(window.location.href, {
+                cache: "no-store",
+                credentials: "include",
+                headers: { "X-OIS-Session-Poll": "1" }
+            }).then(response => response.ok, () => false).then(succeeded => {
+                lastValidationSucceeded = succeeded;
+                lastValidationAt = Date.now();
+                return succeeded;
+            }).finally(() => {
+                validationPromise = null;
+            });
+            return validationPromise;
+        }
+
         window.addEventListener("message", async (event) => {
             if (typeof event.data !== "string") {
                 return;
@@ -55,6 +82,13 @@
             const [clientId, sessionState] = parts;
             const salt = sessionState.split(".")[1];
             if (!clientId || !salt) {
+                event.source?.postMessage("error", event.origin);
+                return;
+            }
+
+            // The iframe is retained by the RP. Re-run server-side validation for every
+            // standard poll so persisted revocation can expire the non-HttpOnly marker.
+            if (!await validateServerSession()) {
                 event.source?.postMessage("error", event.origin);
                 return;
             }

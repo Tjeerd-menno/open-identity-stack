@@ -13,12 +13,15 @@ type MockOidcUser = {
 let storedUser: MockOidcUser | null;
 let loadedCallback: ((user: MockOidcUser) => void) | null;
 let signoutRedirect: ReturnType<typeof vi.fn>;
+let signinRedirect: ReturnType<typeof vi.fn>;
+let removeUser: ReturnType<typeof vi.fn>;
 
 vi.mock('oidc-client-ts', () => ({
   WebStorageStateStore: vi.fn(),
   UserManager: vi.fn(function UserManagerMock(this: Record<string, unknown>) {
     this.getUser = vi.fn(async () => storedUser);
-    this.signinRedirect = vi.fn();
+    this.signinRedirect = signinRedirect;
+    this.removeUser = removeUser;
     this.signinCallback = vi.fn();
     this.signoutRedirect = signoutRedirect;
     this.events = {
@@ -61,6 +64,8 @@ describe('AuthProvider current user permissions', () => {
     };
     loadedCallback = null;
     signoutRedirect = vi.fn(async () => {});
+    signinRedirect = vi.fn(async () => {});
+    removeUser = vi.fn(async () => { storedUser = null; });
     resetApiMocks();
     mockApi.currentUser.getCurrentUser.mockResolvedValue({
       subject: 'user-123',
@@ -119,7 +124,7 @@ describe('AuthProvider current user permissions', () => {
     expect(screen.getByTestId('permissions')).toHaveTextContent('roles:read');
   });
 
-  it('starts logout when /api/me returns 401', async () => {
+  it('clears rejected credentials and requires fresh authentication when /api/me returns 401', async () => {
     mockApi.currentUser.getCurrentUser.mockRejectedValue({ status: 401, title: 'Unauthorized' });
 
     renderManagementWeb(
@@ -128,7 +133,9 @@ describe('AuthProvider current user permissions', () => {
       </AuthProvider>
     );
 
-    await waitFor(() => expect(signoutRedirect).toHaveBeenCalledOnce());
+    await waitFor(() => expect(signinRedirect).toHaveBeenCalledWith({ prompt: 'login', max_age: 0 }));
+    expect(removeUser).toHaveBeenCalledOnce();
+    expect(signoutRedirect).not.toHaveBeenCalled();
   });
 
   it('shows an explicit error when /api/me fails without 401', async () => {

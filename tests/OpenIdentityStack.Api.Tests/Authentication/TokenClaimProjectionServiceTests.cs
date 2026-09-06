@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Domain.Common;
+using OpenIdentityStack.Domain.Federation;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Users;
 using OpenIddict.Abstractions;
@@ -129,6 +130,36 @@ public sealed class TokenClaimProjectionServiceTests
 
         this.service.ProjectExistingPrincipal(principal, persistedUser: user)
             .GetClaim("ois_credential_revision").ShouldBe(captured);
+    }
+
+    [Fact]
+    public void RefreshUpgradesValidatedRevisionlessLegacyCredentialToEmptyRevision()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
+
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: user);
+
+        projected.GetClaim("ois_credential_revision").ShouldBe(Guid.Empty.ToString());
+        projected.FindFirst("ois_credential_revision")!.GetDestinations()
+            .ShouldBe([OpenIddictConstants.Destinations.AccessToken]);
+    }
+
+    [Fact]
+    public void RefreshDoesNotLaunderRevisionlessCredentialAfterWithdrawal()
+    {
+        User user = CreateUser();
+        UpstreamProvider provider = UpstreamProvider.Create(
+            "provider", "Provider", "https://issuer.example", "client").Value;
+        provider.SetEmailVerificationTrust(true);
+        user.RecordProviderEmailVerification(provider, "https://issuer.example", user.Email, true, this.dateTimeProvider.UtcNow);
+        user.WithdrawProviderEmailVerification(provider.Id.Value, this.dateTimeProvider.UtcNow).ShouldBeTrue();
+        user.CredentialRevision.ShouldNotBe(Guid.Empty);
+
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(
+            CreateCookiePrincipal(user.Id.Value), persistedUser: user);
+
+        projected.GetClaim("ois_credential_revision").ShouldBeNull();
     }
 
     [Fact]

@@ -7,10 +7,13 @@ namespace OpenIdentityStack.Api.Configuration;
 
 /// <summary>
 /// Configures fixed-window rate limiting for interactive login, the token endpoint,
-/// and token introspection. Limits are effectively disabled in Development and Testing.
+/// token introspection, and session monitoring. Authentication limits are effectively
+/// disabled in Development and Testing; session monitoring remains bounded in every environment.
 /// </summary>
 public static class RateLimitingConfiguration
 {
+    public const string CheckSessionPolicy = "CheckSession";
+
     public static IServiceCollection AddConfiguredRateLimiting(
         this IServiceCollection services,
         IHostEnvironment environment)
@@ -36,6 +39,16 @@ public static class RateLimitingConfiguration
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = disableRateLimiting ? int.MaxValue : 30,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+
+            options.AddPolicy(CheckSessionPolicy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    GetClientPartitionKey(httpContext, "check-session"),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = environment.IsEnvironment("Testing") ? 3 : 300,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0
                     }));

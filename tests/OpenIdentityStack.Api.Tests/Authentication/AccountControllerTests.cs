@@ -32,6 +32,7 @@ public class AccountControllerTests : IDisposable
     private readonly AccountController _controller;
     private readonly IAuthenticationService _authService;
     private readonly IAuditLog audit = Substitute.For<IAuditLog>();
+    private readonly ISessionMonitoringCookieService sessionMonitoringCookies = Substitute.For<ISessionMonitoringCookieService>();
 
     public AccountControllerTests()
     {
@@ -52,6 +53,10 @@ public class AccountControllerTests : IDisposable
         this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(defaultSettings));
 
+        ICredentialBoundaryStore boundary = Substitute.For<ICredentialBoundaryStore>();
+        boundary.IsCurrentAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(true);
+        this.sessionMonitoringCookies.Create(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset>())
+            .Returns("protected-session-cookie");
         this._controller = new AccountController(
             this._validateCredentialsUseCase,
             this._createSessionUseCase,
@@ -60,7 +65,10 @@ public class AccountControllerTests : IDisposable
             this._permissionChecker,
             this._userRepository,
             this._schemeService,
-            this._jitProvisionUseCase, this.audit);
+            this._jitProvisionUseCase,
+            this.audit,
+            boundary,
+            this.sessionMonitoringCookies);
 
         this.SetupHttpContext();
     }
@@ -99,6 +107,38 @@ public class AccountControllerTests : IDisposable
             Arg.Is<string>(details => details.Contains(providerId.Value.ToString(), StringComparison.Ordinal)), Arg.Any<CancellationToken>());
         await this._createSessionUseCase.DidNotReceive().ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>());
         await this._authService.DidNotReceive().SignInAsync(Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
+        this.sessionMonitoringCookies.DidNotReceive().Create(
+            Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset>());
+    }
+
+    [Fact]
+    public async Task ExternalLoginCallback_WithPersistedSessionIssuesProtectedMonitoringCookie()
+    {
+        var providerId = Domain.Federation.UpstreamProviderId.Create();
+        Domain.Users.User user = Domain.Users.User.CreateFederated(
+            "external@example.com", "External", providerId, "provider", "subject").Value;
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "subject")], "ExternalCookie"));
+        var properties = new AuthenticationProperties(new Dictionary<string, string?>
+        {
+            [ExternalIdentityProperties.ProviderId] = providerId.Value.ToString(),
+            [ExternalIdentityProperties.ProviderName] = "provider",
+            [ExternalIdentityProperties.ValidatedIssuer] = "https://issuer.example",
+            [ExternalIdentityProperties.Authority] = "https://issuer.example"
+        });
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie")
+            .Returns(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "ExternalCookie")));
+        this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new JitProvisionUserResult(user.Id, false, user.Email, user.DisplayName));
+        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        var sessionId = SessionId.Create();
+        this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new CreateSessionResult(sessionId));
+
+        (await this._controller.ExternalLoginCallback("provider")).ShouldBeOfType<RedirectResult>();
+
+        this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=protected-session-cookie");
+        this.sessionMonitoringCookies.Received(1).Create(
+            user.Id, sessionId, Guid.Empty, Arg.Any<DateTimeOffset>());
     }
 
     [Theory]
@@ -430,6 +470,9 @@ public class AccountControllerTests : IDisposable
             "Cookies",
             Arg.Any<ClaimsPrincipal>(),
             Arg.Any<AuthenticationProperties>());
+        this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=protected-session-cookie");
+        this.sessionMonitoringCookies.Received(1).Create(
+            userId, sessionId, Arg.Any<Guid>(), Arg.Any<DateTimeOffset>());
     }
 
     [Fact]
@@ -606,7 +649,7 @@ public class AccountControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Login_Post_WhenSessionCreationFails_StillSignsIn()
+    public async Task Login_Post_WhenSessionCreationFails_DoesNotSignIn()
     {
         // Arrange
         var model = new LoginViewModel { Email = "user@example.com", Password = "correct" };
@@ -622,41 +665,46 @@ public class AccountControllerTests : IDisposable
         IActionResult result = await this._controller.Login(model);
 
         // Assert
-        // Should still redirect to home (login succeeded, session creation is optional)
-        RedirectResult redirectResult = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/", redirectResult.Url);
-
-        await this._authService.Received(1).SignInAsync(
-            Arg.Any<HttpContext>(),
-            "Cookies",
-            Arg.Any<ClaimsPrincipal>(),
-            Arg.Any<AuthenticationProperties>());
+        ViewResult view = Assert.IsType<ViewResult>(result);
+        view.Model.ShouldBe(model);
+        this._controller.ModelState[string.Empty]!.Errors.ShouldContain(error => error.ErrorMessage.Contains("Unable to complete sign-in", StringComparison.Ordinal));
+        await this._authService.DidNotReceive().SignInAsync(
+            Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
+        this._controller.Response.Headers.SetCookie.ToString().ShouldNotContain("op_session=");
+        this.sessionMonitoringCookies.DidNotReceive().Create(
+            Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset>());
     }
 
     [Fact]
-    public async Task Login_Post_WhenSessionCreationFails_DoesNotIncludeSessionIdClaim()
+    public async Task ExternalLoginCallback_WhenSessionCreationFails_DoesNotSignIn()
     {
-        // Arrange
-        var model = new LoginViewModel { Email = "user@example.com", Password = "correct" };
-        var userId = UserId.Create();
-        ClaimsPrincipal? capturedPrincipal = null;
-
-        this._validateCredentialsUseCase.ExecuteAsync(Arg.Any<ValidateUserCredentialsCommand>(), Arg.Any<CancellationToken>())
-            .Returns(new ValidateUserCredentialsResult(userId, "user@example.com", "Test User"));
-
+        var providerId = Domain.Federation.UpstreamProviderId.Create();
+        Domain.Users.User user = Domain.Users.User.CreateFederated(
+            "external@example.com", "External", providerId, "provider", "subject").Value;
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "subject")], "ExternalCookie"));
+        var properties = new AuthenticationProperties(new Dictionary<string, string?>
+        {
+            [ExternalIdentityProperties.ProviderId] = providerId.Value.ToString(),
+            [ExternalIdentityProperties.ProviderName] = "provider",
+            [ExternalIdentityProperties.ValidatedIssuer] = "https://issuer.example",
+            [ExternalIdentityProperties.Authority] = "https://issuer.example"
+        });
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie")
+            .Returns(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "ExternalCookie")));
+        this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new JitProvisionUserResult(user.Id, false, user.Email, user.DisplayName));
+        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
             .Returns(DomainError.Failure("Session.CreateFailed", "Failed to create session"));
 
-        this._authService.SignInAsync(Arg.Any<HttpContext>(), Arg.Any<string>(), Arg.Do<ClaimsPrincipal>(p => capturedPrincipal = p), Arg.Any<AuthenticationProperties>())
-            .Returns(Task.CompletedTask);
+        IActionResult result = await this._controller.ExternalLoginCallback("provider");
 
-        // Act
-        await this._controller.Login(model);
-
-        // Assert
-        Assert.NotNull(capturedPrincipal);
-        Claim? sessionClaim = capturedPrincipal.FindFirst("session_id");
-        Assert.Null(sessionClaim);
+        RedirectToActionResult redirect = result.ShouldBeOfType<RedirectToActionResult>();
+        redirect.RouteValues!["error"].ShouldBe("external_auth_failed");
+        await this._authService.DidNotReceive().SignInAsync(
+            Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
+        this.sessionMonitoringCookies.DidNotReceive().Create(
+            Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset>());
     }
 
     [Fact]

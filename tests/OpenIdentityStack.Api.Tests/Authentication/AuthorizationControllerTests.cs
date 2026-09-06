@@ -1250,8 +1250,10 @@ public class AuthorizationControllerTests
         Assert.DoesNotContain(signIn.Principal!.Claims, claim => claim.Type == OpenIddictConstants.Claims.AuthenticationTime);
     }
 
-    [Fact]
-    public async Task Exchange_RefreshToken_WithInvalidSession_ReturnsForbid()
+    [Theory]
+    [InlineData("Revoked")]
+    [InlineData("Session not found")]
+    public async Task Exchange_RefreshToken_WithInvalidSession_ReturnsForbid(string reason)
     {
         // Arrange
         var request = new OpenIddictRequest
@@ -1268,7 +1270,7 @@ public class AuthorizationControllerTests
         this.SetupMockServices(principal);
 
         this._validateSessionQueryHandler.HandleAsync(Arg.Is<ValidateSessionQuery>(q => q!.SessionId == sessionId), Arg.Any<CancellationToken>())
-            .Returns(new ValidateSessionResult(false, "Revoked"));
+            .Returns(new ValidateSessionResult(false, reason));
 
         // Act
         IActionResult result = await this._controller.Exchange();
@@ -1407,6 +1409,97 @@ public class AuthorizationControllerTests
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result);
         Dictionary<string, object> claims_result = Assert.IsType<Dictionary<string, object>>(ok.Value);
         Assert.Equal("8584eb76-59b6-4a7b-a24e-815310862c59", claims_result[OpenIddictConstants.Claims.Subject]);
+    }
+
+    [Fact]
+    public async Task UserInfo_RevisionlessLegacyUserUsesPersistedVerificationEvidence()
+    {
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        User user = User.CreateLocal("verified@example.test", "Verified", "fixture-hash", clock).Value;
+        user.VerifyEmail(clock).IsSuccess.ShouldBeTrue();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(OpenIddictConstants.Claims.Subject, user.Id.Value.ToString()),
+            new Claim(OpenIddictConstants.Claims.ClientId, "legacy-human-client"),
+            new Claim(OpenIddictConstants.Claims.Email, "stale@example.test")
+        ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
+        principal.SetScopes(OpenIddictConstants.Scopes.Email);
+        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this.SetupMockServices(principal);
+
+        OkObjectResult result = (await this._controller.UserInfo()).ShouldBeOfType<OkObjectResult>();
+
+        Dictionary<string, object> claims = result.Value.ShouldBeOfType<Dictionary<string, object>>();
+        claims[OpenIddictConstants.Claims.Email].ShouldBe(user.Email);
+        claims[OpenIddictConstants.Claims.EmailVerified].ShouldBe(true);
+    }
+
+    [Fact]
+    public async Task UserInfo_RevisionlessUntaggedApplicationSubjectMatchingUserFailsClosed()
+    {
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        User collidingUser = User.CreateLocal("collision@example.test", "Collision", "fixture-hash", clock).Value;
+        string clientId = collidingUser.Id.Value.ToString();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(OpenIddictConstants.Claims.Subject, clientId),
+            new Claim(OpenIddictConstants.Claims.ClientId, clientId)
+        ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
+        object application = new();
+#pragma warning disable CA2012
+        this._applicationManager.FindByClientIdAsync(clientId, Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<object?>(application));
+#pragma warning restore CA2012
+        this._userRepository.GetByIdAsync(collidingUser.Id, Arg.Any<CancellationToken>()).Returns(collidingUser);
+        this.SetupMockServices(principal);
+
+        (await this._controller.UserInfo()).ShouldBeOfType<ChallengeResult>();
+        await this._userRepository.DidNotReceive()
+            .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UserInfo_ValidApplicationSubjectIsNeverResolvedAsGuidUser()
+    {
+        string applicationId = Guid.NewGuid().ToString();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(OpenIddictConstants.Claims.Subject, applicationId),
+            new Claim(OpenIddictConstants.Claims.ClientId, applicationId),
+            new Claim(TokenSubjectClaims.Kind, TokenSubjectClaims.Application)
+        ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
+        this.SetupMockServices(principal);
+
+        (await this._controller.UserInfo()).ShouldBeOfType<OkObjectResult>();
+        await this._userRepository.DidNotReceive()
+            .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("duplicate")]
+    [InlineData("unexpected")]
+    [InlineData("mismatch")]
+    [InlineData("revision")]
+    public async Task UserInfo_MalformedApplicationSubjectFailsClosed(string malformed)
+    {
+        string subject = Guid.NewGuid().ToString();
+        string clientId = malformed == "mismatch" ? Guid.NewGuid().ToString() : subject;
+        var claims = new List<Claim>
+        {
+            new(OpenIddictConstants.Claims.Subject, subject),
+            new(OpenIddictConstants.Claims.ClientId, clientId),
+            new(TokenSubjectClaims.Kind, malformed == "unexpected" ? "user" : TokenSubjectClaims.Application)
+        };
+        if (malformed == "duplicate") { claims.Add(new Claim(TokenSubjectClaims.Kind, TokenSubjectClaims.Application)); }
+        if (malformed == "revision") { claims.Add(new Claim(UserCredentialClaims.Revision, Guid.Empty.ToString())); }
+        this.SetupMockServices(new ClaimsPrincipal(new ClaimsIdentity(
+            claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)));
+
+        (await this._controller.UserInfo()).ShouldBeOfType<ChallengeResult>();
+        await this._userRepository.DidNotReceive()
+            .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
