@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Applications;
 using OpenIdentityStack.Application.Applications.Commands;
+using OpenIdentityStack.Application.Applications.Queries;
 using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Domain.Resources;
 using OpenIdentityStack.Infrastructure.Persistence;
@@ -64,7 +65,7 @@ public sealed class AdministrativeClientConcurrencyTests(AdministrativeAuthority
     }
 
     [Fact]
-    public async Task ActualAdminWorkflowRejectsEnableWhenClientGainsAdministrativeGrantAfterRead()
+    public async Task ActualAdminWorkflowReturnsConflictWhenClientGainsAdministrativeGrantAfterRead()
     {
         IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
@@ -100,7 +101,10 @@ public sealed class AdministrativeClientConcurrencyTests(AdministrativeAuthority
                 Substitute.For<IApplicationProtocolProjectionTransaction>()),
             new ApplicationCredentialUseCases(repository, projection, hasher, clock, audit, guard));
 
-        await Should.ThrowAsync<DbUpdateConcurrencyException>(() => workflow.EnableAsync(new(client.Id)));
+        Result<ApplicationDetails> result = await workflow.EnableAsync(new(client.Id));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.SaveConflict");
 
         await using OpenIdentityStackDbContext verification = fixture.CreateDbContext();
         (await verification.Applications.SingleAsync(value => value.Id == client.Id)).Status.ShouldBe(ApplicationStatus.Disabled);
