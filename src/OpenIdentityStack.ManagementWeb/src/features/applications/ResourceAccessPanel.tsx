@@ -8,6 +8,10 @@ import { api, getApiErrorMessage } from '@/lib/api';
 const lines = (value: string) => [...new Set(value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean))];
 
 export function ResourceAccessPanel({ applicationId, canWrite }: { applicationId: string; canWrite: boolean }) {
+  return <ResourceAccessPanelForApplication key={applicationId} applicationId={applicationId} canWrite={canWrite} />;
+}
+
+function ResourceAccessPanelForApplication({ applicationId, canWrite }: { applicationId: string; canWrite: boolean }) {
   const queryClient = useQueryClient();
   const resources = useQuery({ queryKey: ['protected-resources'], queryFn: () => api.applications.listProtectedResources() });
   const grants = useQuery({ queryKey: ['application', applicationId, 'resource-grants'], queryFn: () => api.applications.listClientResourceGrants(applicationId) });

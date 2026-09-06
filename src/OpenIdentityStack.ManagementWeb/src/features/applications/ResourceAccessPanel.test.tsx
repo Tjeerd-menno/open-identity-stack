@@ -1,5 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { renderManagementWeb } from '@/test/render';
 import { mockApi, resetApiMocks } from '@/test/mock-api';
@@ -50,6 +51,41 @@ it('prevents switching resources while a grant save is pending', async () => {
   await waitFor(() => expect(selector).toBeDisabled());
   completeSave({ revision: 4 });
   await waitFor(() => expect(selector).toBeEnabled());
+});
+
+it('clears grant editing state while grants for a different application load', async () => {
+  const user = userEvent.setup();
+  let completeSecondLoad!: (value: Array<{ resourceId: string; delegatedPermissions: string[]; applicationPermissions: string[]; revision: number }>) => void;
+  mockApi.applications.listClientResourceGrants.mockImplementation((applicationId) => applicationId === 'client-one'
+    ? Promise.resolve([{ resourceId: 'resource', delegatedPermissions: ['orders:first:read'], applicationPermissions: [], revision: 3 }])
+    : new Promise((resolve) => { completeSecondLoad = resolve; }));
+  function SwitchingPanel() {
+    const [applicationId, setApplicationId] = useState('client-one');
+    return <>
+      <button onClick={() => setApplicationId('client-two')}>Switch application</button>
+      <ResourceAccessPanel applicationId={applicationId} canWrite />
+    </>;
+  }
+  renderManagementWeb(<SwitchingPanel />);
+  const selector = screen.getByRole('combobox', { name: 'Protected resource' });
+  await waitFor(() => expect(selector).toBeEnabled());
+  await user.click(selector);
+  await user.keyboard('{ArrowDown}{Enter}');
+  expect(screen.getByLabelText('Delegated permission ceiling')).toHaveValue('orders:first:read');
+  await user.click(screen.getByRole('button', { name: 'Add protected resource' }));
+  expect(screen.getByRole('dialog', { name: 'Add protected resource' })).toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Switch application' }));
+
+  const switchedSelector = screen.getByRole('combobox', { name: 'Protected resource' });
+  expect(switchedSelector).toHaveValue('');
+  expect(screen.queryByRole('dialog', { name: 'Add protected resource' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Save resource grant' })).not.toBeInTheDocument();
+  completeSecondLoad([{ resourceId: 'resource', delegatedPermissions: ['orders:second:read'], applicationPermissions: [], revision: 9 }]);
+  await waitFor(() => expect(switchedSelector).toBeEnabled());
+  await user.click(switchedSelector);
+  await user.keyboard('{ArrowDown}{Enter}');
+  expect(screen.getByLabelText('Delegated permission ceiling')).toHaveValue('orders:second:read');
 });
 
 it('requires the dedicated administrative workflow even for application writers', async () => {
