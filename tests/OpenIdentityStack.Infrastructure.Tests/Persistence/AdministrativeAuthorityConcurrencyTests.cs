@@ -16,6 +16,30 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class AdministrativeAuthorityConcurrencyTests(AdministrativeAuthorityTestFixture fixture) : IClassFixture<AdministrativeAuthorityTestFixture>
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailedFencedSavePreservesCallerTransactionAndPriorWrites(bool asynchronous)
+    {
+        await using OpenIdentityStackDbContext db = fixture.CreateDbContext();
+        await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await db.Database.BeginTransactionAsync();
+        Role prior = Role.Create($"prior-{Guid.NewGuid():N}", null).Value;
+        db.Roles.Add(prior);
+        await db.SaveChangesAsync();
+        long revision = await db.Set<AdministrativeAuthorityRevision>().Select(value => value.Revision).SingleAsync();
+        db.Roles.Add(Role.Create(prior.Name, null).Value);
+
+        if (asynchronous) { await Should.ThrowAsync<DbUpdateException>(() => db.SaveChangesAsync()); }
+        else { Should.Throw<DbUpdateException>(() => db.SaveChanges()); }
+
+        db.Database.CurrentTransaction.ShouldBeSameAs(transaction);
+        (await db.Roles.AnyAsync(value => value.Id == prior.Id)).ShouldBeTrue();
+        (await db.Set<AdministrativeAuthorityRevision>().Select(value => value.Revision).SingleAsync()).ShouldBe(revision);
+        await transaction.CommitAsync();
+        await using OpenIdentityStackDbContext verify = fixture.CreateDbContext();
+        (await verify.Roles.CountAsync(value => value.Name == prior.Name)).ShouldBe(1);
+    }
+
     [Fact]
     public async Task SnapshotDropsCachedStateWhenChangeCommittedBeforeCapture()
     {

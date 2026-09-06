@@ -7,12 +7,15 @@ public static class ReservedGroupClaimTypes
     {
         "sub", "iss", "aud", "azp", "client_id", "scope", "scp", "permission", "permissions",
         "role", "roles", "auth_time", "amr", "acr", "sid", "session_id", "exp", "iat", "nbf", "jti",
-        "email", "email_verified", "ois_human_authenticated_at", "auth_method", "provider",
+        "email", "email_verified", "phone_number_verified", "ois_human_authenticated_at", "auth_method", "provider",
         "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
         "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
     };
 
-    public static bool IsReserved(string claimType) =>
-        reserved.Contains(claimType.Trim()) || claimType.StartsWith("oi_", StringComparison.OrdinalIgnoreCase) ||
+    public static bool IsReserved(string claimType)
+    {
+        claimType = claimType.Trim();
+        return reserved.Contains(claimType) || claimType.StartsWith("oi_", StringComparison.OrdinalIgnoreCase) ||
         claimType.StartsWith("ois_", StringComparison.OrdinalIgnoreCase) || claimType.StartsWith("ois.", StringComparison.OrdinalIgnoreCase);
+    }
 }

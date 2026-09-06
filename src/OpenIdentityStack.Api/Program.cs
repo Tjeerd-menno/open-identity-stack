@@ -201,20 +201,7 @@ if (app.Environment.IsDevelopment())
 // Authentication and Authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
-app.Use(async (context, next) =>
-{
-    IAdministrativeApproval approval = context.RequestServices.GetRequiredService<IAdministrativeApproval>();
-    try
-    {
-        await next(context);
-        await approval.RecordOutcomeAsync(context.Response.StatusCode < 400, CancellationToken.None);
-    }
-    catch
-    {
-        await approval.RecordOutcomeAsync(false, CancellationToken.None);
-        throw;
-    }
-});
+app.UseMiddleware<AdministrativeApprovalOutcomeMiddleware>();
 
 // Map MVC Controllers for authentication endpoints (/connect/*, /Account/*)
 // These handle OpenIddict OAuth2/OIDC flows and login UI

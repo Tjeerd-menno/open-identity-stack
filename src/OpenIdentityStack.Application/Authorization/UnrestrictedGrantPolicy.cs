@@ -11,9 +11,11 @@ public sealed class UnrestrictedGrantPolicy(IRoleRepository roles)
 
     public async Task<bool> RoleIsUnrestrictedAsync(string roleName, CancellationToken cancellationToken)
     {
-        OpenIdentityStack.Domain.Roles.Role? role = Guid.TryParse(roleName, out Guid roleId)
-            ? await roles.GetByIdAsync(new RoleId(roleId), cancellationToken)
-            : await roles.GetByNameAsync(roleName, cancellationToken);
+        OpenIdentityStack.Domain.Roles.Role? role = await roles.GetByNameAsync(roleName, cancellationToken);
+        if (role is null && Guid.TryParse(roleName, out Guid roleId))
+        {
+            role = await roles.GetByIdAsync(new RoleId(roleId), cancellationToken);
+        }
         return role is not null && IncludesAllPermissions(role.Permissions);
     }
 
