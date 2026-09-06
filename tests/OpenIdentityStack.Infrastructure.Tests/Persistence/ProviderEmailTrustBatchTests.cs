@@ -106,7 +106,7 @@ public sealed class ProviderEmailTrustBatchTests(FederationPolicyTestFixture fix
 
         await using (OpenIdentityStackDbContext writer = fixture.CreateDbContext())
         {
-            (await new ProviderEmailTrustStore(writer, Audit(writer))
+            (await new ProviderEmailTrustStore(writer, Audit(writer), Invalidator(writer))
                 .SetAsync(provider.Id, false, "operator", default)).IsSuccess.ShouldBeTrue();
         }
 
