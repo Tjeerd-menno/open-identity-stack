@@ -255,7 +255,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['users:update']
@@ -285,7 +285,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['users:update']
@@ -420,7 +420,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['roles:assign']
@@ -638,7 +638,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['groups:update']
@@ -709,7 +709,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['groups:update']
@@ -785,7 +785,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '409':
           description: Role name already exists
           content:
@@ -839,7 +839,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['roles:update']
@@ -884,10 +884,10 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
-      x-required-permissions: ['roles:update']
+      x-required-permissions: ['roles:write']
 
   /roles/{roleId}/permissions:
     parameters:
@@ -923,7 +923,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['roles:assign']
@@ -957,7 +957,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -1503,6 +1503,13 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
 
+    AdministrativeApprovalRequired:
+      description: Administrative approval is required or no longer valid
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/AdministrativeApprovalProblemDetails'
+
     NotFound:
       description: Resource not found
       content:
@@ -1531,6 +1538,22 @@ components:
             type: array
             items:
               type: string
+
+    AdministrativeApprovalProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          required: [errorCode]
+          discriminator:
+            propertyName: errorCode
+          properties:
+            errorCode:
+              type: string
+              enum:
+                - Forbidden.AdministrativeApproval.HumanRequired
+                - Forbidden.AdministrativeApproval.AuthorityRequired
+                - Forbidden.AdministrativeApproval.ReauthenticationRequired
+                - Forbidden.AdministrativeApproval.AcknowledgementRequired
 
     UserStatus:
       type: string

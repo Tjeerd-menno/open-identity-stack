@@ -13,7 +13,7 @@ public sealed class AdministrativeApprovalContractTests
     [InlineData("assignRoleToUser")]
     [InlineData("addGroupMember")]
     [InlineData("createGroupMapping")]
-    public void ApprovalProtectedMutationDocumentsForbiddenProblem(string operationId)
+    public void ApprovalProtectedMutationDocumentsApprovalProblem(string operationId)
     {
         string contract = ReadContract();
         int operation = contract.IndexOf($"operationId: {operationId}", StringComparison.Ordinal);
@@ -25,7 +25,35 @@ public sealed class AdministrativeApprovalContractTests
         string responseContract = contract[responses..operationEnd];
 
         responseContract.ShouldContain("        '403':");
-        responseContract.ShouldContain("$ref: '#/components/responses/Forbidden'");
+        responseContract.ShouldContain("$ref: '#/components/responses/AdministrativeApprovalRequired'");
+    }
+
+    [Fact]
+    public void ApprovalProblemDeclaresErrorCodeDiscriminatorAndSupportedCodes()
+    {
+        string contract = ReadContract();
+        int schema = contract.IndexOf("    AdministrativeApprovalProblemDetails:", StringComparison.Ordinal);
+        schema.ShouldBeGreaterThan(0);
+        string definition = contract[schema..];
+
+        definition.ShouldContain("required: [errorCode]");
+        definition.ShouldContain("propertyName: errorCode");
+        definition.ShouldContain("Forbidden.AdministrativeApproval.HumanRequired");
+        definition.ShouldContain("Forbidden.AdministrativeApproval.AuthorityRequired");
+        definition.ShouldContain("Forbidden.AdministrativeApproval.ReauthenticationRequired");
+        definition.ShouldContain("Forbidden.AdministrativeApproval.AcknowledgementRequired");
+    }
+
+    [Fact]
+    public void EnableRoleDocumentsRuntimeWritePermission()
+    {
+        string contract = ReadContract();
+        int operation = contract.IndexOf("operationId: enableRole", StringComparison.Ordinal);
+        operation.ShouldBeGreaterThan(0);
+        int operationEnd = contract.IndexOf("operationId:", operation + "operationId: enableRole".Length, StringComparison.Ordinal);
+        operationEnd.ShouldBeGreaterThan(operation);
+
+        contract[operation..operationEnd].ShouldContain("x-required-permissions: ['roles:write']");
     }
 
     private static string ReadContract()
