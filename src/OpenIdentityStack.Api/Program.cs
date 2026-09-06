@@ -99,6 +99,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPermissionPolicies();
 });
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, AdministrativeGrantRevisionHandler>();
 
 // T043: Configure CORS for Management Web
 // In development/testing, allow dynamic origins (Aspire assigns random ports)
