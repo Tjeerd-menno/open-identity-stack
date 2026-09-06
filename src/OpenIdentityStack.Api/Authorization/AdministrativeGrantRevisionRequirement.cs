@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using OpenIddict.Abstractions;
+using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Resources;
 using OpenIdentityStack.Domain.Resources;
 using OpenIdentityStack.Domain.Users;
@@ -55,7 +56,9 @@ public sealed class AdministrativeGrantRevisionHandler(IResourcePermissionServic
             audiences));
         if (current.IsFailure
             || !current.Value.GrantRevisions.TryGetValue(ProtectedResource.AdministrativeResourceId, out long currentRevision)
-            || currentRevision != tokenRevision)
+            || currentRevision != tokenRevision
+            || context.Requirements.OfType<PermissionRequirement>().Any(permissionRequirement =>
+                !current.Value.Permissions.Any(permission => Permissions.Matches(permission, permissionRequirement.Permission))))
         {
             return;
         }
