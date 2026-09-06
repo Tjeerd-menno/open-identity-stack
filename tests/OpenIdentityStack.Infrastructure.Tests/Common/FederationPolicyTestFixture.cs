@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 using OpenIdentityStack.Infrastructure.Persistence;
 
@@ -32,7 +33,9 @@ public sealed class FederationPolicyTestFixture : IAsyncLifetime
 
     public bool IsPostgres => this.postgres is not null;
 
-    public OpenIdentityStackDbContext CreateDbContext() => this.postgres is null ? this.sqlite.CreateDbContext() : new(this.postgres);
+    public OpenIdentityStackDbContext CreateDbContext(params IInterceptor[] interceptors) =>
+        new(new DbContextOptionsBuilder<OpenIdentityStackDbContext>(this.postgres ?? this.sqlite.Options)
+            .AddInterceptors(interceptors).Options);
 
     public async ValueTask DisposeAsync()
     {

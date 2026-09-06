@@ -28,12 +28,22 @@ public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext
         if (!trusted)
         {
             DateTimeOffset withdrawnAt = DateTimeOffset.UtcNow;
-            List<User> affectedUsers = await dbContext.Users
-                .Where(u => u.EmailVerificationEvidence.Any(e => e.ProviderId == providerId.Value && e.WithdrawnAt == null))
-                .ToListAsync(cancellationToken);
-            foreach (User user in affectedUsers)
+            while (true)
             {
-                user.WithdrawProviderEmailVerification(providerId.Value, withdrawnAt);
+                // Saved withdrawals leave the predicate, so no population-sized ID list or offset is needed.
+                List<User> affectedUsers = await dbContext.Users
+                    .Where(u => u.EmailVerificationEvidence.Any(e => e.ProviderId == providerId.Value && e.WithdrawnAt == null))
+                    .OrderBy(user => user.Id)
+                    .Take(100)
+                    .ToListAsync(cancellationToken);
+                if (affectedUsers.Count == 0) { break; }
+                foreach (User user in affectedUsers)
+                {
+                    user.WithdrawProviderEmailVerification(providerId.Value, withdrawnAt);
+                }
+                await dbContext.SaveChangesAsync(cancellationToken);
+                // The transaction and provider lock survive detachment; previous batches cannot accumulate in memory.
+                dbContext.ChangeTracker.Clear();
             }
         }
 
