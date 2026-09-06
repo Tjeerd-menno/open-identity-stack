@@ -42,6 +42,10 @@ public sealed class AdministrativeAccessWorkflow(
         {
             return ResourceAccessErrors.InvalidConfiguration;
         }
+        if (grant is null && request.DelegatedPermissions.Count == 0 && request.ApplicationPermissions.Count == 0)
+        {
+            return Map(null);
+        }
         bool expanded = grant is null
             || Expands(grant.DelegatedPermissions, request.DelegatedPermissions)
             || Expands(grant.ApplicationPermissions, request.ApplicationPermissions);
