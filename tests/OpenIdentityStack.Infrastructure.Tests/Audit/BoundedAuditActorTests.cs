@@ -19,7 +19,7 @@ public sealed class BoundedAuditActorTests(AdministrativeAuthorityTestFixture fi
         IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         IAuditLog audit = new AuditLogService(NullLogger<AuditLogService>.Instance, db, clock);
-        string actor = Guid.NewGuid().ToString("N").PadRight(length, 'x');
+        string actor = "client:" + Guid.NewGuid().ToString("N").PadRight(length, 'x');
         string entityId = Guid.NewGuid().ToString("N");
 
         await audit.LogAsync(actor, "Authority.Withdrawn", "Role", entityId);

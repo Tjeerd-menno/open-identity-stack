@@ -12,7 +12,10 @@ Delegated permissions are the intersection of the user's current permissions, th
 Authorization consults current resource projection once per request. Current client approval, active status, subject authority, and ceiling continue to constrain previously issued tokens. Reducing a ceiling cannot be undone by refreshing a token. A refresh cannot gain permissions absent from its original token.
 
 The request captures the shared authority revision before reading those permissions. Mutating use cases reuse that revision, so revoking a role, client, or ceiling after authorization and before persistence causes the authority fence to reject the stale mutation. Reload and review the operation after the resulting conflict.
-Audit actor identifiers longer than 128 characters use `sha256:` followed by the lowercase SHA-256 digest of the original UTF-8 identifier. The same representation is used in persisted audit entries and general audit logs, including automatic authority-change audits. Investigators can hash a known client ID to correlate its actions. Literal actor identifiers beginning with `sha256:` are also hashed so they cannot impersonate a digest representation. Ordinary human UUIDs and shorter client IDs retain their existing representation.
+
+Machine audit actors use `client:` followed by the complete client ID, including IDs already beginning with that prefix. This keeps a client named `system` or a human UUID distinct from background work and human users. Human actors retain their user UUID; unauthenticated background work retains `system`. Explicit administrative audit writes and automatic authority-change records use the same representation. Authorization and registry ownership continue to use their original principal identifiers.
+
+Encoded audit actor identifiers longer than 128 characters use `sha256:` followed by the lowercase SHA-256 digest of the complete encoded UTF-8 identifier. Investigators can hash `client:` plus a known client ID to correlate its actions. The same representation is used in persisted audit entries and general audit logs. Literal actor identifiers beginning with `sha256:` are also hashed so they cannot impersonate a digest representation.
 
 ## Authority withdrawal and operation
 
