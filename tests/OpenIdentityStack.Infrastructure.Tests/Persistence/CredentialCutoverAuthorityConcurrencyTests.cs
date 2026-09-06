@@ -8,6 +8,7 @@ using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Settings;
 using OpenIdentityStack.Domain.Users;
+using OpenIdentityStack.Infrastructure.Identity;
 using OpenIdentityStack.Infrastructure.Persistence;
 using OpenIdentityStack.Infrastructure.Persistence.Groups;
 using OpenIdentityStack.Infrastructure.Persistence.Roles;
@@ -19,6 +20,64 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class CredentialCutoverAuthorityConcurrencyTests(AdministrativeAuthorityTestFixture fixture) : IClassFixture<AdministrativeAuthorityTestFixture>
 {
+    [Fact]
+    public async Task CutoverBoundaryFenceBlocksIssuanceUntilTheNewEpochCommits()
+    {
+        await using (OpenIdentityStackDbContext probe = fixture.CreateDbContext())
+        {
+            Assert.SkipWhen(!probe.Database.IsNpgsql(), "Overlapping credential-boundary lock verification requires PostgreSQL.");
+        }
+
+        var gateEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ICredentialCutoverGate gate = Substitute.For<ICredentialCutoverGate>();
+        gate.EvaluateAsync(Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            gateEntered.TrySetResult();
+            await releaseGate.Task;
+            return new CredentialCutoverPreflight(Guid.Empty, DateTimeOffset.UtcNow, [], null,
+                new(0, 0, 0, 0, 0, 0, 0, 0), [], [], 0, null);
+        });
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var operationId = Guid.NewGuid();
+        await using OpenIdentityStackDbContext cutoverDb = fixture.CreateDbContext();
+        var store = new CredentialBoundaryStore(cutoverDb, Substitute.For<IOpenIddictTokenManager>(),
+            Substitute.For<IOpenIddictAuthorizationManager>(), clock, gate);
+        Task<Result<CredentialCutoverResult>> cutover = store.ExecuteAsync(operationId, "operator");
+        await gateEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        await using OpenIdentityStackDbContext issuanceDb = fixture.CreateDbContext();
+        await using var issuance = new TokenIssuanceTransaction(issuanceDb);
+        Task beginIssuance = issuance.BeginAsync(default);
+        bool observedWaiting = false;
+        try
+        {
+            await using OpenIdentityStackDbContext observer = fixture.CreateDbContext();
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            while (!beginIssuance.IsCompleted)
+            {
+                observedWaiting = await observer.Database.SqlQueryRaw<bool>("""
+                    SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database()
+                        AND wait_event_type = 'Lock' AND query LIKE '%CredentialBoundary%') AS "Value"
+                    """).SingleAsync(deadline.Token);
+                if (observedWaiting) { break; }
+                await Task.Delay(20, deadline.Token);
+            }
+        }
+        finally
+        {
+            releaseGate.TrySetResult();
+        }
+
+        (await cutover).IsSuccess.ShouldBeTrue();
+        await beginIssuance;
+        observedWaiting.ShouldBeTrue();
+        (await issuanceDb.Set<CredentialBoundaryState>().AsNoTracking().Select(value => value.Epoch).SingleAsync())
+            .ShouldBe(operationId);
+        await issuance.CommitAsync(default);
+    }
+
     [Theory]
     [InlineData("permission")]
     [InlineData("user")]
