@@ -57,6 +57,10 @@ public sealed class ProviderEmailIdempotencyTests(FederationPolicyTestFixture fi
         (await read.AuditLogEntries.CountAsync(entry => entry.Action == "Federation.EmailVerificationEvidenceRecorded"
             && entry.EntityId == user.Id.Value.ToString())).ShouldBe(1);
         persisted.DisplayName.ShouldBe("Pending user edit");
+        firstUser.EmailEvidenceRevision.ShouldBe(persisted.EmailEvidenceRevision);
+        secondUser.EmailEvidenceRevision.ShouldBe(persisted.EmailEvidenceRevision);
+        firstUser.CredentialRevision.ShouldBe(persisted.CredentialRevision);
+        secondUser.CredentialRevision.ShouldBe(persisted.CredentialRevision);
         UpstreamProvider persistedProvider = await read.UpstreamProviders.SingleAsync(p => p.Id == provider.Id);
         persistedProvider.DisplayName.ShouldBe("Pending provider edit");
         persistedProvider.BoundIssuer.ShouldBe(provider.Authority);
