@@ -9,6 +9,24 @@ const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
 
 describe('AdministrativeApprovalDialog', () => {
+  it('offers fresh sign-in when authentication expires during acknowledgement', async () => {
+    const user = userEvent.setup();
+    const reauthenticate = vi.fn().mockResolvedValue(undefined);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ errorCode: 'Forbidden.AdministrativeApproval.AcknowledgementRequired' }), { status: 403 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ errorCode: 'Forbidden.AdministrativeApproval.ReauthenticationRequired' }), { status: 403 }));
+    globalThis.fetch = fetchMock;
+    renderManagementWeb(<AdministrativeApprovalDialog onReauthenticate={reauthenticate} />);
+    let pending!: Promise<unknown>;
+    await act(async () => { pending = api.users.assignUserRole('user', 'role').catch(error => error); });
+    await user.click(await screen.findByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Approve operation' }));
+    await user.click(await screen.findByRole('button', { name: 'Sign in again' }));
+    expect(await pending).toMatchObject({ status: 403 });
+    expect(reauthenticate).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('requires acknowledgement before retrying the pending operation', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn()

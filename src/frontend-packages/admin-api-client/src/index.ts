@@ -64,10 +64,15 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
       }
 
       const error = createApiError(response.status, await readErrorPayload(response));
-      const approvalRequired = error.errorCode === 'Forbidden.AdministrativeApproval.AcknowledgementRequired'
-        || error.errorCode === 'Forbidden.AdministrativeApproval.ReauthenticationRequired';
-      if (!approvalAttempted && requestOptions.method && requestOptions.method !== 'GET'
-        && response.status === 403 && approvalRequired
+      const protectedMutationDenied = requestOptions.method && requestOptions.method !== 'GET' && response.status === 403;
+      if (protectedMutationDenied && error.errorCode === 'Forbidden.AdministrativeApproval.ReauthenticationRequired') {
+        // Authentication may expire while acknowledgement is pending. Offer sign-in even
+        // after that retry, but let the operator start a new mutation after authenticating.
+        await options.onAdministrativeApprovalRequired?.(error);
+        throw error;
+      }
+      if (!approvalAttempted && protectedMutationDenied
+        && error.errorCode === 'Forbidden.AdministrativeApproval.AcknowledgementRequired'
         && await options.onAdministrativeApprovalRequired?.(error)) {
         const approvedHeaders = new Headers(requestOptions.headers);
         approvedHeaders.set('X-OIS-Administrative-Approval', 'acknowledge');
