@@ -59,6 +59,23 @@
                 return;
             }
 
+            // The iframe is retained by the RP. Re-run server-side validation for every
+            // standard poll so persisted revocation can expire the non-HttpOnly marker.
+            try {
+                const response = await fetch(window.location.href, {
+                    cache: "no-store",
+                    credentials: "include",
+                    headers: { "X-OIS-Session-Poll": "1" }
+                });
+                if (!response.ok) {
+                    event.source?.postMessage("error", event.origin);
+                    return;
+                }
+            } catch {
+                event.source?.postMessage("error", event.origin);
+                return;
+            }
+
             const sessionId = getCookie(sessionCookieName);
             if (!sessionId) {
                 event.source?.postMessage("changed", event.origin);

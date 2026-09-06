@@ -35,9 +35,8 @@ public sealed class SessionMonitoringTests(ManagementWebAppHostFixture fixture) 
         JsonNode users = await ApiGetAsync("/api/admin/users?search=admin%40test.com");
         string userId = users["items"]!.AsArray().Single(user => user!["email"]!.GetValue<string>() == ManagementWebAppHostFixture.AdminEmail)!["id"]!.GetValue<string>();
         (await Api.DeleteAsync($"/api/admin/users/{userId}/sessions")).StatusCode.ShouldBe(HttpStatusCode.OK);
-        // Keep the original OP document and RP state; an OP request discovers that its cookie is stale.
-        (await monitor.EvaluateAsync<int>("async () => (await fetch('/connect/check_session', { credentials: 'include' })).status")).ShouldBe(200);
-
+        // Keep the original OP document and RP state. A standard postMessage poll must
+        // revalidate server-linked state without the RP issuing an extra OP request.
         (await CheckAsync(Page, opOrigin, state)).ShouldBe("changed");
         (await Context.CookiesAsync(opOrigin)).ShouldNotContain(value => value.Name == "op_session");
     }
