@@ -6,6 +6,7 @@ namespace OpenIdentityStack.Contract.Tests.Admin.Applications;
 public sealed class ApplicationsEndpointContractTests
 {
     [Theory]
+    [InlineData("delete", "/applications/{id}")]
     [InlineData("patch", "/applications/{id}")]
     [InlineData("put", "/applications/{id}/oauth")]
     [InlineData("post", "/applications/{id}/disable")]
