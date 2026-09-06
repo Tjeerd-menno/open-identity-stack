@@ -99,4 +99,16 @@ public static class ApplicationErrors
 
     public static readonly DomainError ClientIdExists =
         DomainError.Conflict("Application.ClientIdExists", "An application with this client ID already exists.");
+
+    public static readonly DomainError CreateConflict =
+        DomainError.Conflict("Application.CreateConflict", "Administrative authority changed; reload before creating the application again.");
+
+    public static readonly DomainError SaveConflict =
+        DomainError.Conflict("Application.SaveConflict", "Administrative authority changed; reload before saving the application again.");
+
+    public static readonly DomainError CredentialConflict =
+        DomainError.Conflict("Application.CredentialConflict", "Administrative authority changed; reload before changing credentials again.");
+
+    public static readonly DomainError DeleteConflict =
+        DomainError.Conflict("Application.DeleteConflict", "Administrative authority changed; reload before deleting the application again.");
 }

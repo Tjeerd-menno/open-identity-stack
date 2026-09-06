@@ -206,6 +206,7 @@ public static class ServiceCollectionExtensions
 
     private static void AddInfrastructureDomainServices(IServiceCollection services)
     {
+        services.AddScoped<IApplicationProtocolProjectionTransaction, ApplicationProtocolProjectionTransaction>();
         services.AddScoped<IApplicationProtocolProjection, OpenIddictApplicationProjection>();
         services.AddScoped<IRolePermissionDependencyReader, RolePermissionDependencyReader>();
 

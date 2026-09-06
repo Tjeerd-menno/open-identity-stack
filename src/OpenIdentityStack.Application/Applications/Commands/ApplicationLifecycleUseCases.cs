@@ -14,19 +14,25 @@ public sealed class ApplicationLifecycleUseCases
     private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeClientGuard administrativeGuard;
+    private readonly IApplicationProtocolProjectionTransaction transaction;
 
     public ApplicationLifecycleUseCases(
         IApplicationRepository repository,
         IApplicationProtocolProjection projection,
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,
-        IAuditLog auditLog)
+        IAuditLog auditLog,
+        IAdministrativeClientGuard administrativeGuard,
+        IApplicationProtocolProjectionTransaction transaction)
     {
         this.repository = repository;
         this.projection = projection;
         this.passwordHasher = passwordHasher;
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
+        this.administrativeGuard = administrativeGuard;
+        this.transaction = transaction;
     }
 
     public async Task<Result<ApplicationCommandResult>> ExecuteAsync(
@@ -47,6 +53,7 @@ public sealed class ApplicationLifecycleUseCases
         CreateApplicationInitialSecretCommand? initialSecretCommand,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         if (!ApplicationProfilePolicyCatalog.GetPolicy(command.Profile).IsSelectable)
         {
             return ApplicationErrors.ProfileNotAvailable;
@@ -129,6 +136,7 @@ public sealed class ApplicationLifecycleUseCases
         UpdateApplicationMetadataCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {
@@ -147,7 +155,11 @@ public sealed class ApplicationLifecycleUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
         await this.AuditAsync("Application.Updated", application, cancellationToken);
 
         return ToCommandResult(application);
@@ -157,6 +169,7 @@ public sealed class ApplicationLifecycleUseCases
         ConfigureApplicationOAuthCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         if (!ApplicationProfilePolicyCatalog.GetPolicy(command.Profile).IsSelectable)
         {
             return ApplicationErrors.ProfileNotAvailable;
@@ -167,6 +180,9 @@ public sealed class ApplicationLifecycleUseCases
         {
             return ApplicationErrors.NotFound;
         }
+
+        Result administrativeApproval = await this.administrativeGuard.RequireAsync(application.Id, "AdministrativeClient.ConfigureOAuth", cancellationToken);
+        if (administrativeApproval.IsFailure) { return administrativeApproval.Error; }
 
         Result configureResult = application.ConfigureOAuth(
             command.Profile,
@@ -189,7 +205,12 @@ public sealed class ApplicationLifecycleUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
+        await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.AuditAsync("Application.OAuthConfigured", application, cancellationToken);
 
         return ToCommandResult(application);
@@ -207,6 +228,7 @@ public sealed class ApplicationLifecycleUseCases
         DisableApplicationCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {
@@ -225,7 +247,11 @@ public sealed class ApplicationLifecycleUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
         await this.AuditAsync("Application.Disabled", application, cancellationToken);
 
         return ToCommandResult(application);
@@ -243,11 +269,15 @@ public sealed class ApplicationLifecycleUseCases
         EnableApplicationCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {
             return ApplicationErrors.NotFound;
         }
+
+        Result administrativeApproval = await this.administrativeGuard.RequireAsync(application.Id, "AdministrativeClient.Enable", cancellationToken);
+        if (administrativeApproval.IsFailure) { return administrativeApproval.Error; }
 
         Result result = application.Enable(this.dateTimeProvider);
         if (result.IsFailure)
@@ -261,7 +291,12 @@ public sealed class ApplicationLifecycleUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
+        await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.AuditAsync("Application.Enabled", application, cancellationToken);
 
         return ToCommandResult(application);
@@ -269,6 +304,7 @@ public sealed class ApplicationLifecycleUseCases
 
     public async Task<Result> ExecuteAsync(DeleteApplicationCommand command, CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {
@@ -281,14 +317,32 @@ public sealed class ApplicationLifecycleUseCases
             return result.Error;
         }
 
-        Result projectionResult = await this.projection.DeleteAsync(application.Id, cancellationToken);
-        if (projectionResult.IsFailure)
+        Result deletionResult;
+        try
         {
-            return projectionResult.Error;
+            deletionResult = await this.transaction.ExecuteAsync(async ct =>
+            {
+                Result projectionResult = await this.projection.DeleteAsync(application.Id, ct);
+                if (projectionResult.IsFailure)
+                {
+                    return projectionResult.Error;
+                }
+
+                this.repository.Remove(application);
+                await this.repository.SaveChangesAsync(ct);
+                return Result.Success();
+            }, cancellationToken);
+        }
+        catch (Exception exception) when (exception is IConcurrencyConflict)
+        {
+            return ApplicationErrors.DeleteConflict;
         }
 
-        this.repository.Remove(application);
-        await this.repository.SaveChangesAsync(cancellationToken);
+        if (deletionResult.IsFailure)
+        {
+            return deletionResult.Error;
+        }
+
         await this.AuditAsync("Application.Deleted", application, cancellationToken);
 
         return Result.Success();
@@ -303,6 +357,19 @@ public sealed class ApplicationLifecycleUseCases
             application.ClientType,
             application.Status,
             ToDetails(application));
+
+    private async Task<DomainError?> SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await this.repository.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+        catch (Exception exception) when (exception is IConcurrencyConflict)
+        {
+            return ApplicationErrors.SaveConflict;
+        }
+    }
 
     private static ApplicationDetails ToDetails(DomainApplication application) =>
         new(
@@ -363,8 +430,9 @@ public sealed class ApplicationLifecycleUseCases
             return CreatePersistenceFailed();
         }
 
-        _ = exception;
-        return CreatePersistenceFailed();
+        return exception is IConcurrencyConflict
+            ? ApplicationErrors.CreateConflict
+            : CreatePersistenceFailed();
     }
 
     private static DomainError CreatePersistenceFailed() =>
@@ -380,30 +448,37 @@ public sealed class ApplicationCredentialUseCases
     private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeClientGuard administrativeGuard;
 
     public ApplicationCredentialUseCases(
         IApplicationRepository repository,
         IApplicationProtocolProjection projection,
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,
-        IAuditLog auditLog)
+        IAuditLog auditLog,
+        IAdministrativeClientGuard administrativeGuard)
     {
         this.repository = repository;
         this.projection = projection;
         this.passwordHasher = passwordHasher;
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
+        this.administrativeGuard = administrativeGuard;
     }
 
     public async Task<Result<ApplicationCredentialCommandResult>> ExecuteAsync(
         AddApplicationSecretCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {
             return ApplicationErrors.NotFound;
         }
+
+        Result administrativeApproval = await this.administrativeGuard.RequireAsync(application.Id, "AdministrativeClient.AddSecret", cancellationToken);
+        if (administrativeApproval.IsFailure) { return administrativeApproval.Error; }
 
         if (command.RevokeExisting)
         {
@@ -437,7 +512,12 @@ public sealed class ApplicationCredentialUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
+        await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.auditLog.LogAsync(
             "system",
             "ApplicationCredential.SecretAdded",
@@ -457,11 +537,15 @@ public sealed class ApplicationCredentialUseCases
         AddApplicationCertificateCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {
             return ApplicationErrors.NotFound;
         }
+
+        Result administrativeApproval = await this.administrativeGuard.RequireAsync(application.Id, "AdministrativeClient.AddCertificate", cancellationToken);
+        if (administrativeApproval.IsFailure) { return administrativeApproval.Error; }
 
         Result<ApplicationCredential> addResult = application.AddCertificate(
             command.Thumbprint,
@@ -474,7 +558,12 @@ public sealed class ApplicationCredentialUseCases
             return addResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
+        await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.auditLog.LogAsync(
             "system",
             "ApplicationCredential.CertificateAdded",
@@ -494,6 +583,7 @@ public sealed class ApplicationCredentialUseCases
         RevokeApplicationCredentialCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.administrativeGuard.CaptureAuthorityAsync(cancellationToken);
         DomainApplication? application = await this.repository.GetByIdAsync(command.ApplicationId, cancellationToken);
         if (application is null)
         {
@@ -513,7 +603,11 @@ public sealed class ApplicationCredentialUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
         await this.auditLog.LogAsync(
             "system",
             "ApplicationCredential.Revoked",
@@ -530,6 +624,19 @@ public sealed class ApplicationCredentialUseCases
         byte[] bytes = new byte[32];
         System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
         return Convert.ToBase64String(bytes);
+    }
+
+    private async Task<DomainError?> SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await this.repository.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+        catch (Exception exception) when (exception is IConcurrencyConflict)
+        {
+            return ApplicationErrors.CredentialConflict;
+        }
     }
 }
 

@@ -53,7 +53,7 @@ builder.Services.AddControllersWithViews()
     .AddDefaultJsonOptions();
 builder.Services.AddDefaultHttpJsonOptions(); // Also configure Minimal API JSON serialization
 builder.Services.AddRazorPages();
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options => options.AddOperationTransformer<AdministrativeApprovalOpenApiTransformer>());
 builder.Services.AddConfiguredRateLimiting(builder.Environment);
 builder.Services.AddConfiguredProblemDetails();
 
@@ -98,7 +98,9 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPermissionPolicies();
 });
-builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<AdministrativeRequestAuthorization>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, AdministrativeAccessAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, AdministrativeGrantRevisionHandler>();
 
 // T043: Configure CORS for Management Web
@@ -142,6 +144,10 @@ if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
 
 // ProblemDetails middleware for consistent error responses
 app.UseExceptionHandler();
+app.UseStatusCodePages(static context =>
+    context.HttpContext.Response.StatusCode == StatusCodes.Status403Forbidden
+        ? Results.Problem(statusCode: StatusCodes.Status403Forbidden).ExecuteAsync(context.HttpContext)
+        : Task.CompletedTask);
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
@@ -211,6 +217,7 @@ app.MapControllers();
 // Map Minimal API endpoints
 app.MapCurrentUserApi();
 app.MapApplicationsApi();
+app.MapAdministrativeAccessApi();
 app.MapUsersApi();
 app.MapPublicProfilesApi();
 app.MapRolesApi();

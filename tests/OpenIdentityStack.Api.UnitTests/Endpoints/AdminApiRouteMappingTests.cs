@@ -10,6 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Api.Common;
+using OpenIdentityStack.Application;
+using OpenIdentityStack.Application.AdministrativeAccess;
 using OpenIdentityStack.Application.Authorization;
 
 namespace OpenIdentityStack.Api.UnitTests.Endpoints;
@@ -93,8 +95,8 @@ public sealed class AdminApiRouteMappingTests
             .OfType<IProducesResponseTypeMetadata>()
             .Single(metadata => metadata.StatusCode == StatusCodes.Status409Conflict);
 
-        conflict.Type.ShouldBe(typeof(ProblemDetails));
-        conflict.ContentTypes.ShouldContain("application/problem+json");
+        conflict.Type.ShouldBe(expectation.ConflictType);
+        conflict.ContentTypes.ShouldContain(expectation.ConflictContentType);
     }
 
     public static IEnumerable<object[]> GetApprovalProtectedEndpoints()
@@ -102,23 +104,115 @@ public sealed class AdminApiRouteMappingTests
         const string roles = "OpenIdentityStack.Api.Admin.RolesApi";
         const string users = "OpenIdentityStack.Api.Users.UsersApi";
         const string groups = "OpenIdentityStack.Api.Groups.GroupsApi";
+        const string applications = "OpenIdentityStack.Api.Applications.ApplicationsApi";
 
         foreach (ApprovalEndpointExpectation expectation in new ApprovalEndpointExpectation[]
         {
-            new(roles, "MapRolesApi", "CreateRole"),
-            new(roles, "MapRolesApi", "UpdateRole"),
-            new(roles, "MapRolesApi", "EnableRole"),
-            new(roles, "MapRolesApi", "SetRolePermissions"),
-            new(roles, "MapRolesApi", "AddRolePermission"),
-            new(users, "MapUsersApi", "EnableUser"),
-            new(users, "MapUsersApi", "ResetPassword"),
-            new(users, "MapUsersApi", "AssignRole"),
-            new(groups, "MapGroupsApi", "AddGroupMember"),
-            new(groups, "MapGroupsApi", "AddGroupMapping")
+            new(roles, "MapRolesApi", "CreateRole", typeof(ProblemDetails), "application/problem+json"),
+            new(roles, "MapRolesApi", "UpdateRole", typeof(ProblemDetails), "application/problem+json"),
+            new(roles, "MapRolesApi", "EnableRole", typeof(ProblemDetails), "application/problem+json"),
+            new(roles, "MapRolesApi", "SetRolePermissions", typeof(ProblemDetails), "application/problem+json"),
+            new(roles, "MapRolesApi", "AddRolePermission", typeof(ProblemDetails), "application/problem+json"),
+            new(users, "MapUsersApi", "EnableUser", typeof(ProblemDetails), "application/problem+json"),
+            new(users, "MapUsersApi", "ResetPassword", typeof(ProblemDetails), "application/problem+json"),
+            new(users, "MapUsersApi", "AssignRole", typeof(ProblemDetails), "application/problem+json"),
+            new(groups, "MapGroupsApi", "AddGroupMember", typeof(ProblemDetails), "application/problem+json"),
+            new(groups, "MapGroupsApi", "AddGroupMapping", typeof(ProblemDetails), "application/problem+json"),
+            new(applications, "MapApplicationsApi", "ConfigureApplicationOAuth", typeof(ErrorResponse), "application/json"),
+            new(applications, "MapApplicationsApi", "EnableApplication", typeof(ErrorResponse), "application/json"),
+            new(applications, "MapApplicationsApi", "AddApplicationSecret", typeof(ErrorResponse), "application/json"),
+            new(applications, "MapApplicationsApi", "AddApplicationCertificate", typeof(ErrorResponse), "application/json")
         })
         {
             yield return [expectation];
         }
+    }
+
+    [Fact]
+    public void AdministrativeAccessEndpointsDeclareUnauthorizedResponses()
+    {
+        using WebApplication app = CreateApplication();
+        InvokeMapMethod("OpenIdentityStack.Api.Applications.AdministrativeAccessApi", "MapAdministrativeAccessApi", app);
+
+        RouteEndpoint[] endpoints = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .ToArray();
+
+        foreach (string endpointName in new[] { "GetAdministrativeAccess", "SaveAdministrativeAccess" })
+        {
+            RouteEndpoint endpoint = endpoints.Single(candidate => candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == endpointName);
+            endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+                .Select(static metadata => metadata.StatusCode)
+                .ShouldContain(StatusCodes.Status401Unauthorized);
+        }
+
+        RouteEndpoint get = endpoints.Single(candidate => candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "GetAdministrativeAccess");
+        IProducesResponseTypeMetadata forbidden = get.Metadata.OfType<IProducesResponseTypeMetadata>()
+            .Single(metadata => metadata.StatusCode == StatusCodes.Status403Forbidden);
+        forbidden.Type.ShouldBe(typeof(ProblemDetails));
+        forbidden.ContentTypes.ShouldContain("application/problem+json");
+    }
+
+    [Fact]
+    public void SaveAdministrativeAccessDeclaresApprovalProblemDetails()
+    {
+        using WebApplication app = CreateApplication();
+        InvokeMapMethod("OpenIdentityStack.Api.Applications.AdministrativeAccessApi", "MapAdministrativeAccessApi", app);
+        RouteEndpoint endpoint = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(candidate => candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "SaveAdministrativeAccess");
+        MethodInfo handler = endpoint.Metadata.GetMetadata<MethodInfo>()!;
+
+        IProducesResponseTypeMetadata forbidden = endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+            .Single(metadata => metadata.StatusCode == StatusCodes.Status403Forbidden);
+
+        forbidden.Type.ShouldBe(typeof(AdministrativeApprovalProblemDetails));
+        forbidden.ContentTypes.ShouldContain("application/problem+json");
+        IProducesResponseTypeMetadata validation = endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+            .Single(metadata => metadata.StatusCode == StatusCodes.Status400BadRequest);
+        validation.Type.ShouldBe(typeof(ErrorResponse));
+        validation.ContentTypes.ShouldContain("application/json");
+        handler.GetParameters().Any(parameter =>
+            parameter.GetCustomAttribute<FromHeaderAttribute>()?.Name == "X-OIS-Administrative-Approval").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void DeleteApplicationDeclaresProjectionConflictResponse()
+    {
+        using WebApplication app = CreateApplication();
+        InvokeMapMethod("OpenIdentityStack.Api.Applications.ApplicationsApi", "MapApplicationsApi", app);
+        RouteEndpoint endpoint = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(candidate => candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "DeleteApplication");
+
+        IProducesResponseTypeMetadata? conflict = endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+            .SingleOrDefault(metadata => metadata.StatusCode == StatusCodes.Status409Conflict);
+
+        conflict.ShouldNotBeNull();
+        conflict.Type.ShouldBe(typeof(ErrorResponse));
+        conflict.ContentTypes.ShouldContain("application/json");
+    }
+
+    [Theory]
+    [InlineData("ConfigureApplicationOAuth")]
+    [InlineData("EnableApplication")]
+    [InlineData("AddApplicationSecret")]
+    [InlineData("AddApplicationCertificate")]
+    public void ApprovalProtectedApplicationMutationDeclaresAcknowledgementHeader(string endpointName)
+    {
+        using WebApplication app = CreateApplication();
+        InvokeMapMethod("OpenIdentityStack.Api.Applications.ApplicationsApi", "MapApplicationsApi", app);
+        RouteEndpoint endpoint = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(candidate => candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == endpointName);
+        MethodInfo handler = endpoint.Metadata.GetMetadata<MethodInfo>()!;
+
+        handler.GetParameters().Any(parameter =>
+            parameter.GetCustomAttribute<FromHeaderAttribute>()?.Name == "X-OIS-Administrative-Approval").ShouldBeTrue();
     }
 
     public static IEnumerable<object[]> GetApiExpectations()
@@ -257,6 +351,8 @@ public sealed class AdminApiRouteMappingTests
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
         builder.Services.AddAuthorization();
+        builder.Services.AddApplication();
+        builder.Services.AddScoped<AdministrativeAccessWorkflow>();
         return builder.Build();
     }
 
@@ -289,5 +385,7 @@ public sealed class AdminApiRouteMappingTests
     public sealed record ApprovalEndpointExpectation(
         string TypeName,
         string MapMethodName,
-        string EndpointName);
+        string EndpointName,
+        Type ConflictType,
+        string ConflictContentType);
 }

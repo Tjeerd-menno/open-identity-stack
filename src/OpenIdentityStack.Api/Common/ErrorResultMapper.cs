@@ -25,13 +25,13 @@ internal static class ErrorResultMapper
         if (error.Code.StartsWith("NotFound.", StringComparison.Ordinal) ||
             error.Code.Equals("User.NotFound", StringComparison.Ordinal))
         {
-            return TypedResults.NotFound(new { error = error.Code, message = error.Description });
+            return TypedResults.NotFound(new ErrorResponse(error.Code, error.Description));
         }
 
         if (error.Code.StartsWith("Conflict.", StringComparison.Ordinal) ||
             error.Code.Equals("User.EmailAlreadyExists", StringComparison.Ordinal))
         {
-            return TypedResults.Conflict(new { error = error.Code, message = error.Description });
+            return TypedResults.Conflict(new ErrorResponse(error.Code, error.Description));
         }
 
         if (error.Code.StartsWith("Unauthorized.", StringComparison.Ordinal))
@@ -44,6 +44,6 @@ internal static class ErrorResultMapper
             return TypedResults.StatusCode(StatusCodes.Status403Forbidden);
         }
 
-        return TypedResults.BadRequest(new { error = error.Code, message = error.Description });
+        return TypedResults.BadRequest(new ErrorResponse(error.Code, error.Description));
     }
 }

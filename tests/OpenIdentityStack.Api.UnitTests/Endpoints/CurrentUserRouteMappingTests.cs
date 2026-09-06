@@ -2,11 +2,14 @@ using System.Reflection;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 using OpenIdentityStack.Api.CurrentUser;
+using OpenIdentityStack.Api.Authorization;
 
 namespace OpenIdentityStack.Api.UnitTests.Endpoints;
 
@@ -32,7 +35,11 @@ public sealed class CurrentUserRouteMappingTests
         endpoint.Metadata.GetMetadata<ITagsMetadata>()?.Tags.ShouldContain(nameof(CurrentUserApi));
 
         IAuthorizeData authorizeData = endpoint.Metadata.OfType<IAuthorizeData>().Single();
-        authorizeData.Policy.ShouldBeNull();
+        authorizeData.Policy.ShouldBe(AuthorizationOptionsExtensions.AdminPolicy);
+        IProducesResponseTypeMetadata forbidden = endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+            .Single(response => response.StatusCode == StatusCodes.Status403Forbidden);
+        forbidden.Type.ShouldBe(typeof(ProblemDetails));
+        forbidden.ContentTypes.ShouldContain("application/problem+json");
     }
 
     private static WebApplication CreateApplication()

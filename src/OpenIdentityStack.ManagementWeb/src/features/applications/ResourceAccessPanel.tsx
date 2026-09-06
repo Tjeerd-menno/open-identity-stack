@@ -62,8 +62,8 @@ function ResourceAccessPanelForApplication({ applicationId, canWrite }: { applic
         {!resource.enabled && <Alert color="yellow">This resource is disabled. Token requests will be rejected.</Alert>}
         {resource.isAdministrative ? <Alert>Administrative access requires its dedicated approval workflow.</Alert> : <>
           {canWrite && <Button variant="subtle" onClick={() => setEditing(resource)}>Edit resource mapping</Button>}
-          <Textarea label="Delegated permission ceiling" description="One permission or terminal wildcard per line. An empty ceiling grants no delegated permissions." value={delegated} onChange={(event) => setDelegated(event.currentTarget.value)} readOnly={!canWrite} minRows={3} />
-          <Textarea label="Application permissions" description="Explicit permissions for client credentials. These do not inherit user roles." value={machine} onChange={(event) => setMachine(event.currentTarget.value)} readOnly={!canWrite} minRows={3} />
+          <Textarea label="Delegated permission ceiling" description="One permission or terminal wildcard per line. An empty ceiling withdraws delegated token approval." value={delegated} onChange={(event) => setDelegated(event.currentTarget.value)} readOnly={!canWrite} minRows={3} />
+          <Textarea label="Application permissions" description="Explicit permissions for client credentials. An empty list withdraws client-credentials token approval." value={machine} onChange={(event) => setMachine(event.currentTarget.value)} readOnly={!canWrite} minRows={3} />
           {canWrite && <Button onClick={() => save.mutate()} loading={save.isPending}>Save resource grant</Button>}
           {canWrite && expectedRevision !== undefined && <Button color="red" variant="light" onClick={() => setConfirmRevoke(true)}>Revoke resource grant</Button>}
           {save.isSuccess && <Text role="status">Resource grant saved.</Text>}

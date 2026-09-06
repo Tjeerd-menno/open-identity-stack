@@ -11,6 +11,9 @@ public sealed class CurrentUserEndpointContractTests
         contract.ShouldContain("operationId: getCurrentUser");
         contract.ShouldContain("bearerAuth:");
         contract.ShouldContain("'401':");
+        contract.ShouldContain("'403':");
+        contract.ShouldContain("$ref: '#/components/schemas/ProblemDetails'");
+        contract.ShouldContain("ProblemDetails:");
     }
 
     [Fact]

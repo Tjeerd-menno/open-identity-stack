@@ -40,18 +40,20 @@ public sealed class ApplicationsAdminWorkflowTests
         this.projection.DeleteAsync(Arg.Any<DomainApplicationId>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success());
 
+        IAdministrativeClientGuard administrativeGuard = Substitute.For<IAdministrativeClientGuard>();
+        administrativeGuard.RequireAsync(Arg.Any<DomainApplicationId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         ApplicationLifecycleUseCases lifecycleUseCases = new(
             this.repository,
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog);
+            this.auditLog, administrativeGuard, Substitute.For<IApplicationProtocolProjectionTransaction>());
         ApplicationCredentialUseCases credentialUseCases = new(
             this.repository,
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog);
+            this.auditLog, administrativeGuard);
 
         this.workflow = new ApplicationsAdminWorkflow(
             lifecycleUseCases,
@@ -364,11 +366,13 @@ public sealed class ApplicationsAdminWorkflowTests
         ServiceCollection services = new();
         services.AddScoped(_ => Substitute.For<IApplicationRepository>());
         services.AddScoped(_ => Substitute.For<IApplicationProtocolProjection>());
+        services.AddScoped(_ => Substitute.For<IApplicationProtocolProjectionTransaction>());
         services.AddScoped(_ => Substitute.For<IPasswordHasher>());
         services.AddScoped(_ => Substitute.For<IDateTimeProvider>());
         services.AddScoped(_ => Substitute.For<IAuditLog>());
 
         services.AddApplication();
+        services.AddScoped(_ => Substitute.For<IAdministrativeClientGuard>());
         using ServiceProvider provider = services.BuildServiceProvider();
 
         IApplicationsAdminWorkflow workflow = provider.GetRequiredService<IApplicationsAdminWorkflow>();

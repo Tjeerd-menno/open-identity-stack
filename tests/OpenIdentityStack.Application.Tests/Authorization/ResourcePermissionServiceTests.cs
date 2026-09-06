@@ -69,6 +69,28 @@ public sealed class ResourcePermissionServiceTests
         result.Value.Permissions.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task ProjectAsync_RejectsAdministrativeProjectionWhenUserRolesAreFullyRevoked()
+    {
+        var administrativeResource = ProtectedResource.CreateAdministrative();
+        ClientApplication administrativeClient = ClientApplication.CreateMachineToMachine(
+            "admin-client", "Admin client", null, [ProtectedResource.AdministrativeScope], this.clock).Value;
+        this.applications.GetByClientIdAsync(administrativeClient.ClientId, Arg.Any<CancellationToken>()).Returns(administrativeClient);
+        this.resources.FindByScopeAsync(ProtectedResource.AdministrativeScope, Arg.Any<CancellationToken>()).Returns(administrativeResource);
+        this.resources.FindByAudienceAsync(ProtectedResource.AdministrativeAudience, Arg.Any<CancellationToken>()).Returns(administrativeResource);
+        this.resources.GetGrantAsync(administrativeClient.Id, administrativeResource.Id, Arg.Any<CancellationToken>()).Returns(
+            ClientResourceGrant.Create(administrativeClient.Id, administrativeResource.Id, ["users:read"], []).Value);
+        this.roles.HandleAsync(this.user.Id, Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+
+        Result<ResourceTokenProjection> result = await this.service.ProjectAsync(new ResourceTokenRequest(
+            administrativeClient.ClientId, [ProtectedResource.AdministrativeScope],
+            [ProtectedResource.AdministrativeAudience], this.user.Id));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(ResourceAccessErrors.NotGranted);
+    }
+
     [Theory]
     [InlineData("unknown", "")]
     [InlineData("orders-api", "https://payroll.example.com")]
@@ -79,16 +101,21 @@ public sealed class ResourcePermissionServiceTests
         result.Error.ShouldBe(ResourceAccessErrors.UnknownResource);
     }
 
-    [Fact]
-    public async Task ProjectAsync_EmptyExplicitGrantIsValidButMissingGrantIsDenied()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProjectAsync_EmptySubjectCeilingAndMissingGrantAreDenied(bool delegated)
     {
         this.resources.GetGrantAsync(this.client.Id, this.resource.Id, Arg.Any<CancellationToken>()).Returns(
-            ClientResourceGrant.Create(this.client.Id, this.resource.Id, [], []).Value);
-        Result<ResourceTokenProjection> empty = await this.service.ProjectAsync(new ResourceTokenRequest(this.client.ClientId, ["orders-api"], [], null));
-        empty.IsSuccess.ShouldBeTrue();
-        empty.Value.Permissions.ShouldBeEmpty();
+            ClientResourceGrant.Create(this.client.Id, this.resource.Id,
+                delegated ? [] : ["orders:invoice:read"],
+                delegated ? ["orders:invoice:write"] : []).Value);
+        Result<ResourceTokenProjection> empty = await this.service.ProjectAsync(new ResourceTokenRequest(
+            this.client.ClientId, ["orders-api"], [], delegated ? this.user.Id : null));
+        empty.Error.ShouldBe(ResourceAccessErrors.NotGranted);
         this.resources.GetGrantAsync(this.client.Id, this.resource.Id, Arg.Any<CancellationToken>()).Returns((ClientResourceGrant?)null);
-        Result<ResourceTokenProjection> absent = await this.service.ProjectAsync(new ResourceTokenRequest(this.client.ClientId, ["orders-api"], [], null));
+        Result<ResourceTokenProjection> absent = await this.service.ProjectAsync(new ResourceTokenRequest(
+            this.client.ClientId, ["orders-api"], [], delegated ? this.user.Id : null));
         absent.Error.ShouldBe(ResourceAccessErrors.NotGranted);
     }
 

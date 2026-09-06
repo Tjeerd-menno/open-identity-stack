@@ -15,6 +15,7 @@ public sealed class ApplicationLifecycleUseCaseTests
     private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IApplicationProtocolProjectionTransaction transaction;
     private readonly ApplicationLifecycleUseCases useCases;
     private readonly DateTimeOffset now = new(2026, 5, 24, 12, 0, 0, TimeSpan.Zero);
 
@@ -25,6 +26,11 @@ public sealed class ApplicationLifecycleUseCaseTests
         this.passwordHasher = Substitute.For<IPasswordHasher>();
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.auditLog = Substitute.For<IAuditLog>();
+        this.transaction = Substitute.For<IApplicationProtocolProjectionTransaction>();
+        this.transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<Result>>>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Func<CancellationToken, Task<Result>>>()(call.ArgAt<CancellationToken>(1)));
+        IAdministrativeClientGuard administrativeGuard = Substitute.For<IAdministrativeClientGuard>();
+        administrativeGuard.RequireAsync(Arg.Any<OpenIdentityStack.Domain.Applications.ApplicationId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         this.dateTimeProvider.UtcNow.Returns(this.now);
         this.projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success());
@@ -35,7 +41,7 @@ public sealed class ApplicationLifecycleUseCaseTests
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog);
+            this.auditLog, administrativeGuard, this.transaction);
     }
 
     [Fact]
@@ -286,6 +292,46 @@ public sealed class ApplicationLifecycleUseCaseTests
     }
 
     [Fact]
+    public async Task UpdateMetadataExecuteAsync_WhenAuthorityFenceConflicts_ReturnsSaveConflict()
+    {
+        DomainApplication application = this.CreateApplication();
+        application.Disable(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.repository.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new TestConcurrencyConflictException()));
+
+        Result<ApplicationCommandResult> result = await this.useCases.ExecuteAsync(
+            new UpdateApplicationMetadataCommand(application.Id, "Updated", null));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.SaveConflict");
+        await this.auditLog.DidNotReceive().LogAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ConfigureOAuthExecuteAsync_WhenAuthorityFenceConflicts_ReturnsSaveConflict()
+    {
+        DomainApplication application = this.CreateApplication();
+        application.Disable(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.repository.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new TestConcurrencyConflictException()));
+
+        Result<ApplicationCommandResult> result = await this.useCases.ExecuteAsync(new ConfigureApplicationOAuthCommand(
+            application.Id, ApplicationProfile.Web, OAuthClientType.Confidential,
+            ["authorization_code"], ["openid"], ["https://orders.example.com/callback"], [],
+            RequirePkce: false, RequireConsent: true));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.SaveConflict");
+        await this.auditLog.DidNotReceive().LogAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task DisableExecuteAsync_WhenApplicationExists_DisablesProjectsSavesAndAudits()
     {
         DomainApplication application = this.CreateApplication();
@@ -308,6 +354,23 @@ public sealed class ApplicationLifecycleUseCaseTests
     }
 
     [Fact]
+    public async Task DisableExecuteAsync_WhenAuthorityFenceConflicts_ReturnsSaveConflict()
+    {
+        DomainApplication application = this.CreateApplication();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.repository.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new TestConcurrencyConflictException()));
+
+        Result result = await this.useCases.ExecuteAsync(new DisableApplicationCommand(application.Id));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.SaveConflict");
+        await this.auditLog.DidNotReceive().LogAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task DeleteExecuteAsync_WhenApplicationExists_RemovesDeletesProjectionSavesAndAudits()
     {
         DomainApplication application = this.CreateApplication();
@@ -326,6 +389,48 @@ public sealed class ApplicationLifecycleUseCaseTests
             "Application",
             application.Id.Value.ToString(),
             "ClientId: orders-web",
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteExecuteAsync_KeepsProtocolAndDomainDeletesInOneTransaction()
+    {
+        DomainApplication application = this.CreateApplication();
+        bool transactionActive = false;
+        bool protocolDeletedInTransaction = false;
+        bool domainSavedInTransaction = false;
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<Result>>>(), Arg.Any<CancellationToken>())
+            .Returns(async call =>
+            {
+                transactionActive = true;
+                try
+                {
+                    return await call.Arg<Func<CancellationToken, Task<Result>>>()(call.ArgAt<CancellationToken>(1));
+                }
+                finally
+                {
+                    transactionActive = false;
+                }
+            });
+        this.projection.DeleteAsync(application.Id, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            protocolDeletedInTransaction = transactionActive;
+            return Result.Success();
+        });
+        this.repository.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            domainSavedInTransaction = transactionActive;
+            return 1;
+        });
+
+        Result result = await this.useCases.ExecuteAsync(new DeleteApplicationCommand(application.Id));
+
+        result.IsSuccess.ShouldBeTrue();
+        protocolDeletedInTransaction.ShouldBeTrue();
+        domainSavedInTransaction.ShouldBeTrue();
+        await this.transaction.Received(1).ExecuteAsync(
+            Arg.Any<Func<CancellationToken, Task<Result>>>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -357,4 +462,6 @@ public sealed class ApplicationLifecycleUseCaseTests
             requirePkce: false,
             requireConsent: true,
             this.dateTimeProvider).Value;
+
+    private sealed class TestConcurrencyConflictException : Exception, IConcurrencyConflict;
 }
