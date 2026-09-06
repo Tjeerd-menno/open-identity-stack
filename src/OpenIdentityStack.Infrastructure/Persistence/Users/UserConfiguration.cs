@@ -139,6 +139,21 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsUnique()
             .HasDatabaseName("IX_Users_NormalizedPreferredUsername");
 
+        builder.Ignore(u => u.EmailVerified);
+        builder.Navigation(u => u.EmailVerificationEvidence).UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.OwnsMany(u => u.EmailVerificationEvidence, evidence =>
+        {
+            evidence.ToTable("UserEmailVerificationEvidence");
+            evidence.WithOwner().HasForeignKey("UserId");
+            evidence.HasKey(e => e.Id);
+            evidence.Property(e => e.Id).ValueGeneratedNever();
+            evidence.Property(e => e.NormalizedEmail).HasMaxLength(256).IsRequired();
+            evidence.Ignore(e => e.ProviderId);
+            evidence.Ignore(e => e.Issuer);
+            evidence.Ignore(e => e.WithdrawnAt);
+            evidence.HasIndex("UserId");
+        });
+
         // Configure owned UpstreamIdentities collection using navigation property and backing field
         builder.Navigation(u => u.UpstreamIdentities)
             .UsePropertyAccessMode(PropertyAccessMode.Field);

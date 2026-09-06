@@ -13,6 +13,12 @@ public sealed partial class User : AggregateRoot<UserId>
     private static readonly Regex emailRegex = GenerateEmailRegex();
     private readonly List<UpstreamIdentity> upstreamIdentities = [];
     private readonly List<RoleId> roleIds = [];
+    private readonly List<EmailVerificationEvidence> emailVerificationEvidence = [];
+
+    public IReadOnlyList<EmailVerificationEvidence> EmailVerificationEvidence => this.emailVerificationEvidence.AsReadOnly();
+
+    public bool EmailVerified => !string.IsNullOrWhiteSpace(this.Email) &&
+        this.emailVerificationEvidence.Any(e => e.WithdrawnAt is null && e.NormalizedEmail == this.NormalizedEmail);
 
     /// <summary>
     /// Gets the user's email address.
@@ -304,6 +310,7 @@ public sealed partial class User : AggregateRoot<UserId>
             return UserErrors.InvalidStatusTransition(this.Status, UserStatus.Active);
         }
 
+        this.emailVerificationEvidence.Add(new EmailVerificationEvidence(this.Email, null, null, dateTimeProvider.UtcNow));
         this.Status = UserStatus.Active;
         this.SetModified(dateTimeProvider.UtcNow);
 

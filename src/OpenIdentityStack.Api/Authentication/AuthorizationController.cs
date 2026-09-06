@@ -324,9 +324,10 @@ public class AuthorizationController : ControllerBase
             }
 
             string? subject = result.Principal.GetClaim(Claims.Subject) ?? result.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            Domain.Users.User? tokenUser = null;
             if (TryParseUserId(subject ?? string.Empty) is { } tokenUserId)
             {
-                Domain.Users.User? tokenUser = await this.userRepository.GetByIdAsync(tokenUserId, this.HttpContext.RequestAborted);
+                tokenUser = await this.userRepository.GetByIdAsync(tokenUserId, this.HttpContext.RequestAborted);
                 if (tokenUser?.Status == Domain.Users.UserStatus.Disabled)
                 {
                     await this.AuditDisabledAccountAsync(tokenUser.Id, request.IsAuthorizationCodeGrantType() ? GrantTypes.AuthorizationCode : GrantTypes.RefreshToken);
@@ -358,7 +359,7 @@ public class AuthorizationController : ControllerBase
             }
 
             DateTimeOffset? authenticationTime = GetAuthenticationTime(result.Properties, result.Principal!);
-            ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, authenticationTime);
+            ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, authenticationTime, tokenUser);
             return this.SignIn(
                 projectedPrincipal,
                 CreateOpenIddictAuthenticationProperties(authenticationTime),
@@ -390,7 +391,11 @@ public class AuthorizationController : ControllerBase
                 }));
         }
 
-        return this.Ok(this.tokenClaimProjectionService.CreateUserInfoResponse(result.Principal!));
+        Domain.Users.User? emailEvidenceUser = TryParseUserId(result.Principal!.GetClaim(Claims.Subject) ?? string.Empty) is { } userId
+            ? await this.userRepository.GetByIdAsync(userId, this.HttpContext.RequestAborted)
+            : null;
+        ClaimsPrincipal projected = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, persistedUser: emailEvidenceUser);
+        return this.Ok(this.tokenClaimProjectionService.CreateUserInfoResponse(projected));
     }
 
     // NOTE: Logout endpoint is handled by LogoutController which implements

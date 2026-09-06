@@ -27,7 +27,24 @@ public sealed class UserTests
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Status.ShouldBe(UserStatus.Active);
+        result.Value.EmailVerified.ShouldBeFalse();
+        result.Value.EmailVerificationEvidence.ShouldBeEmpty();
         result.Value.DomainEvents.OfType<UserDomainEvents.UserEmailVerified>().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void VerifyEmail_RecordsIndependentEvidenceForTheCurrentAddress()
+    {
+        User user = User.CreateLocal("verified@example.com", "Verified", "hashed_password", this._dateTimeProvider).Value;
+
+        user.VerifyEmail(this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+
+        user.EmailVerified.ShouldBeTrue();
+        EmailVerificationEvidence evidence = user.EmailVerificationEvidence.ShouldHaveSingleItem();
+        evidence.NormalizedEmail.ShouldBe(user.NormalizedEmail);
+        evidence.ProviderId.ShouldBeNull();
+        evidence.Issuer.ShouldBeNull();
+        evidence.VerifiedAt.ShouldBe(this._now);
     }
 
     [Fact]
