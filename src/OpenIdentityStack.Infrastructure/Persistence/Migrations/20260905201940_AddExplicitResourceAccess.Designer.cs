@@ -1500,6 +1500,10 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 
                             b1.HasKey("Id");
 
+                            b1.HasIndex("ProviderId", "UserId")
+                                .HasDatabaseName("IX_EmailEvidence_ActiveProviderUser")
+                                .HasFilter("\"WithdrawnAt\" IS NULL");
+
                             b1.HasIndex("UserId", "ProviderId");
 
                             b1.ToTable("UserEmailVerificationEvidence", (string)null);
