@@ -65,6 +65,7 @@ public sealed class UpstreamProviderConfiguration : IEntityTypeConfiguration<Ups
             .IsRequired();
 
         builder.Property(p => p.JitProvisioningEnabled)
+            .IsConcurrencyToken()
             .HasColumnName("jit_provisioning_enabled")
             .HasDefaultValue(true)
             .IsRequired();

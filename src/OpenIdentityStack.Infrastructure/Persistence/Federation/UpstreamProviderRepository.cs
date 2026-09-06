@@ -64,6 +64,10 @@ public sealed class UpstreamProviderRepository : IUpstreamProviderRepository
     }
 
     /// <inheritdoc />
+    public void RequireProvisioningPolicyWrite(UpstreamProvider provider) =>
+        this.dbContext.Entry(provider).Property(value => value.JitProvisioningEnabled).IsModified = true;
+
+    /// <inheritdoc />
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return this.dbContext.SaveChangesAsync(cancellationToken);

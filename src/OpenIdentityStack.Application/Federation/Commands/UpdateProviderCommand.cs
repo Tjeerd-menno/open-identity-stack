@@ -174,6 +174,7 @@ public sealed class UpdateProviderUseCase : IUpdateProviderUseCase
         if (command.JitProvisioningEnabled is { } jitProvisioningEnabled)
         {
             provider.SetJitProvisioningEnabled(jitProvisioningEnabled);
+            this.providerRepository.RequireProvisioningPolicyWrite(provider);
         }
 
         if (policyChanged)

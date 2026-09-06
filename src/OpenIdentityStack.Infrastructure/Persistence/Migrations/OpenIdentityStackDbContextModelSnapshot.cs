@@ -645,6 +645,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasColumnName("display_name");
 
                     b.Property<bool>("JitProvisioningEnabled")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
