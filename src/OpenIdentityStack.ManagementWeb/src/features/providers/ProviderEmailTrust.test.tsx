@@ -46,7 +46,8 @@ it('requires explicit confirmation before withdrawing trust', async () => {
   expect(mockApi.providers.setEmailVerificationTrust).not.toHaveBeenCalled();
   expect(screen.getByText(/existing proofs from this provider remain withdrawn/i)).toBeInTheDocument();
   expect(screen.getByText(/does not revoke existing credentials or sessions/i)).toBeInTheDocument();
-  expect(screen.getByText(/follow the separate credential and session revocation procedure/i)).toBeInTheDocument();
+  expect(screen.getByText(/open Sessions and revoke every active session/i)).toBeInTheDocument();
+  expect(screen.getByText(/revoke known tokens or deny affected subjects until they expire/i)).toBeInTheDocument();
   expect(screen.getByRole('switch', { name: 'Trust email verification' })).toBeChecked();
   await user.click(screen.getByRole('button', { name: 'Withdraw trust' }));
   await waitFor(() => expect(mockApi.providers.setEmailVerificationTrust).toHaveBeenCalledWith('p1', false));

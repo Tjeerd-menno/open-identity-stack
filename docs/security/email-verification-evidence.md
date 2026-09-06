@@ -10,9 +10,20 @@ Operators with user read permission can inspect current verification and its sou
 
 Turning trust off withdraws that provider's evidence in the same transaction as the policy and audit change. Independent verification survives. Evidence remains available for investigation with its withdrawal time. A concurrency version prevents a login using stale provider trust from restoring evidence after withdrawal. A racing operation fails rather than overriding committed policy; retry it after reading current state.
 
-The earlier `RecordIndependentEmailVerificationEvidence` migration creates the evidence table and performs that bounded local-password backfill. `RecordEmailVerificationEvidence` then extends the table with provider provenance and defaults every provider to untrusted. No seed routine should call email verification merely to activate an account. Use forward corrective migrations and preserve evidence backups once evidence has been recorded.
+The earlier `RecordIndependentEmailVerificationEvidence` migration creates the evidence table and performs that bounded local-password backfill. `RecordEmailVerificationEvidence` then extends the table with provider provenance and defaults every provider to untrusted. Its rollback refuses to drop the provenance columns while provider-derived evidence remains; use an approved forward migration to quarantine those rows before retrying. No seed routine should call email verification merely to activate an account. Use forward corrective migrations and preserve evidence backups once evidence has been recorded.
 
-Withdrawal of evidence controls subsequent issuance and UserInfo. It does not revoke existing credentials, tokens, or sessions. Operators responding to a provider compromise must follow the separate credential and session revocation procedure in the provider-trust withdrawal lifecycle ticket and cutover runbook, including downstream services that validate tokens locally.
+Withdrawal of evidence controls subsequent issuance and UserInfo. It does not revoke existing credentials, tokens, or sessions. Operators responding to a provider compromise must complete the [provider-compromise revocation procedure](#provider-compromise-revocation-procedure), including downstream services that validate tokens locally.
+
+## Provider-compromise revocation procedure
+
+1. Disable the provider first so it cannot create new sessions while the incident is contained.
+2. Record the affected user IDs from the provider identity inventory before withdrawing trust. Preserve the provider, identity, and audit records needed for investigation.
+3. Withdraw **Trust email verification** and confirm the `Provider.EmailVerificationTrustChanged` audit entry. This invalidates that provider's active email evidence but does not terminate credentials.
+4. In Management Web, open **Sessions**, find every affected user, and revoke every active session. The operator needs `sessions:revoke`. Confirm no active session remains for those users.
+5. Treat OAuth credentials separately. Have clients submit every known access or refresh token to `/connect/revoke`. For credentials the authorization server cannot enumerate or downstream APIs that validate self-contained tokens locally, deny the affected subject IDs at each resource until the maximum token lifetime has elapsed. Use an emergency signing-key rotation only when the incident's blast radius justifies invalidating all tokens.
+6. Verify that fresh token and UserInfo responses do not report `email_verified: true` solely from the withdrawn provider. Review audit records and downstream denial logs before closing the incident.
+
+Revoking a domain session alone is not proof that an already issued access token has stopped working. Keep the downstream deny in place until revocation or expiry has been verified at every resource server.
 
 Verification covers the trusted/assertion matrix, provisioning independence, stale refresh claims, management API persistence and audit, source-specific withdrawal, relational stale-write rejection, and provider UI permissions. These checks are implementation evidence, not an OpenID certification claim.
 

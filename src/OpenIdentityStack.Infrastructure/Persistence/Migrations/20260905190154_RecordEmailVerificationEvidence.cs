@@ -57,6 +57,20 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM "UserEmailVerificationEvidence"
+                        WHERE "ProviderId" IS NOT NULL
+                    ) THEN
+                        RAISE EXCEPTION 'Rollback blocked: provider-derived email-verification evidence must retain its provenance. Keep this migration applied or quarantine the affected rows before retrying.';
+                    END IF;
+                END $$;
+                """);
+
             migrationBuilder.DropIndex(
                 name: "IX_UserEmailVerificationEvidence_UserId_ProviderId",
                 table: "UserEmailVerificationEvidence");
