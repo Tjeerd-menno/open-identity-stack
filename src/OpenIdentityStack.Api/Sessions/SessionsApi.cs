@@ -59,7 +59,8 @@ internal static class SessionsApi
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] Guid? userId = null,
-        [FromQuery] string? status = null)
+        [FromQuery] string? status = null,
+        [FromQuery] string? search = null)
     {
         SessionStatus? statusFilter = null;
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<SessionStatus>(status, true, out SessionStatus parsed))
@@ -71,7 +72,8 @@ internal static class SessionsApi
             page,
             pageSize,
             userId.HasValue ? new UserId(userId.Value) : null,
-            statusFilter);
+            statusFilter,
+            search);
 
         Result<ListSessionsResult> result = await listSessionsQueryHandler.ExecuteAsync(query);
 
