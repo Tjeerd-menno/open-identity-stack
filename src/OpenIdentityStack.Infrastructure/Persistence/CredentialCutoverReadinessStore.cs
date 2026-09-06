@@ -111,7 +111,10 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
         {
             return DomainError.Forbidden("CredentialCutover.IndependentLoginRequired", "A fresh local password login bound to the current credential boundary is required.");
         }
-        var proof = new EmergencyAccessRecord { Id = Guid.NewGuid(), UserId = actor.UserId.Value, SessionId = session, Epoch = epoch, AuthenticatedAt = authenticatedAt, RecordedAt = clock.UtcNow };
+        Guid? credentialRevision = await db.Users.AsNoTracking().Where(user => user.Id == actor.UserId)
+            .Select(user => (Guid?)user.CredentialRevision).SingleOrDefaultAsync(cancellationToken);
+        var proof = new EmergencyAccessRecord { Id = Guid.NewGuid(), UserId = actor.UserId.Value, SessionId = session, Epoch = epoch,
+            CredentialRevision = credentialRevision, AuthenticatedAt = authenticatedAt, RecordedAt = clock.UtcNow };
         if (!await this.IsEmergencyAccessCurrentAsync(proof, cancellationToken))
         {
             return DomainError.Forbidden("CredentialCutover.EmergencyAccessUnavailable", "Test current independent emergency access before continuing.");
@@ -151,7 +154,8 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
         if (proof.AuthenticatedAt > now || now - proof.AuthenticatedAt > TimeSpan.FromMinutes(5)) { return false; }
         var userId = new UserId(proof.UserId);
         User? user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
-        if (user is null || !user.CanAuthenticate() || !user.HasPassword()) { return false; }
+        if (user is null || proof.CredentialRevision is not Guid credentialRevision || user.CredentialRevision != credentialRevision ||
+            !user.CanAuthenticate() || !user.HasPassword()) { return false; }
         UserSession? session = await db.UserSessions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == new SessionId(proof.SessionId), cancellationToken);
         // The signed proof binds the session and user. Session persistence may finish
         // after authentication, but both timestamps must share the fresh five-minute window.

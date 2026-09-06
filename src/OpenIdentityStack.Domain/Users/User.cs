@@ -444,6 +444,7 @@ public sealed partial class User : AggregateRoot<UserId>
         }
 
         this.PasswordHash = newPasswordHash;
+        this.CredentialRevision = Guid.NewGuid();
         this.SetModified(dateTimeProvider.UtcNow);
 
         this.RaiseDomainEvent(new UserDomainEvents.UserPasswordChanged(this.Id, dateTimeProvider.UtcNow));

@@ -402,6 +402,7 @@ public sealed class UserTests
     {
         // Arrange
         User user = User.CreateLocal("test@example.com", "Test", "old_hash", this._dateTimeProvider).Value;
+        Guid originalCredentialRevision = user.CredentialRevision;
 
         // Act
         Result result = user.SetPassword("new_hash", this._dateTimeProvider);
@@ -409,6 +410,7 @@ public sealed class UserTests
         // Assert
         result.IsSuccess.ShouldBeTrue();
         user.PasswordHash.ShouldBe("new_hash");
+        user.CredentialRevision.ShouldNotBe(originalCredentialRevision);
     }
 
     [Fact]

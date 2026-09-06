@@ -9,6 +9,7 @@ public sealed class EmergencyAccessRecord
     public Guid UserId { get; set; }
     public Guid SessionId { get; set; }
     public Guid Epoch { get; set; }
+    public Guid? CredentialRevision { get; set; }
     public DateTimeOffset AuthenticatedAt { get; set; }
     public DateTimeOffset RecordedAt { get; set; }
 }
