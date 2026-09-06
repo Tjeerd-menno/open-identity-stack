@@ -19,6 +19,7 @@ public sealed class AdministrativeAccessContractTests
 
         contract.ShouldContain("application/problem+json:");
         contract.ShouldContain("#/components/schemas/AdministrativeApprovalProblemDetails");
+        contract.ShouldContain("#/components/schemas/ProblemDetails");
         contract.ShouldContain("#/components/schemas/ErrorResponse");
         contract.ShouldContain("Forbidden.AdministrativeApproval.AcknowledgementRequired");
     }

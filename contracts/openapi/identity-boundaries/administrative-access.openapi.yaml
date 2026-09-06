@@ -20,7 +20,11 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/AdministrativeAccess" }
         "401": { description: Authentication required }
-        "403": { description: Administrative resource or permission boundary denied }
+        "403":
+          description: Administrative resource or permission boundary denied
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
     put:
       operationId: SaveAdministrativeAccess
       x-required-permission: applications:write
@@ -59,6 +63,12 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 components:
   schemas:
+    ProblemDetails:
+      type: object
+      properties:
+        status: { type: integer }
+        title: { type: string }
+        detail: { type: string }
     AdministrativeApprovalProblemDetails:
       type: object
       required: [status]

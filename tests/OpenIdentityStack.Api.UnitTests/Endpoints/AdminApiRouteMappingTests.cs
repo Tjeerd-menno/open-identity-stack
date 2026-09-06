@@ -146,6 +146,12 @@ public sealed class AdminApiRouteMappingTests
                 .Select(static metadata => metadata.StatusCode)
                 .ShouldContain(StatusCodes.Status401Unauthorized);
         }
+
+        RouteEndpoint get = endpoints.Single(candidate => candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "GetAdministrativeAccess");
+        IProducesResponseTypeMetadata forbidden = get.Metadata.OfType<IProducesResponseTypeMetadata>()
+            .Single(metadata => metadata.StatusCode == StatusCodes.Status403Forbidden);
+        forbidden.Type.ShouldBe(typeof(ProblemDetails));
+        forbidden.ContentTypes.ShouldContain("application/problem+json");
     }
 
     [Fact]

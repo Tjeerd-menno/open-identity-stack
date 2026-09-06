@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc;
 using OpenIdentityStack.Api.Common;
 using OpenIdentityStack.Application.AdministrativeAccess;
 using OpenIdentityStack.Application.Authorization;
@@ -16,7 +17,8 @@ internal static class AdministrativeAccessApi
             Result<AdministrativeAccessDto> result = await workflow.GetAsync(id, cancellationToken);
             return result.IsSuccess ? Results.Ok(result.Value) : ErrorResultMapper.ToErrorResult(result.Error);
         }).RequireAuthorization(Permissions.Applications.Read)
-            .Produces<AdministrativeAccessDto>().Produces(StatusCodes.Status401Unauthorized).Produces(StatusCodes.Status403Forbidden)
+            .Produces<AdministrativeAccessDto>().Produces(StatusCodes.Status401Unauthorized)
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .WithName("GetAdministrativeAccess").WithSummary("Gets an application's approved administrative permission ceilings");
 
         group.MapPut("", async (Guid id, AdministrativeAccessConfiguration request, ClaimsPrincipal actor,
