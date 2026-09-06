@@ -192,7 +192,7 @@ public class AccountController : Controller
         await this.HttpContext.SignOutAsync("ExternalCookie");
         ClaimsPrincipal externalUser = authenticateResult.Principal;
         string? verifiedEvidenceEmail = null;
-        authenticateResult.Properties?.Items.TryGetValue("ois.verified_email", out verifiedEvidenceEmail);
+        authenticateResult.Properties?.Items.TryGetValue(ExternalIdentityProperties.VerifiedEmail, out verifiedEvidenceEmail);
 
         // Extract claims from the external identity
         string? subjectId = externalUser.FindFirstValue(ClaimTypes.NameIdentifier)

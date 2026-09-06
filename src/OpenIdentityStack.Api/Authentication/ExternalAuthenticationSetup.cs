@@ -99,7 +99,14 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
                     bool verified = string.Equals(context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email_verified")?.Value, "true", StringComparison.OrdinalIgnoreCase);
                     if (context.Properties is { } properties)
                     {
-                        properties.Items["ois.verified_email"] = verified ? email : null;
+                        if (verified && !string.IsNullOrWhiteSpace(email))
+                        {
+                            properties.SetString(ExternalIdentityProperties.VerifiedEmail, email);
+                        }
+                        else
+                        {
+                            properties.Items.Remove(ExternalIdentityProperties.VerifiedEmail);
+                        }
                     }
                     return Task.CompletedTask;
                 },
@@ -286,4 +293,5 @@ public static class ExternalIdentityProperties
     public const string ProviderId = "ois.provider_id";
     public const string ProviderName = "ois.provider_name";
     public const string Authority = "ois.authentication_authority";
+    public const string VerifiedEmail = "ois.verified_email";
 }

@@ -19,10 +19,14 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 public sealed class DynamicAuthenticationSchemeServiceTests
 {
     [Theory]
-    [InlineData(null, null)]
-    [InlineData("false", null)]
-    [InlineData("true", "person@example.com")]
-    public async Task RegisterSchemeAsync_CapturesOnlyValidatedIssuerAndEmailEvidence(string? verified, string? expectedEvidence)
+    [InlineData(null, null, null)]
+    [InlineData("false", "person@example.com", null)]
+    [InlineData("true", null, null)]
+    [InlineData("true", "person@example.com", "person@example.com")]
+    public async Task RegisterSchemeAsync_CapturesOnlySerializableValidatedIssuerAndEmailEvidence(
+        string? verified,
+        string? email,
+        string? expectedEvidence)
     {
         IAuthenticationSchemeProvider schemes = Substitute.For<IAuthenticationSchemeProvider>();
         var cache = new OptionsCache<OpenIdConnectOptions>();
@@ -33,16 +37,31 @@ public sealed class DynamicAuthenticationSchemeServiceTests
         await service.RegisterSchemeAsync(provider);
         OpenIdConnectOptions options = cache.GetOrAdd("tenant", () => throw new InvalidOperationException());
         var properties = new AuthenticationProperties();
-        var context = new TokenValidatedContext(new Microsoft.AspNetCore.Http.DefaultHttpContext(), new AuthenticationScheme("tenant", "Tenant", typeof(OpenIdConnectHandler)), options, new System.Security.Claims.ClaimsPrincipal(), properties)
+        var claims = new List<System.Security.Claims.Claim>();
+        if (email is not null)
+        {
+            claims.Add(new System.Security.Claims.Claim("email", email));
+        }
+        if (verified is not null)
+        {
+            claims.Add(new System.Security.Claims.Claim("email_verified", verified));
+        }
+        var principal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(claims, "tenant"));
+        var context = new TokenValidatedContext(new Microsoft.AspNetCore.Http.DefaultHttpContext(), new AuthenticationScheme("tenant", "Tenant", typeof(OpenIdConnectHandler)), options, principal, properties)
         {
             SecurityToken = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(issuer: "https://issuer.example/tenant/",
-                claims: verified is null ? [] : [new System.Security.Claims.Claim("email", "person@example.com"), new System.Security.Claims.Claim("email_verified", verified)])
+                claims: claims)
         };
         await options.Events.TokenValidated(context);
         properties.GetString("ois.validated_issuer").ShouldBe("https://issuer.example/tenant/");
         properties.GetString("ois.provider_id").ShouldBe(provider.Id.Value.ToString());
         properties.GetString("ois.authentication_authority").ShouldBe("https://discovery.example/common");
-        properties.GetString("ois.verified_email").ShouldBe(expectedEvidence);
+        properties.GetString(ExternalIdentityProperties.VerifiedEmail).ShouldBe(expectedEvidence);
+        properties.Items.Values.ShouldAllBe(value => value != null);
+
+        var ticket = new AuthenticationTicket(principal, properties, "ExternalCookie");
+        byte[] serialized = TicketSerializer.Default.Serialize(ticket);
+        TicketSerializer.Default.Deserialize(serialized).ShouldNotBeNull();
     }
     [Fact]
     public async Task RegisterSchemeAsync_AddsSchemeToProvider()
