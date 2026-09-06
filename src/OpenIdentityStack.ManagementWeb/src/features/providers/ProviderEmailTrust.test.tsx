@@ -41,7 +41,7 @@ it('confirms withdrawal, explains revocation, and preserves the switch after fai
     auth: makeAuth({ permissions: ['providers:read', 'providers:write'] }), initialEntries: ['/providers/p1'],
   });
   await user.click(await screen.findByRole('tab', { name: 'Settings' }));
-  expect(screen.getByText(/Affected users must sign in again/)).toBeVisible();
+  expect(screen.getByText(/Affected OpenIdentityStack sessions require a new sign-in/)).toBeVisible();
   expect(screen.getByText(/Offline APIs may accept existing JWTs until expiry/)).toBeVisible();
   const toggle = screen.getByRole('switch', { name: 'Trust email verification' });
   await user.click(toggle);
