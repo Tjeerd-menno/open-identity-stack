@@ -188,6 +188,8 @@ public class AccountController : Controller
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
+        // Consume the authenticated external ticket before any validation or JIT denial can return.
+        await this.HttpContext.SignOutAsync("ExternalCookie");
         ClaimsPrincipal externalUser = authenticateResult.Principal;
 
         // Extract claims from the external identity
@@ -226,13 +228,11 @@ public class AccountController : Controller
         {
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
-        // Sign out of the external cookie
-        await this.HttpContext.SignOutAsync("ExternalCookie");
 
         if (user.Status != Domain.Users.UserStatus.Active)
         {
             await this.audit.LogAsync("federation", "Federation.AccountAssociationDenied", "User", user.Id.Value.ToString(),
-                $"Local account is not active. Provider: {providerId.Value}.");
+                $"Local account is not active. Provider: {providerGuid}.");
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
