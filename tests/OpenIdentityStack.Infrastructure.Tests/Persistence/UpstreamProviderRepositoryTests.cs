@@ -52,6 +52,26 @@ public sealed class UpstreamProviderRepositoryTests : IClassFixture<SqliteTestFi
         OpenIdentityStack.Domain.Users.User reloadedUser = (await this._dbContext.Users.FindAsync(user.Id))!;
         reloadedUser.UpstreamIdentities.Single().Issuer.ShouldBeNull();
     }
+
+    [Fact]
+    public async Task Migration_QuiescesAndLocksActiveProviderWithoutLegacyIdentities()
+    {
+        UpstreamProvider provider = await this.SeedAsync("unused-legacy-provider", "Unused Legacy Provider");
+        await this._dbContext.Database.ExecuteSqlRawAsync("UPDATE upstream_providers SET identity_configuration_locked = FALSE");
+        var migration = new OpenIdentityStack.Infrastructure.Persistence.Migrations.BindFederationIssuers();
+
+        foreach (Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation operation in migration.UpOperations.OfType<Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation>())
+        {
+            await this._dbContext.Database.ExecuteSqlRawAsync(operation.Sql);
+        }
+
+        this._dbContext.ChangeTracker.Clear();
+        UpstreamProvider reloaded = (await this._repository.GetByIdAsync(provider.Id))!;
+        reloaded.Status.ShouldBe(ProviderStatus.Disabled);
+        reloaded.IdentityConfigurationLocked.ShouldBeTrue();
+        reloaded.BoundIssuer.ShouldBeNull();
+    }
+
     [Fact]
     public async Task FirstLink_RejectsConcurrentStaleAuthorityUpdate()
     {

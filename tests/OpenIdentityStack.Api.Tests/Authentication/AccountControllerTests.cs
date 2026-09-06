@@ -189,6 +189,35 @@ public class AccountControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task ExternalCallback_WithoutProtectedIssuerMetadata_RecordsNonSensitiveDenialAudit()
+    {
+        var providerId = Guid.NewGuid();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim("sub", "private-subject"),
+            new Claim("email", "private-email@example.com")
+        ], "external"));
+        var properties = new AuthenticationProperties();
+        properties.SetString(ExternalIdentityProperties.ProviderId, providerId.ToString());
+        properties.SetString(ExternalIdentityProperties.ProviderName, "validated-provider");
+        properties.SetString(ExternalIdentityProperties.Authority, "https://discovery.example/common");
+        var ticket = new AuthenticationTicket(principal, properties, "ExternalCookie");
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie").Returns(AuthenticateResult.Success(ticket));
+
+        IActionResult result = await this._controller.ExternalLoginCallback("query-controlled-provider");
+
+        RedirectToActionResult redirect = result.ShouldBeOfType<RedirectToActionResult>();
+        redirect.RouteValues!["error"].ShouldBe("external_auth_failed");
+        await this.audit.Received(1).LogAsync(
+            "federation",
+            "Federation.IssuerBindingRejected",
+            "UpstreamProvider",
+            providerId.ToString(),
+            "Protected external identity binding metadata is missing or invalid.",
+            Arg.Any<CancellationToken>());
+        await this._jitProvisionUseCase.DidNotReceive().ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ExternalCallback_UsesProtectedIssuerBindingForExistingAndNewIdentities()
     {
         var providerId = Guid.NewGuid();

@@ -210,8 +210,16 @@ public class AccountController : Controller
         string? authenticatedProvider = authenticateResult.Properties?.GetString(ExternalIdentityProperties.ProviderName);
         string? issuer = authenticateResult.Properties?.GetString(ExternalIdentityProperties.ValidatedIssuer);
         string? authority = authenticateResult.Properties?.GetString(ExternalIdentityProperties.Authority);
-        if (!Guid.TryParse(providerIdString, out Guid providerGuid) || string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(authority) || string.IsNullOrWhiteSpace(authenticatedProvider))
+        bool providerIdIsValid = Guid.TryParse(providerIdString, out Guid providerGuid);
+        if (!providerIdIsValid || string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(authority) || string.IsNullOrWhiteSpace(authenticatedProvider))
         {
+            await this.audit.LogAsync(
+                "federation",
+                "Federation.IssuerBindingRejected",
+                "UpstreamProvider",
+                providerIdIsValid ? providerGuid.ToString() : "unknown",
+                "Protected external identity binding metadata is missing or invalid.",
+                this.HttpContext.RequestAborted);
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
