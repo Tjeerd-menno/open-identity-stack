@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenIdentityStack.Infrastructure\OpenIdentityStack.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\OpenIdentityStack.DbMigrator\OpenIdentityStack.DbMigrator.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\OpenIdentityStack.DbMigrator\OpenIdentityStack.DbMigrator.csproj" />
   </ItemGroup>
 
 </Project>
