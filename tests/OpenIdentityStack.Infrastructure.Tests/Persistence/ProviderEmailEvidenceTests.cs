@@ -1,5 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using OpenIddict.Abstractions;
+using OpenIdentityStack.Domain.Sessions;
+using OpenIdentityStack.Infrastructure.Identity;
 using OpenIdentityStack.Infrastructure.Audit;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Federation;
@@ -36,7 +39,7 @@ public sealed class ProviderEmailEvidenceTests(FederationPolicyTestFixture fixtu
         if (newUser) { stale.Add(staleUser); }
         await using (OpenIdentityStackDbContext withdrawal = fixture.CreateDbContext())
         {
-            var store = new ProviderEmailTrustStore(withdrawal, Substitute.For<IAuditLog>(), Substitute.For<IEmailTrustCredentialInvalidator>());
+            var store = new ProviderEmailTrustStore(withdrawal, Audit(withdrawal), Invalidator(withdrawal));
             (await store.SetAsync(provider.Id, false, "operator", default)).IsSuccess.ShouldBeTrue();
         }
 
@@ -129,6 +132,8 @@ public sealed class ProviderEmailEvidenceTests(FederationPolicyTestFixture fixtu
         User user = User.CreateFederated($"{Guid.NewGuid():N}@example.com", "User", new Clock()).Value;
         user.RecordProviderEmailVerification(loginProvider, provider.BoundIssuer, user.Email, true, DateTimeOffset.UtcNow);
         login.Add(user);
+        UserSession session = UserSession.Create(user.Id, "127.0.0.1", "Test", new Clock()).Value;
+        login.Add(session);
         var saved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         IAuditLog audit = Substitute.For<IAuditLog>();
@@ -140,7 +145,7 @@ public sealed class ProviderEmailEvidenceTests(FederationPolicyTestFixture fixtu
         Task<Result>? withdrawing = null;
         try
         {
-            withdrawing = new ProviderEmailTrustStore(withdrawal, Audit(withdrawal)).SetAsync(provider.Id, false, "operator", default);
+            withdrawing = new ProviderEmailTrustStore(withdrawal, Audit(withdrawal), Invalidator(withdrawal)).SetAsync(provider.Id, false, "operator", default);
             await using OpenIdentityStackDbContext observer = fixture.CreateDbContext();
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             while (!await observer.Database.SqlQueryRaw<bool>("""
@@ -155,7 +160,10 @@ public sealed class ProviderEmailEvidenceTests(FederationPolicyTestFixture fixtu
         (await creation).IsSuccess.ShouldBeTrue();
         (await withdrawing!).IsSuccess.ShouldBeTrue();
         await using OpenIdentityStackDbContext read = fixture.CreateDbContext();
-        (await read.Users.SingleAsync(u => u.Id == user.Id)).EmailVerified.ShouldBeFalse();
+        User persisted = await read.Users.SingleAsync(u => u.Id == user.Id);
+        persisted.EmailVerified.ShouldBeFalse();
+        persisted.CredentialRevision.ShouldNotBe(Guid.Empty);
+        (await read.UserSessions.SingleAsync(value => value.Id == session.Id)).Status.ShouldBe(SessionStatus.Revoked);
     }
 
     private async Task<UpstreamProvider> SeedProviderAsync()
@@ -168,6 +176,9 @@ public sealed class ProviderEmailEvidenceTests(FederationPolicyTestFixture fixtu
         await seed.SaveChangesAsync();
         return provider;
     }
+
+    private static EmailTrustCredentialInvalidator Invalidator(OpenIdentityStackDbContext db) =>
+        new(db, Substitute.For<IOpenIddictTokenManager>(), Substitute.For<IOpenIddictAuthorizationManager>(), new Clock());
 
     private static AuditLogService Audit(OpenIdentityStackDbContext db) => new(NullLogger<AuditLogService>.Instance, db, new Clock());
     private sealed class Clock : IDateTimeProvider
