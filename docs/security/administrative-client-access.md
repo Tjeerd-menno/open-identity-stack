@@ -11,6 +11,8 @@ Delegated permissions are the intersection of the user's current permissions, th
 
 Authorization consults current resource projection once per request. Current client approval, active status, subject authority, and ceiling continue to constrain previously issued tokens. Reducing a ceiling cannot be undone by refreshing a token. A refresh cannot gain permissions absent from its original token.
 
+The request captures the shared authority revision before reading those permissions. Mutating use cases reuse that revision, so revoking a role, client, or ceiling after authorization and before persistence causes the authority fence to reject the stale mutation. Reload and review the operation after the resulting conflict.
+
 ## Operator workflow
 
 Open the application's **Administrative access** tab. Enter separate delegated and machine ceilings using one platform permission per line. Use concrete permissions for routine integrations; `*` includes current and future platform permissions. Clear both ceilings to withdraw administrative access.

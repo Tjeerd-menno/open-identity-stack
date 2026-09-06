@@ -72,6 +72,6 @@ public sealed class AdministrativeAccessEvaluatorTests
         ClientResourceGrant grant = ClientResourceGrant.Create(client.Id, admin.Id, delegated, machine).Value;
         resources.GetGrantAsync(client.Id, admin.Id, Arg.Any<CancellationToken>()).Returns(grant);
         var projection = new ResourcePermissionService(resources, clients, Substitute.For<IApplicationPermissionRegistryRepository>(), users, roles);
-        return (new AdministrativeAccessEvaluator(projection), grant, resources, user);
+        return (new AdministrativeAccessEvaluator(projection, Substitute.For<IAdministrativeAuthoritySnapshot>()), grant, resources, user);
     }
 }
