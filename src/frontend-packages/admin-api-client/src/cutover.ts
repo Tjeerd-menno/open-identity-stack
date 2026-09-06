@@ -1,7 +1,7 @@
 import type { AdminApiClient } from './index';
 
 export type CutoverBlocker = { code: string; message: string; count: number };
-export type EmergencyAccessEvidence = { id: string; userId: string; sessionId: string; authenticatedAt: string; recordedAt: string; currentlyUsable: boolean };
+export type EmergencyAccessEvidence = { id: string; userId: string; authenticatedAt: string; recordedAt: string; currentlyUsable: boolean };
 export type ResourceTokenWindow = { resourceId: string; displayName: string; audience: string; scope: string; revision: number; mechanism: string | null; residualSeconds: number | null; evidenceReference: string | null; reviewedAt: string | null; reviewed: boolean };
 export type CutoverPreflight = {
   epoch: string; evaluatedAt: string; ready: boolean; blockers: CutoverBlocker[]; emergencyAccess: EmergencyAccessEvidence | null;
