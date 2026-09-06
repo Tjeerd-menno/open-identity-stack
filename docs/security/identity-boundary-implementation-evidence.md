@@ -81,6 +81,8 @@ Combined backend verification targets `ca6e3afd83ebf8428aaf4a371924318e2a5fd1c1`
 
 The same revision passed all 59 PostgreSQL/Aspire/Chromium browser tests with no skips and all 6 architecture tests from a clean tracked-source export. Strict MkDocs passed for the revision and this updated evidence document. These runs total 2,319 passing tests. The approval screenshot was captured by the existing browser scenario without instrumentation or timeout/retry changes.
 
+The later coordinated contract release changes `info.version` to `2.0.0` for the intentional raw-link compatibility break, following ADR 0003. All 62 final contract tests, the existing OpenAPI compatibility script with `tufin/oasdiff:v1.15.0`, and strict documentation checks passed; product code and compatibility gates are unchanged by that release-metadata correction.
+
 ![Quarantined identity evidence blocks ordinary account deletion](images/identity-boundaries/quarantined-user-deletion-blocked.png)
 
 ![Explicit acknowledgement of the administrative operation's effects](images/identity-boundaries/administrative-approval.png)
