@@ -28,7 +28,7 @@ public static class CredentialCutoverApi
             SharedKernel.Result result = await workflow.ReviewResourceWindowAsync(new(resourceId, request.Mechanism, request.ResidualSeconds, request.EvidenceReference), cancellationToken);
             return result.IsSuccess ? Results.NoContent() : ErrorResultMapper.ToErrorResult(result.Error);
         }).RequireAuthorization(AuthorizationOptionsExtensions.AdminPolicy, Permissions.Sessions.Revoke)
-            .WithTags("Security").WithName("ReviewResourceTokenWindow").Produces(204).ProducesProblem(400).ProducesProblem(403);
+            .WithTags("Security").WithName("ReviewResourceTokenWindow").Produces(204).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404);
         endpoints.MapPost("/api/admin/security/credential-cutovers", async (CredentialCutoverRequest request, IExecuteCredentialCutoverUseCase useCase, CancellationToken cancellationToken) =>
         {
             SharedKernel.Result<CredentialCutoverResult> result = await useCase.ExecuteAsync(request.OperationId, cancellationToken);
