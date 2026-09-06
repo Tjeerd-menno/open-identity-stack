@@ -42,7 +42,7 @@ function ResourceAccessPanelForApplication({ applicationId, canWrite }: { applic
       {failed && <Alert color="red">{getApiErrorMessage(failed)}</Alert>}
       {canWrite && <Button variant="light" onClick={() => setEditing('new')}>Add protected resource</Button>}
       <Select label="Protected resource" placeholder="Choose a resource" value={selected} onChange={choose}
-        disabled={resources.isPending || grants.isPending || save.isPending} data={(resources.data ?? []).map((item) => ({ value: item.id, label: item.displayName }))} />
+        disabled={resources.isPending || grants.isPending || save.isPending} data={(resources.data ?? []).map((item) => ({ value: item.id, label: `${item.displayName} — ${item.audience} — ${item.scope}` }))} />
       {resource && <>
         <Text size="sm">Audience: {resource.audience}</Text>
         <Text size="sm">Request scope: {resource.scope}. Namespaces: {resource.permissionNamespaces.join(', ')}</Text>
