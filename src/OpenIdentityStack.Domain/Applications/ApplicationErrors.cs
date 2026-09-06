@@ -103,6 +103,9 @@ public static class ApplicationErrors
     public static readonly DomainError CreateConflict =
         DomainError.Conflict("Application.CreateConflict", "Administrative authority changed; reload before creating the application again.");
 
+    public static readonly DomainError SaveConflict =
+        DomainError.Conflict("Application.SaveConflict", "Administrative authority changed; reload before saving the application again.");
+
     public static readonly DomainError CredentialConflict =
         DomainError.Conflict("Application.CredentialConflict", "Administrative authority changed; reload before changing credentials again.");
 

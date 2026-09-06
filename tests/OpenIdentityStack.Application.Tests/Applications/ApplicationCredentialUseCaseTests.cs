@@ -74,6 +74,25 @@ public sealed class ApplicationCredentialUseCaseTests
     }
 
     [Fact]
+    public async Task AddSecretExecuteAsync_WhenAuthorityFenceConflicts_ReturnsCredentialConflict()
+    {
+        DomainApplication application = this.CreateMachineToMachineApplication();
+        application.Disable(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.repository.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new TestConcurrencyConflictException()));
+
+        Result<ApplicationCredentialCommandResult> result = await this.credentialUseCases.ExecuteAsync(
+            new AddApplicationSecretCommand(application.Id, null, null, RevokeExisting: false));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.CredentialConflict");
+        await this.auditLog.DidNotReceive().LogAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task RevokeCredentialExecuteAsync_WhenCredentialExists_RevokesCredential()
     {
         DomainApplication application = this.CreateMachineToMachineApplication();
@@ -94,6 +113,26 @@ public sealed class ApplicationCredentialUseCaseTests
             Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RevokeCredentialExecuteAsync_WhenAuthorityFenceConflicts_ReturnsCredentialConflict()
+    {
+        DomainApplication application = this.CreateMachineToMachineApplication();
+        ApplicationCredential credential = application.AddSecret("hashed-secret", null, null, this.dateTimeProvider).Value;
+        application.Disable(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.repository.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new TestConcurrencyConflictException()));
+
+        Result result = await this.credentialUseCases.ExecuteAsync(
+            new RevokeApplicationCredentialCommand(application.Id, credential.Id));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.CredentialConflict");
+        await this.auditLog.DidNotReceive().LogAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

@@ -155,7 +155,11 @@ public sealed class ApplicationLifecycleUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
         await this.AuditAsync("Application.Updated", application, cancellationToken);
 
         return ToCommandResult(application);
@@ -201,7 +205,11 @@ public sealed class ApplicationLifecycleUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
         await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.AuditAsync("Application.OAuthConfigured", application, cancellationToken);
 
@@ -239,7 +247,11 @@ public sealed class ApplicationLifecycleUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
         await this.AuditAsync("Application.Disabled", application, cancellationToken);
 
         return ToCommandResult(application);
@@ -279,7 +291,11 @@ public sealed class ApplicationLifecycleUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
         await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.AuditAsync("Application.Enabled", application, cancellationToken);
 
@@ -341,6 +357,19 @@ public sealed class ApplicationLifecycleUseCases
             application.ClientType,
             application.Status,
             ToDetails(application));
+
+    private async Task<DomainError?> SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await this.repository.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+        catch (Exception exception) when (exception is IConcurrencyConflict)
+        {
+            return ApplicationErrors.SaveConflict;
+        }
+    }
 
     private static ApplicationDetails ToDetails(DomainApplication application) =>
         new(
@@ -483,7 +512,11 @@ public sealed class ApplicationCredentialUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
         await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.auditLog.LogAsync(
             "system",
@@ -525,13 +558,10 @@ public sealed class ApplicationCredentialUseCases
             return addResult.Error;
         }
 
-        try
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
         {
-            await this.repository.SaveChangesAsync(cancellationToken);
-        }
-        catch (Exception exception) when (exception is IConcurrencyConflict)
-        {
-            return ApplicationErrors.CredentialConflict;
+            return saveConflict;
         }
         await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.auditLog.LogAsync(
@@ -573,7 +603,11 @@ public sealed class ApplicationCredentialUseCases
             return projectionResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        DomainError? saveConflict = await this.SaveChangesAsync(cancellationToken);
+        if (saveConflict is not null)
+        {
+            return saveConflict;
+        }
         await this.auditLog.LogAsync(
             "system",
             "ApplicationCredential.Revoked",
@@ -590,6 +624,19 @@ public sealed class ApplicationCredentialUseCases
         byte[] bytes = new byte[32];
         System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
         return Convert.ToBase64String(bytes);
+    }
+
+    private async Task<DomainError?> SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await this.repository.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+        catch (Exception exception) when (exception is IConcurrencyConflict)
+        {
+            return ApplicationErrors.CredentialConflict;
+        }
     }
 }
 
