@@ -45,6 +45,21 @@ public sealed class AdministrativeApprovalContractTests
     }
 
     [Fact]
+    public void ApprovalProtectedForbiddenResponseAlsoAllowsOrdinaryPermissionDenials()
+    {
+        string contract = ReadContract();
+        int response = contract.IndexOf("    AdministrativeApprovalRequired:", StringComparison.Ordinal);
+        response.ShouldBeGreaterThan(0);
+        int responseEnd = contract.IndexOf("\n    NotFound:", response, StringComparison.Ordinal);
+        responseEnd.ShouldBeGreaterThan(response);
+        string definition = contract[response..responseEnd];
+
+        definition.ShouldContain("oneOf:");
+        definition.ShouldContain("$ref: '#/components/schemas/ProblemDetails'");
+        definition.ShouldContain("$ref: '#/components/schemas/AdministrativeApprovalProblemDetails'");
+    }
+
+    [Fact]
     public void EnableRoleDocumentsRuntimeWritePermission()
     {
         string contract = ReadContract();

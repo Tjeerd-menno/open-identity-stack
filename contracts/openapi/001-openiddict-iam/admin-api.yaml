@@ -1504,11 +1504,23 @@ components:
             $ref: '#/components/schemas/ProblemDetails'
 
     AdministrativeApprovalRequired:
-      description: Administrative approval is required or no longer valid
+      description: Insufficient route permission, or administrative approval is required or no longer valid
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/AdministrativeApprovalProblemDetails'
+            oneOf:
+              - allOf:
+                  - $ref: '#/components/schemas/ProblemDetails'
+                  - not:
+                      required: [errorCode]
+                      properties:
+                        errorCode:
+                          enum:
+                            - Forbidden.AdministrativeApproval.HumanRequired
+                            - Forbidden.AdministrativeApproval.AuthorityRequired
+                            - Forbidden.AdministrativeApproval.ReauthenticationRequired
+                            - Forbidden.AdministrativeApproval.AcknowledgementRequired
+              - $ref: '#/components/schemas/AdministrativeApprovalProblemDetails'
 
     NotFound:
       description: Resource not found
