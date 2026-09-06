@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Infrastructure.Identity;
@@ -16,6 +17,7 @@ public sealed class OpenIddictApplicationProjectionTests
 {
     private readonly IOpenIddictApplicationManager applicationManager;
     private readonly IOpenIddictScopeManager scopeManager;
+    private readonly IApplicationProtocolProjectionTransaction transaction;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly OpenIddictApplicationProjection projection;
     private readonly DateTimeOffset now = new(2026, 5, 24, 12, 0, 0, TimeSpan.Zero);
@@ -24,12 +26,61 @@ public sealed class OpenIddictApplicationProjectionTests
     {
         this.applicationManager = Substitute.For<IOpenIddictApplicationManager>();
         this.scopeManager = Substitute.For<IOpenIddictScopeManager>();
+        this.transaction = Substitute.For<IApplicationProtocolProjectionTransaction>();
+        this.transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<Result>>>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Func<CancellationToken, Task<Result>>>()(call.ArgAt<CancellationToken>(1)));
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.dateTimeProvider.UtcNow.Returns(this.now);
         this.projection = new OpenIddictApplicationProjection(
             this.applicationManager,
             this.scopeManager,
+            this.transaction,
             Substitute.For<ILogger<OpenIddictApplicationProjection>>());
+    }
+
+    [Fact]
+    public async Task UpsertAsync_WhenScopeIsMissing_KeepsScopeAndApplicationWritesInOneTransaction()
+    {
+        DomainApplication application = this.CreateWebApplication();
+        object existing = new();
+        bool transactionActive = false;
+        bool scopeCreatedInTransaction = false;
+        bool applicationUpdatedInTransaction = false;
+        this.transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<Result>>>(), Arg.Any<CancellationToken>())
+            .Returns(async call =>
+            {
+                transactionActive = true;
+                try
+                {
+                    return await call.Arg<Func<CancellationToken, Task<Result>>>()(call.ArgAt<CancellationToken>(1));
+                }
+                finally
+                {
+                    transactionActive = false;
+                }
+            });
+        this.applicationManager.FindByClientIdAsync(application.ClientId, Arg.Any<CancellationToken>()).Returns(existing);
+        this.scopeManager.CreateAsync(Arg.Any<OpenIddictScopeDescriptor>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                scopeCreatedInTransaction = transactionActive;
+                return new ValueTask<object>(new object());
+            });
+        this.applicationManager.UpdateAsync(existing, Arg.Any<OpenIddictApplicationDescriptor>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                applicationUpdatedInTransaction = transactionActive;
+                return default(ValueTask);
+            });
+
+        Result result = await this.projection.UpsertAsync(application);
+
+        result.IsSuccess.ShouldBeTrue();
+        scopeCreatedInTransaction.ShouldBeTrue();
+        applicationUpdatedInTransaction.ShouldBeTrue();
+        await this.transaction.Received(1).ExecuteAsync(
+            Arg.Any<Func<CancellationToken, Task<Result>>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
