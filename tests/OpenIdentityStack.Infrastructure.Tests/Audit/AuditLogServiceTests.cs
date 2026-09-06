@@ -58,6 +58,28 @@ public sealed class AuditLogServiceTests : IClassFixture<SqliteTestFixture>, IAs
     }
 
     [Fact]
+    public async Task LongActorUsesTheSameBoundedIdentifierAcrossAuditWrites()
+    {
+        string actor = new('a', 255);
+        await this.auditLogService.LogAsync(actor, "Role.Updated", "Role", "role-1");
+        await this.auditLogService.LogChangeAsync(actor, "Role.Updated", "Role", "role-2", null, null);
+        this.dbContext.AuditLogEntries.Add(new AuditLogEntry
+        {
+            UserId = actor, Action = "AdministrativeAuthorityChanged", EntityType = "Role", EntityId = "role-3", Timestamp = TestTime,
+        });
+        await this.dbContext.SaveChangesAsync();
+
+        await using OpenIdentityStackDbContext freshContext = this.fixture.CreateDbContext();
+        string[] identifiers = await freshContext.AuditLogEntries.Select(entry => entry.UserId).ToArrayAsync();
+        identifiers.Length.ShouldBe(3);
+        identifiers.Distinct().Count().ShouldBe(1);
+        identifiers[0].Length.ShouldBeLessThanOrEqualTo(128);
+        identifiers[0].ShouldStartWith("sha256:");
+        await this.auditLogService.LogAsync(identifiers[0], "Role.Updated", "Role", "different-actor");
+        (await this.dbContext.AuditLogEntries.SingleAsync(entry => entry.EntityId == "different-actor")).UserId.ShouldNotBe(identifiers[0]);
+    }
+
+    [Fact]
     public async Task LogChangeAsync_WithAllParameters_LogsMessageAndPersistsEntry()
     {
         await this.auditLogService.LogChangeAsync(

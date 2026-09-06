@@ -255,8 +255,11 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
                 (entry.Details!.Contains("Modified") || entry.Details.Contains("Deleted")))).ShouldBeTrue());
     }
 
-    [Fact]
-    public async Task RolePermissionWithdrawalImmediatelyDeniesExistingBearerAndCommitsActorAudit()
+    [Theory]
+    [InlineData(64)]
+    [InlineData(129)]
+    [InlineData(255)]
+    public async Task RolePermissionWithdrawalImmediatelyDeniesExistingBearerAndCommitsActorAudit(int actorLength)
     {
         string email = $"withdrawal-{Guid.NewGuid():N}@example.com";
         const string password = "Password123!@#";
@@ -274,7 +277,7 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
         string bearer = subject.DefaultRequestHeaders.Authorization!.Parameter!;
         (await subject.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        string actorId = $"withdrawal-operator-{Guid.NewGuid():N}";
+        string actorId = $"withdrawal-operator-{Guid.NewGuid():N}".PadRight(actorLength, 'x');
         using HttpClient actor = await fixture.CreateAuthenticatedClientAsync(actorId, "fixture-secret");
         using HttpResponseMessage withdrawal = await actor.DeleteAsync($"/api/admin/roles/{role.Id.Value}/permissions/users:read");
         withdrawal.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -285,7 +288,12 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
         {
             OpenIdentityStack.Infrastructure.Audit.AuditLogEntry audit = await db.AuditLogEntries.SingleAsync(entry =>
                 entry.Action == "AdministrativeAuthorityChanged" && entry.EntityId == role.Id.Value.ToString());
-            audit.UserId.ShouldBe(actorId);
+            if (actorLength <= 128) { audit.UserId.ShouldBe(actorId); }
+            else
+            {
+                audit.UserId.ShouldStartWith("sha256:");
+                audit.UserId.Length.ShouldBe(71);
+            }
             string details = audit.Details.ShouldNotBeNull();
             details.ShouldContain("Permissions");
             details.ShouldNotContain(email);
