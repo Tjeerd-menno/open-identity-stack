@@ -367,6 +367,16 @@ public class AuthorizationController : ControllerBase
             return this.InvalidUserInfoToken();
         }
 
+        bool ambiguousLegacyApplicationSubject = subjectKinds.Length == 0
+            && revision is null
+            && !string.IsNullOrWhiteSpace(subject)
+            && string.Equals(subject, principal.GetClaim(Claims.ClientId), StringComparison.Ordinal)
+            && await this.applicationManager.FindByClientIdAsync(subject, this.HttpContext.RequestAborted) is not null;
+        if (ambiguousLegacyApplicationSubject)
+        {
+            return this.InvalidUserInfoToken();
+        }
+
         Domain.Users.User? emailEvidenceUser = null;
         if (!validApplicationSubject)
         {
