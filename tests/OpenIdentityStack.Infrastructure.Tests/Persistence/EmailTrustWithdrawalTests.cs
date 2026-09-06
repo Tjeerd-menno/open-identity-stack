@@ -163,6 +163,8 @@ public sealed class EmailTrustWithdrawalTests
             Principal = principal
         };
 
+        await using var issuance = new TokenIssuanceTransaction(stale);
+        await issuance.BeginAsync(default);
         await new UserCredentialRevisionValidation(stale).HandleAsync(context);
 
         context.IsRejected.ShouldBeTrue();

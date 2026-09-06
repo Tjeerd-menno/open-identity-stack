@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using OpenIddict.Abstractions;
 using OpenIddict.EntityFrameworkCore.Models;
 using OpenIddict.Server;
@@ -14,6 +16,19 @@ namespace OpenIdentityStack.Infrastructure.Tests.Identity;
 
 public sealed class TokenIssuanceTransactionTests
 {
+    [Fact]
+    public async Task BeginDoesNotAcquireTheGlobalAuthorityFence()
+    {
+        await using SqliteConnection connection = await CreateDatabaseAsync();
+        var commands = new CommandRecorder();
+        await using OpenIdentityStackDbContext db = CreateContext(connection, commands);
+        await using var transaction = new TokenIssuanceTransaction(db);
+
+        await transaction.BeginAsync(default);
+
+        commands.Commands.ShouldNotContain(command => command.Contains("AdministrativeAuthorityRevision", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task CommitMakesAllIssuanceWritesDurableTogether()
     {
@@ -101,6 +116,26 @@ public sealed class TokenIssuanceTransactionTests
         return connection;
     }
 
-    private static OpenIdentityStackDbContext CreateContext(SqliteConnection connection) =>
-        new(new DbContextOptionsBuilder<OpenIdentityStackDbContext>().UseSqlite(connection).UseOpenIddict().Options);
+    private static OpenIdentityStackDbContext CreateContext(SqliteConnection connection, DbCommandInterceptor? interceptor = null)
+    {
+        DbContextOptionsBuilder<OpenIdentityStackDbContext> builder = new DbContextOptionsBuilder<OpenIdentityStackDbContext>()
+            .UseSqlite(connection).UseOpenIddict();
+        if (interceptor is not null) { builder.AddInterceptors(interceptor); }
+        return new(builder.Options);
+    }
+
+    private sealed class CommandRecorder : DbCommandInterceptor
+    {
+        public List<string> Commands { get; } = [];
+
+        public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            this.Commands.Add(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
+    }
 }
