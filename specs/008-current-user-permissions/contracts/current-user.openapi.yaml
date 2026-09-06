@@ -34,6 +34,12 @@ paths:
                       - applications:read
         '401':
           description: The request is unauthenticated or the validated principal lacks a subject.
+        '403':
+          description: The authenticated caller does not satisfy the administrative access boundary, including the ois.admin scope and active administrative principal requirements.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 components:
   securitySchemes:
     bearerAuth:
@@ -42,6 +48,15 @@ components:
       bearerFormat: opaque
       description: Access token validated by the API. Management Web treats the token as opaque.
   schemas:
+    ProblemDetails:
+      type: object
+      properties:
+        status:
+          type: integer
+        title:
+          type: string
+        detail:
+          type: string
     CurrentUserResponse:
       type: object
       additionalProperties: false

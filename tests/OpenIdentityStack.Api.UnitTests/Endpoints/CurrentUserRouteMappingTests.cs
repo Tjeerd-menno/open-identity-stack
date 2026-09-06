@@ -2,7 +2,9 @@ using System.Reflection;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -34,8 +36,10 @@ public sealed class CurrentUserRouteMappingTests
 
         IAuthorizeData authorizeData = endpoint.Metadata.OfType<IAuthorizeData>().Single();
         authorizeData.Policy.ShouldBe(AuthorizationOptionsExtensions.AdminPolicy);
-        endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
-            .Select(static response => response.StatusCode).ShouldContain(403);
+        IProducesResponseTypeMetadata forbidden = endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+            .Single(response => response.StatusCode == StatusCodes.Status403Forbidden);
+        forbidden.Type.ShouldBe(typeof(ProblemDetails));
+        forbidden.ContentTypes.ShouldContain("application/problem+json");
     }
 
     private static WebApplication CreateApplication()

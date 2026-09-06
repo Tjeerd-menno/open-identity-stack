@@ -22,6 +22,7 @@ internal static class AdministrativeAccessApi
             .WithName("GetAdministrativeAccess").WithSummary("Gets an application's approved administrative permission ceilings");
 
         group.MapPut("", async (Guid id, AdministrativeAccessConfiguration request, ClaimsPrincipal actor,
+            [FromHeader(Name = "X-OIS-Administrative-Approval")] string? administrativeApproval,
             AdministrativeAccessWorkflow workflow, CancellationToken cancellationToken) =>
         {
             Result<AdministrativeAccessDto> result = await workflow.SaveAsync(id, request, actor.FindFirstValue("sub") ?? "unknown", cancellationToken);

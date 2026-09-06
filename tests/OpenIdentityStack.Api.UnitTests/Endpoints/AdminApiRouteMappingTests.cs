@@ -163,6 +163,7 @@ public sealed class AdminApiRouteMappingTests
             .SelectMany(static source => source.Endpoints)
             .OfType<RouteEndpoint>()
             .Single(candidate => candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "SaveAdministrativeAccess");
+        MethodInfo handler = endpoint.Metadata.GetMetadata<MethodInfo>()!;
 
         IProducesResponseTypeMetadata forbidden = endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
             .Single(metadata => metadata.StatusCode == StatusCodes.Status403Forbidden);
@@ -173,6 +174,8 @@ public sealed class AdminApiRouteMappingTests
             .Single(metadata => metadata.StatusCode == StatusCodes.Status400BadRequest);
         validation.Type.ShouldBe(typeof(ErrorResponse));
         validation.ContentTypes.ShouldContain("application/json");
+        handler.GetParameters().Any(parameter =>
+            parameter.GetCustomAttribute<FromHeaderAttribute>()?.Name == "X-OIS-Administrative-Approval").ShouldBeTrue();
     }
 
     [Fact]

@@ -21,7 +21,7 @@ public static partial class CurrentUserApi
             .RequireAuthorization(AuthorizationOptionsExtensions.AdminPolicy)
             .Produces<CurrentUserResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .WithTags(nameof(CurrentUserApi))
             .WithName("GetCurrentUser")
             .WithSummary("Gets the authenticated current user");
