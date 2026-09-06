@@ -71,6 +71,8 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
         {
             if (existingUser.Status == UserStatus.Disabled)
             {
+                await this.auditLog.LogAsync("federation", "Federation.AccountAssociationDenied", "User", existingUser.Id.Value.ToString(),
+                    $"Local account is disabled. Provider: {command.ProviderId.Value}.", cancellationToken);
                 return UserErrors.AccountDisabled;
             }
 

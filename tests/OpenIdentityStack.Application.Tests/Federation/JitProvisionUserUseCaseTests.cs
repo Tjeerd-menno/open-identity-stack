@@ -15,6 +15,7 @@ public sealed class JitProvisionUserUseCaseTests
     private readonly IUpstreamProviderRepository _providerRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly IJitProvisionUserUseCase _sut;
+    private readonly IAuditLog audit = Substitute.For<IAuditLog>();
     private readonly IJitProvisioningPersistence persistence = Substitute.For<IJitProvisioningPersistence>();
     private static readonly IDateTimeProvider StaticDateTimeProvider = new TestDateTimeProviderImpl();
 
@@ -35,7 +36,7 @@ public sealed class JitProvisionUserUseCaseTests
         this._sut = new JitProvisionUserUseCase(
             this._userRepository,
             this._providerRepository,
-            Substitute.For<IAuditLog>(), this.persistence);
+            this.audit, this.persistence);
     }
 
     [Fact]
@@ -177,6 +178,8 @@ public sealed class JitProvisionUserUseCaseTests
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Forbidden.User.AccountDisabled");
         user.Status.ShouldBe(UserStatus.Disabled);
+        await this.audit.Received(1).LogAsync("federation", "Federation.AccountAssociationDenied", "User", user.Id.Value.ToString(),
+            Arg.Is<string>(details => details.Contains(providerId.Value.ToString(), StringComparison.Ordinal)), Arg.Any<CancellationToken>());
     }
 
     [Fact]
