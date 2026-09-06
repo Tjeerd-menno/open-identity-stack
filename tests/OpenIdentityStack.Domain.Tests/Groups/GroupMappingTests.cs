@@ -17,6 +17,10 @@ public class GroupMappingTests
     [InlineData("OIS.example")]
     [InlineData("ois_human_authenticated_at")]
     [InlineData("oi_prst")]
+    [InlineData("phone_number_verified")]
+    [InlineData(" OIS_human_authenticated_at ")]
+    [InlineData(" oi_prst ")]
+    [InlineData(" ois.example ")]
     public void SecurityClaimsCannotBeSuppliedByGroupMappings(string type)
     {
         GroupMapping.Create(MappingType.Claim, type, "*", TokenTarget.Both).IsFailure.ShouldBeTrue();

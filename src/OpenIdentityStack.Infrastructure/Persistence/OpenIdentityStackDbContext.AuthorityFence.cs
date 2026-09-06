@@ -45,18 +45,23 @@ public partial class OpenIdentityStackDbContext
             return base.SaveChanges(acceptAllChangesOnSuccess);
         }
         using IDbContextTransaction? owned = this.Database.CurrentTransaction is null ? this.Database.BeginTransaction() : null;
+        IDbContextTransaction transaction = owned ?? this.Database.CurrentTransaction!;
+        string? savepoint = owned is null ? $"authority_{Guid.NewGuid():N}" : null;
+        if (savepoint is not null) { transaction.CreateSavepoint(savepoint); }
         try
         {
             if (this.ExpectedAuthority().ExecuteUpdate(update => update.SetProperty(value => value.Revision, value => value.Revision + 1)) != 1)
             { throw new DbUpdateConcurrencyException("Administrative authority changed; repeat the operation against current authority."); }
             int result = base.SaveChanges(acceptAllChangesOnSuccess);
+            if (savepoint is not null) { transaction.ReleaseSavepoint(savepoint); }
             owned?.Commit();
             this.authoritySnapshot = null;
             return result;
         }
         catch
         {
-            this.Database.CurrentTransaction?.Rollback();
+            if (owned is not null) { owned.Rollback(); }
+            else if (savepoint is not null) { transaction.RollbackToSavepoint(savepoint); }
             this.ChangeTracker.Clear();
             throw;
         }
@@ -71,18 +76,23 @@ public partial class OpenIdentityStackDbContext
             return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
         await using IDbContextTransaction? owned = this.Database.CurrentTransaction is null ? await this.Database.BeginTransactionAsync(cancellationToken) : null;
+        IDbContextTransaction transaction = owned ?? this.Database.CurrentTransaction!;
+        string? savepoint = owned is null ? $"authority_{Guid.NewGuid():N}" : null;
+        if (savepoint is not null) { await transaction.CreateSavepointAsync(savepoint, cancellationToken); }
         try
         {
             if (await this.ExpectedAuthority().ExecuteUpdateAsync(update => update.SetProperty(value => value.Revision, value => value.Revision + 1), cancellationToken) != 1)
             { throw new DbUpdateConcurrencyException("Administrative authority changed; repeat the operation against current authority."); }
             int result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            if (savepoint is not null) { await transaction.ReleaseSavepointAsync(savepoint, cancellationToken); }
             if (owned is not null) { await owned.CommitAsync(cancellationToken); }
             this.authoritySnapshot = null;
             return result;
         }
         catch
         {
-            if (this.Database.CurrentTransaction is { } transaction) { await transaction.RollbackAsync(CancellationToken.None); }
+            if (owned is not null) { await owned.RollbackAsync(CancellationToken.None); }
+            else if (savepoint is not null) { await transaction.RollbackToSavepointAsync(savepoint, CancellationToken.None); }
             this.ChangeTracker.Clear();
             throw;
         }
