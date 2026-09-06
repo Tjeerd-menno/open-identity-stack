@@ -11,11 +11,13 @@ namespace OpenIdentityStack.Application.Sessions.Queries;
 /// <param name="PageSize">The number of items per page.</param>
 /// <param name="UserId">Optional filter by user ID.</param>
 /// <param name="Status">Optional filter by session status.</param>
+/// <param name="Search">Optional case-insensitive IP address or user agent substring.</param>
 public sealed record ListSessionsQuery(
     int Page = 1,
     int PageSize = 20,
     UserId? UserId = null,
-    SessionStatus? Status = null);
+    SessionStatus? Status = null,
+    string? Search = null);
 
 /// <summary>
 /// Represents a single session in the list.
@@ -107,6 +109,7 @@ public sealed class ListSessionsQueryHandler : IListSessionsQueryHandler
             query.PageSize,
                 query.UserId,
                 query.Status,
+                query.Search,
                 cancellationToken);
 
             var items = sessions

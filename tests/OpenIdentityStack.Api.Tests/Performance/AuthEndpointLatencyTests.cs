@@ -308,7 +308,8 @@ public sealed class AuthEndpointLatencyTests
             getGroupClaimsForUserQueryHandler,
             addClientSessionUseCase,
             validateSessionQueryHandler,
-            openIddictRequestService
+            openIddictRequestService,
+            Substitute.For<IAuditLog>()
         );
 
         var httpContext = new DefaultHttpContext();

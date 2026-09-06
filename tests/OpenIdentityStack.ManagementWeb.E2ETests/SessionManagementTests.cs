@@ -76,10 +76,32 @@ public sealed class SessionManagementTests : ManagementWebPageTest
         await GotoAsync("/sessions");
         await Page.GetByText(_primaryIp).WaitForAsync();
 
-        // A search term that matches nothing exercises the query round-trip: the row drops out.
-        await Page.GetByLabel("Search sessions").FillAsync($"no-such-session-{Unique}");
+        // Wait for the concrete search response so temporary loading rows cannot satisfy the assertion.
+        IResponse matchingResponse = await Page.RunAndWaitForResponseAsync(
+            () => Page.GetByLabel("Search sessions").FillAsync(_primaryIp),
+            candidate => candidate.Request.Method == "GET"
+                && new Uri(candidate.Url).AbsolutePath == "/api/admin/sessions"
+                && System.Web.HttpUtility.ParseQueryString(new Uri(candidate.Url).Query)["search"] == _primaryIp);
+        matchingResponse.Status.ShouldBe(200);
+        System.Text.Json.Nodes.JsonNode matchingPayload = System.Text.Json.Nodes.JsonNode.Parse(await matchingResponse.TextAsync())!;
+        matchingPayload["items"]!.AsArray().Count.ShouldBe(1);
+        matchingPayload["items"]![0]!["ipAddress"]!.GetValue<string>().ShouldBe(_primaryIp);
+        matchingPayload["totalCount"]!.GetValue<int>().ShouldBe(1);
+        await Assertions.Expect(Page.GetByText(_primaryIp)).ToBeVisibleAsync();
+        await Assertions.Expect(Page.GetByText(_secondaryIp)).ToHaveCountAsync(0);
+
+        string search = $"no-such-session-{Unique}";
+        IResponse response = await Page.RunAndWaitForResponseAsync(
+            () => Page.GetByLabel("Search sessions").FillAsync(search),
+            candidate => candidate.Request.Method == "GET"
+                && new Uri(candidate.Url).AbsolutePath == "/api/admin/sessions"
+                && System.Web.HttpUtility.ParseQueryString(new Uri(candidate.Url).Query)["search"] == search);
+        response.Status.ShouldBe(200);
+        System.Text.Json.Nodes.JsonNode payload = System.Text.Json.Nodes.JsonNode.Parse(await response.TextAsync())!;
+        payload["items"]!.AsArray().Count.ShouldBe(0);
+        payload["totalCount"]!.GetValue<int>().ShouldBe(0);
+        await Assertions.Expect(Page.GetByText("No sessions", new() { Exact = true })).ToBeVisibleAsync();
         ILocator primaryRow = Page.GetByText(_primaryIp);
-        await primaryRow.WaitForAsync(new() { State = WaitForSelectorState.Detached });
-        (await primaryRow.IsVisibleAsync()).ShouldBeFalse();
+        await Assertions.Expect(primaryRow).ToHaveCountAsync(0);
     }
 }

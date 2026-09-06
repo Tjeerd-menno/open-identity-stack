@@ -7,6 +7,11 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using OpenIdentityStack.Infrastructure.Audit;
+using OpenIdentityStack.Infrastructure.Persistence;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authorization;
@@ -41,6 +46,7 @@ public class AuthorizationControllerTests
     private readonly IOpenIddictRequestService _requestService;
     private readonly IApplicationPermissionRegistryRepository _applicationPermissionRegistryRepository;
     private readonly AuthorizationController _controller;
+    private readonly IAuditLog audit = Substitute.For<IAuditLog>();
 
     public AuthorizationControllerTests()
     {
@@ -63,6 +69,7 @@ public class AuthorizationControllerTests
             this._addClientSessionUseCase,
             this._validateSessionQueryHandler,
             this._requestService,
+            this.audit,
             this._applicationPermissionRegistryRepository);
 
         var httpContext = new DefaultHttpContext();
@@ -105,6 +112,50 @@ public class AuthorizationControllerTests
         && !string.IsNullOrWhiteSpace(destinations);
 
     #region Authorize Tests
+
+    [Theory]
+    [InlineData("authorization")]
+    [InlineData("authorization_code")]
+    [InlineData("refresh_token")]
+    public async Task ExistingCredentials_ForLocallyDisabledUser_CannotIssueTokens(string flow)
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        DbContextOptions<OpenIdentityStackDbContext> options = new DbContextOptionsBuilder<OpenIdentityStackDbContext>().UseSqlite(connection).Options;
+        await using var db = new OpenIdentityStackDbContext(options);
+        await db.Database.EnsureCreatedAsync();
+        IDateTimeProvider auditClock = Substitute.For<IDateTimeProvider>();
+        auditClock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var durableAudit = new AuditLogService(NullLogger<AuditLogService>.Instance, db, auditClock);
+        this.audit.LogAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(call => durableAudit.LogAsync(call.ArgAt<string>(0), call.ArgAt<string>(1), call.ArgAt<string>(2), call.ArgAt<string>(3), call.ArgAt<string?>(4), call.ArgAt<CancellationToken>(5)));
+        User user = User.CreateFederated("disabled@example.com", "Disabled", Domain.Federation.UpstreamProviderId.Create(), "provider", "subject").Value;
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        user.Disable("Local administrative decision", clock).IsSuccess.ShouldBeTrue();
+        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
+        this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>()).Returns(AsyncEnumerable.Empty<string>());
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, user.Id.Value.ToString()),
+            new Claim(OpenIddictConstants.Claims.Subject, user.Id.Value.ToString())], "Cookies"));
+        this.SetupMockServices(principal);
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest { ClientId = "test-client", GrantType = flow });
+
+        IActionResult result = flow == "authorization" ? await this._controller.Authorize() : await this._controller.Exchange();
+
+        ForbidResult denied = result.ShouldBeOfType<ForbidResult>();
+        denied.Properties!.Items[OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription].ShouldBe("The credentials are no longer valid.");
+        await this.audit.Received(1).LogAsync(user.Id.Value.ToString(), "Authentication.DisabledAccountDenied", "User", user.Id.Value.ToString(),
+            $"Local account is disabled. Flow: {flow}.", Arg.Any<CancellationToken>());
+        await using var read = new OpenIdentityStackDbContext(options);
+        AuditLogEntry entry = await read.AuditLogEntries.SingleAsync();
+        entry.UserId.ShouldBe(user.Id.Value.ToString());
+        entry.EntityId.ShouldBe(user.Id.Value.ToString());
+        entry.Action.ShouldBe("Authentication.DisabledAccountDenied");
+        entry.Details.ShouldBe($"Local account is disabled. Flow: {flow}.");
+    }
 
     [Fact]
     public async Task Authorize_WhenRequestIsNull_ThrowsInvalidOperationException()

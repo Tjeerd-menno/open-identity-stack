@@ -28,7 +28,7 @@ public sealed class ListSessionsQueryHandlerTests
         first.AddClientSession("client-a", this.dateTimeProvider);
         first.AddClientSession("client-b", this.dateTimeProvider);
         var query = new ListSessionsQuery(Page: 2, PageSize: 2);
-        this.sessionRepository.ListAsync(2, 2, null, null, Arg.Any<CancellationToken>())
+        this.sessionRepository.ListAsync(2, 2, null, null, null, Arg.Any<CancellationToken>())
             .Returns(([first, second], 5));
 
         Result<ListSessionsResult> result = await this.handler.ExecuteAsync(query);
@@ -60,22 +60,22 @@ public sealed class ListSessionsQueryHandlerTests
             Page: 3,
             PageSize: 10,
             UserId: userId,
-            Status: SessionStatus.Revoked);
+            Status: SessionStatus.Revoked, Search: "Browser");
         using var cts = new CancellationTokenSource();
-        this.sessionRepository.ListAsync(3, 10, userId, SessionStatus.Revoked, cts.Token)
+        this.sessionRepository.ListAsync(3, 10, userId, SessionStatus.Revoked, "Browser", cts.Token)
             .Returns(([], 0));
 
         Result<ListSessionsResult> result = await this.handler.ExecuteAsync(query, cts.Token);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Items.ShouldBeEmpty();
-        await this.sessionRepository.Received(1).ListAsync(3, 10, userId, SessionStatus.Revoked, cts.Token);
+        await this.sessionRepository.Received(1).ListAsync(3, 10, userId, SessionStatus.Revoked, "Browser", cts.Token);
     }
 
     [Fact]
     public async Task ExecuteAsync_WhenTotalCountIsZero_ReturnsNoNextOrPreviousPage()
     {
-        this.sessionRepository.ListAsync(1, 20, null, null, Arg.Any<CancellationToken>())
+        this.sessionRepository.ListAsync(1, 20, null, null, null, Arg.Any<CancellationToken>())
             .Returns(([], 0));
 
         Result<ListSessionsResult> result = await this.handler.ExecuteAsync(new ListSessionsQuery());
