@@ -52,7 +52,7 @@ public sealed class AdministrativeAccessManagementTests(ManagementWebAppHostFixt
         await Page.GetByText("Not approved", new() { Exact = true }).WaitForAsync();
         await Page.GetByLabel("Machine permission ceiling", new() { Exact = true }).FillAsync("users:read");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Save administrative access", Exact = true }).ClickAsync();
-        ILocator approval = Page.GetByRole(AriaRole.Dialog, new() { Name = "Approve administrative access" });
+        ILocator approval = Page.GetByRole(AriaRole.Dialog, new() { Name = "Approve administrative operation" });
         await approval.WaitForAsync();
         (await approval.GetByRole(AriaRole.Button, new() { Name = "Approve operation", Exact = true }).IsDisabledAsync()).ShouldBeTrue();
         await ScreenshotAsync("administrative-approval");

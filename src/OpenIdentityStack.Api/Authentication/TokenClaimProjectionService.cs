@@ -209,6 +209,17 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
     public static IEnumerable<string> GetDestinations(Claim claim)
     {
+        if (claim.Type == IndependentAuthenticationClaims.LocalPasswordSession)
+        {
+            // Keep the proof in encrypted OP state, exposing it only to the dedicated administrative resource.
+            if (claim.Subject?.HasScope(OpenIdentityStack.Domain.Resources.ProtectedResource.AdministrativeScope) == true
+                && claim.Subject.GetResources() is { Length: 1 } resources
+                && resources[0] == OpenIdentityStack.Domain.Resources.ProtectedResource.AdministrativeAudience)
+            {
+                yield return Destinations.AccessToken;
+            }
+            yield break;
+        }
         if (IsInternalTokenStateClaim(claim.Type))
         {
             yield break;

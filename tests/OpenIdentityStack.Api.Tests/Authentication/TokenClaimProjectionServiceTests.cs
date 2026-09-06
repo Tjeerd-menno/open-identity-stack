@@ -17,6 +17,32 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 
 public sealed class TokenClaimProjectionServiceTests
 {
+    [Theory]
+    [InlineData("api", "business-api", false)]
+    [InlineData("ois.admin", "urn:openidentitystack:admin-api", true)]
+    [InlineData("ois.admin", "business-api", false)]
+    [InlineData("api", "urn:openidentitystack:admin-api", false)]
+    public void LocalSessionProofIsExposedOnlyToTheAdministrativeResource(string scope, string audience, bool exposed)
+    {
+        User user = CreateUser();
+        ClaimsPrincipal cookie = CreateCookiePrincipal(user.Id.Value);
+        string proof = Guid.NewGuid().ToString();
+        cookie.SetClaim(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession, proof);
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            cookie, user, [], [], [], [scope], [], null, null, null));
+        projected.SetResources(audience);
+        projected.SetDestinations(TokenClaimProjectionService.GetDestinations);
+        Claim claim = projected.FindFirst(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession)!;
+        claim.Value.ShouldBe(proof);
+        claim.GetDestinations().Contains(OpenIddictConstants.Destinations.AccessToken).ShouldBe(exposed);
+        claim.GetDestinations().ShouldNotContain(OpenIddictConstants.Destinations.IdentityToken);
+        ClaimsPrincipal refreshed = this.service.ProjectExistingPrincipal(projected);
+        refreshed.FindFirst(claim.Type)!.GetDestinations().Contains(OpenIddictConstants.Destinations.AccessToken).ShouldBe(exposed);
+        projected.SetResources(audience, "another-business-api");
+        projected.SetDestinations(TokenClaimProjectionService.GetDestinations);
+        projected.FindFirst(claim.Type)!.GetDestinations().ShouldBeEmpty();
+    }
+
     [Fact]
     public void GroupClaimsCannotReplacePersistedVerifiedPhoneOrStandardProfile()
     {
