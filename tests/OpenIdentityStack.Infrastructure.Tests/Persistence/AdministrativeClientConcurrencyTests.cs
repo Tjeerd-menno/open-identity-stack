@@ -52,7 +52,7 @@ public sealed class AdministrativeClientConcurrencyTests(AdministrativeAuthority
         projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         projection.DeleteAsync(Arg.Any<DomainApplicationId>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         var lifecycle = new ApplicationLifecycleUseCases(repository, projection, Substitute.For<IPasswordHasher>(), clock,
-            Substitute.For<IAuditLog>(), guard);
+            Substitute.For<IAuditLog>(), guard, Substitute.For<IApplicationProtocolProjectionTransaction>());
 
         Result<ApplicationCreateCommandResult> result = await lifecycle.ExecuteCreateAsync(new CreateApplicationCommand(
             $"new-client-{Guid.NewGuid():N}", "New client", null, ApplicationProfile.Web, OAuthClientType.Confidential,
@@ -96,7 +96,8 @@ public sealed class AdministrativeClientConcurrencyTests(AdministrativeAuthority
         projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         IPasswordHasher hasher = Substitute.For<IPasswordHasher>();
         IAuditLog audit = Substitute.For<IAuditLog>();
-        var workflow = new ApplicationsAdminWorkflow(new ApplicationLifecycleUseCases(repository, projection, hasher, clock, audit, guard),
+        var workflow = new ApplicationsAdminWorkflow(new ApplicationLifecycleUseCases(repository, projection, hasher, clock, audit, guard,
+                Substitute.For<IApplicationProtocolProjectionTransaction>()),
             new ApplicationCredentialUseCases(repository, projection, hasher, clock, audit, guard));
 
         await Should.ThrowAsync<DbUpdateConcurrencyException>(() => workflow.EnableAsync(new(client.Id)));

@@ -47,7 +47,7 @@ public sealed class ApplicationsAdminWorkflowTests
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog, administrativeGuard);
+            this.auditLog, administrativeGuard, Substitute.For<IApplicationProtocolProjectionTransaction>());
         ApplicationCredentialUseCases credentialUseCases = new(
             this.repository,
             this.projection,
@@ -366,6 +366,7 @@ public sealed class ApplicationsAdminWorkflowTests
         ServiceCollection services = new();
         services.AddScoped(_ => Substitute.For<IApplicationRepository>());
         services.AddScoped(_ => Substitute.For<IApplicationProtocolProjection>());
+        services.AddScoped(_ => Substitute.For<IApplicationProtocolProjectionTransaction>());
         services.AddScoped(_ => Substitute.For<IPasswordHasher>());
         services.AddScoped(_ => Substitute.For<IDateTimeProvider>());
         services.AddScoped(_ => Substitute.For<IAuditLog>());

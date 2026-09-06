@@ -38,7 +38,7 @@ public sealed class ApplicationProfilePolicyUseCaseTests
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog, administrativeGuard);
+            this.auditLog, administrativeGuard, Substitute.For<IApplicationProtocolProjectionTransaction>());
         this.credentialUseCases = new ApplicationCredentialUseCases(
             this.repository,
             this.projection,

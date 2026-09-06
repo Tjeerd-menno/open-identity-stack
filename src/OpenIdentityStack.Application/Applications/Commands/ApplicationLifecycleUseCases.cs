@@ -15,6 +15,7 @@ public sealed class ApplicationLifecycleUseCases
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
     private readonly IAdministrativeClientGuard administrativeGuard;
+    private readonly IApplicationProtocolProjectionTransaction transaction;
 
     public ApplicationLifecycleUseCases(
         IApplicationRepository repository,
@@ -22,7 +23,8 @@ public sealed class ApplicationLifecycleUseCases
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog,
-        IAdministrativeClientGuard administrativeGuard)
+        IAdministrativeClientGuard administrativeGuard,
+        IApplicationProtocolProjectionTransaction transaction)
     {
         this.repository = repository;
         this.projection = projection;
@@ -30,6 +32,7 @@ public sealed class ApplicationLifecycleUseCases
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
         this.administrativeGuard = administrativeGuard;
+        this.transaction = transaction;
     }
 
     public async Task<Result<ApplicationCommandResult>> ExecuteAsync(
@@ -298,14 +301,32 @@ public sealed class ApplicationLifecycleUseCases
             return result.Error;
         }
 
-        Result projectionResult = await this.projection.DeleteAsync(application.Id, cancellationToken);
-        if (projectionResult.IsFailure)
+        Result deletionResult;
+        try
         {
-            return projectionResult.Error;
+            deletionResult = await this.transaction.ExecuteAsync(async ct =>
+            {
+                Result projectionResult = await this.projection.DeleteAsync(application.Id, ct);
+                if (projectionResult.IsFailure)
+                {
+                    return projectionResult.Error;
+                }
+
+                this.repository.Remove(application);
+                await this.repository.SaveChangesAsync(ct);
+                return Result.Success();
+            }, cancellationToken);
+        }
+        catch (Exception exception) when (exception is IConcurrencyConflict)
+        {
+            return ApplicationErrors.DeleteConflict;
         }
 
-        this.repository.Remove(application);
-        await this.repository.SaveChangesAsync(cancellationToken);
+        if (deletionResult.IsFailure)
+        {
+            return deletionResult.Error;
+        }
+
         await this.AuditAsync("Application.Deleted", application, cancellationToken);
 
         return Result.Success();

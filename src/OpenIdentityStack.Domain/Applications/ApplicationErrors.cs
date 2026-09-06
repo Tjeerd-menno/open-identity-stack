@@ -105,4 +105,7 @@ public static class ApplicationErrors
 
     public static readonly DomainError CredentialConflict =
         DomainError.Conflict("Application.CredentialConflict", "Administrative authority changed; reload before changing credentials again.");
+
+    public static readonly DomainError DeleteConflict =
+        DomainError.Conflict("Application.DeleteConflict", "Administrative authority changed; reload before deleting the application again.");
 }

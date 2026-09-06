@@ -28,7 +28,8 @@ public sealed class AdministrativeClientMutationTests
         IAdministrativeClientGuard guard = Substitute.For<IAdministrativeClientGuard>();
         guard.RequireAsync(client.Id, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(Result.Failure(DomainError.Forbidden("AdministrativeApproval.HumanRequired", "Human approval is required.")));
-        var lifecycle = new ApplicationLifecycleUseCases(repository, projection, Substitute.For<IPasswordHasher>(), clock, Substitute.For<IAuditLog>(), guard);
+        var lifecycle = new ApplicationLifecycleUseCases(repository, projection, Substitute.For<IPasswordHasher>(), clock,
+            Substitute.For<IAuditLog>(), guard, Substitute.For<IApplicationProtocolProjectionTransaction>());
         var credentials = new ApplicationCredentialUseCases(repository, projection, Substitute.For<IPasswordHasher>(), clock, Substitute.For<IAuditLog>(), guard);
         bool failed = operation switch
         {
