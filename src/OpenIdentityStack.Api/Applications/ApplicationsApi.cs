@@ -89,6 +89,7 @@ internal static class ApplicationsApi
             .RequireAuthorization(Permissions.Applications.Delete)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("DeleteApplication")
             .WithSummary("Deletes an application");
 
