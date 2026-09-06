@@ -14,6 +14,54 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 
 public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixture)
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ChangingAdministrativeScopeRecordsApplicationAuthorityChange(bool initiallyGranted)
+    {
+        string clientId = $"scope-withdrawal-{Guid.NewGuid():N}";
+        if (initiallyGranted)
+        {
+            using HttpClient client = await fixture.CreateAuthenticatedClientAsync(clientId, "fixture-secret");
+        }
+        else
+        {
+            await fixture.CreateServiceAccountAsync(clientId, "fixture-secret", ["api"]);
+        }
+        Guid applicationId = Guid.Empty;
+        Guid[] previousAudits = [];
+
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            OpenIdentityStack.Domain.Applications.Application application = await db.Applications.SingleAsync(value => value.ClientId == clientId);
+            applicationId = application.Id.Value;
+            previousAudits = await db.AuditLogEntries
+                .Where(entry => entry.Action == "AdministrativeAuthorityChanged" && entry.EntityId == applicationId.ToString())
+                .Select(entry => entry.Id)
+                .ToArrayAsync();
+            application.ConfigureOAuth(
+                application.Profile,
+                application.ClientType,
+                application.AllowedGrantTypes,
+                initiallyGranted
+                    ? application.AllowedScopes.Where(scope => scope != "ois.admin").ToArray()
+                    : [.. application.AllowedScopes, "ois.admin"],
+                application.RedirectUris,
+                application.PostLogoutRedirectUris,
+                application.RequirePkce,
+                application.RequireConsent,
+                CreateClock()).IsSuccess.ShouldBeTrue();
+            await db.SaveChangesAsync();
+        });
+
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            OpenIdentityStack.Infrastructure.Audit.AuditLogEntry audit = await db.AuditLogEntries.SingleAsync(entry =>
+                entry.Action == "AdministrativeAuthorityChanged" && entry.EntityId == applicationId.ToString() && !previousAudits.Contains(entry.Id));
+            audit.Details.ShouldNotBeNull().ShouldContain("allowedScopes");
+        });
+    }
+
     [Fact]
     public async Task SystemNamedClientHasTheSameTypedActorInExplicitAndAutomaticAudits()
     {
