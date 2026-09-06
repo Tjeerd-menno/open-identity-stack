@@ -69,7 +69,7 @@ public sealed class CredentialCutoverResourceInventory(OpenIdentityStackDbContex
                 logout.Add($"http://localhost:{port}/");
             }
         }
-        return redirects.Count > 0 && logout.Count > 0 && client.Status == ApplicationStatus.Active && !client.RequiresMigrationReview
+        return redirects.Count > 0 && logout.Count > 0 && client.Status == ApplicationStatus.Active && !client.RequiresMigrationReview && !client.RequireConsent
             && client.Profile == ApplicationProfile.SinglePage && client.ClientType == OAuthClientType.Public && client.RequirePkce && client.Credentials.Count == 0
             && ManagementWebPreparation.HasCanonicalScopes(client.AllowedScopes)
             && ManagementWebPreparation.HasCanonicalGrantTypes(client.AllowedGrantTypes)
