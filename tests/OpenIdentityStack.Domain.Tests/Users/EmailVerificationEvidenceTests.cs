@@ -7,6 +7,36 @@ namespace OpenIdentityStack.Domain.Tests.Users;
 public sealed class EmailVerificationEvidenceTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WithdrawalChangesCredentialRevisionOnlyWhenLastEvidenceIsLostAndRetryPreservesIt(bool independent)
+    {
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        User user = User.CreateLocal("person@example.com", "Person", "hash", clock).Value;
+        if (independent)
+        {
+            user.VerifyEmail(clock).IsSuccess.ShouldBeTrue();
+        }
+        UpstreamProvider provider = UpstreamProvider.Create("provider", "Provider", "https://issuer.example", "client").Value;
+        provider.SetEmailVerificationTrust(true);
+        user.RecordProviderEmailVerification(provider, "https://issuer.example", user.Email, true, clock.UtcNow);
+        Guid beforeEvidence = user.EmailEvidenceRevision;
+
+        user.WithdrawProviderEmailVerification(provider.Id.Value, clock.UtcNow).ShouldBe(!independent);
+
+        user.EmailVerified.ShouldBe(independent);
+        (user.CredentialRevision != Guid.Empty).ShouldBe(!independent);
+        user.EmailEvidenceRevision.ShouldNotBe(beforeEvidence);
+        Guid credentialRevision = user.CredentialRevision;
+        Guid evidenceRevision = user.EmailEvidenceRevision;
+        DateTimeOffset? withdrawnAt = user.EmailVerificationEvidence.Single(e => e.ProviderId.HasValue).WithdrawnAt;
+        user.WithdrawProviderEmailVerification(provider.Id.Value, clock.UtcNow.AddHours(1)).ShouldBeFalse();
+        user.CredentialRevision.ShouldBe(credentialRevision);
+        user.EmailEvidenceRevision.ShouldBe(evidenceRevision);
+        user.EmailVerificationEvidence.Single(e => e.ProviderId.HasValue).WithdrawnAt.ShouldBe(withdrawnAt);
+    }
+    [Theory]
     [InlineData(false, true, "person@example.com", false)]
     [InlineData(true, false, "person@example.com", false)]
     [InlineData(true, true, "other@example.com", false)]

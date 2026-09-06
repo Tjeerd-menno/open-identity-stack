@@ -33,7 +33,7 @@ public interface ISessionRepository
     Task AddAsync(UserSession session, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Updates an existing session.
+    /// Saves changes to a session loaded or added through this repository.
     /// </summary>
     Task UpdateAsync(UserSession session, CancellationToken cancellationToken = default);
 

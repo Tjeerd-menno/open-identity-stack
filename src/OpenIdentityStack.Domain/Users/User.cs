@@ -33,15 +33,38 @@ public sealed partial class User : AggregateRoot<UserId>
             e.Issuer == issuer && e.NormalizedEmail == this.NormalizedEmail && e.WithdrawnAt is null))
         {
             this.emailVerificationEvidence.Add(new EmailVerificationEvidence(this.Email, provider.Id.Value, issuer, verifiedAt));
+            this.EmailEvidenceRevision = Guid.NewGuid();
         }
     }
 
-    public void WithdrawProviderEmailVerification(Guid providerId, DateTimeOffset withdrawnAt)
+    public Guid CredentialRevision { get; private set; }
+
+    public Guid EmailEvidenceRevision { get; private set; }
+
+    public bool WithdrawProviderEmailVerification(Guid providerId, DateTimeOffset withdrawnAt)
     {
+        string[] affectedAddresses = this.emailVerificationEvidence
+            .Where(e => e.ProviderId == providerId && e.WithdrawnAt is null)
+            .Select(e => e.NormalizedEmail).Distinct(StringComparer.Ordinal).ToArray();
         foreach (EmailVerificationEvidence evidence in this.emailVerificationEvidence.Where(e => e.ProviderId == providerId))
         {
             evidence.Withdraw(withdrawnAt);
         }
+
+        if (affectedAddresses.Length > 0)
+        {
+            this.EmailEvidenceRevision = Guid.NewGuid();
+        }
+
+        // Old-address credentials also lose their assertion when their last source is withdrawn.
+        bool invalidated = affectedAddresses.Any(address => !this.emailVerificationEvidence
+            .Any(e => e.NormalizedEmail == address && e.WithdrawnAt is null));
+        if (invalidated)
+        {
+            this.CredentialRevision = Guid.NewGuid();
+        }
+
+        return invalidated;
     }
 
     /// <summary>
@@ -349,6 +372,7 @@ public sealed partial class User : AggregateRoot<UserId>
         }
 
         this.emailVerificationEvidence.Add(new EmailVerificationEvidence(this.Email, null, null, dateTimeProvider.UtcNow));
+        this.EmailEvidenceRevision = Guid.NewGuid();
         this.Status = UserStatus.Active;
         this.SetModified(dateTimeProvider.UtcNow);
 

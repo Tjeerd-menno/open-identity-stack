@@ -16,6 +16,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasKey(u => u.Id);
 
+        builder.Property(u => u.CredentialRevision).IsConcurrencyToken();
+        builder.Property(u => u.EmailEvidenceRevision).IsConcurrencyToken();
+
         builder.Property(u => u.Id)
             .HasColumnName("Id")
             .IsRequired();

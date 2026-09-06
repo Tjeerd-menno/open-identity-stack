@@ -29,7 +29,8 @@ internal static class ProvidersApi
             .Produces(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithName("SetProviderEmailVerificationTrust")
-            .WithSummary("Sets explicit trust in a provider's verified-email assertions");
+            .WithSummary("Sets explicit trust in a provider's verified-email assertions")
+            .WithDescription("Withdrawing trust retains evidence provenance and atomically revokes affected user tokens, authorizations, and sessions. Independent evidence is preserved. Offline JWT consumers require their own revocation policy; see the provider email-trust withdrawal runbook.");
         group.MapGet(string.Empty, ListProviders)
             .RequireAuthorization(Permissions.Providers.Read)
             .Produces<IReadOnlyList<ProviderResponse>>(StatusCodes.Status200OK)

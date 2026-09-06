@@ -1395,7 +1395,7 @@ paths:
       tags: [Providers]
       summary: Set trust in a provider's verified-email assertions
       operationId: setProviderEmailVerificationTrust
-      description: Explicitly trust or withdraw provider-derived email verification. Withdrawal retains provenance and invalidates dependent verification while preserving independent evidence.
+      description: Explicitly trust or withdraw provider-derived email verification. Withdrawal retains provenance and atomically revokes affected user tokens, authorizations, and sessions while preserving independent evidence. Offline JWT consumers rely on their own expiration or revocation policy, and RP sessions remain active until logout or session expiry.
       requestBody:
         required: true
         content:

@@ -207,6 +207,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPermissionDiagnosticsReader, PermissionDiagnosticsReader>();
         services.AddScoped<IUpstreamProviderRepository, UpstreamProviderRepository>();
         services.AddScoped<IProviderEmailTrustStore, ProviderEmailTrustStore>();
+        services.AddScoped<IEmailTrustCredentialInvalidator, EmailTrustCredentialInvalidator>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();

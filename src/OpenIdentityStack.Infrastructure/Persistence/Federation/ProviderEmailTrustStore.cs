@@ -6,13 +6,13 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Infrastructure.Persistence.Federation;
 
-public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext, IAuditLog auditLog) : IProviderEmailTrustStore
+public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext, IAuditLog auditLog, IEmailTrustCredentialInvalidator invalidator) : IProviderEmailTrustStore
 {
     public async Task<Result> SetAsync(UpstreamProviderId providerId, bool trusted, string actorId, CancellationToken cancellationToken)
     {
         await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
             await dbContext.Database.BeginTransactionAsync(cancellationToken);
-        await dbContext.LockAuthorityBeforeProviderAsync(cancellationToken);
+        await dbContext.LockCredentialBoundaryAsync(cancellationToken);
         // Lock before reading affected users so evidence committed by an earlier login is included.
         int found = await dbContext.UpstreamProviders.Where(provider => provider.Id == providerId)
             .ExecuteUpdateAsync(setters => setters.SetProperty(provider => provider.JitProvisioningEnabled,
@@ -48,10 +48,21 @@ public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext
                 if (page.Count == 0) { break; }
                 afterUserId = page[^1];
                 UserId[] userIds = page.Select(id => new UserId(id)).ToArray();
+                // Preserve authority -> provider -> ordered subject lock acquisition. Credential
+                // enumeration must not run until issuance for every subject in this bounded page commits.
+                foreach (UserId userId in userIds)
+                {
+                    await dbContext.LockUserCredentialBoundaryAsync(userId, cancellationToken);
+                }
                 List<User> affectedUsers = await dbContext.Users.Where(user => userIds.Contains(user.Id)).ToListAsync(cancellationToken);
                 foreach (User user in affectedUsers)
                 {
-                    user.WithdrawProviderEmailVerification(providerId.Value, withdrawnAt);
+                    if (user.WithdrawProviderEmailVerification(providerId.Value, withdrawnAt))
+                    {
+                        EmailTrustCredentialInvalidation revoked = await invalidator.RevokeAsync(user.Id, cancellationToken);
+                        await auditLog.LogAsync(actorId, "Provider.EmailTrustCredentialsRevoked", "User", user.Id.Value.ToString(),
+                            $"Provider {providerId.Value}: {revoked.Tokens} tokens, {revoked.Authorizations} authorizations, {revoked.Sessions} sessions revoked.", cancellationToken);
+                    }
                 }
                 await dbContext.SaveChangesAsync(cancellationToken);
                 // The transaction and provider lock survive detachment; previous batches cannot accumulate in memory.
