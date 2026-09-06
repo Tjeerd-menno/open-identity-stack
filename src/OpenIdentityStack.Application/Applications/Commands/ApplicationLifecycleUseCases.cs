@@ -452,6 +452,7 @@ public sealed class ApplicationCredentialUseCases
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
     private readonly IAdministrativeClientGuard administrativeGuard;
+    private readonly IAdministrativeActorContext actorContext;
 
     public ApplicationCredentialUseCases(
         IApplicationRepository repository,
@@ -459,7 +460,8 @@ public sealed class ApplicationCredentialUseCases
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog,
-        IAdministrativeClientGuard administrativeGuard)
+        IAdministrativeClientGuard administrativeGuard,
+        IAdministrativeActorContext actorContext)
     {
         this.repository = repository;
         this.projection = projection;
@@ -467,6 +469,7 @@ public sealed class ApplicationCredentialUseCases
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
         this.administrativeGuard = administrativeGuard;
+        this.actorContext = actorContext;
     }
 
     public async Task<Result<ApplicationCredentialCommandResult>> ExecuteAsync(
@@ -522,7 +525,7 @@ public sealed class ApplicationCredentialUseCases
         }
         await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.auditLog.LogAsync(
-            "system",
+            this.actorContext.AuditActorId,
             "ApplicationCredential.SecretAdded",
             "Application",
             application.Id.Value.ToString(),
@@ -568,7 +571,7 @@ public sealed class ApplicationCredentialUseCases
         }
         await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.auditLog.LogAsync(
-            "system",
+            this.actorContext.AuditActorId,
             "ApplicationCredential.CertificateAdded",
             "Application",
             application.Id.Value.ToString(),
@@ -612,7 +615,7 @@ public sealed class ApplicationCredentialUseCases
             return saveConflict;
         }
         await this.auditLog.LogAsync(
-            "system",
+            this.actorContext.AuditActorId,
             "ApplicationCredential.Revoked",
             "Application",
             application.Id.Value.ToString(),
@@ -651,17 +654,20 @@ public sealed class ApplicationCredentialValidationUseCases :
     private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeActorContext actorContext;
 
     public ApplicationCredentialValidationUseCases(
         IApplicationRepository repository,
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,
-        IAuditLog auditLog)
+        IAuditLog auditLog,
+        IAdministrativeActorContext actorContext)
     {
         this.repository = repository;
         this.passwordHasher = passwordHasher;
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
+        this.actorContext = actorContext;
     }
 
     public async Task<Result<ValidateApplicationCredentialsResult>> ExecuteAsync(
@@ -766,7 +772,7 @@ public sealed class ApplicationCredentialValidationUseCases :
         ApplicationCredential credential,
         CancellationToken cancellationToken) =>
         this.auditLog.LogAsync(
-            "system",
+            this.actorContext.AuditActorId,
             "ApplicationCredential.Used",
             "Application",
             application.Id.Value.ToString(),

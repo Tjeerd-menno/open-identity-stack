@@ -53,7 +53,7 @@ public sealed class ApplicationsAdminWorkflowTests
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog, administrativeGuard);
+            this.auditLog, administrativeGuard, new UnauthenticatedAdministrativeActorContext());
 
         this.workflow = new ApplicationsAdminWorkflow(
             lifecycleUseCases,

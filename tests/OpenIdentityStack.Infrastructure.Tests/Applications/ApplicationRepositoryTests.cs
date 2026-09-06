@@ -222,7 +222,7 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
             projection,
             new PasswordHasher(),
             this.dateTimeProvider,
-            Substitute.For<IAuditLog>(), administrativeGuard);
+            Substitute.For<IAuditLog>(), administrativeGuard, new UnauthenticatedAdministrativeActorContext());
 
         Result<ApplicationCredentialCommandResult> result = await useCase.ExecuteAsync(
             new AddApplicationSecretCommand(application.Id, "Primary secret", this.now.AddDays(30), RevokeExisting: false));

@@ -14,15 +14,18 @@ public sealed class SetLocalFallbackUseCase : ISetLocalFallbackUseCase
     private readonly IAuthenticationSettingsRepository settingsRepository;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeActorContext actorContext;
 
     public SetLocalFallbackUseCase(
         IAuthenticationSettingsRepository settingsRepository,
         IDateTimeProvider dateTimeProvider,
-        IAuditLog auditLog)
+        IAuditLog auditLog,
+        IAdministrativeActorContext actorContext)
     {
         this.settingsRepository = settingsRepository ?? throw new ArgumentNullException(nameof(settingsRepository));
         this.dateTimeProvider = dateTimeProvider ?? throw new ArgumentNullException(nameof(dateTimeProvider));
         this.auditLog = auditLog ?? throw new ArgumentNullException(nameof(auditLog));
+        this.actorContext = actorContext ?? throw new ArgumentNullException(nameof(actorContext));
     }
 
     /// <inheritdoc />
@@ -46,7 +49,7 @@ public sealed class SetLocalFallbackUseCase : ISetLocalFallbackUseCase
 
         // Audit the change
         await this.auditLog.LogChangeAsync(
-            "system",
+            this.actorContext.AuditActorId,
             "SetLocalFallback",
             "AuthenticationSettings",
             settings.Id.Value.ToString(),
