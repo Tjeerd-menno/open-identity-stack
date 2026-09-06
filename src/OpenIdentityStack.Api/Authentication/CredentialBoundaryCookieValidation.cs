@@ -5,6 +5,7 @@ using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Common;
 using SharedKernel;
+using OpenIdentityStack.Infrastructure.Identity;
 
 namespace OpenIdentityStack.Api.Authentication;
 
@@ -29,6 +30,8 @@ public static class CredentialBoundaryCookieValidation
         {
             context.RejectPrincipal();
             await context.HttpContext.SignOutAsync("Cookies");
+            context.HttpContext.Response.Cookies.Delete(SessionManagementDefaults.SessionCookieName,
+                SessionManagementDefaults.CreateSessionCookieOptions());
         }
     }
 }
