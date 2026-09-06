@@ -332,8 +332,12 @@ public sealed class AuthorizationCodeFlowTests
         query["state"].Single().ShouldBe(state);
     }
 
-    [Fact]
-    public async Task Authorize_WithAuthenticatedSession_IncludesSessionStateInCallbackRedirect()
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("login", null)]
+    [InlineData(null, 0L)]
+    [InlineData("login", 0L)]
+    public async Task Authorize_WithAuthenticatedSession_IncludesSessionStateInCallbackRedirect(string? prompt, long? maxAge)
     {
         // Arrange
         string clientId = $"session-state-client-{Guid.NewGuid():N}";
@@ -367,7 +371,10 @@ public sealed class AuthorizationCodeFlowTests
             ["code_challenge_method"] = "S256"
         }).ReadAsStringAsync();
 
-        // Act
+        if (prompt is not null) { authorizeQuery += "&prompt=" + Uri.EscapeDataString(prompt); }
+        if (maxAge is not null) { authorizeQuery += "&max_age=" + maxAge.Value.ToString(System.Globalization.CultureInfo.InvariantCulture); }
+
+        // A single local password submission must complete the authorization request.
         HttpResponseMessage authorizeResponse = await client.GetAsync("/connect/authorize?" + authorizeQuery);
         authorizeResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
         authorizeResponse.Headers.Location.ShouldNotBeNull();
@@ -392,6 +399,7 @@ public sealed class AuthorizationCodeFlowTests
         callbackResponse.Headers.Location.ShouldNotBeNull();
 
         // Assert
+        callbackResponse.Headers.Location.IsAbsoluteUri.ShouldBeTrue("one local login must complete authorization without another login redirect");
         callbackResponse.Headers.Location.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
 
         Dictionary<string, Microsoft.Extensions.Primitives.StringValues> callbackQuery =

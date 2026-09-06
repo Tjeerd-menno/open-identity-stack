@@ -29,7 +29,7 @@ namespace OpenIdentityStack.Api.Tests.Fixtures;
 public class AppHostFixture : IAsyncLifetime
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
-    private readonly string ConnectionString;
+    private string ConnectionString { get; }
 
     public AppHostFixture() : this("openidentitystack_api_tests") { }
 

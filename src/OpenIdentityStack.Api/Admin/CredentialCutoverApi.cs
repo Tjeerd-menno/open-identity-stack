@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Security.Commands;
 using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Api.Common;
 using OpenIdentityStack.Application.Abstractions;
@@ -11,7 +12,7 @@ public static class CredentialCutoverApi
 {
     public static void MapCredentialCutoverApi(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/admin/security/credential-cutovers", async (CredentialCutoverRequest request, ExecuteCredentialCutover useCase, CancellationToken cancellationToken) =>
+        endpoints.MapPost("/api/admin/security/credential-cutovers", async (CredentialCutoverRequest request, IExecuteCredentialCutoverUseCase useCase, CancellationToken cancellationToken) =>
         {
             SharedKernel.Result<CredentialCutoverResult> result = await useCase.ExecuteAsync(request.OperationId, cancellationToken);
             return result.IsSuccess ? Results.Ok(result.Value) : ErrorResultMapper.ToErrorResult(result.Error);
