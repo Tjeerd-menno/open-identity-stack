@@ -18,6 +18,31 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 public sealed class CredentialCutoverTests
 {
     [Fact]
+    public async Task PersistedSessionRevocationClearsMonitoringCookieOnCheckSessionRequest()
+    {
+        await using var fixture = new AppHostFixture($"monitoring-{Guid.NewGuid():N}");
+        await fixture.InitializeAsync();
+        string email = $"monitoring-{Guid.NewGuid():N}@example.test";
+        const string password = "Password123!@#";
+        Guid userId = await fixture.CreateTestUserAsync(email, "Session monitor", password);
+        HumanAdministrativeSession authenticated = await HumanAdministrativeSession.SignInAsync(fixture, email, password, []);
+        using HttpClient browser = authenticated.Client;
+        (await browser.GetAsync("/connect/check_session")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+            clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+            foreach (UserSession session in await db.UserSessions.Where(value => value.UserId == new UserId(userId)).ToListAsync())
+            {
+                session.Revoke(clock);
+            }
+            await db.SaveChangesAsync();
+        });
+
+        AssertMonitoringCookieCleared(await browser.GetAsync("/connect/check_session"));
+    }
+
+    [Fact]
     public async Task RemovedSessionRejectsItsAlreadyIssuedRefreshToken()
     {
         await using var fixture = new AppHostFixture($"removed-session-{Guid.NewGuid():N}");
@@ -99,6 +124,7 @@ public sealed class CredentialCutoverTests
         completed.OperationId.ShouldBe(operation);
         completed.Tokens.ShouldBeGreaterThan(0);
         completed.Sessions.ShouldBeGreaterThan(0);
+        AssertMonitoringCookieCleared(await human.GetAsync("/connect/check_session"));
         (await human.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         (await machine.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         (await human.PostAsync("/connect/token", new FormUrlEncodedContent(ExchangeCode(outstandingCode)))).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -121,5 +147,16 @@ public sealed class CredentialCutoverTests
         retry.StatusCode.ShouldBe(HttpStatusCode.OK);
         (await retry.Content.ReadFromJsonAsync<CredentialCutoverResult>()).ShouldBe(completed);
         (await recovered.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    private static void AssertMonitoringCookieCleared(HttpResponseMessage response)
+    {
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        string cookie = response.Headers.GetValues("Set-Cookie").Single(value => value.StartsWith("op_session=", StringComparison.Ordinal));
+        cookie.ShouldContain("op_session=;");
+        cookie.ShouldContain("expires=Thu, 01 Jan 1970");
+        cookie.ShouldContain("path=/");
+        cookie.ShouldContain("secure");
+        cookie.ShouldContain("samesite=none");
     }
 }
