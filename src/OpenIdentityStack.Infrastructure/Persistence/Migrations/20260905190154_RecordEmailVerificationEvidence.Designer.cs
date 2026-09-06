@@ -658,6 +658,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasColumnName("email_trust_version");
 
                     b.Property<bool>("JitProvisioningEnabled")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
