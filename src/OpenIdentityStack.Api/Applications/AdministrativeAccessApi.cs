@@ -16,7 +16,7 @@ internal static class AdministrativeAccessApi
             Result<AdministrativeAccessDto> result = await workflow.GetAsync(id, cancellationToken);
             return result.IsSuccess ? Results.Ok(result.Value) : ErrorResultMapper.ToErrorResult(result.Error);
         }).RequireAuthorization(Permissions.Applications.Read)
-            .Produces<AdministrativeAccessDto>().Produces(StatusCodes.Status403Forbidden)
+            .Produces<AdministrativeAccessDto>().Produces(StatusCodes.Status401Unauthorized).Produces(StatusCodes.Status403Forbidden)
             .WithName("GetAdministrativeAccess").WithSummary("Gets an application's approved administrative permission ceilings");
 
         group.MapPut("", async (Guid id, AdministrativeAccessConfiguration request, ClaimsPrincipal actor,
@@ -25,7 +25,7 @@ internal static class AdministrativeAccessApi
             Result<AdministrativeAccessDto> result = await workflow.SaveAsync(id, request, actor.FindFirstValue("sub") ?? "unknown", cancellationToken);
             return result.IsSuccess ? Results.Ok(result.Value) : ErrorResultMapper.ToErrorResult(result.Error);
         }).RequireAuthorization(Permissions.Applications.Write)
-            .Produces<AdministrativeAccessDto>().Produces(StatusCodes.Status400BadRequest).Produces(StatusCodes.Status403Forbidden).Produces(StatusCodes.Status409Conflict)
+            .Produces<AdministrativeAccessDto>().Produces(StatusCodes.Status400BadRequest).Produces(StatusCodes.Status401Unauthorized).Produces(StatusCodes.Status403Forbidden).Produces(StatusCodes.Status409Conflict)
             .WithName("SaveAdministrativeAccess").WithSummary("Approves, reduces, or withdraws administrative access; approval and expansion require fresh human approval");
         return endpoints;
     }
