@@ -62,9 +62,9 @@ internal static class ApplicationsApi
             .RequireAuthorization(Permissions.Applications.Write)
             .Produces<ApplicationResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("ConfigureApplicationOAuth")
             .WithSummary("Replaces application OAuth configuration");
 
@@ -81,9 +81,9 @@ internal static class ApplicationsApi
             .RequireAuthorization(Permissions.Applications.Write)
             .Produces<ApplicationResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("EnableApplication")
             .WithSummary("Enables an application");
 
@@ -106,9 +106,9 @@ internal static class ApplicationsApi
             .RequireAuthorization(Permissions.Applications.ManageCredentials)
             .Produces<AddApplicationSecretResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AddApplicationSecret")
             .WithSummary("Adds or rotates an application client secret");
 
@@ -116,9 +116,9 @@ internal static class ApplicationsApi
             .RequireAuthorization(Permissions.Applications.ManageCertificates)
             .Produces<AddApplicationCertificateResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AddApplicationCertificate")
             .WithSummary("Adds an application certificate credential");
 
