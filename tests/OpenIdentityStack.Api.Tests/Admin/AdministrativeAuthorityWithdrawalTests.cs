@@ -174,7 +174,8 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
         });
         (await original.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await other.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        (await other.GetAsync("/api/admin/roles")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await other.GetAsync("/api/admin/roles")).StatusCode.ShouldBe(
+            human ? HttpStatusCode.OK : HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -371,7 +372,7 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
     }
 
     [Fact]
-    public async Task CurrentUserReturnsCurrentCeilingWhenTheSameBearerIsReused()
+    public async Task CurrentUserRejectsBearerIssuedBeforeCeilingChange()
     {
         string clientId = $"current-authority-{Guid.NewGuid():N}";
         using HttpClient client = await fixture.CreateAuthenticatedClientAsync(clientId, "fixture-secret");
@@ -387,9 +388,7 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
         });
 
         using HttpResponseMessage response = await client.GetAsync("/api/me");
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        JsonObject currentUser = (await response.Content.ReadFromJsonAsync<JsonObject>())!;
-        currentUser["permissions"]!.AsArray().Select(value => value!.GetValue<string>()).ShouldBe(["users:read"]);
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await client.GetAsync("/api/admin/roles")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         client.DefaultRequestHeaders.Authorization!.Parameter.ShouldBe(bearer);
     }

@@ -15,6 +15,7 @@ public sealed class ApplicationLifecycleUseCaseTests
     private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeActorContext actorContext;
     private readonly ApplicationLifecycleUseCases useCases;
     private readonly DateTimeOffset now = new(2026, 5, 24, 12, 0, 0, TimeSpan.Zero);
 
@@ -25,6 +26,8 @@ public sealed class ApplicationLifecycleUseCaseTests
         this.passwordHasher = Substitute.For<IPasswordHasher>();
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.auditLog = Substitute.For<IAuditLog>();
+        this.actorContext = Substitute.For<IAdministrativeActorContext>();
+        this.actorContext.AuditActorId.Returns("client:lifecycle-admin");
         IAdministrativeClientGuard administrativeGuard = Substitute.For<IAdministrativeClientGuard>();
         administrativeGuard.RequireAsync(Arg.Any<OpenIdentityStack.Domain.Applications.ApplicationId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         this.dateTimeProvider.UtcNow.Returns(this.now);
@@ -37,7 +40,7 @@ public sealed class ApplicationLifecycleUseCaseTests
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog, administrativeGuard);
+            this.auditLog, administrativeGuard, this.actorContext);
     }
 
     [Fact]
@@ -66,7 +69,7 @@ public sealed class ApplicationLifecycleUseCaseTests
         await this.projection.Received(1).UpsertAsync(Arg.Is<DomainApplication>(a => a!.ClientId == "orders-web"), Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "system",
+            "client:lifecycle-admin",
             "Application.Created",
             "Application",
             result.Value.Id.Value.ToString(),
@@ -279,7 +282,7 @@ public sealed class ApplicationLifecycleUseCaseTests
         await this.projection.Received(1).UpsertAsync(application, Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "system",
+            "client:lifecycle-admin",
             "Application.Updated",
             "Application",
             application.Id.Value.ToString(),
@@ -301,7 +304,7 @@ public sealed class ApplicationLifecycleUseCaseTests
         await this.projection.Received(1).UpsertAsync(application, Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "system",
+            "client:lifecycle-admin",
             "Application.Disabled",
             "Application",
             application.Id.Value.ToString(),
@@ -323,7 +326,7 @@ public sealed class ApplicationLifecycleUseCaseTests
         await this.projection.Received(1).DeleteAsync(application.Id, Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "system",
+            "client:lifecycle-admin",
             "Application.Deleted",
             "Application",
             application.Id.Value.ToString(),
