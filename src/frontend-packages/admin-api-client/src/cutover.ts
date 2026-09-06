@@ -16,6 +16,7 @@ export function createCutoverContract(client: AdminApiClient) {
     getReadiness: () => client.get<CutoverPreflight>('/api/admin/security/cutover-readiness'),
     recordEmergencyAccess: () => client.post<EmergencyAccessEvidence>('/api/admin/security/emergency-access-evidence', {}),
     reviewResourceWindow: (resourceId: string, review: ResourceWindowReview) => client.put<void>(`/api/admin/security/business-resources/${resourceId}/token-window-review`, review),
-    execute: (operationId: string) => client.post<CredentialCutoverResult>('/api/admin/security/credential-cutovers', { operationId }),
+    execute: (operationId: string, onAdministrativeApprovalRetry?: () => void) =>
+      client.post<CredentialCutoverResult>('/api/admin/security/credential-cutovers', { operationId }, onAdministrativeApprovalRetry),
   };
 }

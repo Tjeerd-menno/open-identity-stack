@@ -60,7 +60,21 @@ it('requires acknowledgement and retains the operation ID when the live server g
   expect(await screen.findByText(/Prerequisites changed/)).toBeInTheDocument();
   fireEvent.click(execute);
   await waitFor(() => expect(mockApi.cutover.execute).toHaveBeenCalledTimes(2));
-  expect(mockApi.cutover.execute.mock.calls[0]).toEqual(mockApi.cutover.execute.mock.calls[1]);
+  expect(mockApi.cutover.execute.mock.calls[0][0]).toBe(mockApi.cutover.execute.mock.calls[1][0]);
+});
+
+it('does not treat a cancelled approval challenge as a submitted cutover', async () => {
+  mockApi.cutover.getReadiness.mockResolvedValue(ready);
+  mockApi.cutover.execute.mockRejectedValue(new Error('Approval cancelled'));
+  const firstRender = renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });
+  fireEvent.click(await screen.findByRole('checkbox', { name: /I accept/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Execute credential cutover' }));
+  expect(await screen.findByText(/Approval cancelled/)).toBeInTheDocument();
+  expect(sessionStorage.getItem(credentialCutoverSubmittedOperationIdKey)).toBeNull();
+
+  firstRender.unmount();
+  renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });
+  expect(await screen.findByRole('button', { name: 'Execute credential cutover' })).toBeDisabled();
 });
 
 it('retains the operation ID across auth recovery and clears it after confirmed success', async () => {
@@ -68,7 +82,10 @@ it('retains the operation ID across auth recovery and clears it after confirmed 
     .mockResolvedValueOnce(ready)
     .mockResolvedValue({ ...ready, ready: false, blockers: [{ code: 'Cutover.AlreadyCommitted', message: 'Current readiness was reset by the committed cutover.', count: 1 }] });
   mockApi.cutover.execute
-    .mockRejectedValueOnce(new Error('The response was lost'))
+    .mockImplementationOnce(async (_operationId: string, onApprovalRetry: () => void) => {
+      onApprovalRetry();
+      throw new Error('The response was lost');
+    })
     .mockImplementationOnce(async (operationId: string) => ({ operationId, tokens: 2, grants: 1, sessions: 1 }));
 
   const firstRender = renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });

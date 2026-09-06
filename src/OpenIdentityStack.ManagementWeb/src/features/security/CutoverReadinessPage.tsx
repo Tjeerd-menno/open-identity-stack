@@ -41,12 +41,12 @@ export function CutoverReadinessPage() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [operationId] = useState(getCredentialCutoverOperationId);
   const [isRetry, setIsRetry] = useState(() => sessionStorage.getItem(credentialCutoverSubmittedOperationIdKey) === operationId);
+  const markApprovalRetryDispatched = () => {
+    sessionStorage.setItem(credentialCutoverSubmittedOperationIdKey, operationId);
+    setIsRetry(true);
+  };
   const execute = useMutation({
-    mutationFn: () => {
-      sessionStorage.setItem(credentialCutoverSubmittedOperationIdKey, operationId);
-      setIsRetry(true);
-      return api.cutover.execute(operationId);
-    },
+    mutationFn: () => api.cutover.execute(operationId, markApprovalRetryDispatched),
     onSuccess: () => {
       sessionStorage.removeItem(credentialCutoverOperationIdKey);
       sessionStorage.removeItem(credentialCutoverSubmittedOperationIdKey);
