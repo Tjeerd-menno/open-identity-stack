@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
 using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Infrastructure.Identity;
@@ -101,14 +100,14 @@ public sealed class OpenIddictApplicationProjectionTests
     }
 
     [Fact]
-    public async Task UpsertAsync_WhenAuthorityFenceChanges_ReturnsConflict()
+    public async Task UpsertAsync_WhenOpenIddictReportsConcurrencyConflict_ReturnsConflict()
     {
         DomainApplication application = this.CreateWebApplication();
         object existing = new();
         this.applicationManager.FindByClientIdAsync(application.ClientId, Arg.Any<CancellationToken>())
             .Returns(existing);
         this.applicationManager.UpdateAsync(existing, Arg.Any<OpenIddictApplicationDescriptor>(), Arg.Any<CancellationToken>())
-            .Returns(_ => throw new DbUpdateConcurrencyException("Administrative authority changed."));
+            .Returns(_ => throw new OpenIddictExceptions.ConcurrencyException("The application was concurrently updated."));
 
         Result result = await this.projection.UpsertAsync(application);
 
@@ -117,7 +116,7 @@ public sealed class OpenIddictApplicationProjectionTests
     }
 
     [Fact]
-    public async Task DeleteAsync_WhenAuthorityFenceChanges_ReturnsConflict()
+    public async Task DeleteAsync_WhenOpenIddictReportsConcurrencyConflict_ReturnsConflict()
     {
         DomainApplication application = this.CreateWebApplication();
         object existing = new();
@@ -127,7 +126,7 @@ public sealed class OpenIddictApplicationProjectionTests
             .Returns(System.Collections.Immutable.ImmutableDictionary<string, string>.Empty
                 .Add("openidentitystack:application-id", application.Id.Value.ToString()));
         this.applicationManager.DeleteAsync(existing, Arg.Any<CancellationToken>())
-            .Returns(_ => throw new DbUpdateConcurrencyException("Administrative authority changed."));
+            .Returns(_ => throw new OpenIddictExceptions.ConcurrencyException("The application was concurrently deleted."));
 
         Result result = await this.projection.DeleteAsync(application.Id);
 

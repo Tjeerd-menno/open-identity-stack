@@ -1,5 +1,4 @@
 using OpenIdentityStack.Application.Abstractions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using OpenIdentityStack.Domain.Applications;
 using OpenIddict.Abstractions;
@@ -77,7 +76,7 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
 
             return Result.Success();
         }
-        catch (DbUpdateConcurrencyException ex)
+        catch (OpenIddictExceptions.ConcurrencyException ex)
         {
             Log.ApplicationProjectionFailed(this.logger, ex, application.ClientId);
             return projectionConflict;
@@ -116,7 +115,7 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
 
             return Result.Success();
         }
-        catch (DbUpdateConcurrencyException ex)
+        catch (OpenIddictExceptions.ConcurrencyException ex)
         {
             Log.ApplicationProjectionDeleteFailed(this.logger, ex, applicationId.Value);
             return projectionConflict;
