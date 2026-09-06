@@ -87,6 +87,20 @@ The later coordinated contract release changes `info.version` to `2.0.0` for the
 
 ![Explicit acknowledgement of the administrative operation's effects](images/identity-boundaries/administrative-approval.png)
 
+## Subsequent integration verification
+
+Seventeen further technical review comments added checked provisioning-policy writes, durable disabled-account and disabled-provider denial audits, typed machine audit actors, and authority capture before permission projection. Email proofs now emit JSON Boolean verification claims and transaction-bound evidence audits. Withdrawal uses an indexed provider/user cursor; migration models retain the index and policy concurrency annotation throughout the stack. Administrative acknowledgement can still offer reauthentication after its bounded retry, and an outcome-audit outage preserves the known committed result.
+
+The checked-in Admin contract now includes quarantine/evidence state and provider trust operations. Resource authorization denials use `access_denied` while token exchanges retain `invalid_grant`; unknown resources use `invalid_target`. Real redirects preserve `state` and issue no code. DbMigrator performs governed ManagementWeb registration in the resource layer. Rejected OP sessions clear the monitoring cookie; a retained cross-origin RP iframe observes `changed` after the OP processes rejection. Resource-window review advertises its existing 404 Problem Details response.
+
+Combined verification on 6 September 2026 targets product revision `ef38c07573bd21d8e6a8d8e6668474dcc1cb3df2`: Domain 500, Application 557, Infrastructure 509, API unit 75, Contract 64, Architecture 6, ManagementWeb 73, shared client 43, and real PostgreSQL/Aspire/Chromium 60 passed without skips. Both PostgreSQL fixture families and the actual DbMigrator executable regression ran. Mantine component tests use its documented test environment to eliminate transition/portal interference; production defaults and browser assertions remain unchanged.
+
+Revision `fdaa5adb3a6cb6b6b69882f1e0323bcbd61e7928` contains only two additional test-fixture corrections: verified human proof for actor attribution and valid session proof before testing resource denial. The full API integration suite passes 494 tests without skips on that revision, and the solution builds with only the existing ASPIRE010 warning. Product code is identical to the earlier fully verified revision. These runs total 2,381 passing tests.
+
+EF reports no pending model changes. All eleven OpenAPI YAML documents have no duplicate keys and resolve all 774 local references. The existing compatibility gate passes against `origin/main`; strict MkDocs also passes. The gate used its existing cached comparison image with only contract files exposed, networking disabled, a read-only filesystem, and capabilities dropped.
+
+The separate review request to change the accepted treatment of legacy wildcard grants remains a policy decision. ADR 0005's existing preservation rule remains in force pending that decision; these checks do not approve production cutover or consumer residual windows.
+
 ## Initial standards review
 
 Independent review found a race in unrestricted assignment and group membership, a companion direct client-enable path that bypassed revision capture, and duplicated reserved-claim policy. Capture now precedes authorization reads; a persisted revision comparison and mutation commit in one transaction. Client workflow entry points share that protection. Validation and projection use the same reserved-claim predicate. Re-review reported no remaining actionable findings.
