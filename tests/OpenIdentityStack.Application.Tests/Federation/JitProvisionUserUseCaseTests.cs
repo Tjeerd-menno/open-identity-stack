@@ -44,8 +44,8 @@ public sealed class JitProvisionUserUseCaseTests
         var providerId = UpstreamProviderId.Create();
         UpstreamProvider provider = CreateActiveProvider(providerId);
         this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>()).Returns(provider);
-        var update = new UpdateProviderUseCase(this._providerRepository);
-        (await update.ExecuteAsync(new UpdateProviderCommand(providerId.Value, JitProvisioningEnabled: false)))
+        var update = new UpdateProviderUseCase(this._providerRepository, audit: Substitute.For<IAuditLog>());
+        (await update.ExecuteAsync(new UpdateProviderCommand(providerId.Value, JitProvisioningEnabled: false, ActorId: "operator")))
             .IsSuccess.ShouldBeTrue();
 
         Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(
@@ -64,8 +64,8 @@ public sealed class JitProvisionUserUseCaseTests
         this._providerRepository.GetByIdAsync(providerId, Arg.Any<CancellationToken>()).Returns(provider);
         this._userRepository.FindByUpstreamIdentityAsync(providerId, "upstream-subject-123", Arg.Any<CancellationToken>())
             .Returns(existingUser);
-        var update = new UpdateProviderUseCase(this._providerRepository);
-        (await update.ExecuteAsync(new UpdateProviderCommand(providerId.Value, JitProvisioningEnabled: false)))
+        var update = new UpdateProviderUseCase(this._providerRepository, audit: Substitute.For<IAuditLog>());
+        (await update.ExecuteAsync(new UpdateProviderCommand(providerId.Value, JitProvisioningEnabled: false, ActorId: "operator")))
             .IsSuccess.ShouldBeTrue();
 
         Result<JitProvisionUserResult> result = await this._sut.ExecuteAsync(

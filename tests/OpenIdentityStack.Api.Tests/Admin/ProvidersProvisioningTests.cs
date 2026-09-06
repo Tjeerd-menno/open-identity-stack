@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using OpenIdentityStack.Api.Tests.Fixtures;
+using Microsoft.EntityFrameworkCore;
+using OpenIdentityStack.Infrastructure.Audit;
 
 namespace OpenIdentityStack.Api.Tests.Admin;
 
@@ -38,6 +40,14 @@ public sealed class ProvidersProvisioningTests(AppHostFixture fixture)
         updated.StatusCode.ShouldBe(HttpStatusCode.OK);
         JsonNode enabled = (await client.GetFromJsonAsync<JsonNode>($"/api/admin/providers/{id}"))!;
         enabled["jitProvisioningEnabled"]!.GetValue<bool>().ShouldBeTrue();
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            AuditLogEntry audit = await db.AuditLogEntries.SingleAsync(entry => entry.EntityId == id.ToString()
+                && entry.Action == "Federation.JitProvisioningPolicyChanged");
+            audit.UserId.ShouldNotBeNullOrWhiteSpace();
+            audit.BeforeState.ShouldBe("{\"jitProvisioningEnabled\":false}");
+            audit.AfterState.ShouldBe("{\"jitProvisioningEnabled\":true}");
+        });
 
         await client.PatchAsJsonAsync($"/api/admin/providers/{id}", new { JitProvisioningEnabled = false });
         await client.PatchAsJsonAsync($"/api/admin/providers/{id}", new { DisplayName = "Renamed policy" });

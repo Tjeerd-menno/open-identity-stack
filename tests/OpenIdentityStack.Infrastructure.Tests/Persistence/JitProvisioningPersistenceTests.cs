@@ -15,6 +15,60 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class JitProvisioningPersistenceTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ChangedProviderPolicyDeniesStaleCreationWithoutPersistingAccount(bool disableProvider)
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using OpenIdentityStackDbContext attempt = database.CreateContext();
+        await using OpenIdentityStackDbContext administrator = database.CreateContext();
+        UpstreamProvider stale = await attempt.UpstreamProviders.SingleAsync();
+        User user = User.CreateFederated("person@example.com", "Person", new TestClock()).Value;
+        user.LinkUpstreamIdentity(stale.Id, stale.Name, "subject", user.Email);
+        attempt.Users.Add(user);
+        UpstreamProvider current = await administrator.UpstreamProviders.SingleAsync();
+        if (disableProvider)
+        {
+            current.Disable();
+        }
+        else
+        {
+            current.SetJitProvisioningEnabled(false);
+        }
+        await administrator.SaveChangesAsync();
+
+        var persistence = new JitProvisioningPersistence(attempt,
+            new AuditLogService(NullLogger<AuditLogService>.Instance, attempt, new TestClock()));
+        Result result = await persistence.CommitAsync(user.Id, stale.Id, true);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(DomainError.Forbidden("Federation.AuthenticationFailed", "Unable to complete sign-in."));
+        await using OpenIdentityStackDbContext read = database.CreateContext();
+        (await read.Users.CountAsync()).ShouldBe(0);
+        (await read.AuditLogEntries.CountAsync(entry => entry.Action == "Federation.AccountAssociationDenied")).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task PolicyAuditFailureCannotCommitThePolicyChange()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using OpenIdentityStackDbContext attempt = database.CreateContext();
+        await attempt.Database.ExecuteSqlRawAsync("""
+            CREATE TRIGGER reject_policy_audit BEFORE INSERT ON "AuditLogEntries"
+            WHEN NEW."Action" = 'Federation.JitProvisioningPolicyChanged'
+            BEGIN SELECT RAISE(ABORT, 'injected audit insertion failure'); END;
+            """);
+        UpstreamProvider provider = await attempt.UpstreamProviders.SingleAsync();
+        var useCase = new UpdateProviderUseCase(new UpstreamProviderRepository(attempt),
+            audit: new AuditLogService(NullLogger<AuditLogService>.Instance, attempt, new TestClock()));
+        await Should.ThrowAsync<DbUpdateException>(() => useCase.ExecuteAsync(
+            new UpdateProviderCommand(provider.Id.Value, JitProvisioningEnabled: false, ActorId: "operator")));
+        await using OpenIdentityStackDbContext read = database.CreateContext();
+        (await read.UpstreamProviders.SingleAsync()).JitProvisioningEnabled.ShouldBeTrue();
+        (await read.AuditLogEntries.CountAsync()).ShouldBe(0);
+    }
+
     [Fact]
     public async Task CreationAuditFailureRollsBackUserAssociationAndAllowsRetry()
     {

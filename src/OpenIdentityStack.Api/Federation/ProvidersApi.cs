@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using OpenIddict.Validation.AspNetCore;
 using OpenIdentityStack.Application.Abstractions;
@@ -152,6 +153,7 @@ internal static class ProvidersApi
 
     private static async Task<IResult> UpdateProvider(
         [FromServices] IUpdateProviderUseCase updateProviderUseCase,
+        HttpContext context,
         Guid id,
         [FromBody] UpdateProviderRequest request,
         CancellationToken cancellationToken = default)
@@ -163,12 +165,17 @@ internal static class ProvidersApi
             request.ClientSecret,
             request.Scopes,
             request.JitProvisioningEnabled,
-            request.Status);
+            request.Status,
+            context.User.FindFirstValue("sub") ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier));
 
         Result<UpdateProviderResult> result = await updateProviderUseCase.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
+            if (result.Error.Code.StartsWith("Forbidden.", StringComparison.Ordinal))
+            {
+                return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, detail: result.Error.Description);
+            }
             if (result.Error.Code.Contains("NotFound", StringComparison.Ordinal))
             {
                 return TypedResults.NotFound(new { error = result.Error.Description });
