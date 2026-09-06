@@ -31,6 +31,7 @@ public class AccountControllerTests : IDisposable
     private readonly IJitProvisionUserUseCase _jitProvisionUseCase;
     private readonly AccountController _controller;
     private readonly IAuthenticationService _authService;
+    private readonly IAuditLog audit = Substitute.For<IAuditLog>();
 
     public AccountControllerTests()
     {
@@ -59,7 +60,7 @@ public class AccountControllerTests : IDisposable
             this._permissionChecker,
             this._userRepository,
             this._schemeService,
-            this._jitProvisionUseCase);
+            this._jitProvisionUseCase, this.audit);
 
         this.SetupHttpContext();
     }
@@ -95,6 +96,8 @@ public class AccountControllerTests : IDisposable
 
         RedirectToActionResult redirect = result.ShouldBeOfType<RedirectToActionResult>();
         redirect.RouteValues!["error"].ShouldBe("external_auth_failed");
+        await this.audit.Received(1).LogAsync("federation", "Federation.AccountAssociationDenied", "User", user.Id.Value.ToString(),
+            Arg.Is<string>(details => details.Contains(providerId.Value.ToString(), StringComparison.Ordinal)), Arg.Any<CancellationToken>());
         await this._createSessionUseCase.DidNotReceive().ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>());
         await this._authService.DidNotReceive().SignInAsync(Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
     }

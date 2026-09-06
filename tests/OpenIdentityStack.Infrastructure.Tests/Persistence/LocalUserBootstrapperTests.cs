@@ -9,6 +9,20 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class LocalUserBootstrapperTests(SqliteTestFixture fixture) : IClassFixture<SqliteTestFixture>
 {
+    [Fact]
+    public async Task InvalidPasswordReportsPolicyReasonWithoutPassword()
+    {
+        await fixture.ClearAllDataAsync();
+        await using OpenIdentityStackDbContext db = fixture.CreateDbContext();
+        IPasswordPolicyValidator validator = Substitute.For<IPasswordPolicyValidator>();
+        validator.ValidatePassword(Arg.Any<string>()).Returns(DomainError.Validation("Password.TooShort", "Password must contain at least 12 characters."));
+        var bootstrapper = new LocalUserBootstrapper(db, Substitute.For<IPasswordHasher>(), validator, Substitute.For<IDateTimeProvider>());
+        InvalidOperationException exception = await Should.ThrowAsync<InvalidOperationException>(() =>
+            bootstrapper.CreateIfAbsentAsync("operator@example.com", "Operator", "secret-value", false));
+        exception.Message.ShouldContain("Password must contain at least 12 characters.");
+        exception.Message.ShouldNotContain("secret-value");
+    }
+
     [Theory]
     [InlineData(UserStatus.Disabled, true)]
     [InlineData(UserStatus.PendingVerification, true)]

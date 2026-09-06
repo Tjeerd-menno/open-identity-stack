@@ -31,6 +31,7 @@ public class AccountController : Controller
     private readonly IUserRepository userRepository;
     private readonly IDynamicAuthenticationSchemeService schemeService;
     private readonly IJitProvisionUserUseCase jitProvisionUseCase;
+    private readonly IAuditLog audit;
 
     public AccountController(
         IValidateUserCredentialsUseCase validateCredentialsUseCase,
@@ -40,7 +41,8 @@ public class AccountController : Controller
         IPermissionChecker permissionChecker,
         IUserRepository userRepository,
         IDynamicAuthenticationSchemeService schemeService,
-        IJitProvisionUserUseCase jitProvisionUseCase)
+        IJitProvisionUserUseCase jitProvisionUseCase,
+        IAuditLog audit)
     {
         this.validateCredentialsUseCase = validateCredentialsUseCase;
         this.createSessionUseCase = createSessionUseCase;
@@ -50,6 +52,7 @@ public class AccountController : Controller
         this.userRepository = userRepository;
         this.schemeService = schemeService;
         this.jitProvisionUseCase = jitProvisionUseCase;
+        this.audit = audit;
     }
 
     /// <summary>
@@ -247,6 +250,8 @@ public class AccountController : Controller
 
         if (user.Status != Domain.Users.UserStatus.Active)
         {
+            await this.audit.LogAsync("federation", "Federation.AccountAssociationDenied", "User", user.Id.Value.ToString(),
+                $"Local account is not active. Provider: {providerId.Value}.");
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 

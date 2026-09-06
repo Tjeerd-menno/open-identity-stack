@@ -37,7 +37,7 @@ public sealed class LocalUserBootstrapper(
         Result validation = passwordPolicyValidator.ValidatePassword(password);
         if (validation.IsFailure)
         {
-            throw new InvalidOperationException("Bootstrap password does not satisfy the password policy.");
+            throw new InvalidOperationException($"Bootstrap password does not satisfy the password policy: {validation.Error.Description}");
         }
 
         Role? role = assignAdministrator
@@ -51,7 +51,7 @@ public sealed class LocalUserBootstrapper(
         Result<User> creation = User.CreateBootstrap(email, displayName, passwordHasher.HashPassword(password), clock, profile);
         if (creation.IsFailure)
         {
-            throw new InvalidOperationException("Bootstrap user configuration is invalid.");
+            throw new InvalidOperationException($"Bootstrap user configuration is invalid: {creation.Error.Description}");
         }
 
         User user = creation.Value;
