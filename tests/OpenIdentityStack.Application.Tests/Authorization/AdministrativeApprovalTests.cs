@@ -25,7 +25,8 @@ public sealed class AdministrativeApprovalTests
         this.context.Current.Returns(new AdministrativeActor(this.user.Id, now, true, true));
         this.users.GetByIdAsync(this.user.Id, Arg.Any<CancellationToken>()).Returns(this.user);
         this.SetPermissions(["*"]);
-        this.approval = new AdministrativeApproval(this.context, this.users, this.roles, this.clock, this.audit, Substitute.For<IAdministrativeAuthoritySnapshot>());
+        this.approval = new AdministrativeApproval(this.context, this.users, this.roles, this.clock, this.audit, Substitute.For<IAdministrativeAuthoritySnapshot>(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AdministrativeApproval>.Instance);
     }
 
     [Theory]

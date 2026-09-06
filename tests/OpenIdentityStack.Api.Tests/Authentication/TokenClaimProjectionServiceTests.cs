@@ -17,6 +17,32 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 public sealed class TokenClaimProjectionServiceTests
 {
     [Fact]
+    public void GroupClaimsCannotReplacePersistedVerifiedPhoneOrStandardProfile()
+    {
+        User user = User.CreateFederated("profile@example.test", "Persisted name", this.dateTimeProvider,
+            new UserProfileData(GivenName: "Persisted", PhoneNumber: "+31205550100", PhoneNumberVerified: true)).Value;
+        string[] profileTypes = ["phone_number", "phone_number_verified", "name", "given_name", "family_name", "middle_name",
+            "nickname", "preferred_username", "profile", "picture", "website", "gender", "birthdate", "zoneinfo", "locale", "address", "updated_at"];
+        var request = new TokenClaimProjectionRequest(CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            ["openid", "profile", "phone"], [], null, null, null);
+        ClaimsPrincipal expected = this.service.ProjectSubjectClaims(request);
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(request with
+        {
+            GroupClaims = profileTypes.Select(type => new GroupClaimDto(type, "forged", TokenTarget.Both)).ToArray()
+        });
+
+        foreach (string type in profileTypes)
+        {
+            projected.FindAll(type).Select(claim => claim.Value).ShouldBe(expected.FindAll(type).Select(claim => claim.Value));
+        }
+        projected.GetClaim("phone_number").ShouldBe("+31205550100");
+        projected.GetClaim("phone_number_verified").ShouldBe("true");
+        IReadOnlyDictionary<string, object> userInfo = this.service.CreateUserInfoResponse(projected);
+        userInfo["phone_number"].ShouldBe("+31205550100");
+        userInfo["phone_number_verified"].ShouldBe(true);
+    }
+
+    [Fact]
     public void GroupMappingsCannotForgeHumanProofOrPrivilegeClaims()
     {
         User user = CreateUser();
