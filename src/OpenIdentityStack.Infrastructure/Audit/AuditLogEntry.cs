@@ -6,9 +6,10 @@ namespace OpenIdentityStack.Infrastructure.Audit;
 /// </summary>
 public sealed class AuditLogEntry
 {
+    private string userId = string.Empty;
     public Guid Id { get; init; } = Guid.NewGuid();
 
-    public string UserId { get; init; } = string.Empty;
+    public string UserId { get => this.userId; init => this.userId = AuditActorIdentifier.Normalize(value); }
 
     public string Action { get; init; } = string.Empty;
 

@@ -36,9 +36,7 @@ public sealed partial class AuditLogService : IAuditLog
         cancellationToken.ThrowIfCancellationRequested();
 
         DateTimeOffset timestamp = this.dateTimeProvider.UtcNow;
-        LogAuditAction(this.logger, userId, action, entityType, entityId, timestamp, details ?? "N/A");
-
-        this.dbContext.AuditLogEntries.Add(new AuditLogEntry
+        var entry = new AuditLogEntry
         {
             UserId = userId,
             Action = action,
@@ -46,8 +44,9 @@ public sealed partial class AuditLogService : IAuditLog
             EntityId = entityId,
             Details = details,
             Timestamp = timestamp
-        });
-
+        };
+        LogAuditAction(this.logger, entry.UserId, action, entityType, entityId, timestamp, details ?? "N/A");
+        this.dbContext.AuditLogEntries.Add(entry);
         await this.dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -64,9 +63,7 @@ public sealed partial class AuditLogService : IAuditLog
         cancellationToken.ThrowIfCancellationRequested();
 
         DateTimeOffset timestamp = this.dateTimeProvider.UtcNow;
-        LogAuditChange(this.logger, userId, action, entityType, entityId, timestamp, beforeState ?? "N/A", afterState ?? "N/A");
-
-        this.dbContext.AuditLogEntries.Add(new AuditLogEntry
+        var entry = new AuditLogEntry
         {
             UserId = userId,
             Action = action,
@@ -75,8 +72,9 @@ public sealed partial class AuditLogService : IAuditLog
             BeforeState = beforeState,
             AfterState = afterState,
             Timestamp = timestamp
-        });
-
+        };
+        LogAuditChange(this.logger, entry.UserId, action, entityType, entityId, timestamp, beforeState ?? "N/A", afterState ?? "N/A");
+        this.dbContext.AuditLogEntries.Add(entry);
         await this.dbContext.SaveChangesAsync(cancellationToken);
     }
 

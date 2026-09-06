@@ -163,7 +163,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         {
             Result<DomainApplication> createApplicationResult = DomainApplication.Create(
                 clientId,
-                $"Test Service Account - {clientId}",
+                $"Test Service Account - {clientId[..Math.Min(clientId.Length, 160)]}",
                 null,
                 resolvedGrantTypes.Contains("authorization_code") ? ApplicationProfile.Web : ApplicationProfile.MachineToMachine,
                 OAuthClientType.Confidential,
@@ -199,7 +199,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         {
             ClientId = clientId,
             ClientSecret = clientSecret,
-            DisplayName = $"Test Service Account - {clientId}",
+            DisplayName = $"Test Service Account - {clientId[..Math.Min(clientId.Length, 160)]}",
             Permissions =
             {
                 OpenIddictConstants.Permissions.Endpoints.Token,
