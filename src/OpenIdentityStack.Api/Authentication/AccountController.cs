@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Claims;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using OpenIdentityStack.Application.Abstractions;
@@ -153,7 +154,7 @@ public class AccountController : Controller
             this.Request.Scheme) ?? "/";
 
         // Challenge the external authentication scheme
-        AuthenticationProperties properties = new()
+        OpenIdConnectChallengeProperties properties = new()
         {
             RedirectUri = callbackUrl,
             Items =
@@ -169,6 +170,7 @@ public class AccountController : Controller
         if (fresh)
         {
             properties.Items.Add("prompt", "login");
+            properties.MaxAge = TimeSpan.Zero;
         }
 
         return this.Challenge(properties, provider);

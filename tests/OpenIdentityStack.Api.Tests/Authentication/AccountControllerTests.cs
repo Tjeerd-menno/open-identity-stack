@@ -3,9 +3,11 @@ using System.Net;
 using System.Security.Claims;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
@@ -63,6 +65,25 @@ public class AccountControllerTests : IDisposable
             this._jitProvisionUseCase, this.audit);
 
         this.SetupHttpContext();
+    }
+
+    [Fact]
+    public async Task ExternalLogin_WhenFresh_RequiresFreshAuthenticationUpstream()
+    {
+        Domain.Federation.UpstreamProvider provider = Domain.Federation.UpstreamProvider.Create(
+            "provider",
+            "Provider",
+            "https://issuer.example",
+            "client-id").Value;
+        this._providerRepository.GetByNameAsync("provider", Arg.Any<CancellationToken>()).Returns(provider);
+        this._controller.Url.Action(Arg.Any<UrlActionContext>()).Returns("/Account/ExternalLoginCallback");
+
+        IActionResult result = await this._controller.ExternalLogin("provider", "/", fresh: true);
+
+        ChallengeResult challenge = Assert.IsType<ChallengeResult>(result);
+        OpenIdConnectChallengeProperties properties = Assert.IsType<OpenIdConnectChallengeProperties>(challenge.Properties);
+        properties.Items["prompt"].ShouldBe("login");
+        properties.MaxAge.ShouldBe(TimeSpan.Zero);
     }
 
     [Theory]

@@ -53,6 +53,20 @@ public sealed class AdministrativeApprovalContractTests
     }
 
     [Fact]
+    public void ConflictResponseReferenceResolvesToProblemDetails()
+    {
+        string contract = ReadContract();
+        int response = contract.IndexOf("    Conflict:", StringComparison.Ordinal);
+        response.ShouldBeGreaterThan(0);
+        int responseEnd = contract.IndexOf("\n    NotFound:", response, StringComparison.Ordinal);
+        responseEnd.ShouldBeGreaterThan(response);
+
+        string definition = contract[response..responseEnd];
+        definition.ShouldContain("application/problem+json:");
+        definition.ShouldContain("$ref: '#/components/schemas/ProblemDetails'");
+    }
+
+    [Fact]
     public void ApprovalProblemDeclaresErrorCodeDiscriminatorAndSupportedCodes()
     {
         string contract = ReadContract();

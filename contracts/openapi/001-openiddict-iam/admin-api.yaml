@@ -1538,6 +1538,13 @@ components:
                             - Forbidden.AdministrativeApproval.AcknowledgementRequired
               - $ref: '#/components/schemas/AdministrativeApprovalProblemDetails'
 
+    Conflict:
+      description: The resource changed concurrently; reload the latest state and retry
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
     NotFound:
       description: Resource not found
       content:
