@@ -147,4 +147,39 @@ public sealed class LocalUserBootstrapperTests(SqliteTestFixture fixture) : ICla
             assignedRole.Permissions.ShouldContain(permission);
         }
     }
+
+    [Fact]
+    public async Task EnsureAdministratorPermissionsAsync_UpdatesExistingRoleWithoutChangingExistingAdministrator()
+    {
+        await fixture.ClearAllDataAsync();
+        await using OpenIdentityStackDbContext db = fixture.CreateDbContext();
+        await SeedData.SeedAsync(db);
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        IPasswordHasher hasher = Substitute.For<IPasswordHasher>();
+        hasher.HashPassword(Arg.Any<string>()).Returns("existing-hash");
+        IPasswordPolicyValidator validator = Substitute.For<IPasswordPolicyValidator>();
+        validator.ValidatePassword(Arg.Any<string>()).Returns(Result.Success());
+        var bootstrapper = new LocalUserBootstrapper(db, hasher, validator, clock);
+        (await bootstrapper.CreateIfAbsentAsync(
+            "admin@localhost.dev", "Existing Admin", "SecretPassword123!", assignAdministrator: true)).ShouldBeTrue();
+        User existing = await db.Users.SingleAsync();
+        existing.Disable("Preserve disabled state", clock).IsSuccess.ShouldBeTrue();
+        await db.SaveChangesAsync();
+        string[] permissions = ["traceable-isotopes:isotopes:read", "traceable-isotopes:audit:read"];
+
+        await bootstrapper.EnsureAdministratorPermissionsAsync(permissions);
+        await bootstrapper.EnsureAdministratorPermissionsAsync(permissions);
+
+        await using OpenIdentityStackDbContext verification = fixture.CreateDbContext();
+        User persisted = await verification.Users.SingleAsync();
+        persisted.Status.ShouldBe(UserStatus.Disabled);
+        persisted.PasswordHash.ShouldBe("existing-hash");
+        persisted.DisplayName.ShouldBe("Existing Admin");
+        (await verification.RoleAssignments.CountAsync()).ShouldBe(1);
+        Domain.Roles.Role role = await verification.Roles.SingleAsync(candidate => candidate.Name == SeedData.SystemRoles.SuperAdmin);
+        role.Permissions.ShouldContain(permissions[0]);
+        role.Permissions.ShouldContain(permissions[1]);
+        (await verification.AuditLogEntries.CountAsync(entry => entry.Action == "Role.DevelopmentPermissionsSeeded")).ShouldBe(1);
+    }
 }

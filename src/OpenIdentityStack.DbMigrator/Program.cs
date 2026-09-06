@@ -404,6 +404,11 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
 {
     ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
     IConfiguration configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    LocalUserBootstrapper bootstrapper = serviceProvider.GetRequiredService<LocalUserBootstrapper>();
+    string[] permissions = GetTraceableIsotopesPermissionConfigurations()
+        .Select(static permission => $"traceable-isotopes:{permission.PermissionKey}").ToArray();
+    await bootstrapper.EnsureAdministratorPermissionsAsync(permissions);
+
     string? password = configuration["Seed:DefaultAdmin:Password"];
     if (string.IsNullOrWhiteSpace(password))
     {
@@ -411,11 +416,9 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
         return;
     }
 
-    bool created = await serviceProvider.GetRequiredService<LocalUserBootstrapper>()
+    bool created = await bootstrapper
         .CreateIfAbsentAsync(
-            "admin@localhost.dev", "Default Admin", password, assignAdministrator: true,
-            additionalAdministratorPermissions: GetTraceableIsotopesPermissionConfigurations()
-                .Select(static permission => $"traceable-isotopes:{permission.PermissionKey}").ToArray());
+            "admin@localhost.dev", "Default Admin", password, assignAdministrator: true);
     logger.LogInformation("Development admin bootstrap completed (Created: {Created}); existing accounts are preserved.", created);
 }
 
