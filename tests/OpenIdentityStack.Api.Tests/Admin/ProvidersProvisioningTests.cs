@@ -63,4 +63,3 @@ public sealed class ProvidersProvisioningTests(AppHostFixture fixture)
         retained["jitProvisioningEnabled"]!.GetValue<bool>().ShouldBeFalse();
     }
 }
-
