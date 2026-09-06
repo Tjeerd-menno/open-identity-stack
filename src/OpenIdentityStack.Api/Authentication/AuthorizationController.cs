@@ -154,32 +154,26 @@ public class AuthorizationController : ControllerBase
             return this.RejectUnavailableCredentials(Errors.AccessDenied);
         }
 
-        string? sessionIdValue = null;
-        if (user.FindFirstValue("sid") is { } sessionIdStr && Guid.TryParse(sessionIdStr, out Guid sessionIdGuid))
+        string? sessionIdValue = user.FindFirstValue("sid") ?? user.FindFirstValue(legacySessionIdClaim);
+        if (!Guid.TryParse(sessionIdValue, out Guid sessionIdGuid)
+            || !(await this.validateSessionQueryHandler.HandleAsync(
+                new ValidateSessionQuery(new SessionId(sessionIdGuid)), this.HttpContext.RequestAborted)).IsValid)
         {
-            var sessionId = new SessionId(sessionIdGuid);
-
-            if (!string.IsNullOrEmpty(request.ClientId))
+            await this.HttpContext.SignOutAsync("Cookies");
+            if (promptNone)
             {
-                await this.addClientSessionUseCase.ExecuteAsync(new AddClientSessionCommand(
-                    sessionId,
-                    request.ClientId));
+                return this.RejectUnavailableCredentials(Errors.LoginRequired);
             }
 
-            sessionIdValue = sessionIdStr;
+            string returnUrl = this.Request.PathBase + this.Request.Path + QueryString.Create(
+                this.Request.HasFormContentType ? this.Request.Form.ToList() : this.Request.Query.ToList());
+            return this.Redirect($"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}&fresh=true");
         }
-        else if (user.FindFirstValue(legacySessionIdClaim) is { } legacySessionIdStr && Guid.TryParse(legacySessionIdStr, out Guid legacySessionIdGuid))
+
+        if (!string.IsNullOrEmpty(request.ClientId))
         {
-            var sessionId = new SessionId(legacySessionIdGuid);
-
-            if (!string.IsNullOrEmpty(request.ClientId))
-            {
-                await this.addClientSessionUseCase.ExecuteAsync(new AddClientSessionCommand(
-                    sessionId,
-                    request.ClientId));
-            }
-
-            sessionIdValue = legacySessionIdStr;
+            await this.addClientSessionUseCase.ExecuteAsync(new AddClientSessionCommand(
+                new SessionId(sessionIdGuid), request.ClientId), this.HttpContext.RequestAborted);
         }
 
         var roleNames = new List<string>();
