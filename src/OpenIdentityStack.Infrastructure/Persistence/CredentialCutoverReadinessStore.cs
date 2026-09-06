@@ -35,8 +35,10 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
         }
 
         EmergencyAccessEvidence? emergency = null;
+        DateTimeOffset oldestUsableAuthentication = now.AddMinutes(-5);
         List<EmergencyAccessRecord> proofs = await db.EmergencyAccessEvidence.AsNoTracking()
-            .Where(x => x.Epoch == epoch).OrderByDescending(x => x.RecordedAt).ThenBy(x => x.Id).ToListAsync(cancellationToken);
+            .Where(x => x.Epoch == epoch && x.AuthenticatedAt >= oldestUsableAuthentication && x.AuthenticatedAt <= now)
+            .OrderByDescending(x => x.RecordedAt).ThenBy(x => x.Id).ToListAsync(cancellationToken);
         foreach (EmergencyAccessRecord proof in proofs)
         {
             bool usable = await this.IsEmergencyAccessCurrentAsync(proof, cancellationToken);
@@ -54,12 +56,15 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
         CutoverResourceInventory inventory = await resources.ReadAsync(cancellationToken);
         blockers.AddRange(inventory.Blockers);
         // OpenIddict 7 stores URI identifiers; direct EF reads must also retain pre-7 hint-style rows.
-        List<DateTime?> expiries = await db.Set<OpenIddictEntityFrameworkCoreToken>().AsNoTracking()
+        IQueryable<OpenIddictEntityFrameworkCoreToken> outstandingAccessTokens = db.Set<OpenIddictEntityFrameworkCoreToken>().AsNoTracking()
             .Where(token => (token.Type == OpenIddictConstants.TokenTypeIdentifiers.AccessToken || token.Type == OpenIddictConstants.TokenTypeHints.AccessToken)
-                && (token.ExpirationDate == null || token.ExpirationDate > now.UtcDateTime))
-            .Select(token => token.ExpirationDate).ToListAsync(cancellationToken);
-        DateTimeOffset? latestExpiry = expiries.Any(x => x.HasValue)
-            ? new DateTimeOffset(DateTime.SpecifyKind(expiries.Where(x => x.HasValue).Max()!.Value, DateTimeKind.Utc)) : null;
+                && (token.ExpirationDate == null || token.ExpirationDate > now.UtcDateTime));
+        int outstandingAccessTokenCount = await outstandingAccessTokens.CountAsync(cancellationToken);
+        bool hasUnknownExpiry = await outstandingAccessTokens.AnyAsync(token => token.ExpirationDate == null, cancellationToken);
+        DateTime? latestExpirationDate = await outstandingAccessTokens.Where(token => token.ExpirationDate != null)
+            .MaxAsync(token => token.ExpirationDate, cancellationToken);
+        DateTimeOffset? latestExpiry = latestExpirationDate is DateTime value
+            ? new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)) : null;
         List<ResourceWindowReviewRecord> reviews = await db.ResourceTokenWindowReviews.AsNoTracking()
             .Where(x => x.Epoch == epoch).OrderByDescending(x => x.ReviewedAt).ThenBy(x => x.Id).ToListAsync(cancellationToken);
         var windows = new List<ResourceTokenWindow>();
@@ -75,7 +80,7 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
             if (review?.Mechanism == "OfflineExpiry")
             {
                 // Token rows do not retain a resource index. Use the conservative bound across all OP access tokens.
-                reviewed = !expiries.Any(x => x is null) && (latestExpiry is null || latestExpiry <= now.AddSeconds(review.ResidualSeconds));
+                reviewed = !hasUnknownExpiry && (latestExpiry is null || latestExpiry <= now.AddSeconds(review.ResidualSeconds));
             }
             if (!reviewed)
             {
@@ -87,7 +92,7 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
         var summary = new CutoverIdentityInventory(quarantined, identities.Count(x => x.Quarantined > 0),
             identities.Count(x => x.Quarantined > 0 && !x.Password), identities.Count(x => x.Quarantined > 0 && x.Password),
             identities.Count(x => x.Disabled), identities.Count(x => x.Verified), identities.Sum(x => x.ProviderEvidence), identities.Sum(x => x.WithdrawnEvidence));
-        return new(epoch, now, blockers, emergency, summary, inventory.AdministrativeClients, windows, expiries.Count, latestExpiry);
+        return new(epoch, now, blockers, emergency, summary, inventory.AdministrativeClients, windows, outstandingAccessTokenCount, latestExpiry);
     }
 
     public async Task<Result<EmergencyAccessEvidence>> RecordEmergencyAccessAsync(AdministrativeActor actor, CancellationToken cancellationToken = default)

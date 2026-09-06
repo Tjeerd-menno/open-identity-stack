@@ -1,5 +1,8 @@
+using System.Data.Common;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using OpenIddict.Abstractions;
 using OpenIddict.EntityFrameworkCore.Models;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Federation;
@@ -13,6 +16,41 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class CredentialCutoverReadinessStoreTests
 {
+    [Fact]
+    public async Task AccessTokenWindowUsesDatabaseAggregates()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        database.Db.AddRange(
+            new OpenIddictEntityFrameworkCoreToken { Id = Guid.NewGuid().ToString(), Type = OpenIddictConstants.TokenTypeIdentifiers.AccessToken, Status = "valid", ExpirationDate = database.Clock.UtcNow.AddMinutes(10).UtcDateTime },
+            new OpenIddictEntityFrameworkCoreToken { Id = Guid.NewGuid().ToString(), Type = OpenIddictConstants.TokenTypeHints.AccessToken, Status = "revoked", ExpirationDate = null });
+        await database.Db.SaveChangesAsync();
+        database.Commands.Clear();
+
+        CredentialCutoverPreflight preflight = await database.Store.EvaluateAsync();
+
+        preflight.OutstandingAccessTokens.ShouldBe(2);
+        preflight.LatestAccessTokenExpiry.ShouldBe(database.Clock.UtcNow.AddMinutes(10));
+        string[] tokenQueries = database.Commands.Where(command => command.Contains("OpenIddictTokens", StringComparison.Ordinal)).ToArray();
+        tokenQueries.ShouldContain(command => command.Contains("COUNT(", StringComparison.OrdinalIgnoreCase));
+        tokenQueries.ShouldContain(command => command.Contains("MAX(", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ExpiredEmergencyProofsAreFilteredBeforeMaterialization()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        database.Clock.UtcNow.Returns(database.Clock.UtcNow.AddMinutes(6));
+        database.Commands.Clear();
+
+        (await database.Store.EvaluateAsync()).Ready.ShouldBeFalse();
+
+        string proofQuery = database.Commands.Single(command => command.Contains("EmergencyAccessEvidence", StringComparison.Ordinal));
+        proofQuery.ShouldContain("AuthenticatedAt\" >=", Case.Insensitive);
+        proofQuery.ShouldContain("AuthenticatedAt\" <=", Case.Insensitive);
+    }
+
     [Theory]
     [InlineData(30, 15, true)]
     [InlineData(300, 299, true)]
@@ -206,17 +244,20 @@ public sealed class CredentialCutoverReadinessStoreTests
     private sealed class TestDatabase : IAsyncDisposable
     {
         private readonly SqliteConnection connection = new("DataSource=:memory:");
+        private readonly CommandCaptureInterceptor commandCapture = new();
         private DbContextOptions<OpenIdentityStackDbContext> options = null!;
         public IDateTimeProvider Clock { get; } = Substitute.For<IDateTimeProvider>();
         public ICredentialCutoverResourceInventory Resources { get; } = Substitute.For<ICredentialCutoverResourceInventory>();
         public OpenIdentityStackDbContext Db { get; private set; } = null!;
         public CredentialCutoverReadinessStore Store => new(this.Db, this.Resources, this.Clock);
+        public List<string> Commands => this.commandCapture.Commands;
 
         public static async Task<TestDatabase> CreateAsync()
         {
             var database = new TestDatabase();
             await database.connection.OpenAsync();
-            database.options = new DbContextOptionsBuilder<OpenIdentityStackDbContext>().UseSqlite(database.connection).UseOpenIddict().Options;
+            database.options = new DbContextOptionsBuilder<OpenIdentityStackDbContext>().UseSqlite(database.connection).UseOpenIddict()
+                .AddInterceptors(database.commandCapture).Options;
             database.Db = database.CreateContext();
             await database.Db.Database.EnsureCreatedAsync();
             database.Clock.UtcNow.Returns(DateTimeOffset.UtcNow);
@@ -246,6 +287,25 @@ public sealed class CredentialCutoverReadinessStoreTests
         {
             await this.Db.DisposeAsync();
             await this.connection.DisposeAsync();
+        }
+
+        private sealed class CommandCaptureInterceptor : DbCommandInterceptor
+        {
+            public List<string> Commands { get; } = [];
+
+            public override InterceptionResult<DbDataReader> ReaderExecuting(DbCommand command, CommandEventData eventData,
+                InterceptionResult<DbDataReader> result)
+            {
+                this.Commands.Add(command.CommandText);
+                return result;
+            }
+
+            public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
+                CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+            {
+                this.Commands.Add(command.CommandText);
+                return ValueTask.FromResult(result);
+            }
         }
     }
 }
