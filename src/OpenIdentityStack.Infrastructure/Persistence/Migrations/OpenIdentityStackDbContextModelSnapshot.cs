@@ -22,6 +22,27 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("OpenIdentityStack.Infrastructure.Persistence.AdministrativeAuthorityRevision", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AdministrativeAuthorityRevision", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Revision = 0L
+                        });
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")

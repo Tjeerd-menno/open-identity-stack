@@ -2,7 +2,9 @@ using System.Reflection;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -42,6 +44,53 @@ public sealed class AdminApiRouteMappingTests
             NormalizePattern(endpoint.RoutePattern.RawText).ShouldBe(NormalizePattern(endpointExpectation.Pattern));
             endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.ShouldContain(endpointExpectation.HttpMethod);
             endpoint.Metadata.OfType<IAuthorizeData>().Select(static metadata => metadata.Policy).ShouldContain(endpointExpectation.Policy);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(GetApprovalProtectedEndpoints))]
+    public void MapApi_ApprovalProtectedEndpointDeclaresForbiddenProblem(ApprovalEndpointExpectation expectation)
+    {
+        using WebApplication app = CreateApplication();
+
+        InvokeMapMethod(expectation.TypeName, expectation.MapMethodName, app);
+
+        RouteEndpoint endpoint = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static dataSource => dataSource.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(candidate => string.Equals(
+                candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName,
+                expectation.EndpointName,
+                StringComparison.Ordinal));
+        IProducesResponseTypeMetadata forbidden = endpoint.Metadata
+            .OfType<IProducesResponseTypeMetadata>()
+            .Single(metadata => metadata.StatusCode == StatusCodes.Status403Forbidden);
+
+        forbidden.Type.ShouldBe(typeof(ProblemDetails));
+        forbidden.ContentTypes.ShouldContain("application/problem+json");
+    }
+
+    public static IEnumerable<object[]> GetApprovalProtectedEndpoints()
+    {
+        const string roles = "OpenIdentityStack.Api.Admin.RolesApi";
+        const string users = "OpenIdentityStack.Api.Users.UsersApi";
+        const string groups = "OpenIdentityStack.Api.Groups.GroupsApi";
+
+        foreach (ApprovalEndpointExpectation expectation in new ApprovalEndpointExpectation[]
+        {
+            new(roles, "MapRolesApi", "CreateRole"),
+            new(roles, "MapRolesApi", "UpdateRole"),
+            new(roles, "MapRolesApi", "EnableRole"),
+            new(roles, "MapRolesApi", "SetRolePermissions"),
+            new(roles, "MapRolesApi", "AddRolePermission"),
+            new(users, "MapUsersApi", "EnableUser"),
+            new(users, "MapUsersApi", "ResetPassword"),
+            new(users, "MapUsersApi", "AssignRole"),
+            new(groups, "MapGroupsApi", "AddGroupMember"),
+            new(groups, "MapGroupsApi", "AddGroupMapping")
+        })
+        {
+            yield return [expectation];
         }
     }
 
@@ -209,4 +258,9 @@ public sealed class AdminApiRouteMappingTests
         string Pattern,
         string HttpMethod,
         string Policy);
+
+    public sealed record ApprovalEndpointExpectation(
+        string TypeName,
+        string MapMethodName,
+        string EndpointName);
 }

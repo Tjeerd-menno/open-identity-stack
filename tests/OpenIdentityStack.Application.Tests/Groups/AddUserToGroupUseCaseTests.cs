@@ -19,7 +19,7 @@ public class AddUserToGroupUseCaseTests
         this._groupRepository = Substitute.For<IGroupRepository>();
         this._userRepository = Substitute.For<IUserRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
-        this._useCase = new AddUserToGroupUseCase(this._groupRepository, this._userRepository, this._dateTimeProvider);
+        this._useCase = new AddUserToGroupUseCase(this._groupRepository, this._userRepository, this._dateTimeProvider, Substitute.For<IAdministrativeApproval>(), new OpenIdentityStack.Application.Authorization.UnrestrictedGrantPolicy(Substitute.For<IRoleRepository>()));
     }
 
     [Fact]

@@ -49,14 +49,6 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
         AddScopes(granted, user, "scope");           // OAuth2/OIDC standard scope claim
         AddScopes(granted, user, "scp");             // Microsoft/JWT short scope claim
 
-        foreach (Claim role in user.FindAll(ClaimTypes.Role).Concat(user.FindAll("role")))
-        {
-            if (string.Equals(role.Value, "admin", StringComparison.OrdinalIgnoreCase))
-            {
-                granted.Add(Permissions.All);
-            }
-        }
-
         return granted;
     }
 

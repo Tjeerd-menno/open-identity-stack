@@ -241,6 +241,19 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         await applicationManager.CreateAsync(descriptor, cancellationToken);
     }
 
+    /// <summary>Bootstraps only an isolated test database; production approval handlers remain enabled.</summary>
+    public async Task BootstrapHumanAdministratorFixtureAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        OpenIdentityStackDbContext db = scope.ServiceProvider.GetRequiredService<OpenIdentityStackDbContext>();
+        User user = await db.Users.SingleAsync(user => user.Id == new UserId(userId), cancellationToken);
+        Role role = Role.Create($"fixture-administrator-{userId:N}", "Explicit isolated browser fixture authority").Value;
+        role.AddPermission("*");
+        db.Roles.Add(role);
+        db.RoleAssignments.Add(RoleAssignment.Create(user.Id, role.Id, DateTimeOffset.UtcNow).Value);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<Guid> CreateTestUserAsync(
         string email,
         string displayName,

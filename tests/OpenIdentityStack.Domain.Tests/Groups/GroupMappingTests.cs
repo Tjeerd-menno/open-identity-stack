@@ -5,6 +5,46 @@ namespace OpenIdentityStack.Domain.Tests.Groups;
 
 public class GroupMappingTests
 {
+    [Theory]
+    [InlineData("permission")]
+    [InlineData("permissions")]
+    [InlineData("scope")]
+    [InlineData("sub")]
+    [InlineData("role")]
+    [InlineData("auth_time")]
+    [InlineData("nonce")]
+    [InlineData("requested_userinfo_claim")]
+    [InlineData("ois_human_subject")]
+    [InlineData("ois.example")]
+    [InlineData("OIS.example")]
+    [InlineData("ois_human_authenticated_at")]
+    [InlineData("oi_prst")]
+    [InlineData("phone_number_verified")]
+    [InlineData("phone_number")]
+    [InlineData(" PHONE_NUMBER ")]
+    [InlineData("name")]
+    [InlineData("given_name")]
+    [InlineData("family_name")]
+    [InlineData("middle_name")]
+    [InlineData("nickname")]
+    [InlineData("preferred_username")]
+    [InlineData("profile")]
+    [InlineData("picture")]
+    [InlineData("website")]
+    [InlineData("gender")]
+    [InlineData("birthdate")]
+    [InlineData("zoneinfo")]
+    [InlineData("locale")]
+    [InlineData("address")]
+    [InlineData("updated_at")]
+    [InlineData(" OIS_human_authenticated_at ")]
+    [InlineData(" oi_prst ")]
+    [InlineData(" ois.example ")]
+    public void SecurityClaimsCannotBeSuppliedByGroupMappings(string type)
+    {
+        GroupMapping.Create(MappingType.Claim, type, "*", TokenTarget.Both).IsFailure.ShouldBeTrue();
+    }
+
     [Fact]
     public void Create_ShouldCreateMapping_WhenValidValues()
     {

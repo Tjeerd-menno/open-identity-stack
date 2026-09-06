@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using OpenIdentityStack.Infrastructure;
@@ -36,6 +37,8 @@ builder.AddPostgreSqlHealthCheck("openidentitystack");
 
 // Add Application services
 builder.Services.AddApplication();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<OpenIdentityStack.Application.Abstractions.IAdministrativeActorContext, AdministrativeActorContext>();
 
 // Add Infrastructure services (DbContext, OpenIddict, etc.)
 builder.Services.AddInfrastructureWithAspire(builder.Configuration, builder.Environment);
@@ -198,6 +201,7 @@ if (app.Environment.IsDevelopment())
 // Authentication and Authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<AdministrativeApprovalOutcomeMiddleware>();
 
 // Map MVC Controllers for authentication endpoints (/connect/*, /Account/*)
 // These handle OpenIddict OAuth2/OIDC flows and login UI

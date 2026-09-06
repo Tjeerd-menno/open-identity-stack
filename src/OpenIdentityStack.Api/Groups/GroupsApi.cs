@@ -72,6 +72,7 @@ internal static class GroupsApi
             .RequireAuthorization(Permissions.Groups.ManageMembers)
             .Produces(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("AddGroupMember")
             .WithSummary("Adds a user to a group");
@@ -96,6 +97,7 @@ internal static class GroupsApi
             .RequireAuthorization(Permissions.Groups.Write)
             .Produces(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("AddGroupMapping")
             .WithSummary("Adds a mapping (role or claim) to a group");
@@ -417,6 +419,10 @@ internal static class GroupsApi
     /// </summary>
     private static IResult MapFailure(DomainError error)
     {
+        if (error.Code.StartsWith("Forbidden.AdministrativeApproval.", StringComparison.Ordinal))
+        {
+            return OpenIdentityStack.Api.Common.ErrorResultMapper.ToErrorResult(error);
+        }
         if (error.Code is "Group.NotFound" or "GroupMapping.NotFound")
         {
             return TypedResults.NotFound();
