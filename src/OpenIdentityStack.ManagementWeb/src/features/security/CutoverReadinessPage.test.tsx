@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import type { CutoverPreflight } from '@openidentitystack/admin-api-client';
 import { makeAuth, renderManagementWeb } from '@/test/render';
 import { mockApi, resetApiMocks } from '@/test/mock-api';
-import { CutoverReadinessPage } from './CutoverReadinessPage';
+import { credentialCutoverOperationIdKey, CutoverReadinessPage } from './CutoverReadinessPage';
 
 vi.mock('@/lib/api', async () => {
   const { mockApi } = await import('@/test/mock-api');
@@ -14,7 +14,10 @@ const ready: CutoverPreflight = {
   identities: { quarantinedLinks: 0, affectedUsers: 0, federationOnlyUsers: 0, passwordCandidates: 0, disabledUsers: 0, verifiedEmails: 0, providerEvidence: 0, withdrawnEvidence: 0 },
   administrativeClients: [], businessResources: [], outstandingAccessTokens: 0, latestAccessTokenExpiry: null,
 };
-beforeEach(resetApiMocks);
+beforeEach(() => {
+  resetApiMocks();
+  sessionStorage.removeItem(credentialCutoverOperationIdKey);
+});
 it('keeps quarantined identities blocked even with a password candidate and acknowledgement', async () => {
   mockApi.cutover.getReadiness.mockResolvedValue({ ...ready, ready: false, identities: { ...ready.identities, quarantinedLinks: 1, passwordCandidates: 1 }, blockers: [{ code: 'Identity.Quarantined', message: 'Quarantined identities require a separate recovery design.', count: 1 }] });
   renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });
@@ -45,4 +48,27 @@ it('requires acknowledgement and retains the operation ID when the live server g
   fireEvent.click(execute);
   await waitFor(() => expect(mockApi.cutover.execute).toHaveBeenCalledTimes(2));
   expect(mockApi.cutover.execute.mock.calls[0]).toEqual(mockApi.cutover.execute.mock.calls[1]);
+});
+
+it('retains the operation ID across auth recovery and clears it after confirmed success', async () => {
+  mockApi.cutover.getReadiness.mockResolvedValue(ready);
+  mockApi.cutover.execute
+    .mockRejectedValueOnce(new Error('The response was lost'))
+    .mockImplementationOnce(async (operationId: string) => ({ operationId, tokens: 2, grants: 1, sessions: 1 }));
+
+  const firstRender = renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });
+  fireEvent.click(await screen.findByRole('checkbox', { name: /I accept/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Execute credential cutover' }));
+  expect(await screen.findByText(/response was lost/i)).toBeInTheDocument();
+  const firstOperationId = mockApi.cutover.execute.mock.calls[0][0];
+  expect(sessionStorage.getItem(credentialCutoverOperationIdKey)).toBe(firstOperationId);
+
+  firstRender.unmount();
+  renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });
+  fireEvent.click(await screen.findByRole('checkbox', { name: /I accept/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Execute credential cutover' }));
+  await screen.findByText(/Credential cutover completed/);
+
+  expect(mockApi.cutover.execute.mock.calls[1][0]).toBe(firstOperationId);
+  expect(sessionStorage.getItem(credentialCutoverOperationIdKey)).toBeNull();
 });
