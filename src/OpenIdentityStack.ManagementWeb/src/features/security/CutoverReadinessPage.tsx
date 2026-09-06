@@ -7,6 +7,7 @@ import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 
 export const credentialCutoverOperationIdKey = 'ois.credential-cutover.operation-id';
+export const credentialCutoverSubmittedOperationIdKey = 'ois.credential-cutover.submitted-operation-id';
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function getCredentialCutoverOperationId() {
@@ -39,9 +40,17 @@ export function CutoverReadinessPage() {
   const auth = useAuth();
   const [acknowledged, setAcknowledged] = useState(false);
   const [operationId] = useState(getCredentialCutoverOperationId);
+  const [isRetry, setIsRetry] = useState(() => sessionStorage.getItem(credentialCutoverSubmittedOperationIdKey) === operationId);
   const execute = useMutation({
-    mutationFn: () => api.cutover.execute(operationId),
-    onSuccess: () => sessionStorage.removeItem(credentialCutoverOperationIdKey),
+    mutationFn: () => {
+      sessionStorage.setItem(credentialCutoverSubmittedOperationIdKey, operationId);
+      setIsRetry(true);
+      return api.cutover.execute(operationId);
+    },
+    onSuccess: () => {
+      sessionStorage.removeItem(credentialCutoverOperationIdKey);
+      sessionStorage.removeItem(credentialCutoverSubmittedOperationIdKey);
+    },
   });
   const query = useQuery({ queryKey: ['cutover-readiness'], queryFn: api.cutover.getReadiness, enabled: !execute.isSuccess, staleTime: 0 });
   const refresh = () => { void query.refetch(); };
@@ -79,7 +88,7 @@ export function CutoverReadinessPage() {
         <SectionCard title="Execute cutover"><Stack>
           <Checkbox checked={acknowledged} onChange={(event) => setAcknowledged(event.currentTarget.checked)} label="I accept that all existing sessions and credentials will be invalidated, and accept the reviewed external residual windows." />
           {execute.isError && <ErrorState message={getApiErrorMessage(execute.error)} />}
-          <Button color="red" disabled={!data.ready || !acknowledged || query.isError} loading={execute.isPending} onClick={() => execute.mutate()}>Execute credential cutover</Button>
+          <Button color="red" disabled={(!isRetry && (!data.ready || !acknowledged)) || query.isError} loading={execute.isPending} onClick={() => execute.mutate()}>{isRetry ? 'Retry credential cutover' : 'Execute credential cutover'}</Button>
         </Stack></SectionCard>
       </>}
     </>}

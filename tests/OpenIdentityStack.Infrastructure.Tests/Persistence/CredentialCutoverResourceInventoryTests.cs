@@ -97,4 +97,34 @@ public sealed class CredentialCutoverResourceInventoryTests
         var inventory = new CredentialCutoverResourceInventory(db, configuration, environment);
         (await inventory.ReadAsync()).Blockers.ShouldContain(blocker => blocker.Code == "Administrative.ManagementWebUnprepared");
     }
+
+    [Fact]
+    public async Task ManagementClientRequiringConsentBlocksCutover()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:");
+        await connection.OpenAsync();
+        DbContextOptions<OpenIdentityStackDbContext> options = new DbContextOptionsBuilder<OpenIdentityStackDbContext>().UseSqlite(connection).UseOpenIddict().Options;
+        await using var db = new OpenIdentityStackDbContext(options);
+        await db.Database.EnsureCreatedAsync();
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["OpenIddict:Clients:ManagementWeb:RedirectUris:0"] = "https://console.example/auth/callback",
+            ["OpenIddict:Clients:ManagementWeb:PostLogoutRedirectUris:0"] = "https://console.example/"
+        }).Build();
+        IHostEnvironment environment = Substitute.For<IHostEnvironment>();
+        environment.EnvironmentName.Returns("Production");
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        DomainApplication management = DomainApplication.Create(ManagementWebPreparation.ClientId, "Management", null,
+            ApplicationProfile.SinglePage, OAuthClientType.Public, ["authorization_code", "refresh_token"], ["openid", "profile", "email", "ois.admin"],
+            ["https://console.example/auth/callback"], ["https://console.example/"], true, true, clock).Value;
+        db.Add(ProtectedResource.CreateAdministrative());
+        db.Add(management);
+        db.Add(ClientResourceGrant.Create(management.Id, ProtectedResource.AdministrativeResourceId, ["*"], []).Value);
+        await db.SaveChangesAsync();
+
+        var inventory = new CredentialCutoverResourceInventory(db, configuration, environment);
+
+        (await inventory.ReadAsync()).Blockers.ShouldContain(blocker => blocker.Code == "Administrative.ManagementWebUnprepared");
+    }
 }
