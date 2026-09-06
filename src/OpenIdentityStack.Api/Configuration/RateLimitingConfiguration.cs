@@ -1,10 +1,7 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.RateLimiting;
 
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Hosting;
-using OpenIdentityStack.Infrastructure.Identity;
 
 namespace OpenIdentityStack.Api.Configuration;
 
@@ -48,7 +45,7 @@ public static class RateLimitingConfiguration
 
             options.AddPolicy(CheckSessionPolicy, httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
-                    GetCheckSessionPartitionKey(httpContext),
+                    GetClientPartitionKey(httpContext, "check-session"),
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = environment.IsEnvironment("Testing") ? 3 : 300,
@@ -83,18 +80,5 @@ public static class RateLimitingConfiguration
             ?? "unknown";
 
         return $"{suffix}:{client}";
-    }
-
-    private static string GetCheckSessionPartitionKey(HttpContext httpContext)
-    {
-        string client = GetClientPartitionKey(httpContext, "check-session");
-        if (!httpContext.Request.Cookies.TryGetValue(SessionManagementDefaults.SessionCookieName, out string? session)
-            || string.IsNullOrWhiteSpace(session))
-        {
-            return client;
-        }
-
-        byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes(session));
-        return $"{client}:{Convert.ToHexString(digest)}";
     }
 }

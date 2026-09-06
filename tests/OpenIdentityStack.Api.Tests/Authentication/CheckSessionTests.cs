@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.WebUtilities;
 using OpenIdentityStack.Api.Tests.Fixtures;
 
 namespace OpenIdentityStack.Api.Tests.Authentication;
@@ -5,27 +6,24 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 public sealed class CheckSessionTests(AppHostFixture fixture)
 {
     [Fact]
-    public async Task MonitoringPollsAcrossIframeClientsAreRateLimitedBySession()
+    public async Task AttackerControlledLegacyCookiesShareTheIpRateLimitPartition()
     {
-        using HttpClient firstIframe = fixture.CreateClient(allowAutoRedirect: false);
-        using HttpClient secondIframe = fixture.CreateClient(allowAutoRedirect: false);
-        const string cookie = "op_session=rate-limit-session";
-        firstIframe.DefaultRequestHeaders.Add("Cookie", cookie);
-        secondIframe.DefaultRequestHeaders.Add("Cookie", cookie);
-        firstIframe.DefaultRequestHeaders.Add("X-OIS-Session-Poll", "1");
-        secondIframe.DefaultRequestHeaders.Add("X-OIS-Session-Poll", "1");
+        await using var isolatedFixture = new AppHostFixture($"check-session-rate-{Guid.NewGuid():N}");
+        await isolatedFixture.InitializeAsync();
+        var responses = new List<HttpResponseMessage>();
 
-        (await firstIframe.GetAsync("/connect/check_session")).StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
-        (await secondIframe.GetAsync("/connect/check_session")).StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
-        (await firstIframe.GetAsync("/connect/check_session")).StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+        for (byte value = 1; value <= 4; value++)
+        {
+            using HttpClient iframe = isolatedFixture.CreateClient(allowAutoRedirect: false);
+            string attackerCookie = WebEncoders.Base64UrlEncode(Enumerable.Repeat(value, 32).ToArray());
+            iframe.DefaultRequestHeaders.Add("Cookie", $"op_session={attackerCookie}");
+            iframe.DefaultRequestHeaders.Add("X-OIS-Session-Poll", "1");
+            responses.Add(await iframe.GetAsync("/connect/check_session"));
+        }
 
-        (await secondIframe.GetAsync("/connect/check_session")).StatusCode
-            .ShouldBe(System.Net.HttpStatusCode.TooManyRequests);
-
-        using HttpClient otherSession = fixture.CreateClient(allowAutoRedirect: false);
-        otherSession.DefaultRequestHeaders.Add("Cookie", "op_session=other-rate-limit-session");
-        otherSession.DefaultRequestHeaders.Add("X-OIS-Session-Poll", "1");
-        (await otherSession.GetAsync("/connect/check_session")).StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+        responses.Take(3).ShouldAllBe(response => response.StatusCode == System.Net.HttpStatusCode.OK);
+        responses[3].StatusCode.ShouldBe(System.Net.HttpStatusCode.TooManyRequests);
+        foreach (HttpResponseMessage response in responses) { response.Dispose(); }
     }
 
     [Fact]
