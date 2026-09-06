@@ -32,4 +32,3 @@ public sealed class ProviderRejectionAuditTests
         await update.DidNotReceive().ExecuteAsync(Arg.Any<UpdateProviderCommand>(), Arg.Any<CancellationToken>());
     }
 }
-
