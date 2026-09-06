@@ -50,7 +50,8 @@ public sealed class CredentialCutoverAuthorityConcurrencyTests(AdministrativeAut
             });
         var approval = new AdministrativeApproval(actor, new UserRepository(stale),
             new GetUserEffectiveRolesQueryHandler(new RoleRepository(stale), new GroupRepository(stale)),
-            clock, audit, new AdministrativeAuthoritySnapshot(stale));
+            clock, audit, new AdministrativeAuthoritySnapshot(stale),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AdministrativeApproval>.Instance);
         IOpenIddictTokenManager tokens = Substitute.For<IOpenIddictTokenManager>();
         IOpenIddictAuthorizationManager grants = Substitute.For<IOpenIddictAuthorizationManager>();
         var store = new CredentialBoundaryStore(stale, tokens, grants, clock);
