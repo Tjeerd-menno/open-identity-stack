@@ -71,8 +71,8 @@ public sealed class CredentialCutoverResourceInventory(OpenIdentityStackDbContex
         }
         return redirects.Count > 0 && logout.Count > 0 && client.Status == ApplicationStatus.Active && !client.RequiresMigrationReview
             && client.Profile == ApplicationProfile.SinglePage && client.ClientType == OAuthClientType.Public && client.RequirePkce && client.Credentials.Count == 0
-            && client.AllowedScopes.Contains(ProtectedResource.AdministrativeScope)
-            && client.AllowedGrantTypes.Contains("authorization_code") && !client.AllowedGrantTypes.Except(["authorization_code", "refresh_token"], StringComparer.Ordinal).Any()
+            && ManagementWebPreparation.HasCanonicalScopes(client.AllowedScopes)
+            && ManagementWebPreparation.HasCanonicalGrantTypes(client.AllowedGrantTypes)
             && client.RedirectUris.Order(StringComparer.Ordinal).SequenceEqual(redirects.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
             && client.PostLogoutRedirectUris.Order(StringComparer.Ordinal).SequenceEqual(logout.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
 

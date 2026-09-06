@@ -28,7 +28,7 @@ public partial class OpenIdentityStackDbContext
             || entry.Entity is User && (entry.State != EntityState.Modified || Changed(entry, nameof(User.Status), nameof(User.PasswordHash), "CredentialRevision"))
             // These later feature slices use the same save boundary; matching model names
             // keeps the fence independent of resource-domain contracts.
-            || entry.Metadata.ClrType.Name is "Application" or "ApplicationCredential" or "ClientResourceGrant" or "ProtectedResource" or "CredentialBoundaryState"));
+            || entry.Metadata.ClrType.Name is "Application" or "ApplicationCredential" or "ClientResourceGrant" or "ProtectedResource" or "CredentialBoundaryState" or "ResourceWindowReviewRecord"));
 
     private static bool Changed(EntityEntry entry, params string[] fields) => fields.Any(field =>
         entry.Metadata.FindProperty(field) is not null && entry.Property(field).IsModified);

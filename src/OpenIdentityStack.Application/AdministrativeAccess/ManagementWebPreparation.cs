@@ -16,6 +16,10 @@ public sealed class ManagementWebPreparation(IApplicationRepository applications
     private static readonly string[] scopes = ["openid", "profile", "email", ProtectedResource.AdministrativeScope];
     private static readonly string[] grantTypes = ["authorization_code", "refresh_token"];
 
+    public static bool HasCanonicalScopes(IReadOnlyList<string> values) => SameValues(values, scopes);
+
+    public static bool HasCanonicalGrantTypes(IReadOnlyList<string> values) => SameValues(values, grantTypes);
+
     public async Task<Result> PrepareAsync(IReadOnlyList<string> redirectUris, IReadOnlyList<string> postLogoutRedirectUris,
         bool bootstrapApproval = false, CancellationToken cancellationToken = default)
     {
@@ -35,8 +39,8 @@ public sealed class ManagementWebPreparation(IApplicationRepository applications
             || client.RequireConsent || client.Profile != ApplicationProfile.SinglePage || client.Credentials.Count != 0
             || !client.RedirectUris.Order(StringComparer.Ordinal).SequenceEqual(redirectUris.Order(StringComparer.Ordinal))
             || !client.PostLogoutRedirectUris.Order(StringComparer.Ordinal).SequenceEqual(postLogoutRedirectUris.Order(StringComparer.Ordinal))
-            || !client.AllowedGrantTypes.Order(StringComparer.Ordinal).SequenceEqual(grantTypes.Order(StringComparer.Ordinal))
-            || !client.AllowedScopes.Order(StringComparer.Ordinal).SequenceEqual(scopes.Order(StringComparer.Ordinal)))
+            || !HasCanonicalGrantTypes(client.AllowedGrantTypes)
+            || !HasCanonicalScopes(client.AllowedScopes))
         {
             return DomainError.Forbidden("AdministrativeAccess.BootstrapIdentityMismatch", "The Management Web registration does not match the independently reviewed deployment configuration. Reconcile it through the approved administrative workflow before preparing it.");
         }
@@ -51,4 +55,7 @@ public sealed class ManagementWebPreparation(IApplicationRepository applications
         await resources.SaveChangesAsync("deployment-bootstrap", "AdministrativeClient.ManagementWebBootstrapApproved", client.Id.Value.ToString(), cancellationToken: cancellationToken);
         return Result.Success();
     }
+
+    private static bool SameValues(IReadOnlyList<string> left, IReadOnlyList<string> right) =>
+        left.Order(StringComparer.Ordinal).SequenceEqual(right.Order(StringComparer.Ordinal));
 }
