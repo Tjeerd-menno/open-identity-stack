@@ -232,6 +232,62 @@ public sealed class CredentialCutoverReadinessStoreTests
     }
 
     [Fact]
+    public async Task PasswordChangeInvalidatesPreviouslyRecordedEmergencyProof()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+        (await database.Store.EvaluateAsync()).Ready.ShouldBeTrue();
+        User user = await database.Db.Users.SingleAsync(candidate => candidate.Id == actor.UserId);
+        Guid recordedRevision = user.CredentialRevision;
+
+        user.SetPassword("replacement-hash", database.Clock).IsSuccess.ShouldBeTrue();
+        await database.Db.SaveChangesAsync();
+
+        user.CredentialRevision.ShouldNotBe(recordedRevision);
+        CredentialCutoverPreflight preflight = await database.Store.EvaluateAsync();
+        preflight.EmergencyAccess!.CurrentlyUsable.ShouldBeFalse();
+        preflight.Ready.ShouldBeFalse();
+        preflight.Blockers.ShouldContain(blocker => blocker.Code == "Emergency.IndependentAccessRequired");
+        IOpenIddictTokenManager tokens = Substitute.For<IOpenIddictTokenManager>();
+        IOpenIddictAuthorizationManager grants = Substitute.For<IOpenIddictAuthorizationManager>();
+        var boundary = new CredentialBoundaryStore(database.Db, tokens, grants, database.Clock, database.Store);
+
+        Result<CredentialCutoverResult> cutover = await boundary.ExecuteAsync(Guid.NewGuid(), actor.UserId.Value.ToString());
+
+        cutover.IsFailure.ShouldBeTrue();
+        cutover.Error.Code.ShouldBe("Conflict.CredentialCutover.PrerequisitesUnresolved");
+        await tokens.DidNotReceive().RevokeAsync(
+            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        await grants.DidNotReceive().RevokeAsync(
+            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LegacyEmergencyProofWithoutCredentialRevisionFailsClosed()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        database.Db.EmergencyAccessEvidence.Add(new EmergencyAccessRecord
+        {
+            Id = Guid.NewGuid(),
+            UserId = actor.UserId.Value,
+            SessionId = actor.LocalPasswordSessionId!.Value,
+            Epoch = Guid.Empty,
+            CredentialRevision = null,
+            AuthenticatedAt = actor.AuthenticatedAt!.Value,
+            RecordedAt = database.Clock.UtcNow
+        });
+        await database.Db.SaveChangesAsync();
+
+        CredentialCutoverPreflight preflight = await database.Store.EvaluateAsync();
+
+        preflight.EmergencyAccess!.CurrentlyUsable.ShouldBeFalse();
+        preflight.Ready.ShouldBeFalse();
+        preflight.Blockers.ShouldContain(blocker => blocker.Code == "Emergency.IndependentAccessRequired");
+    }
+
+    [Fact]
     public async Task ExternalWindowReviewIsExplicitBoundToResourceRevisionAndCannotHideUnknownExpiry()
     {
         await using TestDatabase database = await TestDatabase.CreateAsync();
