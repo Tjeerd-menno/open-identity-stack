@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Api.Common;
+using OpenIdentityStack.Application.AdministrativeAccess;
 using OpenIdentityStack.Application.Authorization;
 
 namespace OpenIdentityStack.Api.UnitTests.Endpoints;
@@ -118,6 +119,26 @@ public sealed class AdminApiRouteMappingTests
         })
         {
             yield return [expectation];
+        }
+    }
+
+    [Fact]
+    public void AdministrativeAccessEndpointsDeclareUnauthorizedResponses()
+    {
+        using WebApplication app = CreateApplication();
+        InvokeMapMethod("OpenIdentityStack.Api.Applications.AdministrativeAccessApi", "MapAdministrativeAccessApi", app);
+
+        RouteEndpoint[] endpoints = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .ToArray();
+
+        foreach (string endpointName in new[] { "GetAdministrativeAccess", "SaveAdministrativeAccess" })
+        {
+            RouteEndpoint endpoint = endpoints.Single(candidate => candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == endpointName);
+            endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+                .Select(static metadata => metadata.StatusCode)
+                .ShouldContain(StatusCodes.Status401Unauthorized);
         }
     }
 
@@ -257,6 +278,7 @@ public sealed class AdminApiRouteMappingTests
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
         builder.Services.AddAuthorization();
+        builder.Services.AddScoped<AdministrativeAccessWorkflow>();
         return builder.Build();
     }
 
