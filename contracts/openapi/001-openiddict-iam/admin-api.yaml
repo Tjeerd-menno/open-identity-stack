@@ -1289,6 +1289,33 @@ paths:
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['providers:delete']
 
+  /providers/{providerId}/email-verification-trust:
+    parameters:
+      - $ref: '#/components/parameters/ProviderId'
+    put:
+      tags: [Providers]
+      summary: Set trust in a provider's verified-email assertions
+      operationId: setProviderEmailVerificationTrust
+      description: Explicitly trust or withdraw provider-derived email verification. Withdrawal retains provenance and invalidates dependent verification while preserving independent evidence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderEmailVerificationTrustRequest'
+      responses:
+        '204':
+          description: Provider trust and dependent evidence updated.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['providers:write']
+
 components:
   securitySchemes:
     oauth2:
@@ -1456,6 +1483,13 @@ components:
     UserResponse:
       type: object
       properties:
+        emailVerified:
+          type: boolean
+          description: Whether current-address verification has active trusted provenance; account activation alone does not establish verification.
+        emailVerificationEvidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmailVerificationEvidenceResponse'
         id:
           type: string
           format: uuid
@@ -1473,6 +1507,27 @@ components:
         lastLoginAt:
           type: string
           format: date-time
+
+    EmailVerificationEvidenceResponse:
+      type: object
+      required: [email, verifiedAt]
+      properties:
+        email:
+          type: string
+        providerId:
+          type: string
+          format: uuid
+          nullable: true
+        issuer:
+          type: string
+          nullable: true
+        verifiedAt:
+          type: string
+          format: date-time
+        withdrawnAt:
+          type: string
+          format: date-time
+          nullable: true
 
     UserListResponse:
       type: object
@@ -2002,9 +2057,19 @@ components:
           type: string
           enum: [Active, Disabled]
 
+    ProviderEmailVerificationTrustRequest:
+      type: object
+      required: [trusted]
+      properties:
+        trusted:
+          type: boolean
+
     ProviderResponse:
       type: object
       properties:
+        trustEmailVerification:
+          type: boolean
+          description: Explicit trust in this provider's verified-email assertions; false by default for new providers.
         id:
           type: string
           format: uuid

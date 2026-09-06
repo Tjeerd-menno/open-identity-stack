@@ -32,6 +32,23 @@ public sealed class IdentityBoundaryResponseContractTests
     }
 
     [Fact]
+    public void ProviderTrustContractExposesMutationAndVerificationEvidence()
+    {
+        string contract = ReadContract();
+        contract.ShouldContain("/providers/{providerId}/email-verification-trust:");
+        contract.ShouldContain("operationId: setProviderEmailVerificationTrust");
+        Schema(contract, "ProviderEmailVerificationTrustRequest").ShouldMatch(@"trusted:\s+type: boolean");
+        Schema(contract, "ProviderResponse").ShouldMatch(@"trustEmailVerification:\s+type: boolean");
+        Schema(contract, "UserResponse").ShouldMatch(@"emailVerified:\s+type: boolean");
+        Schema(contract, "UserResponse").ShouldContain("$ref: '#/components/schemas/EmailVerificationEvidenceResponse'");
+        string evidence = Schema(contract, "EmailVerificationEvidenceResponse");
+        foreach (string field in new[] { "email", "providerId", "issuer", "verifiedAt", "withdrawnAt" })
+        {
+            evidence.ShouldContain(field + ":");
+        }
+    }
+
+    [Fact]
     public void UpstreamIdentityContractIncludesRetainedEvidenceAndQuarantine()
     {
         string contract = ReadContract();
