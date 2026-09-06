@@ -52,8 +52,23 @@ public sealed class IdentityBoundaryResponseContractTests
             .ShouldContain("$ref: '#/components/schemas/UpstreamIdentitiesResponse'");
     }
 
+    [Fact]
+    public void DeleteAndProviderIdentityUnlinkDocumentQuarantineRetentionProblem()
+    {
+        string contract = ReadContract();
+        string deleteUser = ContractPathBlock(contract, "/users/{userId}:");
+        string unlink = ContractPathBlock(contract, "/users/{userId}/upstream-identities/{providerId}:");
+
+        deleteUser.ShouldContain("code: Forbidden.UpstreamIdentity.QuarantineRetentionRequired");
+        unlink.ShouldContain("operationId: unlinkUpstreamIdentity");
+        unlink.ShouldContain("code: Forbidden.UpstreamIdentity.QuarantineRetentionRequired");
+    }
+
     private static string Schema(string contract, string name) =>
         Regex.Match(contract, @"^    " + name + @":\r?\n[\s\S]*?(?=^    \w|\z)", RegexOptions.Multiline).Value;
+
+    private static string ContractPathBlock(string contract, string path) =>
+        Regex.Match(contract, @"^  " + Regex.Escape(path) + @"\r?\n[\s\S]*?(?=^  /|^components:|\z)", RegexOptions.Multiline).Value;
 
     private static string ReadContract()
     {

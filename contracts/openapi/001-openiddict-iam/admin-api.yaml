@@ -202,7 +202,16 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Deletion is forbidden while quarantined upstream identity evidence must be retained.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                status: 403
+                title: Identity evidence must be retained
+                code: Forbidden.UpstreamIdentity.QuarantineRetentionRequired
+                detail: Quarantined identity evidence must be retained until a proof-based disposition is available.
         '404':
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['users:delete']
@@ -334,19 +343,15 @@ paths:
                 detail: Linking an existing account requires proof of account control.
       x-required-permissions: ['users:update']
 
-  /users/{userId}/upstream-identities/{issuer}/{subject}:
+  /users/{userId}/upstream-identities/{providerId}:
     parameters:
       - $ref: '#/components/parameters/UserId'
-      - name: issuer
+      - name: providerId
         in: path
         required: true
         schema:
           type: string
-      - name: subject
-        in: path
-        required: true
-        schema:
-          type: string
+          format: uuid
 
     delete:
       tags: [Users]
@@ -358,7 +363,16 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Unlinking is forbidden while quarantined upstream identity evidence must be retained.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                status: 403
+                title: Identity evidence must be retained
+                code: Forbidden.UpstreamIdentity.QuarantineRetentionRequired
+                detail: Quarantined identity evidence must be retained until a proof-based disposition is available.
         '404':
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['users:update']
