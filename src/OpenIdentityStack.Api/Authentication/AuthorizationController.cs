@@ -363,7 +363,8 @@ public class AuthorizationController : ControllerBase
                 }));
         }
 
-        Domain.Users.User? emailEvidenceUser = TryParseUserId(result.Principal!.GetClaim(Claims.Subject) ?? string.Empty) is { } userId
+        Domain.Users.User? emailEvidenceUser = Guid.TryParse(result.Principal!.GetClaim(UserCredentialClaims.Revision), out _)
+            && TryParseUserId(result.Principal.GetClaim(Claims.Subject) ?? string.Empty) is { } userId
             ? await this.userRepository.GetByIdAsync(userId, this.HttpContext.RequestAborted)
             : null;
         ClaimsPrincipal projected = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, persistedUser: emailEvidenceUser);

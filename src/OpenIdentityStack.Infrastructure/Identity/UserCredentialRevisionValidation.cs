@@ -49,6 +49,7 @@ public sealed class UserCredentialRevisionValidation(OpenIdentityStackDbContext 
         {
             return true;
         }
+        if (subjectKinds.Length != 0) { return false; }
 
         if (!Guid.TryParse(principal.GetClaim(OpenIddictConstants.Claims.Subject), out Guid subject))
         {

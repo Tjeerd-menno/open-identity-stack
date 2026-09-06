@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Authorization;
 using System.Collections.Immutable;
 using System.Security.Claims;
 using OpenIddict.Abstractions;
@@ -43,19 +44,36 @@ internal sealed class IntrospectionPermissionsHandler(IResourcePermissionService
 
         string? subject = principal.GetClaim(OpenIddictConstants.Claims.Subject);
         string? actorType = principal.GetClaim(ResourceTokenActorTypes.ClaimType);
-        if (actorType is not (ResourceTokenActorTypes.User or ResourceTokenActorTypes.Application))
+        UserId? userId;
+        if (actorType == ResourceTokenActorTypes.User)
+        {
+            if (!Guid.TryParse(subject, out Guid value))
+            {
+                context.Reject(OpenIddictConstants.Errors.InvalidToken);
+                return;
+            }
+            userId = new UserId(value);
+        }
+        else if (actorType == ResourceTokenActorTypes.Application)
+        {
+            userId = null;
+        }
+        else if (actorType is not null)
         {
             context.Reject(OpenIddictConstants.Errors.InvalidToken);
             return;
         }
-
-        UserId? userId = actorType == ResourceTokenActorTypes.User && Guid.TryParse(subject, out Guid value)
-            ? new UserId(value)
-            : null;
-        if (actorType == ResourceTokenActorTypes.User && userId is null)
+        else
         {
-            context.Reject(OpenIddictConstants.Errors.InvalidToken);
-            return;
+            // Legacy tokens predate the explicit actor marker. Retain their prior
+            // subject evidence rules, but reject the ambiguous equal-ID shape.
+            bool applicationSubject = principal.HasClaim(TokenSubjectClaims.Kind, TokenSubjectClaims.Application);
+            if (subject == clientId && !applicationSubject && !principal.HasClaim(UserCredentialClaims.Revision))
+            {
+                context.Reject(OpenIddictConstants.Errors.InvalidToken);
+                return;
+            }
+            userId = !applicationSubject && Guid.TryParse(subject, out Guid legacyUserId) ? new UserId(legacyUserId) : null;
         }
         Result<ResourceTokenProjection> result = await projection.ProjectAsync(new ResourceTokenRequest(clientId, principal.GetScopes(), audiences, userId,
             principal.FindAll("permission").Select(static claim => claim.Value).ToArray(), audiences), context.CancellationToken);
