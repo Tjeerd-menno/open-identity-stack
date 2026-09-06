@@ -72,6 +72,51 @@ public sealed class JitProvisioningPersistenceTests
     }
 
     [Fact]
+    public async Task ExistingUserAuthenticationIsDeniedWhenProviderIsDisabledAfterInitialValidation()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using (OpenIdentityStackDbContext setup = database.CreateContext())
+        {
+            UpstreamProvider provider = await setup.UpstreamProviders.SingleAsync();
+            User user = User.CreateFederated(
+                "person@example.com",
+                "Person",
+                provider.Id,
+                provider.Name,
+                "subject",
+                issuer: "https://issuer.example").Value;
+            setup.Users.Add(user);
+            await setup.SaveChangesAsync();
+        }
+
+        await using OpenIdentityStackDbContext attempt = database.CreateContext();
+        await using OpenIdentityStackDbContext administrator = database.CreateContext();
+        var realUsers = new UserRepository(attempt);
+        IUserRepository users = Substitute.For<IUserRepository>();
+        users.FindByUpstreamIdentityAsync(Arg.Any<UpstreamProviderId>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(async call =>
+            {
+                User? existing = await realUsers.FindByUpstreamIdentityAsync(
+                    call.ArgAt<UpstreamProviderId>(0),
+                    call.ArgAt<string>(1),
+                    call.ArgAt<CancellationToken>(2));
+                UpstreamProvider current = await administrator.UpstreamProviders.SingleAsync();
+                current.Disable();
+                await administrator.SaveChangesAsync();
+                return existing;
+            });
+
+        Result<JitProvisionUserResult> result = await CreateUseCase(attempt, users).ExecuteAsync(
+            database.Command("subject", "person@example.com"));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(DomainError.Forbidden("Federation.AuthenticationFailed", "Unable to complete sign-in."));
+        await using OpenIdentityStackDbContext read = database.CreateContext();
+        (await read.UpstreamProviders.SingleAsync()).IsActive.ShouldBeFalse();
+        (await read.AuditLogEntries.CountAsync(entry => entry.Action == "Federation.AccountAssociationDenied")).ShouldBe(1);
+    }
+
+    [Fact]
     public async Task InitialProviderAuditFailureCannotCommitTheProvider()
     {
         await using TestDatabase database = await TestDatabase.CreateAsync();
