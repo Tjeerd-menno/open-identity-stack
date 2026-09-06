@@ -47,9 +47,11 @@ describe('Admin API domain contracts', () => {
     await contract.configureProtectedResource('resource', { ...resource, expectedRevision: 3 });
     await contract.listClientResourceGrants('client');
     await contract.configureClientResourceGrant('client', 'resource', grant);
+    await contract.revokeClientResourceGrant('client', 'resource', 2);
     expectCalls(client.get, [['/api/admin/applications/resources'], ['/api/admin/applications/client/resource-grants']]);
     expectCalls(client.post, [['/api/admin/applications/resources', resource]]);
     expectCalls(client.put, [['/api/admin/applications/resources/resource', { ...resource, expectedRevision: 3 }], ['/api/admin/applications/client/resource-grants/resource', grant]]);
+    expectCalls(client.delete, [['/api/admin/applications/client/resource-grants/resource?expectedRevision=2']]);
   });
   it('maps application lifecycle and credential operations to their routes', async () => {
     const client = createMockClient();

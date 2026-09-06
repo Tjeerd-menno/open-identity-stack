@@ -27,6 +27,7 @@ public sealed class ResourceAccessRepository(OpenIdentityStackDbContext db, IOpe
         db.ClientResourceGrants.SingleOrDefaultAsync(grant => grant.ClientApplicationId == applicationId && grant.ResourceId == resourceId, cancellationToken);
     public void AddResource(ProtectedResource resource) => db.ProtectedResources.Add(resource);
     public void AddGrant(ClientResourceGrant grant) => db.ClientResourceGrants.Add(grant);
+    public void RemoveGrant(ClientResourceGrant grant) => db.ClientResourceGrants.Remove(grant);
 
     public async Task SaveChangesAsync(string actorId, string action, string entityId, ProtectedResource? projectResource = null, CancellationToken cancellationToken = default)
     {
@@ -44,7 +45,7 @@ public sealed class ResourceAccessRepository(OpenIdentityStackDbContext db, IOpe
             {
                 Resources = db.ChangeTracker.Entries<ProtectedResource>().Where(static entry => entry.State is EntityState.Added or EntityState.Modified)
                     .Select(static entry => new { entry.Entity.Id, entry.Entity.Audience, entry.Entity.Scope, entry.Entity.PermissionNamespaces, entry.Entity.Enabled, entry.Entity.Revision }).ToArray(),
-                Grants = db.ChangeTracker.Entries<ClientResourceGrant>().Where(static entry => entry.State is EntityState.Added or EntityState.Modified)
+                Grants = db.ChangeTracker.Entries<ClientResourceGrant>().Where(static entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
                     .Select(static entry => new { entry.Entity.Id, entry.Entity.ClientApplicationId, entry.Entity.ResourceId, entry.Entity.DelegatedPermissions, entry.Entity.ApplicationPermissions, entry.Entity.Revision }).ToArray()
             })
         });

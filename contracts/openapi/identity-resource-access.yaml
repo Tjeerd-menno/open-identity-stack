@@ -94,6 +94,20 @@ paths:
         '400': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: RevokeClientResourceGrant
+      x-required-permission: applications:write
+      description: Permanently removes the observed business-resource grant. The expected revision prevents a stale operator view from revoking a newer grant.
+      parameters:
+        - name: expectedRevision
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        '204': { description: Grant revoked. Subsequent token issuance for the resource is rejected. }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }

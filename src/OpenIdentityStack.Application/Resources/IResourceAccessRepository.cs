@@ -13,5 +13,6 @@ public interface IResourceAccessRepository
     Task<ClientResourceGrant?> GetGrantAsync(ApplicationId applicationId, Guid resourceId, CancellationToken cancellationToken = default);
     void AddResource(ProtectedResource resource);
     void AddGrant(ClientResourceGrant grant);
+    void RemoveGrant(ClientResourceGrant grant);
     Task SaveChangesAsync(string actorId, string action, string entityId, ProtectedResource? projectResource = null, CancellationToken cancellationToken = default);
 }

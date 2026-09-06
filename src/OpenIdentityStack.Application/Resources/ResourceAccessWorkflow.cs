@@ -92,6 +92,22 @@ public sealed class ResourceAccessWorkflow(IResourceAccessRepository resources, 
         return Map(grant);
     }
 
+    public async Task<Result> RevokeGrantAsync(Guid applicationId, Guid resourceId, long expectedRevision, string actorId,
+        CancellationToken cancellationToken = default)
+    {
+        var clientId = new ApplicationId(applicationId);
+        if (await applications.GetByIdAsync(clientId, cancellationToken) is null) { return ResourceAccessErrors.NotGranted; }
+        ProtectedResource? resource = await resources.GetResourceAsync(resourceId, cancellationToken);
+        if (resource is null) { return ResourceAccessErrors.UnknownResource; }
+        if (resource.IsAdministrative) { return ResourceAccessErrors.Reserved; }
+        ClientResourceGrant? grant = await resources.GetGrantAsync(clientId, resourceId, cancellationToken);
+        if (grant is null || grant.Revision != expectedRevision) { return conflict; }
+
+        resources.RemoveGrant(grant);
+        await resources.SaveChangesAsync(actorId, "ClientResourceGrantRevoked", grant.Id.ToString(), cancellationToken: cancellationToken);
+        return Result.Success();
+    }
+
     private static ProtectedResourceDto Map(ProtectedResource resource) => new(resource.Id, resource.Audience, resource.Scope, resource.DisplayName, resource.PermissionNamespaces, resource.Enabled, resource.Revision, resource.IsAdministrative);
     private static ClientResourceGrantDto Map(ClientResourceGrant grant) => new(grant.ResourceId, grant.DelegatedPermissions, grant.ApplicationPermissions, grant.Revision);
 }

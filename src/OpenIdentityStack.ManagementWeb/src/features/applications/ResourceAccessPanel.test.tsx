@@ -53,6 +53,24 @@ it('prevents switching resources while a grant save is pending', async () => {
   await waitFor(() => expect(selector).toBeEnabled());
 });
 
+it('confirms and revokes an existing resource grant at its observed revision', async () => {
+  const user = userEvent.setup();
+  mockApi.applications.revokeClientResourceGrant.mockResolvedValue(undefined);
+  renderManagementWeb(<ResourceAccessPanel applicationId="client" canWrite />);
+  const selector = screen.getByRole('combobox', { name: 'Protected resource' });
+  await waitFor(() => expect(selector).toBeEnabled());
+  await user.click(selector);
+  await user.keyboard('{ArrowDown}{Enter}');
+
+  await user.click(screen.getByRole('button', { name: 'Revoke resource grant' }));
+  expect(screen.getByRole('dialog', { name: 'Revoke resource grant' })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Confirm revocation' }));
+
+  await waitFor(() => expect(mockApi.applications.revokeClientResourceGrant).toHaveBeenCalledWith('client', 'resource', 3));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Revoke resource grant' })).not.toBeInTheDocument());
+  expect(screen.getByLabelText('Delegated permission ceiling')).toHaveValue('');
+});
+
 it('disambiguates resources with the same display name by audience and scope', async () => {
   const user = userEvent.setup();
   mockApi.applications.listProtectedResources.mockResolvedValue([

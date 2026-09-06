@@ -20,6 +20,7 @@ function ResourceAccessPanelForApplication({ applicationId, canWrite }: { applic
   const [delegated, setDelegated] = useState('');
   const [machine, setMachine] = useState('');
   const [expectedRevision, setExpectedRevision] = useState<number | undefined>();
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
   const resource = resources.data?.find((item) => item.id === selected);
   const save = useMutation({
     mutationFn: () => api.applications.configureClientResourceGrant(applicationId, selected!, {
@@ -27,22 +28,34 @@ function ResourceAccessPanelForApplication({ applicationId, canWrite }: { applic
     }),
     onSuccess: (saved) => { setExpectedRevision(saved.revision); void queryClient.invalidateQueries({ queryKey: ['application', applicationId, 'resource-grants'] }); },
   });
+  const revoke = useMutation({
+    mutationFn: () => api.applications.revokeClientResourceGrant(applicationId, selected!, expectedRevision!),
+    onSuccess: () => {
+      setDelegated('');
+      setMachine('');
+      setExpectedRevision(undefined);
+      setConfirmRevoke(false);
+      void queryClient.invalidateQueries({ queryKey: ['application', applicationId, 'resource-grants'] });
+    },
+  });
   const choose = (id: string | null) => {
     setSelected(id);
     const existing = grants.data?.find((item) => item.resourceId === id);
     setDelegated(existing?.delegatedPermissions.join('\n') ?? '');
     setMachine(existing?.applicationPermissions.join('\n') ?? '');
     setExpectedRevision(existing?.revision);
+    setConfirmRevoke(false);
     save.reset();
+    revoke.reset();
   };
-  const failed = resources.error ?? grants.error ?? save.error;
+  const failed = resources.error ?? grants.error ?? save.error ?? revoke.error;
   return <SectionCard title="Resource access">
     <Stack>
       <Text size="sm">A resource defines a token audience and permission namespaces. Delegated ceilings limit user permissions; application permissions authorize machine tokens. OAuth scopes alone grant no permissions.</Text>
       {failed && <Alert color="red">{getApiErrorMessage(failed)}</Alert>}
       {canWrite && <Button variant="light" onClick={() => setEditing('new')}>Add protected resource</Button>}
       <Select label="Protected resource" placeholder="Choose a resource" value={selected} onChange={choose}
-        disabled={resources.isPending || grants.isPending || save.isPending} data={(resources.data ?? []).map((item) => ({ value: item.id, label: `${item.displayName} — ${item.audience} — ${item.scope}` }))} />
+        disabled={resources.isPending || grants.isPending || save.isPending || revoke.isPending} data={(resources.data ?? []).map((item) => ({ value: item.id, label: `${item.displayName} — ${item.audience} — ${item.scope}` }))} />
       {resource && <>
         <Text size="sm">Audience: {resource.audience}</Text>
         <Text size="sm">Request scope: {resource.scope}. Namespaces: {resource.permissionNamespaces.join(', ')}</Text>
@@ -52,10 +65,20 @@ function ResourceAccessPanelForApplication({ applicationId, canWrite }: { applic
           <Textarea label="Delegated permission ceiling" description="One permission or terminal wildcard per line. An empty ceiling grants no delegated permissions." value={delegated} onChange={(event) => setDelegated(event.currentTarget.value)} readOnly={!canWrite} minRows={3} />
           <Textarea label="Application permissions" description="Explicit permissions for client credentials. These do not inherit user roles." value={machine} onChange={(event) => setMachine(event.currentTarget.value)} readOnly={!canWrite} minRows={3} />
           {canWrite && <Button onClick={() => save.mutate()} loading={save.isPending}>Save resource grant</Button>}
+          {canWrite && expectedRevision !== undefined && <Button color="red" variant="light" onClick={() => setConfirmRevoke(true)}>Revoke resource grant</Button>}
           {save.isSuccess && <Text role="status">Resource grant saved.</Text>}
         </>}
       </>}
       {editing && <ResourceEditor key={editing === 'new' ? 'new' : editing.id} resource={editing === 'new' ? null : editing} close={() => setEditing(null)} />}
+      <Modal opened={confirmRevoke} onClose={() => setConfirmRevoke(false)} title="Revoke resource grant">
+        <Stack>
+          <Text>This removes the client&apos;s grant for this resource. Subsequent token requests for the resource will be rejected.</Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setConfirmRevoke(false)}>Cancel</Button>
+            <Button color="red" onClick={() => revoke.mutate()} loading={revoke.isPending}>Confirm revocation</Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   </SectionCard>;
 }

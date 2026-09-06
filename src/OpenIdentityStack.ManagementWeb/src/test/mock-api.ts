@@ -33,6 +33,7 @@ export const mockApi = {
     configureProtectedResource: vi.fn(),
     listClientResourceGrants: vi.fn().mockResolvedValue([]),
     configureClientResourceGrant: vi.fn(),
+    revokeClientResourceGrant: vi.fn(),
     getApplications: vi.fn(),
     getApplication: vi.fn(),
     getApplicationProfilePolicies: vi.fn(),

@@ -34,12 +34,23 @@ internal static class ResourceAccessApi
         group.MapPut("{id:guid}/resource-grants/{resourceId:guid}", async (Guid id, Guid resourceId, ClientResourceGrantConfiguration request, ResourceAccessWorkflow workflow, ClaimsPrincipal user, CancellationToken ct) =>
             ToResult(await workflow.SaveGrantAsync(id, resourceId, request, Actor(user), ct)))
             .RequireAuthorization(Permissions.Applications.Write).Produces<ClientResourceGrantDto>().Produces<ProblemDetails>(400).Produces<ProblemDetails>(403).Produces<ProblemDetails>(409).WithName("ConfigureClientResourceGrant");
+        group.MapDelete("{id:guid}/resource-grants/{resourceId:guid}", async (Guid id, Guid resourceId, [FromQuery] long expectedRevision, ResourceAccessWorkflow workflow, ClaimsPrincipal user, CancellationToken ct) =>
+            ToResult(await workflow.RevokeGrantAsync(id, resourceId, expectedRevision, Actor(user), ct)))
+            .RequireAuthorization(Permissions.Applications.Write).Produces(204).Produces<ProblemDetails>(400).Produces<ProblemDetails>(403).Produces<ProblemDetails>(409).WithName("RevokeClientResourceGrant");
     }
 
     private static string Actor(ClaimsPrincipal principal) => principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown";
     private static IResult ToResult<T>(Result<T> result)
     {
         if (result.IsSuccess) { return TypedResults.Ok(result.Value); }
+        int status = result.Error.Code.StartsWith("Forbidden.", StringComparison.Ordinal) ? 403
+            : result.Error.Code.StartsWith("Conflict.", StringComparison.Ordinal) ? 409 : 400;
+        return TypedResults.Problem(statusCode: status, title: "Resource access request rejected", detail: result.Error.Description,
+            extensions: new Dictionary<string, object?> { ["code"] = result.Error.Code });
+    }
+    private static IResult ToResult(Result result)
+    {
+        if (result.IsSuccess) { return TypedResults.NoContent(); }
         int status = result.Error.Code.StartsWith("Forbidden.", StringComparison.Ordinal) ? 403
             : result.Error.Code.StartsWith("Conflict.", StringComparison.Ordinal) ? 409 : 400;
         return TypedResults.Problem(statusCode: status, title: "Resource access request rejected", detail: result.Error.Description,

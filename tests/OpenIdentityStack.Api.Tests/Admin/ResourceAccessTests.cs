@@ -101,6 +101,7 @@ public sealed class ResourceAccessTests(AppHostFixture fixture)
         using HttpResponseMessage narrowed = await admin.PutAsJsonAsync($"/api/admin/applications/{applicationId}/resource-grants/{resource.Id}",
             new ClientResourceGrantConfiguration([], [], saved.Revision));
         narrowed.StatusCode.ShouldBe(HttpStatusCode.OK);
+        ClientResourceGrantDto narrowedGrant = (await narrowed.Content.ReadFromJsonAsync<ClientResourceGrantDto>())!;
         using HttpResponseMessage current = await fixture.CreateClient().PostAsync("/connect/introspect", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["client_id"] = clientId, ["client_secret"] = "fixture-secret", ["token"] = token
@@ -108,6 +109,18 @@ public sealed class ResourceAccessTests(AppHostFixture fixture)
         JsonObject currentBody = (await current.Content.ReadFromJsonAsync<JsonObject>())!;
         currentBody["active"]!.GetValue<bool>().ShouldBeTrue();
         (currentBody["permissions"]?.AsArray().Count ?? 0).ShouldBe(0);
+        using HttpResponseMessage staleRevocation = await admin.DeleteAsync(
+            $"/api/admin/applications/{applicationId}/resource-grants/{resource.Id}?expectedRevision={saved.Revision}");
+        staleRevocation.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+
+        using HttpResponseMessage revoked = await admin.DeleteAsync(
+            $"/api/admin/applications/{applicationId}/resource-grants/{resource.Id}?expectedRevision={narrowedGrant.Revision}");
+        revoked.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await admin.GetFromJsonAsync<ClientResourceGrantDto[]>($"/api/admin/applications/{applicationId}/resource-grants")).ShouldBeEmpty();
+        await fixture.ExecuteDbContextAsync(async db =>
+            (await db.AuditLogEntries.AnyAsync(entry => entry.Action == "ClientResourceGrantRevoked")).ShouldBeTrue());
+        using HttpResponseMessage deniedAfterRevocation = await fixture.CreateClient().PostAsync("/connect/token", TokenRequest(clientId, resourceScope));
+        deniedAfterRevocation.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]
