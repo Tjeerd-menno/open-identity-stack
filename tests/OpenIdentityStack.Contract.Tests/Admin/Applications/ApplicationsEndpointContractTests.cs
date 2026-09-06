@@ -48,6 +48,7 @@ public sealed class ApplicationsEndpointContractTests
             operationSection.ShouldContain("\"403\":");
             operationSection.ShouldContain("#/components/responses/AdministrativeApprovalRequired");
             operationSection.ShouldContain("#/components/parameters/AdministrativeApprovalAcknowledgement");
+            contract.ShouldNotContain("required: [status, errorCode]");
         }
     }
 
