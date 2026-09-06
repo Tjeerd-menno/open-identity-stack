@@ -11,6 +11,7 @@ export type AdministrativeAccessConfiguration = {
   delegatedPermissions: string[];
   applicationPermissions: string[];
   expectedRevision: number | null;
+  acknowledgeAdministrativeAccess?: boolean;
 };
 
 export function createAdministrativeAccessContract(client: AdminApiClient) {

@@ -1,17 +1,17 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using OpenIddict.Abstractions;
+using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Resources;
 using OpenIdentityStack.Domain.Resources;
 using OpenIdentityStack.Domain.Users;
-using SharedKernel;
 
 namespace OpenIdentityStack.Api.Authorization;
 
 public sealed class AdministrativeGrantRevisionRequirement : IAuthorizationRequirement;
 
-public sealed class AdministrativeGrantRevisionHandler(IResourcePermissionService permissions)
+public sealed class AdministrativeGrantRevisionHandler(AdministrativeRequestAuthorization administrativeAccess)
     : AuthorizationHandler<AdministrativeGrantRevisionRequirement>
 {
     protected override async Task HandleRequirementAsync(
@@ -47,18 +47,12 @@ public sealed class AdministrativeGrantRevisionHandler(IResourcePermissionServic
             return;
         }
 
-        Result<ResourceTokenProjection> current = await permissions.ProjectAsync(new ResourceTokenRequest(
-            clientId,
-            context.User.GetScopes(),
-            audiences,
-            userId,
-            OriginalPermissions: null,
-            audiences));
-        if (current.IsFailure
-            || !current.Value.GrantRevisions.TryGetValue(ProtectedResource.AdministrativeResourceId, out long currentRevision)
+        AdministrativeAccessEvaluation? current = await administrativeAccess.EvaluateProjectionAsync(context.User);
+        if (current is null
+            || !current.GrantRevisions.TryGetValue(ProtectedResource.AdministrativeResourceId, out long currentRevision)
             || currentRevision != tokenRevision
             || context.Requirements.OfType<PermissionRequirement>().Any(permissionRequirement =>
-                !current.Value.Permissions.Any(permission => Permissions.Matches(permission, permissionRequirement.Permission))))
+                !current.Permissions.Any(permission => Permissions.Matches(permission, permissionRequirement.Permission))))
         {
             return;
         }

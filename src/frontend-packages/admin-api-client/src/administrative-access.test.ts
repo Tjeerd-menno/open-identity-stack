@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAdminApiClient, createAdministrativeAccessContract } from './index';
+import type { AdministrativeAccessConfiguration } from './administrative-access';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
@@ -11,10 +12,21 @@ describe('administrative access contract', () => {
     globalThis.fetch = fetchMock;
     const contract = createAdministrativeAccessContract(createAdminApiClient({ baseUrl: 'https://admin.example' }));
     expect(await contract.get('client')).toEqual(response);
-    await contract.save('client', { delegatedPermissions: ['users:read'], applicationPermissions: [], expectedRevision: 7 });
+    const update = {
+      delegatedPermissions: ['users:read'],
+      applicationPermissions: [],
+      expectedRevision: 7,
+      acknowledgeAdministrativeAccess: true,
+    } satisfies AdministrativeAccessConfiguration;
+    await contract.save('client', update);
     expect(fetchMock.mock.calls[1][0]).toBe('https://admin.example/api/admin/applications/client/administrative-access');
     expect(fetchMock.mock.calls[1][1].method).toBe('PUT');
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ delegatedPermissions: ['users:read'], applicationPermissions: [], expectedRevision: 7 });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      delegatedPermissions: ['users:read'],
+      applicationPermissions: [],
+      expectedRevision: 7,
+      acknowledgeAdministrativeAccess: true,
+    });
   });
 
   it('does not retry an entitlement revision conflict as approval', async () => {
