@@ -61,7 +61,8 @@ public sealed class EmailTrustCredentialTests(AppHostFixture fixture)
             await db.SaveChangesAsync();
         });
 
-        JsonNode issued = await this.LoginAndIssueAsync(email, password, clientId, clientSecret);
+        using HttpClient retainedBrowser = fixture.CreateClient(allowAutoRedirect: false);
+        (JsonNode issued, string authorizationUrl) = await LoginAndIssueAsync(retainedBrowser, email, password, clientId, clientSecret);
         using HttpClient subject = fixture.CreateClient();
         subject.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issued["access_token"]!.GetValue<string>());
         (await subject.GetFromJsonAsync<JsonNode>("/connect/userinfo"))!["email_verified"]!.GetValue<bool>().ShouldBeTrue();
@@ -102,7 +103,14 @@ public sealed class EmailTrustCredentialTests(AppHostFixture fixture)
             (await refresh.Content.ReadFromJsonAsync<JsonNode>())!["error"]!.GetValue<string>().ShouldBe("invalid_grant");
         }
 
-        JsonNode fresh = await this.LoginAndIssueAsync(email, password, clientId, clientSecret);
+        HttpResponseMessage retainedCookie = await retainedBrowser.GetAsync(authorizationUrl);
+        retainedCookie.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        Dictionary<string, Microsoft.Extensions.Primitives.StringValues> retainedQuery = QueryHelpers.ParseQuery(retainedCookie.Headers.Location!.Query);
+        if (independentEvidence) { retainedQuery.ShouldContainKey("code"); }
+        else { retainedQuery["error"].Single().ShouldBe("login_required"); }
+
+        using HttpClient freshBrowser = fixture.CreateClient(allowAutoRedirect: false);
+        (JsonNode fresh, _) = await LoginAndIssueAsync(freshBrowser, email, password, clientId, clientSecret);
         subject.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", fresh["access_token"]!.GetValue<string>());
         (await subject.GetFromJsonAsync<JsonNode>("/connect/userinfo"))!["email_verified"]!.GetValue<bool>().ShouldBe(independentEvidence);
     }
@@ -116,9 +124,8 @@ public sealed class EmailTrustCredentialTests(AppHostFixture fixture)
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         return (await response.Content.ReadFromJsonAsync<JsonNode>())!["active"]!.GetValue<bool>();
     }
-    private async Task<JsonNode> LoginAndIssueAsync(string email, string password, string clientId, string clientSecret)
+    private static async Task<(JsonNode Tokens, string AuthorizationUrl)> LoginAndIssueAsync(HttpClient browser, string email, string password, string clientId, string clientSecret)
     {
-        using HttpClient browser = fixture.CreateClient(allowAutoRedirect: false);
         string verifier = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
         string query = await new FormUrlEncodedContent(new Dictionary<string, string>
         {
@@ -148,6 +155,6 @@ public sealed class EmailTrustCredentialTests(AppHostFixture fixture)
             ["code_verifier"] = verifier, ["client_id"] = clientId, ["client_secret"] = clientSecret
         }));
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
-        return (await response.Content.ReadFromJsonAsync<JsonNode>())!;
+        return ((await response.Content.ReadFromJsonAsync<JsonNode>())!, "/connect/authorize?" + query + "&prompt=none");
     }
 }

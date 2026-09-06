@@ -59,6 +59,8 @@ public class AuthorizationControllerTests
         this._getGroupClaimsForUserQueryHandler = Substitute.For<IGetGroupClaimsForUserQueryHandler>();
         this._addClientSessionUseCase = Substitute.For<IAddClientSessionUseCase>();
         this._validateSessionQueryHandler = Substitute.For<IValidateSessionQueryHandler>();
+        this._validateSessionQueryHandler.HandleAsync(Arg.Any<ValidateSessionQuery>(), Arg.Any<CancellationToken>())
+            .Returns(new ValidateSessionResult(true));
         this._requestService = Substitute.For<IOpenIddictRequestService>();
         this._applicationPermissionRegistryRepository = Substitute.For<IApplicationPermissionRegistryRepository>();
 
@@ -110,6 +112,34 @@ public class AuthorizationControllerTests
         IServiceProvider serviceProvider = Substitute.For<IServiceProvider>();
         serviceProvider.GetService(typeof(IAuthenticationService)).Returns(authService);
         this._controller.HttpContext.RequestServices = serviceProvider;
+    }
+
+    private static ClaimsPrincipal WithSession(ClaimsPrincipal principal)
+    {
+        if (!principal.HasClaim(claim => claim.Type is "sid" or "session_id"))
+        {
+            ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim("sid", Guid.NewGuid().ToString()));
+        }
+        return principal;
+    }
+
+    [Theory]
+    [InlineData("Session not found")]
+    [InlineData("Session has been revoked")]
+    [InlineData("Session has expired")]
+    public async Task Authorize_WithUnavailablePersistedSession_DeniesSilentIssuance(string reason)
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new Claim("sid", Guid.NewGuid().ToString())], "Cookies"));
+        this.SetupMockServices(principal);
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest { ClientId = "client", Prompt = "none" });
+        this._validateSessionQueryHandler.HandleAsync(Arg.Any<ValidateSessionQuery>(), Arg.Any<CancellationToken>())
+            .Returns(new ValidateSessionResult(false, reason));
+
+        ForbidResult result = (await this._controller.Authorize()).ShouldBeOfType<ForbidResult>();
+        result.Properties!.Items[OpenIddictServerAspNetCoreConstants.Properties.Error].ShouldBe("login_required");
+        await this._addClientSessionUseCase.DidNotReceive().ExecuteAsync(Arg.Any<AddClientSessionCommand>(), Arg.Any<CancellationToken>());
     }
 
     private static bool HasTokenDestinations(Claim claim) =>
@@ -173,7 +203,7 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity([
             new Claim(ClaimTypes.NameIdentifier, user.Id.Value.ToString()),
             new Claim(OpenIddictConstants.Claims.Subject, user.Id.Value.ToString())], "Cookies"));
-        this.SetupMockServices(principal);
+        this.SetupMockServices(WithSession(principal));
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest { ClientId = "test-client", GrantType = flow });
 
         IActionResult result = flow == "authorization" ? await this._controller.Authorize() : await this._controller.Exchange();
@@ -257,8 +287,8 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) },
             "Cookies"));
-        this._controller.ControllerContext.HttpContext.User = principal;
-        this.SetupMockServices(principal);
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
+        this.SetupMockServices(WithSession(principal));
         this._controller.HttpContext.Request.Path = "/connect/authorize";
         this._controller.HttpContext.Request.QueryString = new QueryString(
             "?client_id=test-client&prompt=login&max_age=0&scope=openid&state=abc");
@@ -298,7 +328,7 @@ public class AuthorizationControllerTests
                 new Claim(OpenIddictConstants.Claims.AuthenticationTime, expiredAuthTime.ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64)
             },
             "Cookies"));
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
         // Act
         IActionResult result = await this._controller.Authorize();
@@ -328,7 +358,7 @@ public class AuthorizationControllerTests
         };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
         // Setup role and group claims handlers to return empty results
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
@@ -357,7 +387,7 @@ public class AuthorizationControllerTests
         Claim[] claims = new[] { new Claim(ClaimTypes.Name, "Test User") };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
         // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(() => this._controller.Authorize());
@@ -379,7 +409,7 @@ public class AuthorizationControllerTests
         };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
@@ -417,7 +447,7 @@ public class AuthorizationControllerTests
         };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
@@ -446,7 +476,7 @@ public class AuthorizationControllerTests
         Claim[] claims = new[] { new Claim(ClaimTypes.NameIdentifier, userId.ToString()) };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
 #pragma warning disable CA1861
         var roleDto = new RoleDto(RoleId.Create().Value, "Admin", "Admin", "Administrator role", true, true, (IReadOnlyList<string>)new[] { "read", "write" });
@@ -476,7 +506,7 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
             "Cookies"));
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
         var roleDto = new RoleDto(
             RoleId.Create().Value,
@@ -510,7 +540,7 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
             "Cookies"));
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
         var roleDto = new RoleDto(
             RoleId.Create().Value,
@@ -544,7 +574,7 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
             "Cookies"));
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
         var roleDto = new RoleDto(
             RoleId.Create().Value,
@@ -594,7 +624,7 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
             "Cookies"));
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
         var roleDto = new RoleDto(
             RoleId.Create().Value,
@@ -626,7 +656,7 @@ public class AuthorizationControllerTests
         Claim[] claims = new[] { new Claim(ClaimTypes.NameIdentifier, userId.ToString()) };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
 
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
@@ -874,7 +904,7 @@ public class AuthorizationControllerTests
         };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(
             principal,
             properties: new AuthenticationProperties
@@ -923,7 +953,7 @@ public class AuthorizationControllerTests
         };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(principal);
 
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
@@ -963,7 +993,7 @@ public class AuthorizationControllerTests
         };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(principal);
 
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
@@ -1012,7 +1042,7 @@ public class AuthorizationControllerTests
         };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(principal);
 
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
@@ -1071,7 +1101,7 @@ public class AuthorizationControllerTests
         };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(principal);
 
         this._userRepository.GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
@@ -1122,7 +1152,7 @@ public class AuthorizationControllerTests
         };
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
-        this._controller.ControllerContext.HttpContext.User = principal;
+        this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(principal);
 
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())

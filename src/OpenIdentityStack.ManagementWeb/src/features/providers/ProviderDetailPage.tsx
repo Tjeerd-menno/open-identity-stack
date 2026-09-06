@@ -158,8 +158,8 @@ export function ProviderDetailPage() {
                   ? setEmailTrust.mutate(true)
                   : confirmEmailTrustWithdrawalControls.open()}
               />
-              <Text size="xs" c="dimmed" mt="sm">Withdrawing trust invalidates provider evidence and revokes credentials that lose sufficient verification. Affected users must sign in again. Independent verification is retained.</Text>
-              <Text size="xs" c="dimmed" mt="sm">Offline APIs may accept existing JWTs until expiry. Coordinate their revocation or introspection policy before withdrawing trust.</Text>
+              <Text size="xs" c="dimmed" mt="sm">Withdrawing trust invalidates provider evidence and revokes credentials that lose sufficient verification. Affected OpenIdentityStack sessions require a new sign-in. Independent verification is retained.</Text>
+              <Text size="xs" c="dimmed" mt="sm">Relying-party sessions can remain active until the application terminates them or requires reauthentication. Offline APIs may accept existing JWTs until expiry. Coordinate their revocation or introspection policy before withdrawing trust.</Text>
             </SectionCard>
 
             <SectionCard title="Provisioning">
