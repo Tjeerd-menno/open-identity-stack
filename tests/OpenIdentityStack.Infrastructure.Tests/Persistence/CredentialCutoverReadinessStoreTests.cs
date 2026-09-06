@@ -17,6 +17,56 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 public sealed class CredentialCutoverReadinessStoreTests
 {
     [Fact]
+    public async Task IdentityInventoryUsesDatabaseAggregatesWithoutMaterializingUsers()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        User user = User.CreateFederated("inventory@example.com", "Inventory", database.Clock).Value;
+        user.LinkUpstreamIdentity(UpstreamProviderId.Create(), "legacy", "subject", user.Email, issuer: null);
+        database.Db.Add(user);
+        await database.Db.SaveChangesAsync();
+        database.Commands.Clear();
+
+        CredentialCutoverPreflight preflight = await database.Store.EvaluateAsync();
+
+        preflight.Identities.QuarantinedLinks.ShouldBe(1);
+        string[] userQueries = database.Commands.Where(command =>
+            command.Contains("Users", StringComparison.Ordinal) ||
+            command.Contains("UserUpstreamIdentities", StringComparison.Ordinal) ||
+            command.Contains("UserEmailVerificationEvidence", StringComparison.Ordinal)).ToArray();
+        userQueries.Length.ShouldBeGreaterThanOrEqualTo(6);
+        userQueries.ShouldAllBe(command => command.Contains("SELECT COUNT(", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ResourceReviewLookupFiltersAndBoundsHistoryInDatabase()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        var resource = new CutoverProtectedResource(Guid.NewGuid(), "Business", "urn:business", "business", 7);
+        database.Resources.ReadAsync(Arg.Any<CancellationToken>()).Returns(new CutoverResourceInventory([], [resource], []));
+        for (int revision = 1; revision <= 7; revision++)
+        {
+            database.Db.ResourceTokenWindowReviews.Add(new ResourceWindowReviewRecord
+            {
+                Id = Guid.NewGuid(), ResourceId = resource.Id, ResourceRevision = revision, Epoch = Guid.Empty,
+                Mechanism = "OnlineIntrospection", ResidualSeconds = 30, EvidenceReference = $"fixture:{revision}",
+                ReviewedAt = database.Clock.UtcNow.AddMinutes(-revision)
+            });
+        }
+        await database.Db.SaveChangesAsync();
+        database.Commands.Clear();
+
+        await database.Store.EvaluateAsync();
+
+        string[] reviewQueries = database.Commands.Where(command => command.Contains("ResourceTokenWindowReviews", StringComparison.Ordinal)).ToArray();
+        reviewQueries.ShouldNotBeEmpty();
+        reviewQueries.ShouldAllBe(command => command.Contains("WHERE", StringComparison.OrdinalIgnoreCase)
+            && command.Contains("ResourceId", StringComparison.Ordinal)
+            && command.Contains("ResourceRevision", StringComparison.Ordinal));
+        reviewQueries.ShouldContain(command => command.Contains("LIMIT", StringComparison.OrdinalIgnoreCase));
+        reviewQueries.ShouldContain(command => command.Contains("SELECT COUNT(", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task AccessTokenWindowUsesDatabaseAggregates()
     {
         await using TestDatabase database = await TestDatabase.CreateAsync();

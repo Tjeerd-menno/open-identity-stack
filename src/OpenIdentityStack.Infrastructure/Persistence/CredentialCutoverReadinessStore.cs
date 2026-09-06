@@ -22,13 +22,28 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
         Guid epoch = await this.GetEpochAsync(cancellationToken);
         DateTimeOffset now = clock.UtcNow;
         var blockers = new List<CutoverBlocker>();
-        List<IdentityCounts> identities = await db.Users.AsNoTracking().Select(user => new IdentityCounts(
-            user.UpstreamIdentities.Count(link => link.AssociationEvidence != IdentityAssociationEvidence.NewAccountProvisioning || link.Issuer == null || link.Issuer.Trim() == ""),
-            user.PasswordHash != null && user.PasswordHash != "", user.Status == UserStatus.Disabled,
-            user.EmailVerificationEvidence.Any(e => e.WithdrawnAt == null && e.NormalizedEmail == user.NormalizedEmail),
-            user.EmailVerificationEvidence.Count(e => e.ProviderId != null), user.EmailVerificationEvidence.Count(e => e.WithdrawnAt != null)))
-            .ToListAsync(cancellationToken);
-        int quarantined = identities.Sum(x => x.Quarantined);
+        IQueryable<User> users = db.Users.AsNoTracking();
+        int quarantined = await users.SelectMany(user => user.UpstreamIdentities).CountAsync(link =>
+            link.AssociationEvidence != IdentityAssociationEvidence.NewAccountProvisioning ||
+            link.Issuer == null || link.Issuer.Trim() == "", cancellationToken);
+        int affectedUsers = await users.CountAsync(user => user.UpstreamIdentities.Any(link =>
+            link.AssociationEvidence != IdentityAssociationEvidence.NewAccountProvisioning ||
+            link.Issuer == null || link.Issuer.Trim() == ""), cancellationToken);
+        int federationOnlyUsers = await users.CountAsync(user =>
+            (user.PasswordHash == null || user.PasswordHash == "") && user.UpstreamIdentities.Any(link =>
+                link.AssociationEvidence != IdentityAssociationEvidence.NewAccountProvisioning ||
+                link.Issuer == null || link.Issuer.Trim() == ""), cancellationToken);
+        int passwordCandidates = await users.CountAsync(user =>
+            user.PasswordHash != null && user.PasswordHash != "" && user.UpstreamIdentities.Any(link =>
+                link.AssociationEvidence != IdentityAssociationEvidence.NewAccountProvisioning ||
+                link.Issuer == null || link.Issuer.Trim() == ""), cancellationToken);
+        int disabledUsers = await users.CountAsync(user => user.Status == UserStatus.Disabled, cancellationToken);
+        int verifiedUsers = await users.CountAsync(user => user.EmailVerificationEvidence.Any(evidence =>
+            evidence.WithdrawnAt == null && evidence.NormalizedEmail == user.NormalizedEmail), cancellationToken);
+        int providerEvidence = await users.SelectMany(user => user.EmailVerificationEvidence)
+            .CountAsync(evidence => evidence.ProviderId != null, cancellationToken);
+        int withdrawnEvidence = await users.SelectMany(user => user.EmailVerificationEvidence)
+            .CountAsync(evidence => evidence.WithdrawnAt != null, cancellationToken);
         if (quarantined > 0)
         {
             blockers.Add(new("Identity.Quarantined", "Quarantined links require a separately specified proof or recovery workflow. Password configuration is only a candidate, not association proof.", quarantined));
@@ -65,17 +80,11 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
             .MaxAsync(token => token.ExpirationDate, cancellationToken);
         DateTimeOffset? latestExpiry = latestExpirationDate is DateTime value
             ? new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)) : null;
-        List<ResourceWindowReviewRecord> reviews = await db.ResourceTokenWindowReviews.AsNoTracking()
-            .Where(x => x.Epoch == epoch).OrderByDescending(x => x.ReviewedAt).ThenBy(x => x.Id).ToListAsync(cancellationToken);
         var windows = new List<ResourceTokenWindow>();
         foreach (CutoverProtectedResource resource in inventory.BusinessResources.OrderBy(x => x.Id))
         {
-            ResourceWindowReviewRecord? review = reviews.FirstOrDefault(x => x.ResourceId == resource.Id && x.ResourceRevision == resource.Revision);
-            // A random record ID cannot establish which simultaneous operator decision supersedes the other.
-            if (review is not null && reviews.Count(x => x.ResourceId == resource.Id && x.ResourceRevision == resource.Revision && x.ReviewedAt == review.ReviewedAt) > 1)
-            {
-                review = null;
-            }
+            ResourceWindowReviewRecord? review = await this.GetLatestUnambiguousReviewAsync(
+                epoch, resource.Id, resource.Revision, cancellationToken);
             bool reviewed = review is not null;
             if (review?.Mechanism == "OfflineExpiry")
             {
@@ -89,9 +98,8 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
             windows.Add(new(resource.Id, resource.DisplayName, resource.Audience, resource.Scope, resource.Revision,
                 review?.Mechanism, review?.ResidualSeconds, review?.EvidenceReference, review?.ReviewedAt, reviewed));
         }
-        var summary = new CutoverIdentityInventory(quarantined, identities.Count(x => x.Quarantined > 0),
-            identities.Count(x => x.Quarantined > 0 && !x.Password), identities.Count(x => x.Quarantined > 0 && x.Password),
-            identities.Count(x => x.Disabled), identities.Count(x => x.Verified), identities.Sum(x => x.ProviderEvidence), identities.Sum(x => x.WithdrawnEvidence));
+        var summary = new CutoverIdentityInventory(quarantined, affectedUsers, federationOnlyUsers, passwordCandidates,
+            disabledUsers, verifiedUsers, providerEvidence, withdrawnEvidence);
         return new(epoch, now, blockers, emergency, summary, inventory.AdministrativeClients, windows, outstandingAccessTokenCount, latestExpiry);
     }
 
@@ -164,5 +172,26 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
                 ? role.Id.Value == id : string.Equals(role.Name, target, StringComparison.OrdinalIgnoreCase))));
     }
 
-    private sealed record IdentityCounts(int Quarantined, bool Password, bool Disabled, bool Verified, int ProviderEvidence, int WithdrawnEvidence);
+    private async Task<ResourceWindowReviewRecord?> GetLatestUnambiguousReviewAsync(
+        Guid epoch,
+        Guid resourceId,
+        long resourceRevision,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<ResourceWindowReviewRecord> currentReviews = db.ResourceTokenWindowReviews.AsNoTracking()
+            .Where(review => review.Epoch == epoch && review.ResourceId == resourceId && review.ResourceRevision == resourceRevision);
+        ResourceWindowReviewRecord? latest = await currentReviews
+            .OrderByDescending(review => review.ReviewedAt)
+            .ThenBy(review => review.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (latest is null)
+        {
+            return null;
+        }
+
+        int latestTieCount = await currentReviews.CountAsync(
+            review => review.ReviewedAt == latest.ReviewedAt,
+            cancellationToken);
+        return latestTieCount == 1 ? latest : null;
+    }
 }
