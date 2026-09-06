@@ -64,7 +64,7 @@ public sealed class CredentialCutoverTests
             db.RoleAssignments.Add(RoleAssignment.Create(new UserId(userId), role.Id, DateTimeOffset.UtcNow).Value);
             await db.SaveChangesAsync();
         });
-        using HttpClient machine = await fixture.CreateAuthenticatedClientAsync("cutover-machine", "machine-secret");
+        using HttpClient machine = await fixture.CreateAuthenticatedClientAsync(userId.ToString(), "machine-secret");
         var operation = Guid.NewGuid();
         (await machine.PostAsJsonAsync("/api/admin/security/credential-cutovers", new { OperationId = operation })).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         var helper = new UnrestrictedGrantTests(fixture);
