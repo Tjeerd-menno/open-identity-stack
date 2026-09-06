@@ -1,9 +1,17 @@
 using OpenIddict.Abstractions;
+using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 
 namespace OpenIdentityStack.DbMigrator;
 
 public static class SeededOpenIddictApplicationUpdater
 {
+    private const string applicationIdSetting = "openidentitystack:application-id";
+
+    public static void AttachProjectionIdentity(
+        OpenIddictApplicationDescriptor descriptor,
+        DomainApplicationId applicationId) =>
+        descriptor.Settings[applicationIdSetting] = applicationId.Value.ToString();
+
     public static async Task UpdateAsync(
         IOpenIddictApplicationManager applicationManager,
         object existingApplication,

@@ -1,11 +1,23 @@
 using System.Collections.Immutable;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.DbMigrator;
+using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 
 namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class DbMigratorOpenIddictSeedTests
 {
+    [Fact]
+    public void AuthorityOnlySeedAttachesProjectedApplicationIdentity()
+    {
+        var applicationId = DomainApplicationId.NewId();
+        var descriptor = new OpenIddictApplicationDescriptor { ClientId = "isotopes-api-resource" };
+
+        SeededOpenIddictApplicationUpdater.AttachProjectionIdentity(descriptor, applicationId);
+
+        descriptor.Settings["openidentitystack:application-id"].ShouldBe(applicationId.Value.ToString());
+    }
+
     [Fact]
     public async Task LegacySeedUpdatePreservesProjectedApplicationIdentitySetting()
     {
