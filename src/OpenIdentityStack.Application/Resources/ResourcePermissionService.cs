@@ -108,6 +108,11 @@ public sealed class ResourcePermissionService(
             }
         }
 
+        if (permissions.Count == 0 && requested.Values.Any(static resource => resource.IsAdministrative))
+        {
+            return ResourceAccessErrors.NotGranted;
+        }
+
         return new ResourceTokenProjection(requested.Values.Select(static resource => resource.Audience).Order(StringComparer.Ordinal).ToArray(),
             permissions.Order(StringComparer.Ordinal).ToArray(), revisions);
     }
