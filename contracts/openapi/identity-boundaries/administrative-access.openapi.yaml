@@ -41,12 +41,44 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdministrativeAccess" }
-        "400": { description: Invalid permission ceiling }
+        "400":
+          description: Invalid permission ceiling
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "401": { description: Authentication required }
-        "403": { description: Permission denial or AdministrativeApproval Problem Details }
-        "409": { description: Expected revision is stale or a concurrent mutation won }
+        "403":
+          description: Permission denial or administrative approval requirement.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/AdministrativeApprovalProblemDetails" }
+        "409":
+          description: Expected revision is stale or a concurrent mutation won
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 components:
   schemas:
+    AdministrativeApprovalProblemDetails:
+      type: object
+      required: [status, errorCode]
+      properties:
+        status: { type: integer, enum: [403] }
+        title: { type: string }
+        detail: { type: string }
+        errorCode:
+          type: string
+          enum:
+            - Forbidden.AdministrativeApproval.HumanRequired
+            - Forbidden.AdministrativeApproval.AuthorityRequired
+            - Forbidden.AdministrativeApproval.ReauthenticationRequired
+            - Forbidden.AdministrativeApproval.AcknowledgementRequired
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error: { type: string }
+        message: { type: string }
     AdministrativeAccess:
       type: object
       required: [approved, delegatedPermissions, applicationPermissions, revision]

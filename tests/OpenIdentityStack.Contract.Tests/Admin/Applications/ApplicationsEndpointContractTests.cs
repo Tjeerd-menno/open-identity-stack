@@ -47,6 +47,7 @@ public sealed class ApplicationsEndpointContractTests
             string operationSection = operationMatch.Groups["body"].Value;
             operationSection.ShouldContain("\"403\":");
             operationSection.ShouldContain("#/components/responses/AdministrativeApprovalRequired");
+            operationSection.ShouldContain("#/components/parameters/AdministrativeApprovalAcknowledgement");
         }
     }
 

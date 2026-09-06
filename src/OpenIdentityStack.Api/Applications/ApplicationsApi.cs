@@ -26,7 +26,7 @@ internal static class ApplicationsApi
             .RequireAuthorization(Permissions.Applications.Write)
             .Produces<ApplicationCreatedResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status409Conflict)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict, "application/json")
             .WithName("CreateApplication")
             .WithSummary("Creates an application");
 
@@ -54,7 +54,7 @@ internal static class ApplicationsApi
             .Produces<ApplicationResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict, "application/json")
             .WithName("UpdateApplicationMetadata")
             .WithSummary("Updates application metadata");
 
@@ -64,7 +64,7 @@ internal static class ApplicationsApi
             .Produces(StatusCodes.Status400BadRequest)
             .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict, "application/json")
             .WithName("ConfigureApplicationOAuth")
             .WithSummary("Replaces application OAuth configuration");
 
@@ -73,7 +73,7 @@ internal static class ApplicationsApi
             .Produces<ApplicationResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict, "application/json")
             .WithName("DisableApplication")
             .WithSummary("Disables an application");
 
@@ -83,7 +83,7 @@ internal static class ApplicationsApi
             .Produces(StatusCodes.Status400BadRequest)
             .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict, "application/json")
             .WithName("EnableApplication")
             .WithSummary("Enables an application");
 
@@ -91,7 +91,7 @@ internal static class ApplicationsApi
             .RequireAuthorization(Permissions.Applications.Delete)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict, "application/json")
             .WithName("DeleteApplication")
             .WithSummary("Deletes an application");
 
@@ -108,7 +108,7 @@ internal static class ApplicationsApi
             .Produces(StatusCodes.Status400BadRequest)
             .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict, "application/json")
             .WithName("AddApplicationSecret")
             .WithSummary("Adds or rotates an application client secret");
 
@@ -118,7 +118,7 @@ internal static class ApplicationsApi
             .Produces(StatusCodes.Status400BadRequest)
             .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict, "application/json")
             .WithName("AddApplicationCertificate")
             .WithSummary("Adds an application certificate credential");
 
@@ -126,7 +126,7 @@ internal static class ApplicationsApi
             .RequireAuthorization(Permissions.Applications.ManageCredentials)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict, "application/json")
             .WithName("RevokeApplicationCredential")
             .WithSummary("Revokes an application credential");
 
@@ -284,6 +284,7 @@ internal static class ApplicationsApi
         [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         [FromBody] ConfigureApplicationOAuthRequest request,
+        [FromHeader(Name = "X-OIS-Administrative-Approval")] string? administrativeApproval,
         CancellationToken cancellationToken)
     {
         var workflowRequest = new ConfigureApplicationOAuthAdminWorkflowRequest(
@@ -325,6 +326,7 @@ internal static class ApplicationsApi
     private static async Task<IResult> EnableApplication(
         [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
+        [FromHeader(Name = "X-OIS-Administrative-Approval")] string? administrativeApproval,
         CancellationToken cancellationToken)
     {
         Result<ApplicationDetails> result = await applicationsAdminWorkflow.EnableAsync(
@@ -375,6 +377,7 @@ internal static class ApplicationsApi
         [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         [FromBody] AddApplicationSecretRequest request,
+        [FromHeader(Name = "X-OIS-Administrative-Approval")] string? administrativeApproval,
         CancellationToken cancellationToken)
     {
         var workflowRequest = new AddApplicationSecretAdminWorkflowRequest(
@@ -398,6 +401,7 @@ internal static class ApplicationsApi
         [FromServices] IApplicationsAdminWorkflow applicationsAdminWorkflow,
         Guid id,
         [FromBody] AddApplicationCertificateRequest request,
+        [FromHeader(Name = "X-OIS-Administrative-Approval")] string? administrativeApproval,
         CancellationToken cancellationToken)
     {
         var workflowRequest = new AddApplicationCertificateAdminWorkflowRequest(

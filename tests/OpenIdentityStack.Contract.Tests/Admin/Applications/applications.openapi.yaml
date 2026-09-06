@@ -151,6 +151,7 @@ paths:
       x-required-permission: applications:write
       parameters:
         - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/AdministrativeApprovalAcknowledgement"
       requestBody:
         required: true
         content:
@@ -199,6 +200,7 @@ paths:
       x-required-permission: applications:write
       parameters:
         - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/AdministrativeApprovalAcknowledgement"
       responses:
         "200":
           description: Enabled application.
@@ -243,6 +245,7 @@ paths:
       x-required-permission: applications:manage-credentials
       parameters:
         - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/AdministrativeApprovalAcknowledgement"
       requestBody:
         required: true
         content:
@@ -272,6 +275,7 @@ paths:
       x-required-permission: applications:manage-certificates
       parameters:
         - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/AdministrativeApprovalAcknowledgement"
       requestBody:
         required: true
         content:
@@ -377,6 +381,13 @@ components:
       schema:
         type: string
         format: uuid
+    AdministrativeApprovalAcknowledgement:
+      name: X-OIS-Administrative-Approval
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [acknowledge]
     Page:
       name: page
       in: query
