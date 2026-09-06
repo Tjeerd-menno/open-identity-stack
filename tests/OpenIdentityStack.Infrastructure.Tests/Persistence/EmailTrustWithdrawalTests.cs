@@ -141,6 +141,35 @@ public sealed class EmailTrustWithdrawalTests
     }
 
     [Fact]
+    public async Task SignInRevalidatesThePersistedRevisionBeforeGeneratingTokens()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        (UpstreamProviderId providerId, UserId userId) = await database.SeedAsync("none");
+        await using AsyncServiceScope staleScope = database.Services.CreateAsyncScope();
+        OpenIdentityStackDbContext stale = staleScope.ServiceProvider.GetRequiredService<OpenIdentityStackDbContext>();
+        User oldProjection = await stale.Users.SingleAsync(user => user.Id == userId);
+        oldProjection.CredentialRevision.ShouldBe(Guid.Empty);
+        await using (AsyncServiceScope withdrawalScope = database.Services.CreateAsyncScope())
+        {
+            await withdrawalScope.ServiceProvider.GetRequiredService<ProviderEmailTrustStore>()
+                .SetAsync(providerId, false, "operator", default);
+        }
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(OpenIddictConstants.Claims.Subject, userId.Value.ToString()),
+            new Claim("ois_credential_revision", oldProjection.CredentialRevision.ToString())]));
+        var context = new OpenIddictServerEvents.ProcessSignInContext(new OpenIddictServerTransaction())
+        {
+            Principal = principal
+        };
+
+        await new UserCredentialRevisionValidation(stale).HandleAsync(context);
+
+        context.IsRejected.ShouldBeTrue();
+        context.Error.ShouldBe(OpenIddictConstants.Errors.InvalidGrant);
+    }
+
+    [Fact]
     public async Task ConcurrentWithdrawalsCannotBothRelyOnTheOtherProvidersEvidence()
     {
         await using TestDatabase database = await TestDatabase.CreateAsync();

@@ -12,7 +12,7 @@ public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext
     {
         await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
             await dbContext.Database.BeginTransactionAsync(cancellationToken);
-        await dbContext.LockAuthorityBeforeProviderAsync(cancellationToken);
+        await dbContext.LockCredentialBoundaryAsync(cancellationToken);
         // Lock before reading affected users so evidence committed by an earlier login is included.
         int found = await dbContext.UpstreamProviders.Where(provider => provider.Id == providerId)
             .ExecuteUpdateAsync(setters => setters.SetProperty(provider => provider.JitProvisioningEnabled,

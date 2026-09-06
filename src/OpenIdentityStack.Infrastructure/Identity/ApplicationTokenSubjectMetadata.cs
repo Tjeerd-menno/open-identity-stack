@@ -23,6 +23,11 @@ public sealed class ApplicationTokenSubjectMetadata(OpenIdentityStackDbContext d
             return;
         }
 
+        if (dbContext.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException("Application subject metadata requires the token issuance transaction.");
+        }
+
         string tokenId = context.Principal.GetTokenId() ?? throw new InvalidOperationException("The application token entry was not created.");
         OpenIddictEntityFrameworkCoreToken token = await dbContext.Set<OpenIddictEntityFrameworkCoreToken>()
             .SingleAsync(entry => entry.Id == tokenId, context.CancellationToken);
@@ -30,7 +35,8 @@ public sealed class ApplicationTokenSubjectMetadata(OpenIdentityStackDbContext d
             ? [] : JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(token.Properties)!;
         properties[TokenSubjectClaims.Kind] = JsonSerializer.SerializeToElement(TokenSubjectClaims.Application);
         token.Properties = JsonSerializer.Serialize(properties);
-        // The tracked entry saves only the metadata property, never stale token status.
+        // The tracked entry saves only the metadata property, never stale token status. The
+        // outer issuance transaction makes the token row and classification visible together.
         await dbContext.SaveChangesAsync(context.CancellationToken);
     }
 }
