@@ -351,22 +351,44 @@ public class AuthorizationController : ControllerBase
 
         if (!result.Succeeded)
         {
-            return this.Challenge(
-                authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
-                properties: new AuthenticationProperties(new Dictionary<string, string?>
-                {
-                    [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.InvalidToken,
-                    [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The access token is not valid."
-                }));
+            return this.InvalidUserInfoToken();
         }
 
-        Domain.Users.User? emailEvidenceUser = Guid.TryParse(result.Principal!.GetClaim(UserCredentialClaims.Revision), out _)
-            && TryParseUserId(result.Principal.GetClaim(Claims.Subject) ?? string.Empty) is { } userId
-            ? await this.userRepository.GetByIdAsync(userId, this.HttpContext.RequestAborted)
-            : null;
+        ClaimsPrincipal principal = result.Principal!;
+        string? subject = principal.GetClaim(Claims.Subject);
+        string? revision = principal.GetClaim(UserCredentialClaims.Revision);
+        Claim[] subjectKinds = principal.FindAll(TokenSubjectClaims.Kind).ToArray();
+        bool validApplicationSubject = subjectKinds is [{ Value: TokenSubjectClaims.Application }]
+            && revision is null
+            && !string.IsNullOrWhiteSpace(subject)
+            && string.Equals(subject, principal.GetClaim(Claims.ClientId), StringComparison.Ordinal);
+        if (subjectKinds.Length != 0 && !validApplicationSubject)
+        {
+            return this.InvalidUserInfoToken();
+        }
+
+        Domain.Users.User? emailEvidenceUser = null;
+        if (!validApplicationSubject)
+        {
+            if (TryParseUserId(subject ?? string.Empty) is not { } userId)
+            {
+                return this.InvalidUserInfoToken();
+            }
+
+            emailEvidenceUser = await this.userRepository.GetByIdAsync(userId, this.HttpContext.RequestAborted);
+        }
+
         ClaimsPrincipal projected = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, persistedUser: emailEvidenceUser);
         return this.Ok(this.tokenClaimProjectionService.CreateUserInfoResponse(projected));
     }
+
+    private ChallengeResult InvalidUserInfoToken() => this.Challenge(
+        authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
+        properties: new AuthenticationProperties(new Dictionary<string, string?>
+        {
+            [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.InvalidToken,
+            [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The access token is not valid."
+        }));
 
     // NOTE: Logout endpoint is handled by LogoutController which implements
     // full Single Logout (SLO) with front-channel and back-channel support.

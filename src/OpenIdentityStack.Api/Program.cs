@@ -63,6 +63,7 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddScoped<IOpenIddictRequestService, OpenIddictRequestService>();
 builder.Services.AddScoped<ITokenClaimProjectionService, TokenClaimProjectionService>();
+builder.Services.AddScoped<ISessionMonitoringCookieService, SessionMonitoringCookieService>();
 
 // Add authentication and authorization
 builder.Services.AddAuthentication(options =>

@@ -1412,6 +1412,71 @@ public class AuthorizationControllerTests
     }
 
     [Fact]
+    public async Task UserInfo_RevisionlessLegacyUserUsesPersistedVerificationEvidence()
+    {
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        User user = User.CreateLocal("verified@example.test", "Verified", "fixture-hash", clock).Value;
+        user.VerifyEmail(clock).IsSuccess.ShouldBeTrue();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(OpenIddictConstants.Claims.Subject, user.Id.Value.ToString()),
+            new Claim(OpenIddictConstants.Claims.Email, "stale@example.test")
+        ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
+        principal.SetScopes(OpenIddictConstants.Scopes.Email);
+        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this.SetupMockServices(principal);
+
+        OkObjectResult result = (await this._controller.UserInfo()).ShouldBeOfType<OkObjectResult>();
+
+        Dictionary<string, object> claims = result.Value.ShouldBeOfType<Dictionary<string, object>>();
+        claims[OpenIddictConstants.Claims.Email].ShouldBe(user.Email);
+        claims[OpenIddictConstants.Claims.EmailVerified].ShouldBe(true);
+    }
+
+    [Fact]
+    public async Task UserInfo_ValidApplicationSubjectIsNeverResolvedAsGuidUser()
+    {
+        string applicationId = Guid.NewGuid().ToString();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(OpenIddictConstants.Claims.Subject, applicationId),
+            new Claim(OpenIddictConstants.Claims.ClientId, applicationId),
+            new Claim(TokenSubjectClaims.Kind, TokenSubjectClaims.Application)
+        ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
+        this.SetupMockServices(principal);
+
+        (await this._controller.UserInfo()).ShouldBeOfType<OkObjectResult>();
+        await this._userRepository.DidNotReceive()
+            .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("duplicate")]
+    [InlineData("unexpected")]
+    [InlineData("mismatch")]
+    [InlineData("revision")]
+    public async Task UserInfo_MalformedApplicationSubjectFailsClosed(string malformed)
+    {
+        string subject = Guid.NewGuid().ToString();
+        string clientId = malformed == "mismatch" ? Guid.NewGuid().ToString() : subject;
+        var claims = new List<Claim>
+        {
+            new(OpenIddictConstants.Claims.Subject, subject),
+            new(OpenIddictConstants.Claims.ClientId, clientId),
+            new(TokenSubjectClaims.Kind, malformed == "unexpected" ? "user" : TokenSubjectClaims.Application)
+        };
+        if (malformed == "duplicate") { claims.Add(new Claim(TokenSubjectClaims.Kind, TokenSubjectClaims.Application)); }
+        if (malformed == "revision") { claims.Add(new Claim(UserCredentialClaims.Revision, Guid.Empty.ToString())); }
+        this.SetupMockServices(new ClaimsPrincipal(new ClaimsIdentity(
+            claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)));
+
+        (await this._controller.UserInfo()).ShouldBeOfType<ChallengeResult>();
+        await this._userRepository.DidNotReceive()
+            .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task UserInfo_IncludesNameClaim_WhenPresent()
     {
         // Arrange

@@ -28,6 +28,11 @@ public sealed class CredentialCutoverTests
         HumanAdministrativeSession authenticated = await HumanAdministrativeSession.SignInAsync(fixture, email, password, []);
         using HttpClient browser = authenticated.Client;
         (await browser.GetAsync("/connect/check_session")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        using HttpClient thirdPartyIframe = fixture.CreateClient(allowAutoRedirect: false);
+        thirdPartyIframe.DefaultRequestHeaders.Add("Cookie", $"op_session={authenticated.MonitoringCookie}");
+        HttpResponseMessage initiallyCurrent = await thirdPartyIframe.GetAsync("/connect/check_session");
+        initiallyCurrent.StatusCode.ShouldBe(HttpStatusCode.OK);
+        initiallyCurrent.Headers.TryGetValues("Set-Cookie", out _).ShouldBeFalse();
         await fixture.ExecuteDbContextAsync(async db =>
         {
             IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
@@ -39,7 +44,7 @@ public sealed class CredentialCutoverTests
             await db.SaveChangesAsync();
         });
 
-        AssertMonitoringCookieCleared(await browser.GetAsync("/connect/check_session"));
+        AssertMonitoringCookieCleared(await thirdPartyIframe.GetAsync("/connect/check_session"));
     }
 
     [Fact]

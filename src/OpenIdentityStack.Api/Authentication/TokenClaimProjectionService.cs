@@ -142,6 +142,12 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
         projected.SetClaim(Claims.Email, persistedUser?.Email ?? principal.GetClaim(Claims.Email));
         identity.AddClaim(new Claim(Claims.EmailVerified, persistedUser?.EmailVerified == true ? "true" : "false", ClaimValueTypes.Boolean));
 
+        if (principal.GetClaim(UserCredentialClaims.Revision) is null
+            && persistedUser?.CredentialRevision == Guid.Empty)
+        {
+            identity.AddClaim(new Claim(UserCredentialClaims.Revision, Guid.Empty.ToString()));
+        }
+
         if (authenticationTime is { } authTime)
         {
             SetAuthenticationTimeClaim(identity, authTime);
