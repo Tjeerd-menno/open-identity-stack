@@ -82,6 +82,7 @@ internal static class UsersApi
         group.MapPost("{id:guid}/enable", EnableUser)
             .RequireAuthorization(Permissions.Users.Write)
             .Produces<UserStatusChangeResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("EnableUser")
             .WithSummary("Enables a disabled user account");
@@ -89,6 +90,7 @@ internal static class UsersApi
         group.MapPost("{id:guid}/reset-password", ResetPassword)
             .RequireAuthorization(Permissions.Users.ResetPassword)
             .Produces<PasswordResetResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("ResetPassword")
             .WithSummary("Resets a user's password");
@@ -104,6 +106,7 @@ internal static class UsersApi
         group.MapPost("{userId:guid}/roles/{roleId:guid}", AssignRole)
             .RequireAuthorization(Permissions.Roles.Assign)
             .Produces(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict)
             .WithName("AssignRole")
