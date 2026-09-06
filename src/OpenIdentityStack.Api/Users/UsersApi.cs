@@ -199,7 +199,13 @@ internal static class UsersApi
             result.Value.LastLoginAt,
             result.Value.CreatedAt,
             result.Value.ModifiedAt,
-            ToUserProfileResponse(result.Value.Profile));
+            ToUserProfileResponse(result.Value.Profile))
+        {
+            EmailVerified = result.Value.EmailVerified,
+            EmailVerificationEvidence = result.Value.EmailVerificationEvidence.Select(evidence =>
+                new EmailVerificationEvidenceResponse(evidence.Email, evidence.ProviderId, evidence.Issuer,
+                    evidence.VerifiedAt, evidence.WithdrawnAt)).ToList()
+        };
 
         return TypedResults.Ok(response);
     }

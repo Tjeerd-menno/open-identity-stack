@@ -75,6 +75,7 @@ export const mockApi = {
     enableProvider: vi.fn(),
     disableProvider: vi.fn(),
     deleteProvider: vi.fn(),
+    setEmailVerificationTrust: vi.fn(),
   },
   settings: {
     getAuthenticationSettings: vi.fn(),

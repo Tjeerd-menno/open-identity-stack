@@ -36,6 +36,11 @@ public sealed class GetUserQueryHandler : IGetUserQueryHandler
             user.LastLoginAt,
             user.CreatedAt,
             user.ModifiedAt,
-            user.GetProfileData());
+            user.GetProfileData())
+        {
+            EmailVerified = user.EmailVerified,
+            EmailVerificationEvidence = user.EmailVerificationEvidence.Select(e => new EmailVerificationEvidenceDto(
+                e.NormalizedEmail, e.ProviderId, e.Issuer, e.VerifiedAt, e.WithdrawnAt)).ToList()
+        };
     }
 }

@@ -85,9 +85,9 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
             }
 
             provider.BindIssuer(command.ValidatedIssuer, command.AuthenticationAuthority);
+            existingUser.RecordProviderEmailVerification(provider, command.ValidatedIssuer, command.Email, command.EmailVerified, DateTimeOffset.UtcNow);
             Result committed = await this.persistence.CommitAsync(existingUser.Id, command.ProviderId, isNewUser: false, cancellationToken);
             if (committed.IsFailure) { return committed.Error; }
-            // User already linked with matching issuer evidence
             return new JitProvisionUserResult(
                 existingUser.Id,
                 IsNewUser: false,
@@ -134,10 +134,10 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
         }
 
         provider.BindIssuer(command.ValidatedIssuer, command.AuthenticationAuthority);
+        userResult.Value.RecordProviderEmailVerification(provider, command.ValidatedIssuer, command.Email, command.EmailVerified, DateTimeOffset.UtcNow);
         await this.userRepository.AddAsync(userResult.Value, cancellationToken);
         Result created = await this.persistence.CommitAsync(userResult.Value.Id, command.ProviderId, isNewUser: true, cancellationToken);
         if (created.IsFailure) { return created.Error; }
-
 
         return new JitProvisionUserResult(
             userResult.Value.Id,

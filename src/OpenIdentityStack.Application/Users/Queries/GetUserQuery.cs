@@ -30,7 +30,13 @@ public sealed record GetUserResult(
     DateTimeOffset? LastLoginAt,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ModifiedAt,
-    UserProfileData Profile);
+    UserProfileData Profile)
+{
+    public bool EmailVerified { get; init; }
+    public IReadOnlyList<EmailVerificationEvidenceDto> EmailVerificationEvidence { get; init; } = [];
+}
+
+public sealed record EmailVerificationEvidenceDto(string Email, Guid? ProviderId, string? Issuer, DateTimeOffset VerifiedAt, DateTimeOffset? WithdrawnAt);
 
 /// <summary>
 /// Interface for the get user query handler.

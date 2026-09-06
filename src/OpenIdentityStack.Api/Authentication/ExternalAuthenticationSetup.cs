@@ -84,7 +84,7 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
                 OnTokenValidated = context =>
                 {
                     string? issuer = context.SecurityToken?.Issuer;
-                    if (string.IsNullOrWhiteSpace(issuer) || context.Properties is null)
+                    if (context.SecurityToken is null || string.IsNullOrWhiteSpace(issuer) || context.Properties is null)
                     {
                         context.Fail("External authentication could not be completed.");
                         return Task.CompletedTask;
@@ -95,6 +95,21 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
                     context.Properties.SetString(ExternalIdentityProperties.ProviderId, provider.Id.Value.ToString());
                     context.Properties.SetString(ExternalIdentityProperties.ProviderName, context.Scheme.Name);
                     context.Properties.SetString(ExternalIdentityProperties.Authority, context.Options.Authority);
+                    string? email = context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+                    System.Security.Claims.Claim? verifiedClaim = context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email_verified");
+                    bool verified = verifiedClaim?.ValueType == System.Security.Claims.ClaimValueTypes.Boolean
+                        && string.Equals(verifiedClaim.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    if (context.Properties is { } properties)
+                    {
+                        if (verified && !string.IsNullOrWhiteSpace(email))
+                        {
+                            properties.SetString(ExternalIdentityProperties.VerifiedEmail, email);
+                        }
+                        else
+                        {
+                            properties.Items.Remove(ExternalIdentityProperties.VerifiedEmail);
+                        }
+                    }
                     return Task.CompletedTask;
                 },
                 // Pass prompt=login to upstream IdP when requested
@@ -280,4 +295,5 @@ public static class ExternalIdentityProperties
     public const string ProviderId = "ois.provider_id";
     public const string ProviderName = "ois.provider_name";
     public const string Authority = "ois.authentication_authority";
+    public const string VerifiedEmail = "ois.verified_email";
 }

@@ -62,6 +62,7 @@ public static class DependencyInjection
     private static void AddFederationUseCases(IServiceCollection services)
     {
         services.AddScoped<IJitProvisionUserUseCase, JitProvisionUserUseCase>();
+        services.AddScoped<SetProviderEmailVerificationTrust>();
         services.AddScoped<ILinkUpstreamIdentityUseCase, LinkUpstreamIdentityUseCase>();
         services.AddScoped<IUnlinkUpstreamIdentityUseCase, UnlinkUpstreamIdentityUseCase>();
         services.AddScoped<IFindUserByUpstreamIdentityQueryHandler, FindUserByUpstreamIdentityQueryHandler>();
