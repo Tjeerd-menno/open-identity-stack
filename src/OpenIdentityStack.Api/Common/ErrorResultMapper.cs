@@ -1,4 +1,5 @@
 using SharedKernel;
+using OpenIdentityStack.Domain.Users;
 
 namespace OpenIdentityStack.Api.Common;
 
@@ -9,6 +10,11 @@ internal static class ErrorResultMapper
 {
     public static IResult ToErrorResult(DomainError error)
     {
+        if (error == UpstreamIdentityErrors.QuarantineRetentionRequired)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Identity evidence must be retained",
+                detail: error.Description, extensions: new Dictionary<string, object?> { ["code"] = error.Code });
+        }
         if (error.Code.StartsWith("NotFound.", StringComparison.Ordinal) ||
             error.Code.Equals("User.NotFound", StringComparison.Ordinal))
         {

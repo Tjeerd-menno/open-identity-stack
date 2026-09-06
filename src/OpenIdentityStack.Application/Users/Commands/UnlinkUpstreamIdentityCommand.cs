@@ -70,6 +70,10 @@ public sealed class UnlinkUpstreamIdentityUseCase : IUnlinkUpstreamIdentityUseCa
         Result result = user.UnlinkUpstreamIdentity(command.ProviderId);
         if (result.IsFailure)
         {
+            if (result.Error == UpstreamIdentityErrors.QuarantineRetentionRequired)
+            {
+                await this.auditLog.LogAsync(command.ActorId, "User.QuarantinedIdentityUnlinkDenied", "User", user.Id.Value.ToString(), "Retained association evidence cannot be erased by ordinary unlink.", cancellationToken);
+            }
             return result.Error;
         }
 

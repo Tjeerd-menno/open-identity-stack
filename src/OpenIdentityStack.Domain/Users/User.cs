@@ -276,13 +276,26 @@ public sealed partial class User : AggregateRoot<UserId>
         UserProfileData? profile = null,
         string? issuer = null)
     {
+        return CreateFederatedWithIdentity(email, displayName, providerId, providerName, subjectId, profile, issuer, false);
+    }
+
+    /// <summary>Provisions a new account from a validated identity after excluding existing account collisions.</summary>
+    public static Result<User> ProvisionFederated(string email, string displayName, UpstreamProviderId providerId, string providerName, string subjectId, string issuer, UserProfileData? profile = null)
+    {
+        return CreateFederatedWithIdentity(email, displayName, providerId, providerName, subjectId, profile, issuer, true);
+    }
+
+    private static Result<User> CreateFederatedWithIdentity(string email, string displayName, UpstreamProviderId providerId, string providerName, string subjectId, UserProfileData? profile, string? issuer, bool newAccount)
+    {
         Result validationResult = ValidateFederatedUserInput(email, displayName, profile);
         if (validationResult.IsFailure)
         {
             return validationResult.Error;
         }
 
-        Result<UpstreamIdentity> identityResult = UpstreamIdentity.Create(providerId, providerName, subjectId, email, issuer);
+        Result<UpstreamIdentity> identityResult = newAccount && issuer is not null
+            ? UpstreamIdentity.CreateForNewAccount(providerId, providerName, subjectId, email, issuer)
+            : UpstreamIdentity.Create(providerId, providerName, subjectId, email, issuer);
         if (identityResult.IsFailure)
         {
             return identityResult.Error;
@@ -502,6 +515,11 @@ public sealed partial class User : AggregateRoot<UserId>
         if (identity is null)
         {
             return UpstreamIdentityErrors.NotLinked;
+        }
+
+        if (identity.IsQuarantined)
+        {
+            return UpstreamIdentityErrors.QuarantineRetentionRequired;
         }
 
         this.upstreamIdentities.Remove(identity);

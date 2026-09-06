@@ -36,6 +36,21 @@ export function UsersPage() {
     queryFn: () => api.users.getUsers({ page, pageSize, search: search || undefined }),
   });
 
+  const deletionIdentities = useQuery({
+    queryKey: ['user-deletion-identities', pendingDelete?.id],
+    queryFn: () => api.users.getUserUpstreamIdentities(pendingDelete!.id),
+    enabled: pendingDelete !== null,
+  });
+  const retainsQuarantine = deletionIdentities.data?.some((identity) => identity.isQuarantined !== false) ?? false;
+  const deletionBlocked = !deletionIdentities.isSuccess || deletionIdentities.isFetching || retainsQuarantine;
+  const deletionMessage = deletionIdentities.isError
+    ? 'Unable to verify identity retention. Close this dialog and try again.'
+    : !deletionIdentities.isSuccess || deletionIdentities.isFetching
+      ? 'Checking identity retention before deletion.'
+      : retainsQuarantine
+        ? 'Quarantined identity evidence must be retained. This user cannot be deleted until a proof-based disposition is available.'
+        : `Permanently delete ${pendingDelete?.displayName ?? 'this user'}? This cannot be undone.`;
+
   const setStatus = useMutation({
     mutationFn: (user: UserListItem) =>
       user.status === 'Disabled'
@@ -172,10 +187,11 @@ export function UsersPage() {
       <ConfirmModal
         opened={pendingDelete !== null}
         title="Delete user"
-        message={`Permanently delete ${pendingDelete?.displayName ?? 'this user'}? This cannot be undone.`}
+        message={deletionMessage}
         confirmLabel="Delete user"
         loading={deleteUser.isPending}
-        onConfirm={() => pendingDelete && deleteUser.mutate(pendingDelete)}
+        disabled={deletionBlocked}
+        onConfirm={() => pendingDelete && !deletionBlocked && deleteUser.mutate(pendingDelete)}
         onClose={() => setPendingDelete(null)}
       />
     </div>

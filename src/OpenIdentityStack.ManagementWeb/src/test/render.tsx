@@ -36,7 +36,7 @@ export function renderManagementWeb(ui: ReactElement, options: RenderOptions = {
   return render(
     <MemoryRouter initialEntries={options.initialEntries}>
       <QueryClientProvider client={queryClient}>
-        <ManagementThemeProvider>{tree}</ManagementThemeProvider>
+        <ManagementThemeProvider env="test">{tree}</ManagementThemeProvider>
       </QueryClientProvider>
     </MemoryRouter>
   );

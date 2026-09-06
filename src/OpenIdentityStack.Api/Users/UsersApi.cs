@@ -27,6 +27,13 @@ internal static class UsersApi
         RouteGroupBuilder group = app.MapGroup("api/admin/users")
             .WithTags(nameof(UsersApi));
 
+        group.MapGet("identity-migration-inventory", GetIdentityMigrationInventory)
+            .RequireAuthorization(Permissions.Users.Read)
+            .Produces<IdentityMigrationInventoryResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .WithName("GetIdentityMigrationInventory")
+            .WithSummary("Inventories retained federation links and migration blockers; candidate credentials do not prove ownership");
+
         // User CRUD
         group.MapPost(string.Empty, CreateUser)
             .RequireAuthorization(Permissions.Users.Write)
@@ -59,6 +66,7 @@ internal static class UsersApi
         group.MapDelete("{id:guid}", DeleteUser)
             .RequireAuthorization(Permissions.Users.Delete)
             .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("DeleteUser")
             .WithSummary("Deletes a user");
@@ -133,6 +141,7 @@ internal static class UsersApi
 
         group.MapDelete("{userId:guid}/upstream-identities/{providerId:guid}", UnlinkUpstreamIdentity)
             .RequireAuthorization(Permissions.Users.Write)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("UnlinkUpstreamIdentity")
@@ -388,6 +397,16 @@ internal static class UsersApi
         return TypedResults.Ok(new { userId, roleId, unassignedAt = DateTimeOffset.UtcNow });
     }
 
+    private static async Task<IResult> GetIdentityMigrationInventory(
+        [FromServices] IIdentityMigrationInventoryQueryHandler handler,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] Guid? providerId = null,
+        CancellationToken cancellationToken = default)
+    {
+        Result<IdentityMigrationInventoryResult> result = await handler.ExecuteAsync(new IdentityMigrationInventoryQuery(page, pageSize, providerId), cancellationToken);
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : ErrorResultMapper.ToErrorResult(result.Error);
+    }
     private static async Task<IResult> GetUpstreamIdentities(
         [FromServices] IListUserUpstreamIdentitiesQueryHandler listUpstreamIdentitiesQueryHandler,
         Guid userId)
@@ -407,7 +426,7 @@ internal static class UsersApi
                 item.SubjectId,
                 item.Email,
                 item.LinkedAt,
-                item.LastLoginAt)).ToList());
+                item.LastLoginAt, item.Issuer, item.AssociationEvidence, item.IsQuarantined)).ToList());
 
         return TypedResults.Ok(response);
     }

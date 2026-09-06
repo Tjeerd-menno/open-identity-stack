@@ -79,7 +79,7 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
             }
 
             UpstreamIdentity? identity = existingUser.UpstreamIdentities.SingleOrDefault(i => i.Matches(command.ProviderId, command.SubjectId));
-            if (identity?.Issuer is null || !string.Equals(identity.Issuer, command.ValidatedIssuer, StringComparison.Ordinal))
+            if (identity is null || identity.IsQuarantined || identity.Issuer is null || !string.Equals(identity.Issuer, command.ValidatedIssuer, StringComparison.Ordinal))
             {
                 return await this.RejectBindingAsync(command.ProviderId, cancellationToken);
             }
@@ -121,7 +121,7 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
             ? command.DisplayName
             : command.Email?.Split('@')[0] ?? "User";
 
-        Result<User> userResult = User.CreateFederated(
+        Result<User> userResult = User.ProvisionFederated(
             command.Email ?? string.Empty,
             displayName,
             command.ProviderId,
@@ -137,6 +137,7 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
         await this.userRepository.AddAsync(userResult.Value, cancellationToken);
         Result created = await this.persistence.CommitAsync(userResult.Value.Id, command.ProviderId, isNewUser: true, cancellationToken);
         if (created.IsFailure) { return created.Error; }
+
 
         return new JitProvisionUserResult(
             userResult.Value.Id,
