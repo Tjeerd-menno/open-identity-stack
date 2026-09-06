@@ -37,6 +37,18 @@ it('records only the authenticated local session and preserves the block on fail
   expect(mockApi.cutover.recordEmergencyAccess).toHaveBeenCalledWith();
   expect(screen.getByRole('button', { name: 'Execute credential cutover' })).toBeDisabled();
 });
+it('shows delegated and application permissions for administrative clients', async () => {
+  mockApi.cutover.getReadiness.mockResolvedValue({
+    ...ready,
+    administrativeClients: [{
+      id: 'application-id', clientId: 'machine-client', active: true, approved: true,
+      delegatedPermissions: ['users:read'], applicationPermissions: ['sessions:revoke'], requiresMigrationReview: false,
+    }],
+  });
+  renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });
+  expect(await screen.findByText('users:read')).toBeInTheDocument();
+  expect(screen.getByText('sessions:revoke')).toBeInTheDocument();
+});
 it('requires acknowledgement and retains the operation ID when the live server gate rejects', async () => {
   mockApi.cutover.getReadiness.mockResolvedValue(ready);
   mockApi.cutover.execute.mockRejectedValue(new Error('Prerequisites changed; refresh readiness'));

@@ -40,6 +40,7 @@ public sealed class CredentialCutoverReadiness(
 
     public async Task<Result<EmergencyAccessEvidence>> RecordEmergencyAccessAsync(CancellationToken cancellationToken = default)
     {
+        await approval.CaptureAuthorityAsync(cancellationToken);
         Result approved = await approval.RequireAsync("CredentialCutover.RecordEmergencyAccess", "current-operator", cancellationToken: cancellationToken);
         if (approved.IsFailure) { return approved.Error; }
         AdministrativeActor? current = actor.Current;
