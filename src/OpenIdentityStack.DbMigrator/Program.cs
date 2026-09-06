@@ -125,7 +125,7 @@ static async Task SeedManagementWebClientAsync(IServiceProvider serviceProvider)
 
     const string clientId = "management-web-client";
 
-    string[] requiredScopes = ["openid", "profile", "email", "api"];
+    string[] requiredScopes = ["openid", "profile", "email", OpenIdentityStack.Domain.Resources.ProtectedResource.AdministrativeScope];
     foreach (string scopeName in requiredScopes)
     {
         if (await scopeManager.FindByNameAsync(scopeName) is null)
@@ -156,7 +156,7 @@ static async Task SeedManagementWebClientAsync(IServiceProvider serviceProvider)
             OpenIddictConstants.Permissions.Prefixes.Scope + "openid",
             OpenIddictConstants.Permissions.Prefixes.Scope + "profile",
             OpenIddictConstants.Permissions.Prefixes.Scope + "email",
-            OpenIddictConstants.Permissions.Prefixes.Scope + "api",
+            OpenIddictConstants.Permissions.Prefixes.Scope + OpenIdentityStack.Domain.Resources.ProtectedResource.AdministrativeScope,
         },
         Requirements =
         {

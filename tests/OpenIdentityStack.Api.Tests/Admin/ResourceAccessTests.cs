@@ -44,7 +44,7 @@ public sealed class ResourceAccessTests(AppHostFixture fixture)
         create.StatusCode.ShouldBe(HttpStatusCode.OK);
         ProtectedResourceDto resource = (await create.Content.ReadFromJsonAsync<ProtectedResourceDto>())!;
         resource.Audience.ShouldBe(audience);
-        resource.Revision.ShouldBeGreaterThan(0);
+        resource.Revision.ShouldBe(2);
         await fixture.CreateServiceAccountAsync(clientId, "fixture-secret", [resourceScope]);
         Guid applicationId = Guid.Empty;
         await fixture.ExecuteDbContextAsync(async db => applicationId = (await db.Applications.SingleAsync(application => application.ClientId == clientId)).Id.Value);

@@ -110,9 +110,6 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
         foreach (GroupClaimDto groupClaim in request.GroupClaims.Where(claim => !ReservedGroupClaimTypes.IsReserved(claim.Type)))
         {
-            if (groupClaim.Type is "permission" or "permissions" or "scope" or "scp" or "client_id" or "aud" or "sub" or "role"
-                || groupClaim.Type.StartsWith("oi_", StringComparison.Ordinal)
-                || groupClaim.Type.StartsWith("ois.", StringComparison.Ordinal) || groupClaim.Type.StartsWith("ois_", StringComparison.Ordinal)) { continue; }
             identity.AddClaim(CreateGroupClaim(groupClaim));
         }
 

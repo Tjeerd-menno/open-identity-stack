@@ -46,8 +46,11 @@ public sealed class ResourceAccessWorkflow(IResourceAccessRepository resources, 
             resources.AddResource(resource);
         }
 
-        Result configured = resource.Configure(request.DisplayName, request.PermissionNamespaces, request.Enabled);
-        if (configured.IsFailure) { return configured.Error; }
+        if (id is not null || !request.Enabled)
+        {
+            Result configured = resource.Configure(request.DisplayName, request.PermissionNamespaces, request.Enabled);
+            if (configured.IsFailure) { return configured.Error; }
+        }
         await resources.SaveChangesAsync(actorId, "ResourceMappingChanged", resource.Id.ToString(), resource, cancellationToken);
         return Map(resource);
     }
