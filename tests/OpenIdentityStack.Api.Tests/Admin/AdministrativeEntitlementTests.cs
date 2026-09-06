@@ -64,6 +64,8 @@ public sealed class AdministrativeEntitlementTests(AppHostFixture fixture)
         await this.SetCeilingAsync(clientId, [], ["users:read"]);
         (await client.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.OK);
         (await client.GetAsync("/api/admin/roles")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        JsonNode currentUser = (await client.GetFromJsonAsync<JsonNode>("/api/me"))!;
+        currentUser["permissions"]!.AsArray().Select(value => value!.GetValue<string>()).ShouldBe(["users:read"]);
         await this.SetCeilingAsync(clientId, [], []);
         (await client.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
