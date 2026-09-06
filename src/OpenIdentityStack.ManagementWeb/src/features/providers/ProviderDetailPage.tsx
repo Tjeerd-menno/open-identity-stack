@@ -194,7 +194,7 @@ export function ProviderDetailPage() {
       <ConfirmModal
         opened={confirmEmailTrustWithdrawalOpened}
         title="Withdraw email verification trust"
-        message="Existing proofs from this provider remain withdrawn even if trust is enabled again. Users verified solely by this provider remain unverified until a later sign-in supplies a fresh verified-email assertion, and dependent credentials or sessions may be revoked."
+        message="Existing proofs from this provider remain withdrawn even if trust is enabled again. Users verified solely by this provider remain unverified until a later sign-in supplies a fresh verified-email assertion. This action does not revoke existing credentials or sessions. Follow the separate credential and session revocation procedure in the provider-trust withdrawal cutover runbook."
         confirmLabel="Withdraw trust"
         loading={setEmailTrust.isPending}
         onConfirm={() => setEmailTrust.mutate(false)}
