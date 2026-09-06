@@ -10,6 +10,7 @@ public sealed class AdministrativeActorContext(IHttpContextAccessor accessor) : 
     public const string HumanAuthenticationClaim = "ois_human_authenticated_at";
     public const string HumanSubjectClaim = "ois_human_subject";
     public const string ApprovalHeader = "X-OIS-Administrative-Approval";
+    public const string ApprovalAcknowledgement = "acknowledge";
 
     public AdministrativeActor? Current
     {
@@ -32,7 +33,7 @@ public sealed class AdministrativeActorContext(IHttpContextAccessor accessor) : 
                 catch (ArgumentOutOfRangeException) { }
             }
 
-            bool acknowledged = string.Equals(context!.Request.Headers[ApprovalHeader], "acknowledge", StringComparison.Ordinal);
+            bool acknowledged = string.Equals(context!.Request.Headers[ApprovalHeader], ApprovalAcknowledgement, StringComparison.Ordinal);
             string[] subjects = principal.FindAll(HumanSubjectClaim).Select(claim => claim.Value).ToArray();
             bool isHuman = subjects.Length == 1 && string.Equals(subjects[0], userId.ToString(), StringComparison.Ordinal);
             return new AdministrativeActor(new UserId(userId), authenticatedAt, isHuman, acknowledged);

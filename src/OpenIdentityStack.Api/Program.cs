@@ -53,7 +53,7 @@ builder.Services.AddControllersWithViews()
     .AddDefaultJsonOptions();
 builder.Services.AddDefaultHttpJsonOptions(); // Also configure Minimal API JSON serialization
 builder.Services.AddRazorPages();
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options => options.AddOperationTransformer<AdministrativeApprovalOpenApiTransformer>());
 builder.Services.AddConfiguredRateLimiting(builder.Environment);
 builder.Services.AddConfiguredProblemDetails();
 
