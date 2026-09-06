@@ -34,6 +34,8 @@ paths:
                       - applications:read
         '401':
           description: The request is unauthenticated or the validated principal lacks a subject.
+        '403':
+          description: The authenticated caller does not satisfy the administrative access boundary, including the ois.admin scope and active administrative principal requirements.
 components:
   securitySchemes:
     bearerAuth:
