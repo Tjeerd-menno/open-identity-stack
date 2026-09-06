@@ -29,7 +29,6 @@ public sealed partial class User : AggregateRoot<UserId>
             return;
         }
 
-        provider.ConsumeEmailVerificationTrust();
         if (!this.emailVerificationEvidence.Any(e => e.ProviderId == provider.Id.Value &&
             e.Issuer == issuer && e.NormalizedEmail == this.NormalizedEmail && e.WithdrawnAt is null))
         {

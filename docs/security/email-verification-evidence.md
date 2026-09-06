@@ -15,3 +15,5 @@ The earlier independent-evidence migration creates an empty evidence table. `Rec
 Withdrawal of evidence controls subsequent issuance and UserInfo. Revoking already issued credentials, including downstream services that validate tokens locally, is completed by the separate provider-trust withdrawal lifecycle ticket and the cutover runbook.
 
 Verification covers the trusted/assertion matrix, provisioning independence, stale refresh claims, management API persistence and audit, source-specific withdrawal, relational stale-write rejection, and provider UI permissions. These checks are implementation evidence, not an OpenID certification claim.
+
+New provider evidence is committed under a provider policy row lock, with the trusted policy version revalidated inside the same transaction. Evidence recording does not rotate the provider policy version; repeated evidence reads make no provider write. Trust withdrawal takes that lock before reading dependent users, so it includes evidence committed by a login it waited for. The PostgreSQL concurrency regressions exercise simultaneous users and both orders of login versus withdrawal.

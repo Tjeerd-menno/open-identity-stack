@@ -16,11 +16,17 @@ public sealed class JitProvisioningPersistence(OpenIdentityStackDbContext db, IA
         try
         {
             await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-            // The conditional no-op update locks the current provider row until authentication commits.
-            // Policy updates wait behind it; a policy update that already committed makes this predicate fail.
+            bool recordsTrust = db.ChangeTracker.Entries<EmailVerificationEvidence>().Any(entry =>
+                entry.State == EntityState.Added && entry.Entity.ProviderId == providerId.Value);
+            Guid expectedTrust = recordsTrust
+                ? db.ChangeTracker.Entries<UpstreamProvider>().Single(entry => entry.Entity.Id == providerId).Entity.EmailTrustVersion
+                : Guid.Empty;
+            // Every authentication commit locks and revalidates the provider row. Policy updates wait behind it;
+            // a policy update that already committed makes the relevant predicate fail.
             int permitted = await db.UpstreamProviders
                 .Where(provider => provider.Id == providerId && provider.Status == ProviderStatus.Active
-                    && (!isNewUser || provider.JitProvisioningEnabled))
+                    && (!isNewUser || provider.JitProvisioningEnabled)
+                    && (!recordsTrust || provider.TrustEmailVerification && provider.EmailTrustVersion == expectedTrust))
                 .ExecuteUpdateAsync(setters => setters.SetProperty(provider => provider.JitProvisioningEnabled,
                     provider => provider.JitProvisioningEnabled), cancellationToken);
             if (permitted != 1)
@@ -28,7 +34,7 @@ public sealed class JitProvisioningPersistence(OpenIdentityStackDbContext db, IA
                 await transaction.RollbackAsync(cancellationToken);
                 db.ChangeTracker.Clear();
                 await audit.LogAsync("federation", "Federation.AccountAssociationDenied", "UpstreamProvider", providerId.Value.ToString(),
-                    "Current provider policy denies authentication or new-account provisioning.", cancellationToken);
+                    "Current provider policy denies authentication, new-account provisioning, or new email evidence.", cancellationToken);
                 return DomainError.Forbidden("Federation.AuthenticationFailed", "Unable to complete sign-in.");
             }
             await db.SaveChangesAsync(cancellationToken);

@@ -141,12 +141,10 @@ public sealed class UpstreamProvider
 
     public Guid EmailTrustVersion { get; private set; } = Guid.NewGuid();
 
-    internal void ConsumeEmailVerificationTrust() => this.EmailTrustVersion = Guid.NewGuid();
-
     public void SetEmailVerificationTrust(bool trusted)
     {
         this.TrustEmailVerification = trusted;
-        this.ConsumeEmailVerificationTrust();
+        this.EmailTrustVersion = Guid.NewGuid();
         this.UpdatedAt = DateTimeOffset.UtcNow;
     }
 

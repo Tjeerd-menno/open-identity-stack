@@ -227,7 +227,7 @@ public class AccountController : Controller
 
         // Existing and new identities pass the same issuer-bound authentication checks.
         var jitCommand = new JitProvisionUserCommand(UpstreamProviderId.From(providerGuid), subjectId, email, name, issuer, authority,
-            !string.IsNullOrWhiteSpace(email) && string.Equals(verifiedEvidenceEmail, email, StringComparison.Ordinal));
+            !string.IsNullOrWhiteSpace(email) && string.Equals(verifiedEvidenceEmail?.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase));
         Result<JitProvisionUserResult> jitResult = await this.jitProvisionUseCase.ExecuteAsync(jitCommand);
         if (jitResult.IsFailure)
         {

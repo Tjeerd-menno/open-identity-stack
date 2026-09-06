@@ -12,12 +12,18 @@ public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext
     {
         await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
             await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        // Lock before reading affected users so evidence committed by an earlier login is included.
+        int found = await dbContext.UpstreamProviders.Where(provider => provider.Id == providerId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(provider => provider.JitProvisioningEnabled,
+                provider => provider.JitProvisioningEnabled), cancellationToken);
+        if (found != 1) { return Result.Failure(UpstreamProviderErrors.NotFound); }
         UpstreamProvider? provider = await dbContext.UpstreamProviders.FirstOrDefaultAsync(p => p.Id == providerId, cancellationToken);
         if (provider is null)
         {
             return Result.Failure(UpstreamProviderErrors.NotFound);
         }
 
+        await dbContext.Entry(provider).ReloadAsync(cancellationToken);
         provider.SetEmailVerificationTrust(trusted);
         if (!trusted)
         {

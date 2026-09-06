@@ -31,6 +31,22 @@ public sealed class EmailVerificationEvidenceTests
     }
 
     [Fact]
+    public void RecordingNewOrRepeatedEvidenceDoesNotChangeProviderPolicyVersion()
+    {
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        User user = User.CreateFederated("person@example.com", "Person", clock).Value;
+        UpstreamProvider provider = UpstreamProvider.Create("provider", "Provider", "https://issuer.example", "client").Value;
+        provider.SetEmailVerificationTrust(true);
+        Guid policyVersion = provider.EmailTrustVersion;
+        user.RecordProviderEmailVerification(provider, "https://issuer.example", user.Email, true, clock.UtcNow);
+        provider.EmailTrustVersion.ShouldBe(policyVersion);
+        user.RecordProviderEmailVerification(provider, "https://issuer.example", user.Email, true, clock.UtcNow);
+        provider.EmailTrustVersion.ShouldBe(policyVersion);
+        user.EmailVerificationEvidence.Count.ShouldBe(1);
+    }
+
+    [Fact]
     public void WithdrawalPreservesIndependentVerificationAndProviderProvenance()
     {
         IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();

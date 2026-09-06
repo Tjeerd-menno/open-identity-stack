@@ -27,6 +27,7 @@ internal static class ProvidersApi
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithName("SetProviderEmailVerificationTrust")
             .WithSummary("Sets explicit trust in a provider's verified-email assertions");
         group.MapGet(string.Empty, ListProviders)
@@ -57,6 +58,7 @@ internal static class ProvidersApi
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithName("UpdateProvider")
             .WithSummary("Updates an existing provider");
 
