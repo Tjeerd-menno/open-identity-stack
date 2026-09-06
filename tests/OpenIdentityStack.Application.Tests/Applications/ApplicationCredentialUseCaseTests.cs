@@ -26,6 +26,8 @@ public sealed class ApplicationCredentialUseCaseTests
         this.passwordHasher = Substitute.For<IPasswordHasher>();
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.auditLog = Substitute.For<IAuditLog>();
+        IAdministrativeClientGuard administrativeGuard = Substitute.For<IAdministrativeClientGuard>();
+        administrativeGuard.RequireAsync(Arg.Any<OpenIdentityStack.Domain.Applications.ApplicationId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         this.dateTimeProvider.UtcNow.Returns(this.now);
         this.passwordHasher.HashPassword(Arg.Any<string>()).Returns("hashed-secret");
         this.projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
@@ -37,7 +39,7 @@ public sealed class ApplicationCredentialUseCaseTests
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog);
+            this.auditLog, administrativeGuard);
         this.validationUseCases = new ApplicationCredentialValidationUseCases(
             this.repository,
             this.passwordHasher,

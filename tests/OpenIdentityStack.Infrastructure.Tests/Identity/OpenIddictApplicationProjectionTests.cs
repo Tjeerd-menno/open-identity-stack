@@ -100,6 +100,41 @@ public sealed class OpenIddictApplicationProjectionTests
     }
 
     [Fact]
+    public async Task UpsertAsync_WhenOpenIddictReportsConcurrencyConflict_ReturnsConflict()
+    {
+        DomainApplication application = this.CreateWebApplication();
+        object existing = new();
+        this.applicationManager.FindByClientIdAsync(application.ClientId, Arg.Any<CancellationToken>())
+            .Returns(existing);
+        this.applicationManager.UpdateAsync(existing, Arg.Any<OpenIddictApplicationDescriptor>(), Arg.Any<CancellationToken>())
+            .Returns(_ => throw new OpenIddictExceptions.ConcurrencyException("The application was concurrently updated."));
+
+        Result result = await this.projection.UpsertAsync(application);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.ProjectionConflict");
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WhenOpenIddictReportsConcurrencyConflict_ReturnsConflict()
+    {
+        DomainApplication application = this.CreateWebApplication();
+        object existing = new();
+        this.applicationManager.ListAsync(null, null, Arg.Any<CancellationToken>())
+            .Returns(new[] { existing }.ToAsyncEnumerable());
+        this.applicationManager.GetSettingsAsync(existing, Arg.Any<CancellationToken>())
+            .Returns(System.Collections.Immutable.ImmutableDictionary<string, string>.Empty
+                .Add("openidentitystack:application-id", application.Id.Value.ToString()));
+        this.applicationManager.DeleteAsync(existing, Arg.Any<CancellationToken>())
+            .Returns(_ => throw new OpenIddictExceptions.ConcurrencyException("The application was concurrently deleted."));
+
+        Result result = await this.projection.DeleteAsync(application.Id);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.ProjectionConflict");
+    }
+
+    [Fact]
     public async Task UpsertAsync_WhenApplicationIsDisabled_DeletesExistingOpenIddictApplication()
     {
         DomainApplication application = this.CreateWebApplication();

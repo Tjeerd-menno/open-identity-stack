@@ -10,7 +10,7 @@ paths:
       tags:
         - CurrentUser
       summary: Gets the authenticated current user for Management Web.
-      description: Returns identity display fields and explicit permission claims from the validated access-token principal. The endpoint does not perform live permission recalculation.
+      description: Returns identity display fields from the validated access-token principal and effective permissions recalculated from current persisted authority for this request.
       security:
         - bearerAuth: []
       responses:
@@ -34,6 +34,8 @@ paths:
                       - applications:read
         '401':
           description: The request is unauthenticated or the validated principal lacks a subject.
+        '403':
+          description: The authenticated caller does not satisfy the administrative access boundary, including the ois.admin scope and active administrative principal requirements.
 components:
   securitySchemes:
     bearerAuth:
@@ -72,7 +74,7 @@ components:
           description: Email claim value when present.
         permissions:
           type: array
-          description: Explicit permission claims from the validated access-token principal, deduplicated case-insensitively.
+          description: Effective permissions evaluated from current persisted user or service-account authority for this request.
           items:
             type: string
             minLength: 1

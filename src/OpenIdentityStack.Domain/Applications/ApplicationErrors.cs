@@ -99,4 +99,7 @@ public static class ApplicationErrors
 
     public static readonly DomainError ClientIdExists =
         DomainError.Conflict("Application.ClientIdExists", "An application with this client ID already exists.");
+
+    public static readonly DomainError CreateConflict =
+        DomainError.Conflict("Application.CreateConflict", "Administrative authority changed; reload before creating the application again.");
 }

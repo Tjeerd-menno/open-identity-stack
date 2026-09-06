@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 using OpenIdentityStack.Api.Authorization;
+using OpenIdentityStack.Application;
+using OpenIdentityStack.Application.AdministrativeAccess;
 using OpenIdentityStack.Application.Authorization;
 
 namespace OpenIdentityStack.Api.UnitTests.Endpoints;
@@ -75,6 +77,7 @@ public sealed class AdminApiRouteMappingTests
         const string roles = "OpenIdentityStack.Api.Admin.RolesApi";
         const string users = "OpenIdentityStack.Api.Users.UsersApi";
         const string groups = "OpenIdentityStack.Api.Groups.GroupsApi";
+        const string applications = "OpenIdentityStack.Api.Applications.ApplicationsApi";
 
         foreach (ApprovalEndpointExpectation expectation in new ApprovalEndpointExpectation[]
         {
@@ -87,11 +90,53 @@ public sealed class AdminApiRouteMappingTests
             new(users, "MapUsersApi", "ResetPassword"),
             new(users, "MapUsersApi", "AssignRole"),
             new(groups, "MapGroupsApi", "AddGroupMember"),
-            new(groups, "MapGroupsApi", "AddGroupMapping")
+            new(groups, "MapGroupsApi", "AddGroupMapping"),
+            new(applications, "MapApplicationsApi", "ConfigureApplicationOAuth"),
+            new(applications, "MapApplicationsApi", "EnableApplication"),
+            new(applications, "MapApplicationsApi", "AddApplicationSecret"),
+            new(applications, "MapApplicationsApi", "AddApplicationCertificate")
         })
         {
             yield return [expectation];
         }
+    }
+
+    [Fact]
+    public void AdministrativeAccessEndpointsDeclareUnauthorizedResponses()
+    {
+        using WebApplication app = CreateApplication();
+        InvokeMapMethod("OpenIdentityStack.Api.Applications.AdministrativeAccessApi", "MapAdministrativeAccessApi", app);
+
+        RouteEndpoint[] endpoints = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .ToArray();
+
+        foreach (string endpointName in new[] { "GetAdministrativeAccess", "SaveAdministrativeAccess" })
+        {
+            RouteEndpoint endpoint = endpoints.Single(candidate => candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == endpointName);
+            endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+                .Select(static metadata => metadata.StatusCode)
+                .ShouldContain(StatusCodes.Status401Unauthorized);
+        }
+    }
+
+    [Fact]
+    public void DeleteApplicationDeclaresProjectionConflictResponse()
+    {
+        using WebApplication app = CreateApplication();
+        InvokeMapMethod("OpenIdentityStack.Api.Applications.ApplicationsApi", "MapApplicationsApi", app);
+        RouteEndpoint endpoint = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(candidate => candidate.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "DeleteApplication");
+
+        IProducesResponseTypeMetadata? conflict = endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+            .SingleOrDefault(metadata => metadata.StatusCode == StatusCodes.Status409Conflict);
+
+        conflict.ShouldNotBeNull();
+        conflict.Type.ShouldBe(typeof(Microsoft.AspNetCore.Mvc.ProblemDetails));
+        conflict.ContentTypes.ShouldContain("application/problem+json");
     }
 
     public static IEnumerable<object[]> GetApiExpectations()
@@ -230,6 +275,8 @@ public sealed class AdminApiRouteMappingTests
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
         builder.Services.AddAuthorization();
+        builder.Services.AddApplication();
+        builder.Services.AddScoped<AdministrativeAccessWorkflow>();
         return builder.Build();
     }
 

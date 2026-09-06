@@ -25,6 +25,8 @@ public sealed class ApplicationLifecycleUseCaseTests
         this.passwordHasher = Substitute.For<IPasswordHasher>();
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.auditLog = Substitute.For<IAuditLog>();
+        IAdministrativeClientGuard administrativeGuard = Substitute.For<IAdministrativeClientGuard>();
+        administrativeGuard.RequireAsync(Arg.Any<OpenIdentityStack.Domain.Applications.ApplicationId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         this.dateTimeProvider.UtcNow.Returns(this.now);
         this.projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success());
@@ -35,7 +37,7 @@ public sealed class ApplicationLifecycleUseCaseTests
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog);
+            this.auditLog, administrativeGuard);
     }
 
     [Fact]
