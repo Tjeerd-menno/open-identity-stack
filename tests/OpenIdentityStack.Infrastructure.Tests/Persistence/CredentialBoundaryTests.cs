@@ -42,10 +42,9 @@ public sealed class CredentialBoundaryTests(SqliteTestFixture fixture) : IClassF
         await using OpenIdentityStackDbContext db = fixture.CreateDbContext();
         ICredentialCutoverGate gate = Substitute.For<ICredentialCutoverGate>();
         var emergencyUser = Guid.NewGuid();
-        var emergencySession = Guid.NewGuid();
         var preflight = new CredentialCutoverPreflight(Guid.Empty, DateTimeOffset.UtcNow,
             [new CutoverBlocker("Identity.Quarantined", "Recovery is not specified.")],
-            new(Guid.NewGuid(), emergencyUser, emergencySession, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, true), new(1, 1, 1, 0, 0, 0, 0, 0), [], [], 0, null);
+            new(Guid.NewGuid(), emergencyUser, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, true), new(1, 1, 1, 0, 0, 0, 0, 0), [], [], 0, null);
         gate.EvaluateAsync(Arg.Any<CancellationToken>()).Returns(preflight);
         IOpenIddictTokenManager tokens = Substitute.For<IOpenIddictTokenManager>();
         IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
@@ -64,7 +63,6 @@ public sealed class CredentialBoundaryTests(SqliteTestFixture fixture) : IClassF
         auditSummary.ShouldNotBeNull();
         auditSummary.ShouldContain("Identity.Quarantined");
         auditSummary.ShouldNotContain(emergencyUser.ToString());
-        auditSummary.ShouldNotContain(emergencySession.ToString());
 #pragma warning disable CA2012
         await tokens.DidNotReceive().RevokeAsync(null, null, null, null, Arg.Any<CancellationToken>());
 #pragma warning restore CA2012

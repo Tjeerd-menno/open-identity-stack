@@ -21,5 +21,6 @@ public sealed class CredentialCutoverContractTests
         contract.ShouldContain("delegatedPermissions, applicationPermissions, requiresMigrationReview");
         contract.ShouldContain("bearer: { type: http, scheme: bearer }");
         contract.ShouldContain("No supplied user, subject, issuer or session identifier can establish proof.");
+        contract.ShouldNotContain("sessionId:");
     }
 }

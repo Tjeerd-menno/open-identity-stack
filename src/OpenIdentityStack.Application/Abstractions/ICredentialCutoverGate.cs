@@ -3,7 +3,7 @@ using SharedKernel;
 namespace OpenIdentityStack.Application.Abstractions;
 
 public sealed record CutoverBlocker(string Code, string Message, int Count = 1);
-public sealed record EmergencyAccessEvidence(Guid Id, Guid UserId, Guid SessionId, DateTimeOffset AuthenticatedAt, DateTimeOffset RecordedAt, bool CurrentlyUsable);
+public sealed record EmergencyAccessEvidence(Guid Id, Guid UserId, DateTimeOffset AuthenticatedAt, DateTimeOffset RecordedAt, bool CurrentlyUsable);
 public sealed record CutoverIdentityInventory(int QuarantinedLinks, int AffectedUsers, int FederationOnlyUsers, int PasswordCandidates, int DisabledUsers, int VerifiedEmails, int ProviderEvidence, int WithdrawnEvidence);
 public sealed record CutoverAdministrativeClient(Guid Id, string ClientId, bool Active, bool Approved, IReadOnlyList<string> DelegatedPermissions, IReadOnlyList<string> ApplicationPermissions, bool RequiresMigrationReview);
 public sealed record ResourceTokenWindow(Guid ResourceId, string DisplayName, string Audience, string Scope, long Revision,

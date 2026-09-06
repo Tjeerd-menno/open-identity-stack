@@ -59,7 +59,7 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
             bool usable = await this.IsEmergencyAccessCurrentAsync(proof, cancellationToken);
             if (emergency is null || usable)
             {
-                emergency = new(proof.Id, proof.UserId, proof.SessionId, proof.AuthenticatedAt, proof.RecordedAt, usable);
+                emergency = new(proof.Id, proof.UserId, proof.AuthenticatedAt, proof.RecordedAt, usable);
             }
             if (usable) { break; }
         }
@@ -121,7 +121,7 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
             Details = "Fresh local password authentication and a live session established current unrestricted emergency access.", AfterState = JsonSerializer.Serialize(proof) });
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return new EmergencyAccessEvidence(proof.Id, proof.UserId, proof.SessionId, proof.AuthenticatedAt, proof.RecordedAt, true);
+        return new EmergencyAccessEvidence(proof.Id, proof.UserId, proof.AuthenticatedAt, proof.RecordedAt, true);
     }
 
     public async Task<Result> ReviewResourceWindowAsync(ResourceWindowReview review, string actorId, CancellationToken cancellationToken = default)
