@@ -139,8 +139,10 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
         User? user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null || !user.CanAuthenticate() || !user.HasPassword()) { return false; }
         UserSession? session = await db.UserSessions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == new SessionId(proof.SessionId), cancellationToken);
+        // The signed proof binds the session and user. Session persistence may finish
+        // after authentication, but both timestamps must share the fresh five-minute window.
         if (session is null || session.UserId != userId || session.Status != SessionStatus.Active || session.IsExpired(clock) ||
-            session.CreatedAt < proof.AuthenticatedAt || session.CreatedAt > proof.AuthenticatedAt.AddSeconds(5)) { return false; }
+            session.CreatedAt < proof.AuthenticatedAt || session.CreatedAt > now) { return false; }
         bool localLoginUnavailable = await db.AuthenticationSettings.AsNoTracking()
             .AnyAsync(x => x.DefaultProviderId != "local" && !x.LocalFallbackEnabled, cancellationToken);
         return !localLoginUnavailable && await this.HasCurrentUnrestrictedAuthorityAsync(userId, cancellationToken);
