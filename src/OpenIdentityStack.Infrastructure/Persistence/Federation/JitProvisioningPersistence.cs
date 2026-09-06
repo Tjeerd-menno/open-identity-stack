@@ -42,7 +42,15 @@ public sealed class JitProvisioningPersistence(OpenIdentityStackDbContext db, IA
             {
                 await ReconcileCommittedEvidenceAsync(userId, providerId, cancellationToken);
             }
+            bool recordsNewEvidence = !isNewUser && db.ChangeTracker.Entries<EmailVerificationEvidence>().Any(entry =>
+                entry.State == EntityState.Added && entry.Entity.ProviderId == providerId.Value
+                && entry.Property<UserId>("UserId").CurrentValue == userId);
             await db.SaveChangesAsync(cancellationToken);
+            if (recordsNewEvidence)
+            {
+                await audit.LogAsync("federation", "Federation.EmailVerificationEvidenceRecorded", "User", userId.Value.ToString(),
+                    $"Trusted verified-email evidence recorded from provider {providerId.Value}.", cancellationToken);
+            }
             if (isNewUser)
             {
                 await audit.LogAsync("federation", "Federation.NewAccountAssociationRecorded", "User", userId.Value.ToString(),
