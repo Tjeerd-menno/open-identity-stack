@@ -35,6 +35,23 @@ it('saves delegated and machine permissions separately with the observed revisio
   }));
 });
 
+it('prevents switching resources while a grant save is pending', async () => {
+  const user = userEvent.setup();
+  let completeSave!: (value: { revision: number }) => void;
+  mockApi.applications.configureClientResourceGrant.mockReturnValue(new Promise((resolve) => { completeSave = resolve; }));
+  renderManagementWeb(<ResourceAccessPanel applicationId="client" canWrite />);
+  const selector = screen.getByRole('combobox', { name: 'Protected resource' });
+  await waitFor(() => expect(selector).toBeEnabled());
+  await user.click(selector);
+  await user.keyboard('{ArrowDown}{Enter}');
+
+  await user.click(screen.getByRole('button', { name: 'Save resource grant' }));
+
+  await waitFor(() => expect(selector).toBeDisabled());
+  completeSave({ revision: 4 });
+  await waitFor(() => expect(selector).toBeEnabled());
+});
+
 it('requires the dedicated administrative workflow even for application writers', async () => {
   const user = userEvent.setup();
   renderManagementWeb(<ResourceAccessPanel applicationId="client" canWrite />);
