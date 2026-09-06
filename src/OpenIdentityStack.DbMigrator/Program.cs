@@ -412,19 +412,25 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
     }
 
     bool created = await serviceProvider.GetRequiredService<LocalUserBootstrapper>()
-        .CreateIfAbsentAsync("admin@localhost.dev", "Default Admin", password, assignAdministrator: true);
+        .CreateIfAbsentAsync(
+            "admin@localhost.dev", "Default Admin", password, assignAdministrator: true,
+            additionalAdministratorPermissions: GetTraceableIsotopesPermissionConfigurations()
+                .Select(static permission => $"traceable-isotopes:{permission.PermissionKey}").ToArray());
     logger.LogInformation("Development admin bootstrap completed (Created: {Created}); existing accounts are preserved.", created);
 }
+
+static SeededPermissionConfiguration[] GetTraceableIsotopesPermissionConfigurations() =>
+[
+    new("isotopes:read", "Read isotopes", null, "Isotopes"),
+    new("isotopes:write", "Write isotopes", null, "Isotopes"),
+    new("exports:read", "Read exports", null, "Exports"),
+    new("exports:write", "Write exports", null, "Exports"),
+    new("audit:read", "Read audit records", null, "Audit")
+];
+
 static async Task PrepareTraceableIsotopesWebClientAsync(IServiceProvider serviceProvider)
 {
-    SeededPermissionConfiguration[] permissions =
-    [
-        new("isotopes:read", "Read isotopes", null, "Isotopes"),
-        new("isotopes:write", "Write isotopes", null, "Isotopes"),
-        new("exports:read", "Read exports", null, "Exports"),
-        new("exports:write", "Write exports", null, "Exports"),
-        new("audit:read", "Read audit records", null, "Audit")
-    ];
+    SeededPermissionConfiguration[] permissions = GetTraceableIsotopesPermissionConfigurations();
     string[] resourceScopes = permissions.Select(static permission => permission.PermissionKey).ToArray();
     string[] scopes =
     [
