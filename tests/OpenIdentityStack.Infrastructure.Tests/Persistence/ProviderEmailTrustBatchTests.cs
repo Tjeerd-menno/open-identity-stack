@@ -76,7 +76,7 @@ public sealed class ProviderEmailTrustBatchTests(FederationPolicyTestFixture fix
         UpstreamProviderId providerId = await this.SeedAsync();
         var observer = new EvidencePageObserver();
         await using OpenIdentityStackDbContext writer = fixture.CreateDbContext(observer);
-        (await new ProviderEmailTrustStore(writer, Audit(writer)).SetAsync(providerId, false, "operator", default)).IsSuccess.ShouldBeTrue();
+        (await new ProviderEmailTrustStore(writer, Audit(writer), Invalidator(writer)).SetAsync(providerId, false, "operator", default)).IsSuccess.ShouldBeTrue();
 
         observer.Commands.Count.ShouldBe(4); // Three pages for 205 users, then the terminal empty page.
         observer.Commands[0].ShouldNotContain(" > ");
