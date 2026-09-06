@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using OpenIddict.Validation.AspNetCore;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authorization;
