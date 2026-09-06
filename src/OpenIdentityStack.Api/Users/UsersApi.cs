@@ -84,7 +84,7 @@ internal static class UsersApi
             .Produces<UserStatusChangeResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("EnableUser")
             .WithSummary("Enables a disabled user account");
 
@@ -93,7 +93,7 @@ internal static class UsersApi
             .Produces<PasswordResetResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("ResetPassword")
             .WithSummary("Resets a user's password");
 
@@ -110,7 +110,7 @@ internal static class UsersApi
             .Produces(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AssignRole")
             .WithSummary("Assigns a role to a user");
 

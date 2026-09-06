@@ -86,9 +86,12 @@ public sealed class AdminApiRouteMappingTests
                 expectation.EndpointName,
                 StringComparison.Ordinal));
 
-        endpoint.Metadata
+        IProducesResponseTypeMetadata conflict = endpoint.Metadata
             .OfType<IProducesResponseTypeMetadata>()
-            .ShouldContain(metadata => metadata.StatusCode == StatusCodes.Status409Conflict);
+            .Single(metadata => metadata.StatusCode == StatusCodes.Status409Conflict);
+
+        conflict.Type.ShouldBe(typeof(ProblemDetails));
+        conflict.ContentTypes.ShouldContain("application/problem+json");
     }
 
     public static IEnumerable<object[]> GetApprovalProtectedEndpoints()
