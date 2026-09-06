@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using OpenIdentityStack.Api.Common;
 using OpenIddict.Validation.AspNetCore;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authorization;
@@ -72,7 +73,7 @@ internal static class GroupsApi
             .RequireAuthorization(Permissions.Groups.ManageMembers)
             .Produces(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AddGroupMember")
@@ -98,7 +99,7 @@ internal static class GroupsApi
             .RequireAuthorization(Permissions.Groups.Write)
             .Produces(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AddGroupMapping")

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 using OpenIdentityStack.Api.Authorization;
+using OpenIdentityStack.Api.Common;
 using OpenIdentityStack.Application.Authorization;
 
 namespace OpenIdentityStack.Api.UnitTests.Endpoints;
@@ -66,8 +67,10 @@ public sealed class AdminApiRouteMappingTests
             .OfType<IProducesResponseTypeMetadata>()
             .Single(metadata => metadata.StatusCode == StatusCodes.Status403Forbidden);
 
-        forbidden.Type.ShouldBe(typeof(ProblemDetails));
+        forbidden.Type.ShouldBe(typeof(AdministrativeApprovalProblemDetails));
         forbidden.ContentTypes.ShouldContain("application/problem+json");
+        typeof(AdministrativeApprovalProblemDetails).GetProperty(nameof(AdministrativeApprovalProblemDetails.ErrorCode))
+            .ShouldNotBeNull();
     }
 
     [Theory]
