@@ -36,7 +36,21 @@ internal sealed class IntrospectionPermissionsHandler(IResourcePermissionService
         }
 
         string? subject = principal.GetClaim(OpenIddictConstants.Claims.Subject);
-        UserId? userId = Guid.TryParse(subject, out Guid value) && subject != clientId ? new UserId(value) : null;
+        string? actorType = principal.GetClaim(ResourceTokenActorTypes.ClaimType);
+        if (actorType is not (ResourceTokenActorTypes.User or ResourceTokenActorTypes.Application))
+        {
+            context.Reject(OpenIddictConstants.Errors.InvalidToken);
+            return;
+        }
+
+        UserId? userId = actorType == ResourceTokenActorTypes.User && Guid.TryParse(subject, out Guid value)
+            ? new UserId(value)
+            : null;
+        if (actorType == ResourceTokenActorTypes.User && userId is null)
+        {
+            context.Reject(OpenIddictConstants.Errors.InvalidToken);
+            return;
+        }
         Result<ResourceTokenProjection> result = await projection.ProjectAsync(new ResourceTokenRequest(clientId, principal.GetScopes(), audiences, userId,
             principal.FindAll("permission").Select(static claim => claim.Value).ToArray(), audiences), context.CancellationToken);
         if (result.IsFailure)

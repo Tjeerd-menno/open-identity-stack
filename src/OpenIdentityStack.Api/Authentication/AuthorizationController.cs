@@ -223,7 +223,7 @@ public class AuthorizationController : ControllerBase
                 authenticationTime,
                 GetSupportedAcrValue(request),
                 sessionIdValue));
-        ApplyResourceAccess(projectedPrincipal, request.ClientId!, resourceAccess.Value);
+        ApplyResourceAccess(projectedPrincipal, request.ClientId!, ResourceTokenActorTypes.User, resourceAccess.Value);
 
         return this.SignIn(
             projectedPrincipal,
@@ -266,7 +266,7 @@ public class AuthorizationController : ControllerBase
             if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error); }
             identity.SetScopes(request.GetScopes());
             var principal = new ClaimsPrincipal(identity);
-            ApplyResourceAccess(principal, request.ClientId!, resourceAccess.Value);
+            ApplyResourceAccess(principal, request.ClientId!, ResourceTokenActorTypes.Application, resourceAccess.Value);
             identity.SetDestinations(TokenClaimProjectionService.GetDestinations);
 
             return this.SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
@@ -336,7 +336,7 @@ public class AuthorizationController : ControllerBase
             if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error); }
             ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, authenticationTime, tokenUser);
             projectedPrincipal.SetScopes(scopes);
-            ApplyResourceAccess(projectedPrincipal, request.ClientId!, resourceAccess.Value);
+            ApplyResourceAccess(projectedPrincipal, request.ClientId!, ResourceTokenActorTypes.User, resourceAccess.Value);
             return this.SignIn(
                 projectedPrincipal,
                 CreateOpenIddictAuthenticationProperties(authenticationTime),
@@ -406,17 +406,18 @@ public class AuthorizationController : ControllerBase
             [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "Access to the requested resource is unavailable."
         }));
 
-    private static void ApplyResourceAccess(ClaimsPrincipal principal, string clientId, ResourceTokenProjection access)
+    private static void ApplyResourceAccess(ClaimsPrincipal principal, string clientId, string actorType, ResourceTokenProjection access)
     {
         foreach (ClaimsIdentity identity in principal.Identities)
         {
-            foreach (Claim claim in identity.Claims.Where(static claim => claim.Type is "permission" or "permissions" or "client_id" or "ois.grant_revision").ToArray())
+            foreach (Claim claim in identity.Claims.Where(static claim => claim.Type is "permission" or "permissions" or "client_id" or "ois.grant_revision" or ResourceTokenActorTypes.ClaimType).ToArray())
             {
                 identity.RemoveClaim(claim);
             }
         }
         var target = (ClaimsIdentity)principal.Identity!;
         target.AddClaim(new Claim(Claims.ClientId, clientId).SetDestinations(Destinations.AccessToken));
+        target.AddClaim(new Claim(ResourceTokenActorTypes.ClaimType, actorType).SetDestinations(Destinations.AccessToken));
         foreach (string permission in access.Permissions) { target.AddClaim(new Claim("permission", permission).SetDestinations(Destinations.AccessToken)); }
         foreach ((Guid resourceId, long revision) in access.GrantRevisions)
         {

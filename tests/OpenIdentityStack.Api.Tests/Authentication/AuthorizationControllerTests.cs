@@ -675,6 +675,7 @@ public class AuthorizationControllerTests
         result.Principal!.FindAll("permission").Select(static claim => claim.Value).ShouldBe(["orders:invoice:read"]);
         result.Principal.FindAll("permissions").ShouldBeEmpty();
         result.Principal.GetClaim("client_id").ShouldBe("browser-client");
+        result.Principal.GetClaim(ResourceTokenActorTypes.ClaimType).ShouldBe(ResourceTokenActorTypes.User);
         await this.resourcePermissions.Received().ProjectAsync(Arg.Is<ResourceTokenRequest>(input => input.ClientId == "browser-client"
             && input.OriginalPermissions!.Count == 2 && input.OriginalPermissions.Contains("orders:invoice:write")
             && input.OriginalAudiences!.Count == 1 && input.OriginalAudiences[0] == "https://orders.example.com"), Arg.Any<CancellationToken>());
@@ -721,6 +722,7 @@ public class AuthorizationControllerTests
         // Assert
         SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
         Assert.Contains(signIn.Principal!.Claims, c => c.Type == OpenIddictConstants.Claims.Subject && c.Value == "test-client");
+        signIn.Principal.GetClaim(ResourceTokenActorTypes.ClaimType).ShouldBe(ResourceTokenActorTypes.Application);
     }
 
     [Fact]
@@ -849,7 +851,8 @@ public class AuthorizationControllerTests
         IActionResult result = await this._controller.Exchange();
 
         // Assert
-        Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
+        SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
+        signIn.Principal!.GetClaim(ResourceTokenActorTypes.ClaimType).ShouldBe(ResourceTokenActorTypes.User);
     }
 
     [Fact]
