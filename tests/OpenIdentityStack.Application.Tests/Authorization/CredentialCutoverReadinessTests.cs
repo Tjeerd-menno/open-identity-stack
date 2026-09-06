@@ -65,4 +65,46 @@ public sealed class CredentialCutoverReadinessTests
                 && !json.Contains(emergencyUser.ToString(), StringComparison.Ordinal)
                 && !json.Contains(emergencySession.ToString(), StringComparison.Ordinal)), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task PreflightAuditPreservesMachineActorIdentity()
+    {
+        ICredentialCutoverReadinessStore store = Substitute.For<ICredentialCutoverReadinessStore>();
+        IAdministrativeActorContext actor = Substitute.For<IAdministrativeActorContext>();
+        IAuditLog audit = Substitute.For<IAuditLog>();
+        actor.AuditActorId.Returns("client:cutover-operator");
+        var preflight = new CredentialCutoverPreflight(Guid.NewGuid(), DateTimeOffset.UtcNow, [], null,
+            new(0, 0, 0, 0, 0, 0, 0, 0), [], [], 0, null);
+        store.EvaluateAsync(Arg.Any<CancellationToken>()).Returns(preflight);
+        var workflow = new CredentialCutoverReadiness(store, Substitute.For<IAdministrativeApproval>(), actor, audit);
+
+        await workflow.EvaluateAsync();
+
+        await audit.Received(1).LogChangeAsync("client:cutover-operator", "CredentialCutover.PreflightEvaluated",
+            "CredentialBoundary", preflight.Epoch.ToString(), Arg.Is<string?>(value => value == null),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ResourceReviewCapturesAuthorityBeforeApprovalAndPersistence()
+    {
+        ICredentialCutoverReadinessStore store = Substitute.For<ICredentialCutoverReadinessStore>();
+        IAdministrativeApproval approval = Substitute.For<IAdministrativeApproval>();
+        IAdministrativeActorContext actor = Substitute.For<IAdministrativeActorContext>();
+        actor.AuditActorId.Returns("user:reviewer");
+        actor.Current.Returns(new AdministrativeActor(UserId.Create(), DateTimeOffset.UtcNow, true, true));
+        approval.RequireAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
+        store.ReviewResourceWindowAsync(Arg.Any<ResourceWindowReview>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
+        var workflow = new CredentialCutoverReadiness(store, approval, actor, Substitute.For<IAuditLog>());
+        var review = new ResourceWindowReview(Guid.NewGuid(), "OnlineIntrospection", 0, "runbook-42");
+
+        (await workflow.ReviewResourceWindowAsync(review)).IsSuccess.ShouldBeTrue();
+
+        Received.InOrder(() =>
+        {
+            approval.CaptureAuthorityAsync(Arg.Any<CancellationToken>());
+            approval.RequireAsync("CredentialCutover.ReviewResourceWindow", review.ResourceId.ToString(), false, Arg.Any<CancellationToken>());
+            store.ReviewResourceWindowAsync(review, "user:reviewer", Arg.Any<CancellationToken>());
+        });
+    }
 }

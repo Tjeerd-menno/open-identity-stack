@@ -250,7 +250,7 @@ public sealed class CredentialCutoverTests
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         int[] ports = [5175, 5173, 5174, 3000];
         OpenIdentityStack.Domain.Applications.Application management = OpenIdentityStack.Domain.Applications.Application.Create("management-web-client", "Management", null,
-            ApplicationProfile.SinglePage, OAuthClientType.Public, ["authorization_code", "refresh_token"], ["openid", "ois.admin"],
+            ApplicationProfile.SinglePage, OAuthClientType.Public, ["authorization_code", "refresh_token"], ["openid", "profile", "email", "ois.admin"],
             ports.SelectMany(port => new[] { $"http://localhost:{port}/auth/callback", $"http://localhost:{port}/auth/silent-callback" }).ToArray(),
             ports.Select(port => $"http://localhost:{port}/").ToArray(), true, false, clock).Value;
         db.Add(management);

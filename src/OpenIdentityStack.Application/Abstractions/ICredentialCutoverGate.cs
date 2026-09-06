@@ -33,7 +33,7 @@ public sealed class CredentialCutoverReadiness(
     public async Task<CredentialCutoverPreflight> EvaluateAsync(CancellationToken cancellationToken = default)
     {
         CredentialCutoverPreflight result = await store.EvaluateAsync(cancellationToken);
-        await audit.LogChangeAsync(actor.Current?.UserId.Value.ToString() ?? "unknown", "CredentialCutover.PreflightEvaluated", "CredentialBoundary",
+        await audit.LogChangeAsync(actor.AuditActorId, "CredentialCutover.PreflightEvaluated", "CredentialBoundary",
             result.Epoch.ToString(), null, System.Text.Json.JsonSerializer.Serialize(CredentialCutoverAuditSummary.From(result)), cancellationToken);
         return result;
     }
@@ -55,6 +55,7 @@ public sealed class CredentialCutoverReadiness(
 
     public async Task<Result> ReviewResourceWindowAsync(ResourceWindowReview review, CancellationToken cancellationToken = default)
     {
+        await approval.CaptureAuthorityAsync(cancellationToken);
         Result approved = await approval.RequireAsync("CredentialCutover.ReviewResourceWindow", review.ResourceId.ToString(), cancellationToken: cancellationToken);
         if (approved.IsFailure) { return approved; }
         if (review.Mechanism is not ("OnlineIntrospection" or "ConsumerRevocation" or "OfflineExpiry") || review.ResidualSeconds < 0 ||
@@ -63,7 +64,7 @@ public sealed class CredentialCutoverReadiness(
             await approval.RecordOutcomeAsync(false, cancellationToken);
             return DomainError.Validation("CredentialCutover.InvalidResourceWindow", "Specify the external control, a nonnegative maximum residual window, and an evidence reference of at most 1000 characters.");
         }
-        Result result = await store.ReviewResourceWindowAsync(review, actor.Current!.UserId.Value.ToString(), cancellationToken);
+        Result result = await store.ReviewResourceWindowAsync(review, actor.AuditActorId, cancellationToken);
         await approval.RecordOutcomeAsync(result.IsSuccess, cancellationToken);
         return result;
     }

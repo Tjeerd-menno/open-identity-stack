@@ -23,6 +23,26 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class AdministrativeAccessAuthorityRaceTests(AdministrativeAuthorityTestFixture fixture) : IClassFixture<AdministrativeAuthorityTestFixture>
 {
+    [Fact]
+    public async Task ResourceWindowReviewConsumesCapturedAuthorityRevision()
+    {
+        await using OpenIdentityStackDbContext requestDb = fixture.CreateDbContext();
+        await requestDb.CaptureAuthoritySnapshotAsync(CancellationToken.None);
+        await using (OpenIdentityStackDbContext writer = fixture.CreateDbContext())
+        {
+            Role role = Role.Create($"authority-change-{Guid.NewGuid():N}", "Authority change").Value;
+            writer.Roles.Add(role);
+            await writer.SaveChangesAsync();
+        }
+        requestDb.ResourceTokenWindowReviews.Add(new ResourceWindowReviewRecord
+        {
+            Id = Guid.NewGuid(), ResourceId = Guid.NewGuid(), Epoch = Guid.NewGuid(), ResourceRevision = 1,
+            Mechanism = "OnlineIntrospection", EvidenceReference = "race-test", ReviewedAt = DateTimeOffset.UtcNow
+        });
+
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(() => requestDb.SaveChangesAsync());
+    }
+
     [Theory]
     [InlineData("role")]
     [InlineData("client")]
