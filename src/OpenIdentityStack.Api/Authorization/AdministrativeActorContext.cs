@@ -11,6 +11,24 @@ public sealed class AdministrativeActorContext(IHttpContextAccessor accessor) : 
     public const string HumanSubjectClaim = "ois_human_subject";
     public const string ApprovalHeader = "X-OIS-Administrative-Approval";
 
+    public string AuditActorId => ResolveAuditActorId(accessor.HttpContext?.User);
+
+    public static string ResolveAuditActorId(ClaimsPrincipal? principal)
+    {
+        if (principal?.Identity?.IsAuthenticated != true) { return "system"; }
+        string? subject = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (subject is null) { return "authenticated:unknown"; }
+        string[] humanProof = principal.FindAll(HumanSubjectClaim).Select(claim => claim.Value).ToArray();
+        if (Guid.TryParse(subject, out Guid userId) && humanProof.Length == 1
+            && string.Equals(humanProof[0], userId.ToString(), StringComparison.Ordinal))
+        {
+            return userId.ToString();
+        }
+        // Always prefix the complete machine subject, including IDs already starting with
+        // "client:". AuditLogEntry bounds the encoded value without truncating identities.
+        return "client:" + subject;
+    }
+
     public AdministrativeActor? Current
     {
         get

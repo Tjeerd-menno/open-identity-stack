@@ -29,7 +29,8 @@ public sealed class AdministrativeClientMutationTests
         guard.RequireAsync(client.Id, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(Result.Failure(DomainError.Forbidden("AdministrativeApproval.HumanRequired", "Human approval is required.")));
         var lifecycle = new ApplicationLifecycleUseCases(repository, projection, Substitute.For<IPasswordHasher>(), clock, Substitute.For<IAuditLog>(), guard);
-        var credentials = new ApplicationCredentialUseCases(repository, projection, Substitute.For<IPasswordHasher>(), clock, Substitute.For<IAuditLog>(), guard);
+        var credentials = new ApplicationCredentialUseCases(repository, projection, Substitute.For<IPasswordHasher>(), clock,
+            Substitute.For<IAuditLog>(), guard, new UnauthenticatedAdministrativeActorContext());
         bool failed = operation switch
         {
             "enable" => (await lifecycle.ExecuteAsync(new EnableApplicationCommand(client.Id))).IsFailure,

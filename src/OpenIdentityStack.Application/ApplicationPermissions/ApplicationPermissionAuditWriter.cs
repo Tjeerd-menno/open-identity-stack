@@ -5,10 +5,12 @@ namespace OpenIdentityStack.Application.ApplicationPermissions;
 public sealed class ApplicationPermissionAuditWriter : IApplicationPermissionAuditWriter
 {
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeActorContext actorContext;
 
-    public ApplicationPermissionAuditWriter(IAuditLog auditLog)
+    public ApplicationPermissionAuditWriter(IAuditLog auditLog, IAdministrativeActorContext actorContext)
     {
         this.auditLog = auditLog;
+        this.actorContext = actorContext;
     }
 
     public async Task WriteAsync(
@@ -19,7 +21,7 @@ public sealed class ApplicationPermissionAuditWriter : IApplicationPermissionAud
         CancellationToken cancellationToken = default)
     {
         await this.auditLog.LogAsync(
-            actorId,
+            this.actorContext.AuditActorId is { } authenticatedActor && authenticatedActor != "system" ? authenticatedActor : actorId,
             action,
             "RegisteredApplication",
             applicationId ?? "unknown",

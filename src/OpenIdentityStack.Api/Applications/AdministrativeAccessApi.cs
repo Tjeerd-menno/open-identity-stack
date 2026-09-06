@@ -22,7 +22,7 @@ internal static class AdministrativeAccessApi
         group.MapPut("", async (Guid id, AdministrativeAccessConfiguration request, ClaimsPrincipal actor,
             AdministrativeAccessWorkflow workflow, CancellationToken cancellationToken) =>
         {
-            Result<AdministrativeAccessDto> result = await workflow.SaveAsync(id, request, actor.FindFirstValue("sub") ?? "unknown", cancellationToken);
+            Result<AdministrativeAccessDto> result = await workflow.SaveAsync(id, request, Authorization.AdministrativeActorContext.ResolveAuditActorId(actor), cancellationToken);
             return result.IsSuccess ? Results.Ok(result.Value) : ErrorResultMapper.ToErrorResult(result.Error);
         }).RequireAuthorization(Permissions.Applications.Write)
             .Produces<AdministrativeAccessDto>().Produces(StatusCodes.Status400BadRequest).Produces(StatusCodes.Status401Unauthorized).Produces(StatusCodes.Status403Forbidden).Produces(StatusCodes.Status409Conflict)

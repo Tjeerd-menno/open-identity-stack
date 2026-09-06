@@ -8,6 +8,33 @@ namespace OpenIdentityStack.Api.Tests.Authorization;
 
 public sealed class AdministrativeActorContextTests
 {
+    [Fact]
+    public void AuditActorNamespacesSeparateClientsHumansAndBackgroundWork()
+    {
+        string humanId = Guid.NewGuid().ToString();
+        string[] clientIds = ["system", "client:system", humanId, "authenticated:unknown", "sha256:" + new string('a', 64), new string('x', 255)];
+        var recorded = new List<string>();
+        foreach (string clientId in clientIds)
+        {
+            var context = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", clientId)], "Bearer")) };
+            var actor = new AdministrativeActorContext(new HttpContextAccessor { HttpContext = context });
+            actor.AuditActorId.ShouldBe("client:" + clientId);
+            var entry = new OpenIdentityStack.Infrastructure.Audit.AuditLogEntry { UserId = actor.AuditActorId };
+            entry.UserId.Length.ShouldBeLessThanOrEqualTo(128);
+            recorded.Add(entry.UserId);
+        }
+        var human = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("sub", humanId), new Claim(AdministrativeActorContext.HumanSubjectClaim, humanId)], "Bearer")) };
+        var humanActor = new AdministrativeActorContext(new HttpContextAccessor { HttpContext = human });
+        humanActor.AuditActorId.ShouldBe(humanId);
+        humanActor.Current!.IsHuman.ShouldBeTrue();
+        recorded.Add(humanActor.AuditActorId);
+        var background = new AdministrativeActorContext(new HttpContextAccessor { HttpContext = null });
+        background.AuditActorId.ShouldBe("system");
+        recorded.Add(background.AuditActorId);
+        recorded.Distinct(StringComparer.Ordinal).Count().ShouldBe(recorded.Count);
+    }
+
     [Theory]
     [InlineData(null, false, false)]
     [InlineData("another-user", false, false)]

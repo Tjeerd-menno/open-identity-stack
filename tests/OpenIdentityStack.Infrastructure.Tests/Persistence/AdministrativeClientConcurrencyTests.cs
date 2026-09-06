@@ -97,7 +97,8 @@ public sealed class AdministrativeClientConcurrencyTests(AdministrativeAuthority
         IPasswordHasher hasher = Substitute.For<IPasswordHasher>();
         IAuditLog audit = Substitute.For<IAuditLog>();
         var workflow = new ApplicationsAdminWorkflow(new ApplicationLifecycleUseCases(repository, projection, hasher, clock, audit, guard),
-            new ApplicationCredentialUseCases(repository, projection, hasher, clock, audit, guard));
+            new ApplicationCredentialUseCases(repository, projection, hasher, clock, audit, guard,
+                new UnauthenticatedAdministrativeActorContext()));
 
         await Should.ThrowAsync<DbUpdateConcurrencyException>(() => workflow.EnableAsync(new(client.Id)));
 
