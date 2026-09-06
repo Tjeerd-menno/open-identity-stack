@@ -87,6 +87,21 @@ public sealed class AdministrativeEntitlementTests(AppHostFixture fixture)
     }
 
     [Fact]
+    public async Task OrdinaryAdministrativeAccessDenialReturnsProblemDetailsWithoutApprovalCode()
+    {
+        using HttpClient actor = await fixture.CreateAuthenticatedClientAsync($"ordinary-denial-{Guid.NewGuid():N}", "fixture-secret");
+        using HttpResponseMessage response = await actor.PutAsJsonAsync(
+            $"/api/admin/applications/{Guid.NewGuid()}/administrative-access",
+            new AdministrativeAccessConfiguration([], ["users:read"], null, true));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
+        JsonNode problem = (await response.Content.ReadFromJsonAsync<JsonNode>())!;
+        problem["status"]!.GetValue<int>().ShouldBe(403);
+        problem["errorCode"].ShouldBeNull();
+    }
+
+    [Fact]
     public async Task FreshHumanApprovesReviewedClientAndRefreshRemainsWithinReducedCeiling()
     {
         string email = $"human-approval-{Guid.NewGuid():N}@example.com";

@@ -144,6 +144,7 @@ if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
 
 // ProblemDetails middleware for consistent error responses
 app.UseExceptionHandler();
+app.UseStatusCodePages();
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

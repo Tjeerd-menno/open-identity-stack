@@ -61,12 +61,13 @@ components:
   schemas:
     AdministrativeApprovalProblemDetails:
       type: object
-      required: [status, errorCode]
+      required: [status]
       properties:
         status: { type: integer, enum: [403] }
         title: { type: string }
         detail: { type: string }
         errorCode:
+          description: Present only when an administrative approval action is required; absent for ordinary permission denials.
           type: string
           enum:
             - Forbidden.AdministrativeApproval.HumanRequired

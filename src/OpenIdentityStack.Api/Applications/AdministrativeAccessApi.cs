@@ -25,7 +25,7 @@ internal static class AdministrativeAccessApi
             Result<AdministrativeAccessDto> result = await workflow.SaveAsync(id, request, actor.FindFirstValue("sub") ?? "unknown", cancellationToken);
             return result.IsSuccess ? Results.Ok(result.Value) : ErrorResultMapper.ToErrorResult(result.Error);
         }).RequireAuthorization(Permissions.Applications.Write)
-            .Produces<AdministrativeAccessDto>().Produces(StatusCodes.Status400BadRequest).Produces(StatusCodes.Status401Unauthorized)
+            .Produces<AdministrativeAccessDto>().Produces<ErrorResponse>(StatusCodes.Status400BadRequest, "application/json").Produces(StatusCodes.Status401Unauthorized)
             .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces<ErrorResponse>(StatusCodes.Status409Conflict, "application/json")
             .WithName("SaveAdministrativeAccess").WithSummary("Approves, reduces, or withdraws administrative access; approval and expansion require fresh human approval");

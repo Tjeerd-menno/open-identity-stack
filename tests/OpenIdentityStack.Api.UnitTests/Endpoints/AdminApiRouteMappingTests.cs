@@ -163,6 +163,10 @@ public sealed class AdminApiRouteMappingTests
 
         forbidden.Type.ShouldBe(typeof(AdministrativeApprovalProblemDetails));
         forbidden.ContentTypes.ShouldContain("application/problem+json");
+        IProducesResponseTypeMetadata validation = endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+            .Single(metadata => metadata.StatusCode == StatusCodes.Status400BadRequest);
+        validation.Type.ShouldBe(typeof(ErrorResponse));
+        validation.ContentTypes.ShouldContain("application/json");
     }
 
     [Fact]
