@@ -47,6 +47,8 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
 
         if (!provider.IsActive)
         {
+            await this.auditLog.LogAsync("federation", "Federation.AccountAssociationDenied", "UpstreamProvider", provider.Id.Value.ToString(),
+                "Upstream provider is disabled.", cancellationToken);
             return UpstreamProviderErrors.ProviderDisabled;
         }
 

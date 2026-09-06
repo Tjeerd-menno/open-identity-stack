@@ -225,6 +225,10 @@ public sealed class JitProvisionUserUseCaseTests
         // Assert
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldContain("Disabled"); // Prefixed error code: Forbidden.UpstreamProvider.Disabled
+        await this.audit.Received(1).LogAsync("federation", "Federation.AccountAssociationDenied", "UpstreamProvider", providerId.Value.ToString(),
+            "Upstream provider is disabled.", Arg.Any<CancellationToken>());
+        await this._userRepository.DidNotReceive().FindByUpstreamIdentityAsync(Arg.Any<UpstreamProviderId>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await this.persistence.DidNotReceive().CommitAsync(Arg.Any<UserId>(), Arg.Any<UpstreamProviderId>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

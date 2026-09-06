@@ -15,6 +15,28 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class JitProvisioningPersistenceTests
 {
+    [Fact]
+    public async Task DisabledProviderDenialPersistsWithoutSubjectOrEmailData()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync(bindIssuer: false);
+        await using OpenIdentityStackDbContext attempt = database.CreateContext();
+        UpstreamProvider provider = await attempt.UpstreamProviders.SingleAsync();
+        provider.Disable();
+        await attempt.SaveChangesAsync();
+
+        Result<JitProvisionUserResult> result = await CreateUseCase(attempt).ExecuteAsync(database.Command("private-subject", "private-email@example.com"));
+
+        result.Error.ShouldBe(UpstreamProviderErrors.ProviderDisabled);
+        await using OpenIdentityStackDbContext read = database.CreateContext();
+        AuditLogEntry entry = await read.AuditLogEntries.SingleAsync();
+        entry.Action.ShouldBe("Federation.AccountAssociationDenied");
+        entry.UserId.ShouldBe("federation");
+        entry.EntityId.ShouldBe(provider.Id.Value.ToString());
+        entry.Details.ShouldBe("Upstream provider is disabled.");
+        (await read.Users.CountAsync()).ShouldBe(0);
+        (await read.UpstreamProviders.SingleAsync()).BoundIssuer.ShouldBeNull();
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
