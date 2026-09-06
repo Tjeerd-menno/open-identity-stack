@@ -4,6 +4,21 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 
 public sealed class CheckSessionTests(AppHostFixture fixture)
 {
+    [Fact]
+    public async Task LegacyMonitoringCookieIsClearedWithoutAuthenticationCookie()
+    {
+        using HttpClient browser = fixture.CreateClient(allowAutoRedirect: false);
+        browser.DefaultRequestHeaders.Add("Cookie", "op_session=legacy-random-value");
+
+        HttpResponseMessage response = await browser.GetAsync("/connect/check_session");
+
+        response.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+        string cleared = response.Headers.GetValues("Set-Cookie")
+            .Single(value => value.StartsWith("op_session=", StringComparison.Ordinal));
+        cleared.ShouldContain("op_session=;");
+        cleared.ShouldContain("samesite=none");
+    }
+
     [Theory]
     [InlineData("/connect/check_session", false)]
     [InlineData("/Account/Login", true)]

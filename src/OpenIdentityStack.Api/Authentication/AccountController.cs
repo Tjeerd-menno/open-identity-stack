@@ -33,6 +33,7 @@ public class AccountController : Controller
     private readonly IJitProvisionUserUseCase jitProvisionUseCase;
     private readonly IAuditLog audit;
     private readonly ICredentialBoundaryStore credentialBoundary;
+    private readonly ISessionMonitoringCookieService sessionMonitoringCookies;
 
     public AccountController(
         IValidateUserCredentialsUseCase validateCredentialsUseCase,
@@ -44,7 +45,8 @@ public class AccountController : Controller
         IDynamicAuthenticationSchemeService schemeService,
         IJitProvisionUserUseCase jitProvisionUseCase,
         IAuditLog audit,
-        ICredentialBoundaryStore credentialBoundary)
+        ICredentialBoundaryStore credentialBoundary,
+        ISessionMonitoringCookieService sessionMonitoringCookies)
     {
         this.validateCredentialsUseCase = validateCredentialsUseCase;
         this.createSessionUseCase = createSessionUseCase;
@@ -56,6 +58,7 @@ public class AccountController : Controller
         this.jitProvisionUseCase = jitProvisionUseCase;
         this.audit = audit;
         this.credentialBoundary = credentialBoundary;
+        this.sessionMonitoringCookies = sessionMonitoringCookies;
     }
 
     /// <summary>
@@ -306,11 +309,12 @@ public class AccountController : Controller
         };
 
         await this.HttpContext.SignInAsync("Cookies", claimsPrincipal, authProperties);
-        string sessionCookieValue = SessionManagementDefaults.GenerateSessionCookieValue();
-        this.HttpContext.Response.Cookies.Append(
-            SessionManagementDefaults.SessionCookieName,
-            sessionCookieValue,
-            SessionManagementDefaults.CreateSessionCookieOptions(authProperties.ExpiresUtc));
+        if (sessionResult.IsSuccess)
+        {
+            Guid capturedEpoch = Guid.TryParse(credentialEpoch, out Guid parsedEpoch) ? parsedEpoch : Guid.Empty;
+            this.AppendSessionMonitoringCookie(
+                user.Id, sessionResult.Value.SessionId, capturedEpoch, authProperties.ExpiresUtc!.Value);
+        }
 
         return this.RedirectToValidatedUrl(returnUrl);
     }
@@ -382,11 +386,11 @@ public class AccountController : Controller
         };
 
         await this.HttpContext.SignInAsync("Cookies", claimsPrincipal, authProperties);
-        string sessionCookieValue = SessionManagementDefaults.GenerateSessionCookieValue();
-        this.HttpContext.Response.Cookies.Append(
-            SessionManagementDefaults.SessionCookieName,
-            sessionCookieValue,
-            SessionManagementDefaults.CreateSessionCookieOptions(authProperties.ExpiresUtc));
+        if (sessionResult.IsSuccess)
+        {
+            this.AppendSessionMonitoringCookie(
+                result.Value.UserId, sessionResult.Value.SessionId, credentialEpoch, authProperties.ExpiresUtc!.Value);
+        }
 
         return this.RedirectToValidatedUrl(returnUrl);
     }
@@ -412,6 +416,19 @@ public class AccountController : Controller
     public IActionResult AccessDenied()
     {
         return this.View();
+    }
+
+    private void AppendSessionMonitoringCookie(
+        UserId userId,
+        SessionId sessionId,
+        Guid credentialEpoch,
+        DateTimeOffset expiresUtc)
+    {
+        string value = this.sessionMonitoringCookies.Create(userId, sessionId, credentialEpoch, expiresUtc);
+        this.HttpContext.Response.Cookies.Append(
+            SessionManagementDefaults.SessionCookieName,
+            value,
+            SessionManagementDefaults.CreateSessionCookieOptions(expiresUtc));
     }
 
     /// <summary>
