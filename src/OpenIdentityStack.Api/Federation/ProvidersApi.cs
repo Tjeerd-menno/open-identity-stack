@@ -181,7 +181,7 @@ internal static class ProvidersApi
             request.Scopes,
             request.JitProvisioningEnabled,
             request.Status,
-            context.User.FindFirstValue("sub") ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier));
+            httpContext.User.FindFirstValue("sub") ?? httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier));
 
         Result<UpdateProviderResult> result = await updateProviderUseCase.ExecuteAsync(command, cancellationToken);
 
