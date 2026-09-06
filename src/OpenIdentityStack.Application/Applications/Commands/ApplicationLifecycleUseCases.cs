@@ -16,6 +16,7 @@ public sealed class ApplicationLifecycleUseCases
     private readonly IAuditLog auditLog;
     private readonly IAdministrativeClientGuard administrativeGuard;
     private readonly IApplicationProtocolProjectionTransaction transaction;
+    private readonly IAdministrativeActorContext actorContext;
 
     public ApplicationLifecycleUseCases(
         IApplicationRepository repository,
@@ -24,7 +25,8 @@ public sealed class ApplicationLifecycleUseCases
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog,
         IAdministrativeClientGuard administrativeGuard,
-        IApplicationProtocolProjectionTransaction transaction)
+        IApplicationProtocolProjectionTransaction transaction,
+        IAdministrativeActorContext? actorContext = null)
     {
         this.repository = repository;
         this.projection = projection;
@@ -33,6 +35,7 @@ public sealed class ApplicationLifecycleUseCases
         this.auditLog = auditLog;
         this.administrativeGuard = administrativeGuard;
         this.transaction = transaction;
+        this.actorContext = actorContext ?? new UnauthenticatedAdministrativeActorContext();
     }
 
     public async Task<Result<ApplicationCommandResult>> ExecuteAsync(
@@ -122,7 +125,7 @@ public sealed class ApplicationLifecycleUseCases
         }
 
         await this.auditLog.LogAsync(
-            "system",
+            this.actorContext.AuditActorId,
             "Application.Created",
             "Application",
             application.Id.Value.ToString(),
@@ -393,7 +396,7 @@ public sealed class ApplicationLifecycleUseCases
 
     private Task AuditAsync(string action, DomainApplication application, CancellationToken cancellationToken) =>
         this.auditLog.LogAsync(
-            "system",
+            this.actorContext.AuditActorId,
             action,
             "Application",
             application.Id.Value.ToString(),
