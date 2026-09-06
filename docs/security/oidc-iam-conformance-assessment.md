@@ -242,7 +242,7 @@ Treat the High findings as release decisions requiring a fix or a documented, de
 
 The earlier no-restore attempts found no test project/assets in the fresh checkout; restore/build resolved that prerequisite. Test counts above are from the subsequent successful runs. Domain, architecture, frontend Vitest, browser E2E, live OIDF plans, and production infrastructure tests were **not run** for this assessment. Passing API tests in Testing mode does not validate production TLS, certificate deployment, enforced production rate limits, encrypted-token integration, or external RP delivery. Existing tests are evidence for their assertions, not independent proof that the security requirements are correct.
 
-The user explicitly authorized skipping the repository's pre-read SonarQube secrets scan after authentication was unavailable. This review did not perform a secrets scan, penetration test, formal threat model, full ASVS audit, or supply-chain assessment. No production code or security behavior was changed.
+This assessment did not include a secrets scan, penetration test, formal threat model, full ASVS audit, or supply-chain assessment. No production code or security behavior was changed.
 
 ## Sources and reproducible code evidence
 

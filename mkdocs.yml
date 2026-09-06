@@ -113,6 +113,7 @@ nav:
           - Dual admin UI strategy: adr/0001-dual-admin-ui-strategy.md
           - Dual-host management UI: adr/0002-dual-host-management-ui.md
           - Unified release train for breaking API changes: adr/0003-unified-release-train-for-breaking-api-changes.md
+          - Management Web opaque access token permissions: adr/0004-management-web-opaque-access-token-permissions.md
           - Identity and administrative trust boundaries: adr/0005-identity-and-administrative-trust-boundaries.md
       - Certification workbench:
           - OIDC negative review automation plan: certification/oidf-negative-review-automation-plan.md
