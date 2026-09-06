@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.TryAddSingleton<IAdministrativeActorContext, UnauthenticatedAdministrativeActorContext>();
         services.AddScoped<UnrestrictedGrantPolicy>();
         services.AddScoped<AdministrativeAccess.ManagementWebPreparation>();
+        services.AddScoped<Applications.SeededOAuthClientPreparation>();
 
         return services;
     }

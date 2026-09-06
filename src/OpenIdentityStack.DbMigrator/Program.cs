@@ -6,7 +6,9 @@ using Microsoft.Extensions.Logging;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.Application;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Applications;
 using OpenIdentityStack.Domain.Common;
+using OpenIdentityStack.Domain.Resources;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure;
@@ -57,7 +59,7 @@ await SeedManagementWebClientAsync(services);
 
 if (ShouldSeedDemoClients(builder.Configuration, builder.Environment, seedDevData, seedCertificationProfile))
 {
-    await SeedTraceableIsotopesWebClientAsync(services);
+    await PrepareTraceableIsotopesWebClientAsync(services);
     await SeedIsotopesApiResourceClientAsync(services);
 }
 
@@ -204,7 +206,7 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
         OpenIddictConstants.Scopes.OfflineAccess
     ];
 
-    await SeedCertificationClientAsync(
+    await PrepareCertificationClientAsync(
         serviceProvider,
         "oidf-code-client",
         "OIDF Code Client",
@@ -212,7 +214,7 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
         redirectUris,
         scopes);
 
-    await SeedCertificationClientAsync(
+    await PrepareCertificationClientAsync(
         serviceProvider,
         "oidf-code-client-post",
         "OIDF Code Client Post",
@@ -220,7 +222,7 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
         redirectUris,
         scopes);
 
-    await SeedCertificationClientAsync(
+    await PrepareCertificationClientAsync(
         serviceProvider,
         "oidf-code-client-takeover",
         "OIDF Code Client Takeover",
@@ -277,6 +279,27 @@ static UserProfileData CreateCertificationUserProfile(
         PhoneNumber: phoneNumber,
         // Nothing has verified these numbers; the suite checks the type, not the value.
         PhoneNumberVerified: false);
+}
+
+static async Task PrepareCertificationClientAsync(
+    IServiceProvider serviceProvider,
+    string clientId,
+    string displayName,
+    string clientSecret,
+    IReadOnlyList<string> redirectUris,
+    IReadOnlyList<string> scopes)
+{
+    var configuration = new SeededOAuthClientConfiguration(
+        clientId, displayName, OpenIdentityStack.Domain.Applications.ApplicationProfile.Web,
+        OpenIdentityStack.Domain.Applications.OAuthClientType.Confidential,
+        [OpenIddictConstants.GrantTypes.AuthorizationCode, OpenIddictConstants.GrantTypes.RefreshToken],
+        scopes, redirectUris, [], RequirePkce: false, RequireConsent: false);
+    Result<OpenIdentityStack.Domain.Applications.Application> prepared = await serviceProvider
+        .GetRequiredService<SeededOAuthClientPreparation>().PrepareAsync(configuration, clientSecret);
+    if (prepared.IsFailure) { throw new InvalidOperationException(prepared.Error.Description); }
+    await SeedCertificationClientAsync(serviceProvider, clientId, displayName, clientSecret, redirectUris, scopes);
+    serviceProvider.GetRequiredService<ILogger<Program>>()
+        .LogInformation("Prepared certification OAuth client '{ClientId}'.", clientId);
 }
 
 static async Task SeedCertificationClientAsync(
@@ -391,6 +414,52 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
         .CreateIfAbsentAsync("admin@localhost.dev", "Default Admin", password, assignAdministrator: true);
     logger.LogInformation("Development admin bootstrap completed (Created: {Created}); existing accounts are preserved.", created);
 }
+static async Task PrepareTraceableIsotopesWebClientAsync(IServiceProvider serviceProvider)
+{
+    string[] scopes =
+    [
+        OpenIddictConstants.Scopes.OpenId,
+        OpenIddictConstants.Scopes.Profile,
+        OpenIddictConstants.Scopes.Email,
+        "isotopes:read",
+        "isotopes:write",
+        "exports:read",
+        "exports:write",
+        "audit:read",
+    ];
+    string[] redirectUris =
+    [
+        "http://localhost:5176/callback",
+        "http://localhost:5173/callback",
+        "http://localhost:5174/callback",
+        "http://localhost:3000/callback",
+    ];
+    string[] postLogoutRedirectUris =
+    [
+        "http://localhost:5176/", "http://localhost:5176",
+        "http://localhost:5173/", "http://localhost:5173",
+        "http://localhost:5174/", "http://localhost:5174",
+        "http://localhost:3000/", "http://localhost:3000",
+    ];
+    SeededProtectedResourceConfiguration[] resources = scopes
+        .Where(static scope => !ProtectedResource.IsProtocolScope(scope))
+        .Select(static scope => new SeededProtectedResourceConfiguration(
+            $"urn:traceable-isotopes:scope:{scope}", scope,
+            $"Traceable Isotopes {scope} access", ["traceable-isotopes"], ["*"]))
+        .ToArray();
+    var configuration = new SeededOAuthClientConfiguration(
+        "traceable-isotopes-web", "Traceable Isotopes Web Application",
+        OpenIdentityStack.Domain.Applications.ApplicationProfile.SinglePage, OpenIdentityStack.Domain.Applications.OAuthClientType.Public,
+        [OpenIddictConstants.GrantTypes.AuthorizationCode, OpenIddictConstants.GrantTypes.RefreshToken],
+        scopes, redirectUris, postLogoutRedirectUris, RequirePkce: true, RequireConsent: false);
+    Result<OpenIdentityStack.Domain.Applications.Application> prepared = await serviceProvider
+        .GetRequiredService<SeededOAuthClientPreparation>().PrepareAsync(configuration, null, resources);
+    if (prepared.IsFailure) { throw new InvalidOperationException(prepared.Error.Description); }
+    await SeedTraceableIsotopesWebClientAsync(serviceProvider);
+    serviceProvider.GetRequiredService<ILogger<Program>>()
+        .LogInformation("Prepared Traceable Isotopes OAuth client and resource access.");
+}
+
 static async Task SeedTraceableIsotopesWebClientAsync(IServiceProvider serviceProvider)
 {
     ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
