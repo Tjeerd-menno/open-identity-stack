@@ -38,9 +38,11 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                 type: "uuid",
                 nullable: false,
                 defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
-            // Lock legacy providers without inventing issuer or account-control evidence.
+            // Quiesce and lock legacy providers without inventing issuer or account-control evidence.
+            // They must be explicitly reviewed and rebound before accepting another sign-in.
             migrationBuilder.Sql("""
-                UPDATE upstream_providers SET identity_configuration_locked = TRUE
+                UPDATE upstream_providers
+                SET status = 'Disabled', identity_configuration_locked = TRUE
                 WHERE EXISTS (SELECT 1 FROM "UserUpstreamIdentities" i WHERE i."ProviderId" = upstream_providers.id);
                 """);
         }

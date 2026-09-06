@@ -31,7 +31,7 @@ public sealed class UpstreamProviderRepositoryTests : IClassFixture<SqliteTestFi
     }
 
     [Fact]
-    public async Task Migration_LocksLegacyProvidersWithoutBackfillingIssuerEvidence()
+    public async Task Migration_QuiescesAndLocksLegacyProvidersWithoutBackfillingIssuerEvidence()
     {
         UpstreamProvider provider = await this.SeedAsync("legacy-provider", "Legacy Provider");
         OpenIdentityStack.Domain.Users.User user = OpenIdentityStack.Domain.Users.User.CreateFederated("legacy@example.com", "Legacy", provider.Id, provider.Name, "subject").Value;
@@ -46,6 +46,7 @@ public sealed class UpstreamProviderRepositoryTests : IClassFixture<SqliteTestFi
 
         this._dbContext.ChangeTracker.Clear();
         UpstreamProvider reloaded = (await this._repository.GetByIdAsync(provider.Id))!;
+        reloaded.Status.ShouldBe(ProviderStatus.Disabled);
         reloaded.IdentityConfigurationLocked.ShouldBeTrue();
         reloaded.BoundIssuer.ShouldBeNull();
         OpenIdentityStack.Domain.Users.User reloadedUser = (await this._dbContext.Users.FindAsync(user.Id))!;
