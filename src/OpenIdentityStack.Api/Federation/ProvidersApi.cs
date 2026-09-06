@@ -49,6 +49,7 @@ internal static class ProvidersApi
             .Produces<ProviderResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
             .WithName("UpdateProvider")
             .WithSummary("Updates an existing provider");
 
