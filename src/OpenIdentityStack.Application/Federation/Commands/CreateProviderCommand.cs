@@ -14,6 +14,7 @@ namespace OpenIdentityStack.Application.Federation.Commands;
 /// <param name="ClientSecret">The OAuth2 client secret (optional).</param>
 /// <param name="Scopes">The scopes to request from the provider.</param>
 /// <param name="JitProvisioningEnabled">Whether JIT provisioning is enabled.</param>
+/// <param name="ActorId">Authenticated operator responsible for the initial policy.</param>
 public sealed record CreateProviderCommand(
     string Name,
     string DisplayName,
@@ -21,7 +22,8 @@ public sealed record CreateProviderCommand(
     string ClientId,
     string? ClientSecret,
     IReadOnlyList<string>? Scopes,
-    bool JitProvisioningEnabled = true);
+    bool JitProvisioningEnabled = true,
+    string? ActorId = null);
 
 /// <summary>
 /// Result of creating an upstream provider.
@@ -70,6 +72,7 @@ public sealed class CreateProviderUseCase : ICreateProviderUseCase
     private readonly IUpstreamProviderRepository providerRepository;
     private readonly IEnvironmentProvider environmentProvider;
     private readonly ISecretProtector secretProtector;
+    private readonly IAuditLog audit;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CreateProviderUseCase"/> class.
@@ -77,11 +80,13 @@ public sealed class CreateProviderUseCase : ICreateProviderUseCase
     public CreateProviderUseCase(
         IUpstreamProviderRepository providerRepository,
         IEnvironmentProvider environmentProvider,
-        ISecretProtector secretProtector)
+        ISecretProtector secretProtector,
+        IAuditLog audit)
     {
         this.providerRepository = providerRepository;
         this.environmentProvider = environmentProvider;
         this.secretProtector = secretProtector;
+        this.audit = audit;
     }
 
     /// <inheritdoc />
@@ -89,6 +94,10 @@ public sealed class CreateProviderUseCase : ICreateProviderUseCase
         CreateProviderCommand command,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(command.ActorId))
+        {
+            return DomainError.Forbidden("Federation.OperatorRequired", "An authenticated operator is required.");
+        }
         // Check for duplicate name
         UpstreamProvider? existingProvider = await this.providerRepository.GetByNameAsync(
             command.Name,
@@ -115,6 +124,7 @@ public sealed class CreateProviderUseCase : ICreateProviderUseCase
         }
 
         UpstreamProvider provider = createResult.Value;
+        provider.SetJitProvisioningEnabled(command.JitProvisioningEnabled);
 
         // Set optional client secret
         if (!string.IsNullOrWhiteSpace(command.ClientSecret))
@@ -139,6 +149,9 @@ public sealed class CreateProviderUseCase : ICreateProviderUseCase
         // The domain model might need extension for scopes storage
 
         await this.providerRepository.AddAsync(provider, cancellationToken);
+        // The audit adapter atomically saves the tracked provider and its initial policy event.
+        await this.audit.LogChangeAsync(command.ActorId, "Federation.ProviderCreated", "UpstreamProvider", provider.Id.Value.ToString(),
+            null, provider.JitProvisioningEnabled ? "{\"jitProvisioningEnabled\":true}" : "{\"jitProvisioningEnabled\":false}", cancellationToken);
         await this.providerRepository.SaveChangesAsync(cancellationToken);
 
         return new CreateProviderResult(
@@ -148,7 +161,7 @@ public sealed class CreateProviderUseCase : ICreateProviderUseCase
             provider.Authority,
             provider.ClientId,
             command.Scopes ?? [],
-            command.JitProvisioningEnabled,
+            provider.JitProvisioningEnabled,
             provider.Status.ToString(),
             provider.CreatedAt);
     }

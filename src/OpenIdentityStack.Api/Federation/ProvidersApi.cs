@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using OpenIddict.Validation.AspNetCore;
 using OpenIdentityStack.Application.Abstractions;
@@ -39,6 +40,7 @@ internal static class ProvidersApi
             .Produces<ProviderResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithName("CreateProvider")
             .WithSummary("Creates a new upstream provider");
 
@@ -47,6 +49,7 @@ internal static class ProvidersApi
             .Produces<ProviderResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
             .WithName("UpdateProvider")
             .WithSummary("Updates an existing provider");
 
@@ -110,6 +113,7 @@ internal static class ProvidersApi
 
     private static async Task<IResult> CreateProvider(
         [FromServices] ICreateProviderUseCase createProviderUseCase,
+        HttpContext context,
         [FromBody] CreateProviderRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -120,12 +124,17 @@ internal static class ProvidersApi
             request.ClientId,
             request.ClientSecret,
             request.Scopes,
-            request.JitProvisioningEnabled);
+            request.JitProvisioningEnabled,
+            context.User.FindFirstValue("sub") ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier));
 
         Result<CreateProviderResult> result = await createProviderUseCase.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
+            if (result.Error.Code.StartsWith("Forbidden.", StringComparison.Ordinal))
+            {
+                return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, detail: result.Error.Description);
+            }
             if (result.Error.Code.Contains("Conflict", StringComparison.Ordinal) || result.Error.Code.Contains("Exists", StringComparison.Ordinal))
             {
                 return TypedResults.Conflict(new { error = result.Error.Description });
@@ -152,6 +161,7 @@ internal static class ProvidersApi
 
     private static async Task<IResult> UpdateProvider(
         [FromServices] IUpdateProviderUseCase updateProviderUseCase,
+        HttpContext context,
         Guid id,
         [FromBody] UpdateProviderRequest request,
         CancellationToken cancellationToken = default)
@@ -163,12 +173,17 @@ internal static class ProvidersApi
             request.ClientSecret,
             request.Scopes,
             request.JitProvisioningEnabled,
-            request.Status);
+            request.Status,
+            context.User.FindFirstValue("sub") ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier));
 
         Result<UpdateProviderResult> result = await updateProviderUseCase.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
+            if (result.Error.Code.StartsWith("Forbidden.", StringComparison.Ordinal))
+            {
+                return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, detail: result.Error.Description);
+            }
             if (result.Error.Code.Contains("NotFound", StringComparison.Ordinal))
             {
                 return TypedResults.NotFound(new { error = result.Error.Description });
@@ -294,7 +309,7 @@ internal static class ProvidersApi
             Authority = provider.Authority,
             ClientId = provider.ClientId,
             Scopes = [],
-            JitProvisioningEnabled = true,
+            JitProvisioningEnabled = provider.JitProvisioningEnabled,
             Status = provider.Status.ToString(),
             CreatedAt = provider.CreatedAt
         };

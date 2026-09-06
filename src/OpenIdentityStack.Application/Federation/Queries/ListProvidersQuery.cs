@@ -80,7 +80,7 @@ public sealed class ListProvidersQueryHandler : IListProvidersQueryHandler
             p.Authority,
             p.ClientId,
             [], // Scopes would be stored in a separate configuration
-            true, // JIT provisioning enabled by default
+            p.JitProvisioningEnabled,
             p.Status.ToString(),
             p.CreatedAt)).ToList();
 

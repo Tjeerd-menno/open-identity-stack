@@ -126,12 +126,10 @@ internal static class UsersApi
 
         group.MapPost("{userId:guid}/upstream-identities", LinkUpstreamIdentity)
             .RequireAuthorization(Permissions.Users.Write)
-            .Produces<LinkUpstreamIdentityResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithName("LinkUpstreamIdentity")
-            .WithSummary("Links an upstream identity to a user");
+            .WithSummary("Rejects identity linking without proof of account control");
 
         group.MapDelete("{userId:guid}/upstream-identities/{providerId:guid}", UnlinkUpstreamIdentity)
             .RequireAuthorization(Permissions.Users.Write)
@@ -432,6 +430,15 @@ internal static class UsersApi
 
         if (result.IsFailure)
         {
+            if (result.Error.Code == "Forbidden.UpstreamIdentity.ProofRequired")
+            {
+                return TypedResults.Problem(
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account-control proof required",
+                    detail: result.Error.Description,
+                    extensions: new Dictionary<string, object?> { ["code"] = result.Error.Code });
+            }
+
             return ErrorResultMapper.ToErrorResult(result.Error);
         }
 

@@ -42,6 +42,7 @@ public static class ProblemDetailsConfiguration
                         UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
                         KeyNotFoundException => (StatusCodes.Status404NotFound, "Not Found"),
                         InvalidOperationException => (StatusCodes.Status409Conflict, "Conflict"),
+                        Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Conflict"),
                         _ => (StatusCodes.Status500InternalServerError, "Internal Server Error")
                     };
 
@@ -74,6 +75,7 @@ public static class ProblemDetailsConfiguration
                             UnauthorizedAccessException => "You are not authorized to perform this action.",
                             KeyNotFoundException => "The requested resource was not found.",
                             InvalidOperationException => exception.Message,
+                            Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => "The state changed while this request was being processed. Reload and retry the operation.",
                             _ => "An unexpected error occurred. Please try again later."
                         };
                     }

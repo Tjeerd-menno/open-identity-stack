@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Route, Routes } from 'react-router';
 import { makeAuth, renderManagementWeb } from '@/test/render';
@@ -44,6 +45,37 @@ function renderDetail(auth = makeAuth()) {
 }
 
 describe('UserDetailPage', () => {
+  it.each([
+    { name: 'unrestricted', permissions: ['*'] },
+    { name: 'user write', permissions: ['users:read', 'users:write'] },
+  ])('does not offer raw identity linking to a $name operator', async ({ permissions }) => {
+    const user = userEvent.setup();
+    renderDetail(makeAuth({ permissions }));
+
+    await user.click(await screen.findByRole('tab', { name: /upstream identities/i }));
+
+    expect(screen.queryByRole('button', { name: /^link$/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^provider(?: id)?$/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^subject$/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/linking an existing account requires proof of account ownership/i)).toBeInTheDocument();
+    expect(mockApi.providers.getProviders).not.toHaveBeenCalled();
+  });
+
+  it('retains linked identities and allows authorized unlinking', async () => {
+    const user = userEvent.setup();
+    mockApi.users.getUserUpstreamIdentities.mockResolvedValue([
+      { providerId: 'p1', providerName: 'Example provider', subjectId: 'existing-subject' },
+    ]);
+    mockApi.users.unlinkUserUpstreamIdentity.mockResolvedValue(undefined);
+    renderDetail(makeAuth({ permissions: ['users:read', 'users:write'] }));
+
+    await user.click(await screen.findByRole('tab', { name: /upstream identities/i }));
+    expect(await screen.findByText('existing-subject')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Unlink Example provider' }));
+
+    await waitFor(() => expect(mockApi.users.unlinkUserUpstreamIdentity).toHaveBeenCalledWith('u1', 'p1'));
+  });
+
   it('renders the user header and profile fields', async () => {
     renderDetail();
 

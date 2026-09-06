@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
@@ -120,22 +122,22 @@ public sealed class UserManagementTests : ManagementWebPageTest
     }
 
     [Fact]
-    public async Task OperatorCanLinkAnUpstreamIdentity()
+    public async Task OperatorCannotLinkAnExistingAccountUsingRawIdentifiers()
     {
         await GotoAsync($"/users/{_adaId}");
         await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Upstream identities", RegexOptions.IgnoreCase) }).ClickAsync();
-
-        await Page.GetByPlaceholder("Select a provider").ClickAsync();
-        await Page.GetByRole(AriaRole.Option, new() { Name = _providerName, Exact = true }).ClickAsync();
-        await Page.GetByLabel("Subject").FillAsync("google-subject-12345");
-        await Page.GetByRole(AriaRole.Button, new() { Name = "Link", Exact = true }).ClickAsync();
-
-        ILocator toast = Page.GetByText(new Regex("Identity linked", RegexOptions.IgnoreCase));
-        await toast.WaitForAsync();
-        (await toast.IsVisibleAsync()).ShouldBeTrue();
+        await Page.GetByText("Linking an existing account requires proof of account ownership. This workflow is not yet available.", new() { Exact = true }).WaitForAsync();
+        (await Page.GetByPlaceholder("Select a provider").CountAsync()).ShouldBe(0);
+        (await Page.GetByLabel("Subject", new() { Exact = true }).CountAsync()).ShouldBe(0);
+        (await Page.GetByRole(AriaRole.Button, new() { Name = "Link", Exact = true }).CountAsync()).ShouldBe(0);
+        HttpResponseMessage denied = await Api.PostAsJsonAsync($"/api/admin/users/{_adaId}/upstream-identities", new
+        {
+            providerId = _providerId, subjectId = "unproven-subject"
+        });
+        denied.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await denied.Content.ReadAsStringAsync()).ShouldContain("Forbidden.UpstreamIdentity.ProofRequired");
     }
-
     [Fact]
     public async Task OperatorCanEnableADisabledUser()
     {
@@ -205,12 +207,7 @@ public sealed class UserManagementTests : ManagementWebPageTest
     [Fact]
     public async Task OperatorCanUnlinkAnUpstreamIdentity()
     {
-        // Link an identity through the real API so there is one to unlink through the UI.
-        await ApiPostAsync($"/api/admin/users/{_adaId}/upstream-identities", new
-        {
-            providerId = _providerId,
-            subjectId = "google-subject-to-unlink",
-        });
+        await Fixture.SeedLegacyIdentityAsync(_adaId, _providerId, $"google-{Unique}", "google-subject-to-unlink");
 
         await GotoAsync($"/users/{_adaId}");
         await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();

@@ -64,6 +64,12 @@ public sealed class UpstreamProviderConfiguration : IEntityTypeConfiguration<Ups
             .HasColumnName("created_at")
             .IsRequired();
 
+        builder.Property(p => p.JitProvisioningEnabled)
+            .IsConcurrencyToken()
+            .HasColumnName("jit_provisioning_enabled")
+            .HasDefaultValue(true)
+            .IsRequired();
+
         builder.Property(p => p.UpdatedAt)
             .HasColumnName("updated_at")
             .IsRequired();

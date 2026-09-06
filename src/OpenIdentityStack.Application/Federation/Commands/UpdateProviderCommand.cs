@@ -14,6 +14,7 @@ namespace OpenIdentityStack.Application.Federation.Commands;
 /// <param name="Scopes">The new scopes (optional).</param>
 /// <param name="JitProvisioningEnabled">Whether JIT provisioning is enabled (optional).</param>
 /// <param name="Status">The new status: "Active" or "Disabled" (optional).</param>
+/// <param name="ActorId">Authenticated operator identifier for policy audit.</param>
 public sealed record UpdateProviderCommand(
     Guid ProviderId,
     string? DisplayName = null,
@@ -21,7 +22,8 @@ public sealed record UpdateProviderCommand(
     string? ClientSecret = null,
     IReadOnlyList<string>? Scopes = null,
     bool? JitProvisioningEnabled = null,
-    string? Status = null);
+    string? Status = null,
+    string? ActorId = null);
 
 /// <summary>
 /// Result of updating an upstream provider.
@@ -69,15 +71,18 @@ public sealed class UpdateProviderUseCase : IUpdateProviderUseCase
 {
     private readonly IUpstreamProviderRepository providerRepository;
     private readonly ISecretProtector secretProtector;
+    private readonly IAuditLog? audit;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="UpdateProviderUseCase"/> class.
     /// </summary>
     public UpdateProviderUseCase(
         IUpstreamProviderRepository providerRepository,
-        ISecretProtector? secretProtector = null)
+        ISecretProtector? secretProtector = null,
+        IAuditLog? audit = null)
     {
         this.providerRepository = providerRepository;
+        this.audit = audit;
         this.secretProtector = secretProtector ?? new NoopSecretProtector();
     }
 
@@ -94,6 +99,13 @@ public sealed class UpdateProviderUseCase : IUpdateProviderUseCase
             return DomainError.NotFound(
                 "ProviderNotFound",
                 $"Provider with ID '{command.ProviderId}' was not found.");
+        }
+
+        bool previousProvisioning = provider.JitProvisioningEnabled;
+        bool policyChanged = command.JitProvisioningEnabled is { } requested && requested != previousProvisioning;
+        if (policyChanged && (string.IsNullOrWhiteSpace(command.ActorId) || this.audit is null))
+        {
+            return DomainError.Forbidden("Federation.OperatorRequired", "An authenticated operator is required.");
         }
 
         // Update display name
@@ -159,6 +171,21 @@ public sealed class UpdateProviderUseCase : IUpdateProviderUseCase
             }
         }
 
+        if (command.JitProvisioningEnabled is { } jitProvisioningEnabled)
+        {
+            provider.SetJitProvisioningEnabled(jitProvisioningEnabled);
+            this.providerRepository.RequireProvisioningPolicyWrite(provider);
+        }
+
+        if (policyChanged)
+        {
+            // The audit adapter saves the tracked policy and its allowlisted audit record atomically.
+            await this.audit!.LogChangeAsync(command.ActorId!, "Federation.JitProvisioningPolicyChanged", "UpstreamProvider",
+                provider.Id.Value.ToString(),
+                previousProvisioning ? "{\"jitProvisioningEnabled\":true}" : "{\"jitProvisioningEnabled\":false}",
+                provider.JitProvisioningEnabled ? "{\"jitProvisioningEnabled\":true}" : "{\"jitProvisioningEnabled\":false}",
+                cancellationToken);
+        }
         await this.providerRepository.SaveChangesAsync(cancellationToken);
 
         return new UpdateProviderResult(
@@ -168,7 +195,7 @@ public sealed class UpdateProviderUseCase : IUpdateProviderUseCase
             provider.Authority,
             provider.ClientId,
             command.Scopes ?? [],
-            command.JitProvisioningEnabled ?? true,
+            provider.JitProvisioningEnabled,
             provider.Status.ToString(),
             provider.CreatedAt);
     }
