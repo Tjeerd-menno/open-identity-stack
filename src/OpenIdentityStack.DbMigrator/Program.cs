@@ -416,16 +416,21 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
 }
 static async Task PrepareTraceableIsotopesWebClientAsync(IServiceProvider serviceProvider)
 {
+    SeededPermissionConfiguration[] permissions =
+    [
+        new("isotopes:read", "Read isotopes", null, "Isotopes"),
+        new("isotopes:write", "Write isotopes", null, "Isotopes"),
+        new("exports:read", "Read exports", null, "Exports"),
+        new("exports:write", "Write exports", null, "Exports"),
+        new("audit:read", "Read audit records", null, "Audit")
+    ];
+    string[] resourceScopes = permissions.Select(static permission => permission.PermissionKey).ToArray();
     string[] scopes =
     [
         OpenIddictConstants.Scopes.OpenId,
         OpenIddictConstants.Scopes.Profile,
         OpenIddictConstants.Scopes.Email,
-        "isotopes:read",
-        "isotopes:write",
-        "exports:read",
-        "exports:write",
-        "audit:read",
+        .. resourceScopes
     ];
     string[] redirectUris =
     [
@@ -441,19 +446,21 @@ static async Task PrepareTraceableIsotopesWebClientAsync(IServiceProvider servic
         "http://localhost:5174/", "http://localhost:5174",
         "http://localhost:3000/", "http://localhost:3000",
     ];
-    SeededProtectedResourceConfiguration[] resources = scopes
-        .Where(static scope => !ProtectedResource.IsProtocolScope(scope))
+    SeededProtectedResourceConfiguration[] resources = resourceScopes
         .Select(static scope => new SeededProtectedResourceConfiguration(
             $"urn:traceable-isotopes:scope:{scope}", scope,
-            $"Traceable Isotopes {scope} access", ["traceable-isotopes"], ["*"]))
+            $"Traceable Isotopes {scope} access", ["traceable-isotopes"], [$"traceable-isotopes:{scope}"]))
         .ToArray();
+    var catalog = new SeededPermissionCatalogConfiguration(
+        "traceable-isotopes", "Traceable Isotopes", "deployment-seed",
+        OpenIdentityStack.Domain.ApplicationPermissions.OwnerType.User, permissions);
     var configuration = new SeededOAuthClientConfiguration(
         "traceable-isotopes-web", "Traceable Isotopes Web Application",
         OpenIdentityStack.Domain.Applications.ApplicationProfile.SinglePage, OpenIdentityStack.Domain.Applications.OAuthClientType.Public,
         [OpenIddictConstants.GrantTypes.AuthorizationCode, OpenIddictConstants.GrantTypes.RefreshToken],
         scopes, redirectUris, postLogoutRedirectUris, RequirePkce: true, RequireConsent: false);
     Result<OpenIdentityStack.Domain.Applications.Application> prepared = await serviceProvider
-        .GetRequiredService<SeededOAuthClientPreparation>().PrepareAsync(configuration, null, resources);
+        .GetRequiredService<SeededOAuthClientPreparation>().PrepareAsync(configuration, null, resources, catalog);
     if (prepared.IsFailure) { throw new InvalidOperationException(prepared.Error.Description); }
     await SeedTraceableIsotopesWebClientAsync(serviceProvider);
     serviceProvider.GetRequiredService<ILogger<Program>>()
@@ -575,6 +582,22 @@ static async Task SeedIsotopesApiResourceClientAsync(IServiceProvider servicePro
     // development/testing, so this never reaches a production or staging database.
     const string clientSecret = "isotopes-api-resource-secret";
 
+    string[] resourceScopes = ["isotopes:read", "isotopes:write", "exports:read", "exports:write", "audit:read"];
+    SeededProtectedResourceConfiguration[] resources = resourceScopes.Select(static scope =>
+        new SeededProtectedResourceConfiguration(
+            $"urn:traceable-isotopes:scope:{scope}", scope,
+            $"Traceable Isotopes {scope} access", ["traceable-isotopes"], [])).ToArray();
+    var authorityConfiguration = new SeededOAuthClientConfiguration(
+        clientId, "Isotopes API Resource Server",
+        OpenIdentityStack.Domain.Applications.ApplicationProfile.MachineToMachine,
+        OpenIdentityStack.Domain.Applications.OAuthClientType.Confidential,
+        [OpenIddictConstants.GrantTypes.ClientCredentials], resourceScopes, [], [],
+        RequirePkce: false, RequireConsent: false);
+    Result<OpenIdentityStack.Domain.Applications.Application> prepared = await serviceProvider
+        .GetRequiredService<SeededOAuthClientPreparation>()
+        .PrepareAuthorityOnlyAsync(authorityConfiguration, resources);
+    if (prepared.IsFailure) { throw new InvalidOperationException(prepared.Error.Description); }
+
     object? apiScope = await scopeManager.FindByNameAsync("api");
     if (apiScope is null)
     {
@@ -603,12 +626,6 @@ static async Task SeedIsotopesApiResourceClientAsync(IServiceProvider servicePro
     }
 
     object? existingClient = await applicationManager.FindByClientIdAsync(clientId);
-    if (existingClient is not null)
-    {
-        logger.LogDebug("OpenIddict client '{ClientId}' already exists, skipping seed", clientId);
-        return;
-    }
-
     var descriptor = new OpenIddictApplicationDescriptor
     {
         ClientId = clientId,
@@ -621,8 +638,15 @@ static async Task SeedIsotopesApiResourceClientAsync(IServiceProvider servicePro
         }
     };
 
-    await applicationManager.CreateAsync(descriptor);
-    logger.LogInformation("Created OpenIddict introspection client '{ClientId}' for IsotopesApi", clientId);
+    if (existingClient is null)
+    {
+        await applicationManager.CreateAsync(descriptor);
+        logger.LogInformation("Created OpenIddict introspection client '{ClientId}' for IsotopesApi", clientId);
+        return;
+    }
+
+    await applicationManager.UpdateAsync(existingClient, descriptor);
+    logger.LogInformation("Updated OpenIddict introspection client '{ClientId}' for IsotopesApi", clientId);
 }
 
 static async Task SeedConfiguredAdminUserAsync(IServiceProvider serviceProvider)

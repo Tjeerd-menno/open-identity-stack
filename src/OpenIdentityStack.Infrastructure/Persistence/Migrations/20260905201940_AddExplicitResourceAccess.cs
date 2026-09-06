@@ -88,7 +88,10 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
             migrationBuilder.Sql("""
                 UPDATE "Applications"
                 SET "RequiresMigrationReview" = TRUE,
-                    "MigrationSource" = 'resource-access-boundary-v1'
+                    "MigrationSource" = CASE
+                        WHEN "RequiresMigrationReview" THEN "MigrationSource"
+                        ELSE 'resource-access-boundary-v1'
+                    END
                 WHERE EXISTS (
                     SELECT 1 FROM jsonb_array_elements_text("AllowedScopes") AS scope(value)
                     WHERE scope.value NOT IN ('openid', 'profile', 'email', 'address', 'phone', 'offline_access', 'roles')
