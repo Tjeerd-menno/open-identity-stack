@@ -35,6 +35,19 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                 name: "IX_UserEmailVerificationEvidence_UserId",
                 table: "UserEmailVerificationEvidence",
                 column: "UserId");
+
+            // Before this migration, every non-pending local account had completed the
+            // email-verification transition. Bootstrap activation introduced in the same release
+            // runs after migrations, so it must not be included in this one-time upgrade backfill.
+            migrationBuilder.Sql(
+                """
+                INSERT INTO "UserEmailVerificationEvidence" ("Id", "NormalizedEmail", "VerifiedAt", "UserId")
+                SELECT gen_random_uuid(), "NormalizedEmail", COALESCE("ModifiedAt", "CreatedAt"), "Id"
+                FROM "Users"
+                WHERE "Status" <> 0
+                  AND "PasswordHash" IS NOT NULL
+                  AND "PasswordHash" <> '';
+                """);
         }
 
         /// <inheritdoc />
