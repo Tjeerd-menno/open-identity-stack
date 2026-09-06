@@ -1334,6 +1334,32 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("UserId");
                         });
 
+                    b.OwnsMany("OpenIdentityStack.Domain.Users.EmailVerificationEvidence", "EmailVerificationEvidence", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("NormalizedEmail")
+                                .IsRequired()
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)");
+
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<DateTimeOffset>("VerifiedAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("UserId");
+
+                            b1.ToTable("UserEmailVerificationEvidence", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
                     b.OwnsMany("OpenIdentityStack.Domain.Users.UpstreamIdentity", "UpstreamIdentities", b1 =>
                         {
                             b1.Property<int>("Id")
@@ -1392,6 +1418,8 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Address");
+
+                    b.Navigation("EmailVerificationEvidence");
 
                     b.Navigation("UpstreamIdentities");
                 });
