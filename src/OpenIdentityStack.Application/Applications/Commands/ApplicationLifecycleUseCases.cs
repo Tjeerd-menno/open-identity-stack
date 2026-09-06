@@ -504,7 +504,14 @@ public sealed class ApplicationCredentialUseCases
             return addResult.Error;
         }
 
-        await this.repository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await this.repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is IConcurrencyConflict)
+        {
+            return ApplicationErrors.CredentialConflict;
+        }
         await this.administrativeGuard.RecordOutcomeAsync(cancellationToken);
         await this.auditLog.LogAsync(
             "system",

@@ -118,6 +118,28 @@ public sealed class ApplicationCredentialUseCaseTests
     }
 
     [Fact]
+    public async Task AddCertificateExecuteAsync_WhenAuthorityFenceConflicts_ReturnsCredentialConflict()
+    {
+        DomainApplication application = this.CreateMachineToMachineApplication();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.repository.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new TestConcurrencyConflictException()));
+
+        Result<ApplicationCredentialCommandResult> result = await this.credentialUseCases.ExecuteAsync(
+            new AddApplicationCertificateCommand(application.Id, "ABC123", null, null, null));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.CredentialConflict");
+        await this.auditLog.DidNotReceive().LogAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ListCredentialsAfterSecretRotation_ReturnsMetadataWithoutSecretMaterial()
     {
         DomainApplication application = this.CreateMachineToMachineApplication();
@@ -213,4 +235,6 @@ public sealed class ApplicationCredentialUseCaseTests
     private static bool ContainsSecretMaterialName(string propertyName) =>
         propertyName.Contains("Secret", StringComparison.OrdinalIgnoreCase) ||
         propertyName.Contains("Hash", StringComparison.OrdinalIgnoreCase);
+
+    private sealed class TestConcurrencyConflictException : Exception, IConcurrencyConflict;
 }
