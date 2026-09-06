@@ -63,7 +63,12 @@ public sealed class SessionRepository : ISessionRepository
     /// <inheritdoc/>
     public async Task UpdateAsync(UserSession session, CancellationToken cancellationToken = default)
     {
-        this.context.UserSessions.Update(session);
+        if (this.context.Entry(session).State == EntityState.Detached)
+        {
+            throw new InvalidOperationException("Load the session through this repository before updating it.");
+        }
+        // All mutation use cases load tracked sessions. Save only their changed properties so
+        // an activity request cannot overwrite a revocation committed by another context.
         await this.context.SaveChangesAsync(cancellationToken);
     }
 

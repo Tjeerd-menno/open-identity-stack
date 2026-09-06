@@ -41,6 +41,15 @@ public sealed class UserCredentialRevisionValidation(OpenIdentityStackDbContext 
         }
 
         string? capturedRevision = principal.GetClaim(UserCredentialClaims.Revision);
+        Claim[] subjectKinds = principal.FindAll(TokenSubjectClaims.Kind).ToArray();
+        if (subjectKinds is [{ Value: TokenSubjectClaims.Application }]
+            && capturedRevision is null
+            && principal.GetClaim(OpenIddictConstants.Claims.Subject) is { Length: > 0 } applicationSubject
+            && string.Equals(applicationSubject, principal.GetClaim(OpenIddictConstants.Claims.ClientId), StringComparison.Ordinal))
+        {
+            return true;
+        }
+
         if (!Guid.TryParse(principal.GetClaim(OpenIddictConstants.Claims.Subject), out Guid subject))
         {
             return capturedRevision is null;

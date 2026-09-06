@@ -248,6 +248,7 @@ public class AuthorizationController : ControllerBase
 
             string? clientId = await this.applicationManager.GetClientIdAsync(application);
             identity.AddClaim(new Claim(Claims.Subject, clientId!));
+            identity.AddClaim(new Claim(TokenSubjectClaims.Kind, TokenSubjectClaims.Application).SetDestinations(Destinations.AccessToken));
             identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, clientId!));
 
             string? displayName = await this.applicationManager.GetDisplayNameAsync(application);

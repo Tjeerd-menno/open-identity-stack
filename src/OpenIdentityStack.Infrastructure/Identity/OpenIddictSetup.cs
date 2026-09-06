@@ -61,6 +61,9 @@ public static class OpenIddictSetup
             // Register the OpenIddict server components
             .AddServer(options =>
             {
+                options.AddEventHandler<OpenIddictServerEvents.GenerateTokenContext>(builder =>
+                    builder.UseScopedHandler<ApplicationTokenSubjectMetadata>()
+                        .SetOrder(OpenIddictServerHandlers.Protection.CreateTokenEntry.Descriptor.Order + 1_000));
                 options.AddEventHandler<OpenIddictServerEvents.ValidateTokenContext>(builder =>
                     builder.UseScopedHandler<UserCredentialRevisionValidation>()
                         .SetOrder(OpenIddictServerHandlers.Protection.ValidateAuthorizationEntry.Descriptor.Order + 1_000));

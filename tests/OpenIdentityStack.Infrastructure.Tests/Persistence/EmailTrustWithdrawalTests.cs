@@ -110,6 +110,36 @@ public sealed class EmailTrustWithdrawalTests
         fresh.IsRejected.ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData(true, true, false, false, true)]
+    [InlineData(true, true, true, false, false)]
+    [InlineData(true, false, false, false, false)]
+    [InlineData(false, true, false, false, false)]
+    [InlineData(true, true, false, true, false)]
+    public async Task ApplicationExemptionRequiresProtectedMachineEvidenceAndNeverOverridesUserRevision(
+        bool applicationMarker, bool matchingClient, bool userRevision, bool duplicateMarker, bool accepted)
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        (UpstreamProviderId providerId, UserId userId) = await database.SeedAsync("none");
+        await using AsyncServiceScope scope = database.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<ProviderEmailTrustStore>().SetAsync(providerId, false, "operator", default);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim("sub", userId.Value.ToString()),
+            new Claim("client_id", matchingClient ? userId.Value.ToString() : "another-client")]));
+        if (applicationMarker) { principal.SetClaim("ois.subject_kind", "application"); }
+        if (duplicateMarker) { ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim("ois.subject_kind", "application")); }
+        if (userRevision) { principal.SetClaim("ois_credential_revision", Guid.Empty.ToString()); }
+        var validator = new UserCredentialRevisionValidation(scope.ServiceProvider.GetRequiredService<OpenIdentityStackDbContext>());
+        var server = new OpenIddictServerEvents.ValidateTokenContext(new OpenIddictServerTransaction()) { Principal = principal };
+        var local = new OpenIddictValidationEvents.ValidateTokenContext(new OpenIddictValidationTransaction()) { Principal = principal };
+
+        await validator.HandleAsync(server);
+        await validator.HandleAsync(local);
+
+        server.IsRejected.ShouldBe(!accepted);
+        local.IsRejected.ShouldBe(!accepted);
+    }
+
     [Fact]
     public async Task ConcurrentWithdrawalsCannotBothRelyOnTheOtherProvidersEvidence()
     {
