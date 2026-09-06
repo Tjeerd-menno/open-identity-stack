@@ -126,6 +126,8 @@ paths:
           $ref: "#/components/responses/ValidationError"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
     delete:
       tags: [Applications]
       operationId: deleteApplication
@@ -138,6 +140,8 @@ paths:
           description: Application deleted.
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/oauth:
     put:
       tags: [Applications]
@@ -162,8 +166,12 @@ paths:
                 $ref: "#/components/schemas/ApplicationResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
+        "403":
+          $ref: "#/components/responses/AdministrativeApprovalRequired"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/disable:
     post:
       tags: [Applications]
@@ -181,6 +189,8 @@ paths:
                 $ref: "#/components/schemas/ApplicationResponse"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/enable:
     post:
       tags: [Applications]
@@ -198,8 +208,12 @@ paths:
                 $ref: "#/components/schemas/ApplicationResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
+        "403":
+          $ref: "#/components/responses/AdministrativeApprovalRequired"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/credentials:
     get:
       tags: [Applications]
@@ -244,8 +258,12 @@ paths:
                 $ref: "#/components/schemas/AddApplicationSecretResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
+        "403":
+          $ref: "#/components/responses/AdministrativeApprovalRequired"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/credentials/certificates:
     post:
       tags: [Applications]
@@ -269,8 +287,12 @@ paths:
                 $ref: "#/components/schemas/AddApplicationCertificateResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
+        "403":
+          $ref: "#/components/responses/AdministrativeApprovalRequired"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/credentials/{credentialId}:
     delete:
       tags: [Applications]
@@ -290,6 +312,8 @@ paths:
           description: Credential revoked.
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /clients:
     get:
       tags: [Deprecated compatibility]
@@ -369,6 +393,24 @@ components:
         maximum: 100
         default: 30
   responses:
+    AdministrativeApprovalRequired:
+      description: Administrative approval is required or no longer valid.
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [status, errorCode]
+            properties:
+              status:
+                type: integer
+                enum: [403]
+              errorCode:
+                type: string
+                enum:
+                  - Forbidden.AdministrativeApproval.HumanRequired
+                  - Forbidden.AdministrativeApproval.AuthorityRequired
+                  - Forbidden.AdministrativeApproval.ReauthenticationRequired
+                  - Forbidden.AdministrativeApproval.AcknowledgementRequired
     ValidationError:
       description: Validation failed.
       content:

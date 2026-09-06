@@ -17,6 +17,8 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
     private const int placeholderSecretLengthBytes = 32;
     private static readonly DomainError projectionFailed =
         DomainError.Failure("Application.ProjectionFailed", "Failed to synchronize application protocol configuration.");
+    private static readonly DomainError projectionConflict =
+        DomainError.Conflict("Application.ProjectionConflict", "Administrative authority changed; reload before saving.");
 
     private readonly IOpenIddictApplicationManager applicationManager;
     private readonly IOpenIddictScopeManager scopeManager;
@@ -74,6 +76,11 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
 
             return Result.Success();
         }
+        catch (OpenIddictExceptions.ConcurrencyException ex)
+        {
+            Log.ApplicationProjectionFailed(this.logger, ex, application.ClientId);
+            return projectionConflict;
+        }
         catch (Exception ex)
         {
             Log.ApplicationProjectionFailed(this.logger, ex, application.ClientId);
@@ -107,6 +114,11 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
             }
 
             return Result.Success();
+        }
+        catch (OpenIddictExceptions.ConcurrencyException ex)
+        {
+            Log.ApplicationProjectionDeleteFailed(this.logger, ex, applicationId.Value);
+            return projectionConflict;
         }
         catch (Exception ex)
         {

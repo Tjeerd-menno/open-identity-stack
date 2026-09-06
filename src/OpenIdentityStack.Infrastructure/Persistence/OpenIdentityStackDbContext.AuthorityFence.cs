@@ -51,7 +51,7 @@ public partial class OpenIdentityStackDbContext
         try
         {
             if (this.ExpectedAuthority().ExecuteUpdate(update => update.SetProperty(value => value.Revision, value => value.Revision + 1)) != 1)
-            { throw new DbUpdateConcurrencyException("Administrative authority changed; repeat the operation against current authority."); }
+            { throw new AdministrativeAuthorityConcurrencyException("Administrative authority changed; repeat the operation against current authority."); }
             int result = base.SaveChanges(acceptAllChangesOnSuccess);
             if (savepoint is not null) { transaction.ReleaseSavepoint(savepoint); }
             owned?.Commit();
@@ -82,7 +82,7 @@ public partial class OpenIdentityStackDbContext
         try
         {
             if (await this.ExpectedAuthority().ExecuteUpdateAsync(update => update.SetProperty(value => value.Revision, value => value.Revision + 1), cancellationToken) != 1)
-            { throw new DbUpdateConcurrencyException("Administrative authority changed; repeat the operation against current authority."); }
+            { throw new AdministrativeAuthorityConcurrencyException("Administrative authority changed; repeat the operation against current authority."); }
             int result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
             if (savepoint is not null) { await transaction.ReleaseSavepointAsync(savepoint, cancellationToken); }
             if (owned is not null) { await owned.CommitAsync(cancellationToken); }
@@ -102,7 +102,7 @@ public partial class OpenIdentityStackDbContext
     {
         AdministrativeAuthorityRevision current = this.Set<AdministrativeAuthorityRevision>().Single();
         if (this.authoritySnapshot is { } expected && current.Revision != expected)
-        { throw new DbUpdateConcurrencyException("Administrative authority changed."); }
+        { throw new AdministrativeAuthorityConcurrencyException("Administrative authority changed."); }
         current.Revision++;
         this.authoritySnapshot = null;
     }
