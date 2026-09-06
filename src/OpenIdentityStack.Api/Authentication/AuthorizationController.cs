@@ -115,8 +115,8 @@ public class AuthorizationController : ControllerBase
                 }));
         }
 
-        // If prompt=login is requested, sign out current session and force fresh login
-        if (forceLogin && isAuthenticated)
+        // Consume freshness once even when the existing cookie has already become anonymous.
+        if (forceLogin)
         {
             await this.HttpContext.SignOutAsync("Cookies");
             await this.HttpContext.SignOutAsync("ExternalCookie");
