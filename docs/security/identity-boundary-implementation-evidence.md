@@ -19,7 +19,7 @@ The twelve tickets implementing [ADR 0005](../adr/0005-identity-and-administrati
 | [455](https://github.com/Tjeerd-menno/open-identity-stack/issues/455) | Persist a global credential epoch, reject pre-cutover credentials, and make transactional cutover retries idempotent. |
 | [456](https://github.com/Tjeerd-menno/open-identity-stack/issues/456) | Gate cutover on real emergency access, identity quarantine, prepared clients and reviewed external token windows; provide UI, rehearsal and rollback guidance. |
 
-## Verification
+## Initial verification
 
 The integrated implementation was checked on 6 September 2026. Final backend verification targets `162a98b2a990ce7964dd270e1e92bfd06fa0365c`; subsequent documentation-only changes record these results.
 
@@ -43,6 +43,31 @@ The integrated implementation was checked on 6 September 2026. Final backend ver
 The browser run precedes two narrow final changes: conservative rejection of resource reviews with identical latest timestamps, and a retry test that reloads state after rollback. Both received focused regression coverage and independent review; the entire infrastructure and API suites subsequently passed. Browser tests use actual local login and PostgreSQL services. External consumer reviews inside automated cutover fixtures are simulated and cannot establish production consumer behavior.
 
 The architecture export excludes temporary agent worktrees so its source rules evaluate the tracked repository, as they do in CI. Logs are kept in the local task's `.scratch/identity-privilege-boundaries/` directory; GitHub PR checks provide independent clean-checkout results.
+
+## PR review follow-up
+
+The follow-up addresses 37 review threads across the design PR and twelve implementation PRs. JIT creation now rechecks current provisioning policy inside its transaction. Email evidence and trust withdrawal share ordered locks without rotating the provider version on each sign-in. PostgreSQL overlap tests verify both successful concurrent logins and withdrawal of evidence committed while the operator waits. Authority saves preserve caller-owned transactions with savepoints. Additional changes cover denial and outcome audits, bounded machine-actor identifiers, reserved verification claims, current UI permissions, and single-login recovery.
+
+On 6 September 2026, the combined backend was verified at `f274149cca662d55d35a47984319cc420491111b`; later image and documentation changes record these results.
+
+| Check | Result |
+| --- | --- |
+| Solution build | Passed; existing ASPIRE010 warning, zero errors |
+| Domain / Application | 482 / 552 passed |
+| Infrastructure | 473 passed with PostgreSQL federation and authority fixtures enabled; no skips |
+| API unit / integration | 74 / 464 passed |
+| Contract / Architecture | 61 / 6 passed; architecture uses a clean tracked-source export |
+| Management Web | Build and lint passed; 68 tests passed |
+| Shared administrative API client | 41 tests passed |
+| PostgreSQL/Aspire/Chromium | 59 passed; no skips |
+| EF migration model | No pending model changes |
+| Documentation | Strict MkDocs build passed |
+
+The browser target was `2f4e5fa991a0d5b29a8e31e248d0009ce75e9657`. Its product code matches the backend target; the intervening change only adapts infrastructure test constructors and assertions for credential withdrawal. Temporary screenshot assertions exercised the provider Settings tab without changing waits or retry policy. Independent review of the provider lock changes found no remaining actionable issues. The original authority-field PATCH rejection remains deliberate, and the `/api/me` comment is satisfied by the dependent current-authority PR.
+
+![Provider trust explanation distinguishing OP sessions, relying-party sessions and offline APIs](images/identity-boundaries/provider-trust-session-boundaries.png)
+
+![Cutover readiness with acknowledged execution still blocked by unresolved prerequisites](images/identity-boundaries/cutover-readiness-review.png)
 
 ## Standards
 
