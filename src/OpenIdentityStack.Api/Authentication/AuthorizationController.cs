@@ -209,7 +209,7 @@ public class AuthorizationController : ControllerBase
         }
 
         Result<ResourceTokenProjection> resourceAccess = await this.ProjectResourcesAsync(request, request.GetScopes(), userId);
-        if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error); }
+        if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error, isAuthorizationRequest: true); }
 
         ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectSubjectClaims(
             new TokenClaimProjectionRequest(
@@ -397,11 +397,12 @@ public class AuthorizationController : ControllerBase
             : this.resourcePermissionService.ProjectAsync(new ResourceTokenRequest(request.ClientId ?? string.Empty, scopes,
                 request.GetResources(), userId, originalPermissions, originalAudiences), this.HttpContext.RequestAborted);
 
-    private ForbidResult ResourceAccessDenied(DomainError error) => this.Forbid(
+    private ForbidResult ResourceAccessDenied(DomainError error, bool isAuthorizationRequest = false) => this.Forbid(
         authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
         properties: new AuthenticationProperties(new Dictionary<string, string?>
         {
-            [OpenIddictServerAspNetCoreConstants.Properties.Error] = error == Domain.Resources.ResourceAccessErrors.UnknownResource ? "invalid_target" : Errors.InvalidGrant,
+            [OpenIddictServerAspNetCoreConstants.Properties.Error] = error == Domain.Resources.ResourceAccessErrors.UnknownResource
+                ? "invalid_target" : isAuthorizationRequest ? Errors.AccessDenied : Errors.InvalidGrant,
             [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "Access to the requested resource is unavailable."
         }));
 
