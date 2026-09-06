@@ -11,7 +11,7 @@ Creating or expanding a role to include `*`, enabling such a role, assigning it 
 - Acknowledgement of unrestricted access. Existing role permission requests support `acknowledgeWildcardGrant: true`; other protected operations accept `X-OIS-Administrative-Approval: acknowledge`.
 - A durable approval-intent audit record before any mutation. Success is recorded separately after persistence.
 
-Group role mappings support the existing role-name representation and the role IDs sent by Management Web. Groups cannot inject subject, issuer, audience, role, scope, permission, authentication-time, verification, or internal protocol claims. Previously stored reserved claim mappings are suppressed during new claim projection.
+Group role mappings support the existing role-name representation and the role IDs sent by Management Web. Groups cannot inject subject, issuer, audience, role, scope, permission, authentication-time, verification, persisted identity/profile fields (including phone number), or internal protocol claims. Previously stored reserved claim mappings are suppressed during new claim projection.
 
 A machine credential cannot approve a human operation. A stale token carrying `*` cannot approve after its user's persisted unrestricted authority is removed. Ordinary concrete permission changes continue to use their existing endpoint permissions.
 
@@ -36,7 +36,7 @@ Codes have the prefix `Forbidden.AdministrativeApproval.`. The acknowledgement a
 
 ## Audit and rollout
 
-Approval audit writes use an independent persistence scope so that logging cannot accidentally save pending role or group changes. `AdministrativeApproval.IntentApproved` is an approved intention, not proof of a completed grant. `MutationSucceeded` records successful persistence. `MutationNotConfirmed` means no successful completion was recorded; inspect the current state before retrying. Audit storage failure prevents approval; an interruption after mutation persistence can leave an approved intent requiring reconciliation.
+Approval audit writes use an independent persistence scope so that logging cannot accidentally save pending role or group changes. `AdministrativeApproval.IntentApproved` is an approved intention, not proof of a completed grant. `MutationSucceeded` records successful persistence. `MutationNotConfirmed` means no successful completion was recorded; inspect the current state before retrying. Intent audit storage failure prevents approval. Outcome audit failure preserves the operation's result, emits a critical diagnostic without identities or exception details, and leaves the outcome pending for a request-end retry. If that retry also fails, reconcile the durable approved intent against persisted state; do not repeat the mutation merely to repair its audit trail.
 
 Preserve a tested independently accessible emergency administrator before rollout. Initial bootstrap establishes explicit permissions through the controlled deployment process; routine seed reruns must not restore removed grants, activate disabled accounts, or manufacture verification evidence. This change does not create a bootstrap or recovery bypass.
 

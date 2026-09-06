@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Users.Queries;
@@ -5,13 +6,14 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Application.Authorization;
 
-public sealed class AdministrativeApproval(
+public sealed partial class AdministrativeApproval(
     IAdministrativeActorContext actorContext,
     IUserRepository users,
     IGetUserEffectiveRolesQueryHandler roles,
     IDateTimeProvider clock,
     IAdministrativeApprovalAudit audit,
-    IAdministrativeAuthoritySnapshot authoritySnapshot) : IAdministrativeApproval
+    IAdministrativeAuthoritySnapshot authoritySnapshot,
+    ILogger<AdministrativeApproval> logger) : IAdministrativeApproval
 {
     private readonly List<ApprovalIntent> pending = [];
 
@@ -65,15 +67,27 @@ public sealed class AdministrativeApproval(
 
     public async Task RecordOutcomeAsync(bool succeeded, CancellationToken cancellationToken = default)
     {
-        foreach (ApprovalIntent entry in this.pending)
+        foreach (ApprovalIntent entry in this.pending.ToArray())
         {
             entry.HasSucceeded |= succeeded;
-            await audit.LogAsync(entry.Actor, entry.HasSucceeded ? "AdministrativeApproval.MutationSucceeded" : "AdministrativeApproval.MutationNotConfirmed",
-                entry.Operation, AuditEntityId(entry.Target),
-                (entry.HasSucceeded ? "The approved mutation completed." : "No successful mutation completion was recorded; inspect persisted state before retrying.") + $" Target: {entry.Target}", cancellationToken);
+            try
+            {
+                await audit.LogAsync(entry.Actor, entry.HasSucceeded ? "AdministrativeApproval.MutationSucceeded" : "AdministrativeApproval.MutationNotConfirmed",
+                    entry.Operation, AuditEntityId(entry.Target),
+                    (entry.HasSucceeded ? "The approved mutation completed." : "No successful mutation completion was recorded; inspect persisted state before retrying.") + $" Target: {entry.Target}", cancellationToken);
+                this.pending.Remove(entry);
+            }
+            catch (Exception)
+            {
+                // Intent was persisted before mutation. Preserve its known result and allow
+                // the request-end middleware to retry without converting a committed success to failure.
+                OutcomeAuditFailed(logger, entry.HasSucceeded);
+            }
         }
-        this.pending.Clear();
     }
+
+    [LoggerMessage(Level = LogLevel.Critical, Message = "Administrative approval outcome audit failed. Mutation succeeded: {Succeeded}. Reconcile persisted approval intents with authority state before retrying.")]
+    private static partial void OutcomeAuditFailed(ILogger logger, bool succeeded);
 
     // Composite group/role targets can exceed the audit index's 128-character key;
     // details retain the complete target for investigation.
