@@ -1421,6 +1421,7 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
         [
             new Claim(OpenIddictConstants.Claims.Subject, user.Id.Value.ToString()),
+            new Claim(OpenIddictConstants.Claims.ClientId, "legacy-human-client"),
             new Claim(OpenIddictConstants.Claims.Email, "stale@example.test")
         ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
         principal.SetScopes(OpenIddictConstants.Scopes.Email);
@@ -1432,6 +1433,31 @@ public class AuthorizationControllerTests
         Dictionary<string, object> claims = result.Value.ShouldBeOfType<Dictionary<string, object>>();
         claims[OpenIddictConstants.Claims.Email].ShouldBe(user.Email);
         claims[OpenIddictConstants.Claims.EmailVerified].ShouldBe(true);
+    }
+
+    [Fact]
+    public async Task UserInfo_RevisionlessUntaggedApplicationSubjectMatchingUserFailsClosed()
+    {
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        User collidingUser = User.CreateLocal("collision@example.test", "Collision", "fixture-hash", clock).Value;
+        string clientId = collidingUser.Id.Value.ToString();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(OpenIddictConstants.Claims.Subject, clientId),
+            new Claim(OpenIddictConstants.Claims.ClientId, clientId)
+        ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
+        object application = new();
+#pragma warning disable CA2012
+        this._applicationManager.FindByClientIdAsync(clientId, Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<object?>(application));
+#pragma warning restore CA2012
+        this._userRepository.GetByIdAsync(collidingUser.Id, Arg.Any<CancellationToken>()).Returns(collidingUser);
+        this.SetupMockServices(principal);
+
+        (await this._controller.UserInfo()).ShouldBeOfType<ChallengeResult>();
+        await this._userRepository.DidNotReceive()
+            .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
