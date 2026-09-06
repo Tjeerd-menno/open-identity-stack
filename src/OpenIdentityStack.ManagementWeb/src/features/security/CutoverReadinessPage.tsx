@@ -6,6 +6,17 @@ import { ErrorState, PageHeader, SectionCard } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 
+export const credentialCutoverOperationIdKey = 'ois.credential-cutover.operation-id';
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function getCredentialCutoverOperationId() {
+  const stored = sessionStorage.getItem(credentialCutoverOperationIdKey);
+  if (stored && uuidPattern.test(stored)) return stored;
+  const operationId = crypto.randomUUID();
+  sessionStorage.setItem(credentialCutoverOperationIdKey, operationId);
+  return operationId;
+}
+
 function ResourceReview({ resource, refresh }: { resource: ResourceTokenWindow; refresh: () => void }) {
   const [mechanism, setMechanism] = useState<string | null>(resource.mechanism);
   const [seconds, setSeconds] = useState<number | string>(resource.residualSeconds ?? '');
@@ -27,8 +38,11 @@ function ResourceReview({ resource, refresh }: { resource: ResourceTokenWindow; 
 export function CutoverReadinessPage() {
   const auth = useAuth();
   const [acknowledged, setAcknowledged] = useState(false);
-  const [operationId] = useState(() => crypto.randomUUID());
-  const execute = useMutation({ mutationFn: () => api.cutover.execute(operationId) });
+  const [operationId] = useState(getCredentialCutoverOperationId);
+  const execute = useMutation({
+    mutationFn: () => api.cutover.execute(operationId),
+    onSuccess: () => sessionStorage.removeItem(credentialCutoverOperationIdKey),
+  });
   const query = useQuery({ queryKey: ['cutover-readiness'], queryFn: api.cutover.getReadiness, enabled: !execute.isSuccess, staleTime: 0 });
   const refresh = () => { void query.refetch(); };
   const emergency = useMutation({ mutationFn: () => api.cutover.recordEmergencyAccess(), onSuccess: refresh });
