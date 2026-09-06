@@ -49,6 +49,37 @@ it('shows delegated and application permissions for administrative clients', asy
   expect(await screen.findByText('users:read')).toBeInTheDocument();
   expect(screen.getByText('sessions:revoke')).toBeInTheDocument();
 });
+it('refreshes a mounted resource review form from the authoritative review snapshot', async () => {
+  const resource = {
+    resourceId: 'resource-id', displayName: 'Orders API', audience: 'https://orders.example.com', scope: 'orders', revision: 7,
+    mechanism: 'OfflineExpiry', residualSeconds: 3600, evidenceReference: 'old-rehearsal', reviewedAt: null, reviewed: false,
+  };
+  mockApi.cutover.getReadiness
+    .mockResolvedValueOnce({ ...ready, businessResources: [resource] })
+    .mockResolvedValue({
+      ...ready,
+      businessResources: [{
+        ...resource, mechanism: 'OnlineIntrospection', residualSeconds: 30, evidenceReference: 'current-rehearsal',
+        reviewedAt: '2026-09-06T12:00:00Z', reviewed: true,
+      }],
+    });
+  mockApi.cutover.reviewResourceWindow.mockResolvedValue(undefined);
+  renderManagementWeb(<CutoverReadinessPage />, { auth: makeAuth() });
+  expect(await screen.findByText('Token window review required')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh readiness' }));
+
+  expect(await screen.findByText('Current resource revision reviewed')).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByRole('combobox', { name: 'Consumer control' })).toHaveValue('Online introspection');
+    expect(screen.getByRole('textbox', { name: 'Maximum residual acceptance (seconds)' })).toHaveValue('30');
+    expect(screen.getByRole('textbox', { name: 'Rehearsal evidence reference' })).toHaveValue('current-rehearsal');
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Record resource review' }));
+  await waitFor(() => expect(mockApi.cutover.reviewResourceWindow).toHaveBeenCalledWith('resource-id', {
+    mechanism: 'OnlineIntrospection', residualSeconds: 30, evidenceReference: 'current-rehearsal',
+  }));
+});
 it('requires acknowledgement and retains the operation ID when the live server gate rejects', async () => {
   mockApi.cutover.getReadiness.mockResolvedValue(ready);
   mockApi.cutover.execute.mockRejectedValue(new Error('Prerequisites changed; refresh readiness'));
