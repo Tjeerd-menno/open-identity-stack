@@ -1515,19 +1515,16 @@ components:
         email:
           type: string
         providerId:
-          type: string
+          type: [string, 'null']
           format: uuid
-          nullable: true
         issuer:
-          type: string
-          nullable: true
+          type: [string, 'null']
         verifiedAt:
           type: string
           format: date-time
         withdrawnAt:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
 
     UserListResponse:
       type: object

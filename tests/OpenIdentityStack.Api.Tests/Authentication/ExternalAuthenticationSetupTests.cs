@@ -20,11 +20,12 @@ public sealed class DynamicAuthenticationSchemeServiceTests
 {
     [Theory]
     [InlineData(null, null, null)]
-    [InlineData("false", "person@example.com", null)]
-    [InlineData("true", null, null)]
-    [InlineData("true", "person@example.com", "person@example.com")]
+    [InlineData(false, "person@example.com", null)]
+    [InlineData("true", "person@example.com", null)]
+    [InlineData(true, null, null)]
+    [InlineData(true, "person@example.com", "person@example.com")]
     public async Task RegisterSchemeAsync_CapturesOnlySerializableValidatedIssuerAndEmailEvidence(
-        string? verified,
+        object? verified,
         string? email,
         string? expectedEvidence)
     {
@@ -37,20 +38,23 @@ public sealed class DynamicAuthenticationSchemeServiceTests
         await service.RegisterSchemeAsync(provider);
         OpenIdConnectOptions options = cache.GetOrAdd("tenant", () => throw new InvalidOperationException());
         var properties = new AuthenticationProperties();
-        var claims = new List<System.Security.Claims.Claim>();
+        var payload = new System.IdentityModel.Tokens.Jwt.JwtPayload
+        {
+            { "iss", "https://issuer.example/tenant/" }
+        };
         if (email is not null)
         {
-            claims.Add(new System.Security.Claims.Claim("email", email));
+            payload.Add("email", email);
         }
         if (verified is not null)
         {
-            claims.Add(new System.Security.Claims.Claim("email_verified", verified));
+            payload.Add("email_verified", verified);
         }
-        var principal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(claims, "tenant"));
+        var securityToken = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(new System.IdentityModel.Tokens.Jwt.JwtHeader(), payload);
+        var principal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(securityToken.Claims, "tenant"));
         var context = new TokenValidatedContext(new Microsoft.AspNetCore.Http.DefaultHttpContext(), new AuthenticationScheme("tenant", "Tenant", typeof(OpenIdConnectHandler)), options, principal, properties)
         {
-            SecurityToken = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(issuer: "https://issuer.example/tenant/",
-                claims: claims)
+            SecurityToken = securityToken
         };
         await options.Events.TokenValidated(context);
         properties.GetString("ois.validated_issuer").ShouldBe("https://issuer.example/tenant/");

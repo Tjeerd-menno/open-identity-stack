@@ -96,7 +96,9 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
                     context.Properties.SetString(ExternalIdentityProperties.ProviderName, context.Scheme.Name);
                     context.Properties.SetString(ExternalIdentityProperties.Authority, context.Options.Authority);
                     string? email = context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
-                    bool verified = string.Equals(context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email_verified")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    System.Security.Claims.Claim? verifiedClaim = context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email_verified");
+                    bool verified = verifiedClaim?.ValueType == System.Security.Claims.ClaimValueTypes.Boolean
+                        && string.Equals(verifiedClaim.Value, "true", StringComparison.OrdinalIgnoreCase);
                     if (context.Properties is { } properties)
                     {
                         if (verified && !string.IsNullOrWhiteSpace(email))

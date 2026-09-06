@@ -46,6 +46,10 @@ public sealed class IdentityBoundaryResponseContractTests
         {
             evidence.ShouldContain(field + ":");
         }
+        evidence.ShouldMatch(@"providerId:\s+type: \[string, 'null'\]\s+format: uuid");
+        evidence.ShouldMatch(@"issuer:\s+type: \[string, 'null'\]");
+        evidence.ShouldMatch(@"withdrawnAt:\s+type: \[string, 'null'\]\s+format: date-time");
+        evidence.ShouldNotContain("nullable: true");
     }
 
     [Fact]
