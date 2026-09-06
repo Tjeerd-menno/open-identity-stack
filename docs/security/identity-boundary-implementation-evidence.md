@@ -44,7 +44,7 @@ The browser run precedes two narrow final changes: conservative rejection of res
 
 The architecture export excludes temporary agent worktrees so its source rules evaluate the tracked repository, as they do in CI. Logs are kept in the local task's `.scratch/identity-privilege-boundaries/` directory; GitHub PR checks provide independent clean-checkout results.
 
-## PR review follow-up
+## First PR review follow-up
 
 The follow-up addresses 38 review threads across the design PR and twelve implementation PRs, including a correction to the assessment's historical whitespace-check claim. JIT creation now rechecks current provisioning policy inside its transaction. Email evidence and trust withdrawal share ordered locks without rotating the provider version on each sign-in. PostgreSQL overlap tests verify both successful concurrent logins and withdrawal of evidence committed while the operator waits. Authority saves preserve caller-owned transactions with savepoints. Additional changes cover denial and outcome audits, bounded machine-actor identifiers, reserved verification claims, current UI permissions, and single-login recovery.
 
@@ -69,15 +69,31 @@ The browser target was `2f4e5fa991a0d5b29a8e31e248d0009ce75e9657`. Its product c
 
 ![Cutover readiness with acknowledged execution still blocked by unresolved prerequisites](images/identity-boundaries/cutover-readiness-review.png)
 
-## Standards
+## Additional PR review corrections
+
+Further review added creation-policy audit attribution and atomicity, quarantine-preserving account deletion with actionable Problem Details, bounded trust-withdrawal batches in one transaction, and idempotent concurrent email proofs. The raw identity-link contract now documents its proof-required denial and the shared client removes the unsupported mutation. The current-user contract advertises administrative-boundary denial in its owning layer and describes current authority in the dependent layer.
+
+Application subjects now carry protected issuance evidence, so a UUID client identifier cannot inherit a matching user's email or be mistaken for that user during targeted withdrawal. Human credentials still revoke, and global cutover still invalidates application credentials. Session activity saves cannot restore revoked state. Cutover captures authority before approval reads, limits local-session proof exposure to the dedicated administrative resource, and correlates emergency login sessions using the five-minute freshness window. The approval dialog describes the operation's effects without claiming every operation grants access.
+
+The CI session-search failure exposed an ignored backend search parameter. Search now filters IP address and user agent before pagination; the browser regression awaits the matching response and final rendered results. The scenario passed three fresh PostgreSQL/Aspire/Chromium runs. Independent review found no further actionable issues in the proof reconciliation or bounded withdrawal changes.
+
+Combined backend verification targets `ca6e3afd83ebf8428aaf4a371924318e2a5fd1c1` on 6 September 2026: solution build passed with the existing ASPIRE010 warning; Domain 483, Application 554, Infrastructure 494, API unit 74, API integration 474, and Contract 62 passed with no skips. Both PostgreSQL fixture families were enabled. Management Web build and lint passed with 72 tests, and the shared client passed 41 tests. EF reports no pending model changes.
+
+The same revision passed all 59 PostgreSQL/Aspire/Chromium browser tests with no skips and all 6 architecture tests from a clean tracked-source export. Strict MkDocs passed for the revision and this updated evidence document. These runs total 2,319 passing tests. The approval screenshot was captured by the existing browser scenario without instrumentation or timeout/retry changes.
+
+![Quarantined identity evidence blocks ordinary account deletion](images/identity-boundaries/quarantined-user-deletion-blocked.png)
+
+![Explicit acknowledgement of the administrative operation's effects](images/identity-boundaries/administrative-approval.png)
+
+## Initial standards review
 
 Independent review found a race in unrestricted assignment and group membership, a companion direct client-enable path that bypassed revision capture, and duplicated reserved-claim policy. Capture now precedes authorization reads; a persisted revision comparison and mutation commit in one transaction. Client workflow entry points share that protection. Validation and projection use the same reserved-claim predicate. Re-review reported no remaining actionable findings.
 
-## Spec
+## Initial spec review
 
 Independent review found that federation creation could survive an audit failure and that concurrent identity conflicts could escape generic authentication failure handling. Creation and audit now share one transaction; expected identity/email/provider conflicts roll back before durable generic denial. Cancellation and unrelated storage failures propagate. Re-review reported no remaining actionable findings. Verification additionally corrected OpenIddict 7 token inventory and blocked ambiguous simultaneous resource reviews.
 
-Standards: zero outstanding review findings. Spec: zero outstanding review findings. These reviews cover this delivery and do not assert that broader assessment findings are closed.
+Those initial independent reviews ended with zero outstanding standards or spec findings. They cover this delivery and do not assert that broader assessment findings are closed.
 
 ## Release risks and operator prerequisites
 
