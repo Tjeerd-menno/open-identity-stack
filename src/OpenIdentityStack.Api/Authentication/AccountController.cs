@@ -188,6 +188,8 @@ public class AccountController : Controller
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
+        // Consume the authenticated external ticket before any validation or JIT denial can return.
+        await this.HttpContext.SignOutAsync("ExternalCookie");
         ClaimsPrincipal externalUser = authenticateResult.Principal;
 
         // Extract claims from the external identity
@@ -204,54 +206,41 @@ public class AccountController : Controller
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "no_subject_claim" });
         }
 
-        // Get the provider ID from the authentication properties
-        string? providerIdString = authenticateResult.Properties?.Items["providerId"];
-        if (string.IsNullOrEmpty(providerIdString) || !Guid.TryParse(providerIdString, out Guid providerGuid))
+        string? providerIdString = authenticateResult.Properties?.GetString(ExternalIdentityProperties.ProviderId);
+        string? authenticatedProvider = authenticateResult.Properties?.GetString(ExternalIdentityProperties.ProviderName);
+        string? issuer = authenticateResult.Properties?.GetString(ExternalIdentityProperties.ValidatedIssuer);
+        string? authority = authenticateResult.Properties?.GetString(ExternalIdentityProperties.Authority);
+        bool providerIdIsValid = Guid.TryParse(providerIdString, out Guid providerGuid);
+        if (!providerIdIsValid || string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(authority) || string.IsNullOrWhiteSpace(authenticatedProvider))
         {
-            // Try to look up provider by name
-            UpstreamProvider? upstreamProvider = await this.providerRepository.GetByNameAsync(provider);
-            if (upstreamProvider is null)
-            {
-                return this.RedirectToAction(nameof(Login), new { returnUrl, error = "provider_not_found" });
-            }
-            providerGuid = upstreamProvider.Id.Value;
+            await this.audit.LogAsync(
+                "federation",
+                "Federation.IssuerBindingRejected",
+                "UpstreamProvider",
+                providerIdIsValid ? providerGuid.ToString() : "unknown",
+                "Protected external identity binding metadata is missing or invalid.",
+                this.HttpContext.RequestAborted);
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
-        var providerId = UpstreamProviderId.From(providerGuid);
+        // Existing and new identities pass the same issuer-bound authentication checks.
+        var jitCommand = new JitProvisionUserCommand(UpstreamProviderId.From(providerGuid), subjectId, email, name, issuer, authority);
+        Result<JitProvisionUserResult> jitResult = await this.jitProvisionUseCase.ExecuteAsync(jitCommand);
+        if (jitResult.IsFailure)
+        {
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
+        }
 
-        // Find or create user via upstream identity
-        Domain.Users.User? user = await this.userRepository.FindByUpstreamIdentityAsync(providerId, subjectId);
-
+        Domain.Users.User? user = await this.userRepository.GetByIdAsync(jitResult.Value.UserId);
         if (user is null)
         {
-            // JIT provision a new user
-            var jitCommand = new JitProvisionUserCommand(
-                providerId,
-                subjectId,
-                email,
-                name);
-
-            Result<JitProvisionUserResult> jitResult = await this.jitProvisionUseCase.ExecuteAsync(jitCommand);
-            if (jitResult.IsFailure)
-            {
-                return this.RedirectToAction(nameof(Login), new { returnUrl, error = "user_provisioning_failed" });
-            }
-
-            // Fetch the newly created user
-            user = await this.userRepository.GetByIdAsync(jitResult.Value.UserId);
-            if (user is null)
-            {
-                return this.RedirectToAction(nameof(Login), new { returnUrl, error = "user_not_found_after_provisioning" });
-            }
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
-
-        // Sign out of the external cookie
-        await this.HttpContext.SignOutAsync("ExternalCookie");
 
         if (user.Status != Domain.Users.UserStatus.Active)
         {
             await this.audit.LogAsync("federation", "Federation.AccountAssociationDenied", "User", user.Id.Value.ToString(),
-                $"Local account is not active. Provider: {providerId.Value}.");
+                $"Local account is not active. Provider: {providerGuid}.");
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
@@ -265,7 +254,7 @@ public class AccountController : Controller
             new(ClaimTypes.Name, user.DisplayName),
             new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
             new("auth_method", "external"),
-            new("provider", provider)
+            new("provider", authenticatedProvider)
         };
 
         // Create user session

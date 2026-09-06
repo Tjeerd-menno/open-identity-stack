@@ -13,12 +13,13 @@ public sealed class UpstreamIdentity : IEquatable<UpstreamIdentity>
         UpstreamProviderId providerId,
         string providerName,
         string subjectId,
-        string? email)
+        string? email, string? issuer = null)
     {
         this.ProviderId = providerId;
         this.ProviderName = providerName;
         this.SubjectId = subjectId;
         this.Email = email;
+        this.Issuer = issuer;
         this.LinkedAt = DateTimeOffset.UtcNow;
     }
 
@@ -44,6 +45,9 @@ public sealed class UpstreamIdentity : IEquatable<UpstreamIdentity>
     /// </summary>
     public string SubjectId { get; private set; }
 
+    /// <summary>Gets the exact validated issuer; null means no trusted issuer evidence.</summary>
+    public string? Issuer { get; private set; }
+
     /// <summary>
     /// Gets the email address from the upstream provider (may differ from local).
     /// </summary>
@@ -66,7 +70,7 @@ public sealed class UpstreamIdentity : IEquatable<UpstreamIdentity>
         UpstreamProviderId providerId,
         string providerName,
         string subjectId,
-        string? email)
+        string? email, string? issuer = null)
     {
         if (string.IsNullOrWhiteSpace(providerName))
         {
@@ -81,8 +85,8 @@ public sealed class UpstreamIdentity : IEquatable<UpstreamIdentity>
         return new UpstreamIdentity(
             providerId,
             providerName.Trim().ToLowerInvariant(),
-            subjectId.Trim(),
-            string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant());
+            subjectId,
+            string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant(), issuer);
     }
 
     /// <summary>
@@ -102,7 +106,7 @@ public sealed class UpstreamIdentity : IEquatable<UpstreamIdentity>
             this.ProviderId,
             this.ProviderName,
             this.SubjectId,
-            string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant())
+            string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant(), this.Issuer)
         {
             LinkedAt = this.LinkedAt,
             LastLoginAt = this.LastLoginAt,

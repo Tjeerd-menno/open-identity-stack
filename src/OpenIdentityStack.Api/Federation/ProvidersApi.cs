@@ -161,11 +161,18 @@ internal static class ProvidersApi
 
     private static async Task<IResult> UpdateProvider(
         [FromServices] IUpdateProviderUseCase updateProviderUseCase,
-        HttpContext context,
+        [FromServices] IAuditLog auditLog,
+        HttpContext httpContext,
         Guid id,
         [FromBody] UpdateProviderRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (request.Authority is not null)
+        {
+            await auditLog.LogAsync(httpContext.User.FindFirstValue("sub") ?? httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "management", "Federation.AuthorityReplacementRejected", "UpstreamProvider", id.ToString(), "Provider replacement requires a new registration and explicit identity migration.", cancellationToken);
+            return TypedResults.BadRequest(new { error = "Provider authority cannot be replaced. Register a new provider and migrate identities explicitly." });
+        }
+
         var command = new UpdateProviderCommand(
             id,
             request.DisplayName,
@@ -174,7 +181,7 @@ internal static class ProvidersApi
             request.Scopes,
             request.JitProvisioningEnabled,
             request.Status,
-            context.User.FindFirstValue("sub") ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier));
+            httpContext.User.FindFirstValue("sub") ?? httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier));
 
         Result<UpdateProviderResult> result = await updateProviderUseCase.ExecuteAsync(command, cancellationToken);
 

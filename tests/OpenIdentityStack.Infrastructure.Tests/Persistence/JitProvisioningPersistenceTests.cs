@@ -15,6 +15,28 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class JitProvisioningPersistenceTests
 {
+    [Fact]
+    public async Task DisabledProviderDenialPersistsWithoutSubjectOrEmailData()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync(bindIssuer: false);
+        await using OpenIdentityStackDbContext attempt = database.CreateContext();
+        UpstreamProvider provider = await attempt.UpstreamProviders.SingleAsync();
+        provider.Disable();
+        await attempt.SaveChangesAsync();
+
+        Result<JitProvisionUserResult> result = await CreateUseCase(attempt).ExecuteAsync(database.Command("private-subject", "private-email@example.com"));
+
+        result.Error.ShouldBe(UpstreamProviderErrors.ProviderDisabled);
+        await using OpenIdentityStackDbContext read = database.CreateContext();
+        AuditLogEntry entry = await read.AuditLogEntries.SingleAsync();
+        entry.Action.ShouldBe("Federation.AccountAssociationDenied");
+        entry.UserId.ShouldBe("federation");
+        entry.EntityId.ShouldBe(provider.Id.Value.ToString());
+        entry.Details.ShouldBe("Upstream provider is disabled.");
+        (await read.Users.CountAsync()).ShouldBe(0);
+        (await read.UpstreamProviders.SingleAsync()).BoundIssuer.ShouldBeNull();
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -46,6 +68,51 @@ public sealed class JitProvisioningPersistenceTests
         result.Error.ShouldBe(DomainError.Forbidden("Federation.AuthenticationFailed", "Unable to complete sign-in."));
         await using OpenIdentityStackDbContext read = database.CreateContext();
         (await read.Users.CountAsync()).ShouldBe(0);
+        (await read.AuditLogEntries.CountAsync(entry => entry.Action == "Federation.AccountAssociationDenied")).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ExistingUserAuthenticationIsDeniedWhenProviderIsDisabledAfterInitialValidation()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using (OpenIdentityStackDbContext setup = database.CreateContext())
+        {
+            UpstreamProvider provider = await setup.UpstreamProviders.SingleAsync();
+            User user = User.CreateFederated(
+                "person@example.com",
+                "Person",
+                provider.Id,
+                provider.Name,
+                "subject",
+                issuer: "https://issuer.example").Value;
+            setup.Users.Add(user);
+            await setup.SaveChangesAsync();
+        }
+
+        await using OpenIdentityStackDbContext attempt = database.CreateContext();
+        await using OpenIdentityStackDbContext administrator = database.CreateContext();
+        var realUsers = new UserRepository(attempt);
+        IUserRepository users = Substitute.For<IUserRepository>();
+        users.FindByUpstreamIdentityAsync(Arg.Any<UpstreamProviderId>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(async call =>
+            {
+                User? existing = await realUsers.FindByUpstreamIdentityAsync(
+                    call.ArgAt<UpstreamProviderId>(0),
+                    call.ArgAt<string>(1),
+                    call.ArgAt<CancellationToken>(2));
+                UpstreamProvider current = await administrator.UpstreamProviders.SingleAsync();
+                current.Disable();
+                await administrator.SaveChangesAsync();
+                return existing;
+            });
+
+        Result<JitProvisionUserResult> result = await CreateUseCase(attempt, users).ExecuteAsync(
+            database.Command("subject", "person@example.com"));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(DomainError.Forbidden("Federation.AuthenticationFailed", "Unable to complete sign-in."));
+        await using OpenIdentityStackDbContext read = database.CreateContext();
+        (await read.UpstreamProviders.SingleAsync()).IsActive.ShouldBeFalse();
         (await read.AuditLogEntries.CountAsync(entry => entry.Action == "Federation.AccountAssociationDenied")).ShouldBe(1);
     }
 
@@ -89,9 +156,9 @@ public sealed class JitProvisioningPersistenceTests
     }
 
     [Fact]
-    public async Task CreationAuditFailureRollsBackUserAssociationAndAllowsRetry()
+    public async Task CreationAuditFailureRollsBackUserAssociationAndIssuerBinding()
     {
-        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using TestDatabase database = await TestDatabase.CreateAsync(bindIssuer: false);
         await using OpenIdentityStackDbContext attempt = database.CreateContext();
         await attempt.Database.ExecuteSqlRawAsync("""
             CREATE TRIGGER reject_creation_audit BEFORE INSERT ON "AuditLogEntries"
@@ -103,6 +170,7 @@ public sealed class JitProvisioningPersistenceTests
         await using OpenIdentityStackDbContext read = database.CreateContext();
         (await read.Users.CountAsync()).ShouldBe(0);
         (await read.AuditLogEntries.CountAsync()).ShouldBe(0);
+        (await read.UpstreamProviders.SingleAsync()).BoundIssuer.ShouldBeNull();
         await attempt.Database.ExecuteSqlRawAsync("DROP TRIGGER reject_creation_audit;");
         (await CreateUseCase(attempt).ExecuteAsync(database.Command("subject", "person@example.com"))).IsSuccess.ShouldBeTrue();
         read.ChangeTracker.Clear();
@@ -114,9 +182,10 @@ public sealed class JitProvisioningPersistenceTests
     [Theory]
     [InlineData("identity")]
     [InlineData("email")]
-    public async Task CompetingIdentityOrEmailCommitReturnsGenericAuditedDenial(string conflict)
+    [InlineData("provider")]
+    public async Task CompetingIdentityEmailOrProviderCommitReturnsGenericAuditedDenial(string conflict)
     {
-        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using TestDatabase database = await TestDatabase.CreateAsync(bindIssuer: conflict != "provider");
         await using OpenIdentityStackDbContext losingContext = database.CreateContext();
         await using OpenIdentityStackDbContext winningContext = database.CreateContext();
         JitProvisionUserCommand losingCommand = database.Command("loser", "loser@example.com");
@@ -152,7 +221,7 @@ public sealed class JitProvisioningPersistenceTests
     [Fact]
     public async Task CancellationAfterCreationSaveRollsBackAndPropagates()
     {
-        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using TestDatabase database = await TestDatabase.CreateAsync(bindIssuer: false);
         await using OpenIdentityStackDbContext attempt = database.CreateContext();
         using var cancellation = new CancellationTokenSource();
         IAuditLog audit = Substitute.For<IAuditLog>();
@@ -168,12 +237,13 @@ public sealed class JitProvisioningPersistenceTests
         await using OpenIdentityStackDbContext read = database.CreateContext();
         (await read.Users.CountAsync()).ShouldBe(0);
         (await read.AuditLogEntries.CountAsync()).ShouldBe(0);
+        (await read.UpstreamProviders.SingleAsync()).BoundIssuer.ShouldBeNull();
     }
 
     [Fact]
     public async Task UnrelatedDatabaseFailureIsNotReportedAsAnIdentityCollision()
     {
-        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using TestDatabase database = await TestDatabase.CreateAsync(bindIssuer: false);
         await using OpenIdentityStackDbContext attempt = database.CreateContext();
         await attempt.Database.ExecuteSqlRawAsync("""
             CREATE TRIGGER reject_user_insert BEFORE INSERT ON "Users"
@@ -184,10 +254,11 @@ public sealed class JitProvisioningPersistenceTests
         await using OpenIdentityStackDbContext read = database.CreateContext();
         (await read.Users.CountAsync()).ShouldBe(0);
         (await read.AuditLogEntries.CountAsync()).ShouldBe(0);
+        (await read.UpstreamProviders.SingleAsync()).BoundIssuer.ShouldBeNull();
     }
     private static JitProvisionUserUseCase CreateUseCase(OpenIdentityStackDbContext db, IUserRepository? users = null, IAuditLog? audit = null) =>
         new(users ?? new UserRepository(db), new UpstreamProviderRepository(db),
-            audit ?? new AuditLogService(NullLogger<AuditLogService>.Instance, db, new TestClock()),
+            new AuditLogService(NullLogger<AuditLogService>.Instance, db, new TestClock()),
             new JitProvisioningPersistence(db, audit ?? new AuditLogService(NullLogger<AuditLogService>.Instance, db, new TestClock())));
 
     private sealed class TestClock : IDateTimeProvider
@@ -203,9 +274,9 @@ public sealed class JitProvisioningPersistenceTests
         private UpstreamProviderId providerId;
         public OpenIdentityStackDbContext CreateContext() => new(this.options);
         public JitProvisionUserCommand Command(string subject, string email) =>
-            new(this.providerId, subject, email, "Person");
+            new(this.providerId, subject, email, "Person", "https://issuer.example", "https://issuer.example");
 
-        public static async Task<TestDatabase> CreateAsync()
+        public static async Task<TestDatabase> CreateAsync(bool bindIssuer = true)
         {
             var database = new TestDatabase();
             await database.connection.OpenAsync();
@@ -213,6 +284,7 @@ public sealed class JitProvisioningPersistenceTests
             await using OpenIdentityStackDbContext db = database.CreateContext();
             await db.Database.EnsureCreatedAsync();
             UpstreamProvider provider = UpstreamProvider.Create("provider", "Provider", "https://issuer.example", "client").Value;
+            if (bindIssuer) { provider.BindIssuer("https://issuer.example", "https://issuer.example").IsSuccess.ShouldBeTrue(); }
             db.UpstreamProviders.Add(provider);
             await db.SaveChangesAsync();
             database.providerId = provider.Id;

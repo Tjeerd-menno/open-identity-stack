@@ -108,9 +108,9 @@ export function ProviderDetailPage() {
 
         <Tabs.Panel value="connection">
           <Stack gap="lg">
-            <SectionCard title="Connection">
+            <SectionCard title="Connection" description="Authority cannot be replaced. Register a new provider and explicitly migrate identities when changing issuer.">
               <FieldRow label="Name" value={provider.name} mono />
-              <FieldRow label="Issuer / authority" value={provider.authority} mono />
+              <FieldRow label="Discovery authority" value={provider.authority} mono />
               <FieldRow label="Client ID" value={provider.clientId} mono />
               <FieldRow label="Created" value={formatDateTime(provider.createdAt)} last />
             </SectionCard>

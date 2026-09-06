@@ -1840,6 +1840,7 @@ components:
           default: true
 
     UpdateProviderRequest:
+      description: Authority replacement is rejected with HTTP 400. Register a new provider and migrate identities explicitly.
       type: object
       properties:
         name:

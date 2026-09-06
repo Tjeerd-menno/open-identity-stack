@@ -76,19 +76,18 @@ public class AccountControllerTests : IDisposable
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         user.Disable("Local administrative decision", clock).IsSuccess.ShouldBeTrue();
         var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "subject")], "ExternalCookie"));
-        var properties = new AuthenticationProperties(new Dictionary<string, string?> { ["providerId"] = providerId.Value.ToString() });
+        var properties = new AuthenticationProperties(new Dictionary<string, string?>
+        {
+            [ExternalIdentityProperties.ProviderId] = providerId.Value.ToString(),
+            [ExternalIdentityProperties.ProviderName] = "provider",
+            [ExternalIdentityProperties.ValidatedIssuer] = "https://issuer.example",
+            [ExternalIdentityProperties.Authority] = "https://issuer.example"
+        });
         this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie")
             .Returns(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "ExternalCookie")));
-        if (provisioned)
-        {
-            this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
-                .Returns(new JitProvisionUserResult(user.Id, false, user.Email, user.DisplayName));
-            this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
-        }
-        else
-        {
-            this._userRepository.FindByUpstreamIdentityAsync(providerId, "subject", Arg.Any<CancellationToken>()).Returns(user);
-        }
+        this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new JitProvisionUserResult(user.Id, provisioned, user.Email, user.DisplayName));
+        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
 
         this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
             .Returns(new CreateSessionResult(SessionId.Create()));
@@ -99,6 +98,35 @@ public class AccountControllerTests : IDisposable
         await this.audit.Received(1).LogAsync("federation", "Federation.AccountAssociationDenied", "User", user.Id.Value.ToString(),
             Arg.Is<string>(details => details.Contains(providerId.Value.ToString(), StringComparison.Ordinal)), Arg.Any<CancellationToken>());
         await this._createSessionUseCase.DidNotReceive().ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>());
+        await this._authService.DidNotReceive().SignInAsync(Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
+    }
+
+    [Theory]
+    [InlineData("missing-subject")]
+    [InlineData("missing-metadata")]
+    [InlineData("jit-denied")]
+    [InlineData("missing-user")]
+    public async Task AuthenticatedExternalCallbackConsumesTicketOnEveryDenial(string failure)
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(failure == "missing-subject" ? [] : new[] { new Claim("sub", "subject") }, "ExternalCookie"));
+        var properties = new AuthenticationProperties();
+        if (failure != "missing-metadata")
+        {
+            properties.SetString(ExternalIdentityProperties.ProviderId, Guid.NewGuid().ToString());
+            properties.SetString(ExternalIdentityProperties.ProviderName, "provider");
+            properties.SetString(ExternalIdentityProperties.ValidatedIssuer, "https://issuer.example");
+            properties.SetString(ExternalIdentityProperties.Authority, "https://issuer.example");
+        }
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie")
+            .Returns(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "ExternalCookie")));
+        this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
+            .Returns(failure == "jit-denied"
+                ? DomainError.Forbidden("Federation.AuthenticationFailed", "Unable to complete sign-in.")
+                : new JitProvisionUserResult(UserId.Create(), false, null, "User"));
+
+        (await this._controller.ExternalLoginCallback("provider")).ShouldBeOfType<RedirectToActionResult>();
+
+        await this._authService.Received(1).SignOutAsync(Arg.Any<HttpContext>(), "ExternalCookie", Arg.Any<AuthenticationProperties>());
         await this._authService.DidNotReceive().SignInAsync(Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
     }
 
@@ -147,6 +175,65 @@ public class AccountControllerTests : IDisposable
 
     #region Login GET Tests
 
+    [Fact]
+    public async Task ExternalCallback_WithoutProtectedProviderBinding_RejectsQueryProviderFallback()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "subject")], "external"));
+        var ticket = new AuthenticationTicket(principal, new AuthenticationProperties(), "ExternalCookie");
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie").Returns(AuthenticateResult.Success(ticket));
+        IActionResult result = await this._controller.ExternalLoginCallback("query-controlled-provider");
+        Assert.IsType<RedirectToActionResult>(result);
+        await this._providerRepository.DidNotReceive().GetByNameAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await this._jitProvisionUseCase.DidNotReceive().ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>());
+        await this._authService.DidNotReceive().SignInAsync(Arg.Any<HttpContext>(), Arg.Any<string>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
+    }
+
+    [Fact]
+    public async Task ExternalCallback_WithoutProtectedIssuerMetadata_RecordsNonSensitiveDenialAudit()
+    {
+        var providerId = Guid.NewGuid();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim("sub", "private-subject"),
+            new Claim("email", "private-email@example.com")
+        ], "external"));
+        var properties = new AuthenticationProperties();
+        properties.SetString(ExternalIdentityProperties.ProviderId, providerId.ToString());
+        properties.SetString(ExternalIdentityProperties.ProviderName, "validated-provider");
+        properties.SetString(ExternalIdentityProperties.Authority, "https://discovery.example/common");
+        var ticket = new AuthenticationTicket(principal, properties, "ExternalCookie");
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie").Returns(AuthenticateResult.Success(ticket));
+
+        IActionResult result = await this._controller.ExternalLoginCallback("query-controlled-provider");
+
+        RedirectToActionResult redirect = result.ShouldBeOfType<RedirectToActionResult>();
+        redirect.RouteValues!["error"].ShouldBe("external_auth_failed");
+        await this.audit.Received(1).LogAsync(
+            "federation",
+            "Federation.IssuerBindingRejected",
+            "UpstreamProvider",
+            providerId.ToString(),
+            "Protected external identity binding metadata is missing or invalid.",
+            Arg.Any<CancellationToken>());
+        await this._jitProvisionUseCase.DidNotReceive().ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExternalCallback_UsesProtectedIssuerBindingForExistingAndNewIdentities()
+    {
+        var providerId = Guid.NewGuid();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "subject")], "external"));
+        var properties = new AuthenticationProperties();
+        properties.SetString(ExternalIdentityProperties.ProviderId, providerId.ToString());
+        properties.SetString(ExternalIdentityProperties.ProviderName, "validated-provider");
+        properties.SetString(ExternalIdentityProperties.ValidatedIssuer, "https://issuer.example/tenant/");
+        properties.SetString(ExternalIdentityProperties.Authority, "https://discovery.example/common");
+        var ticket = new AuthenticationTicket(principal, properties, "ExternalCookie");
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie").Returns(AuthenticateResult.Success(ticket));
+        this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>()).Returns(DomainError.Forbidden("Denied", "Denied"));
+        await this._controller.ExternalLoginCallback("query-controlled-provider");
+        await this._jitProvisionUseCase.Received(1).ExecuteAsync(Arg.Is<JitProvisionUserCommand>(c => c.ProviderId.Value == providerId && c.ValidatedIssuer == "https://issuer.example/tenant/" && c.AuthenticationAuthority == "https://discovery.example/common"), Arg.Any<CancellationToken>());
+        await this._authService.DidNotReceive().SignInAsync(Arg.Any<HttpContext>(), Arg.Any<string>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
+    }
     [Fact]
     public async Task Login_Get_ReturnsViewResult()
     {

@@ -74,6 +74,49 @@ public sealed class UpstreamProvider
     /// </summary>
     public string Authority { get; private set; }
 
+    /// <summary>Gets whether identity configuration has been permanently locked by a link.</summary>
+    public bool IdentityConfigurationLocked { get; private set; }
+
+    /// <summary>Gets the exact validated issuer, independent of the discovery authority.</summary>
+    public string? BoundIssuer { get; private set; }
+
+    /// <summary>Gets the concurrency marker for identity configuration and link creation.</summary>
+    public Guid IdentityVersion { get; private set; } = Guid.NewGuid();
+
+    /// <summary>Locks identity configuration without inventing issuer evidence for legacy links.</summary>
+    public void LockIdentityConfiguration()
+    {
+        if (this.IdentityConfigurationLocked)
+        {
+            return;
+        }
+
+        this.IdentityConfigurationLocked = true;
+        this.IdentityVersion = Guid.NewGuid();
+    }
+
+    /// <summary>Binds a validated issuer to this provider registration.</summary>
+    public Result BindIssuer(string issuer, string authenticationAuthority)
+    {
+        if (string.IsNullOrWhiteSpace(issuer) || !string.Equals(this.Authority, authenticationAuthority, StringComparison.Ordinal))
+        {
+            return UpstreamProviderErrors.IdentityBindingRejected;
+        }
+
+        if (this.BoundIssuer is not null && !string.Equals(this.BoundIssuer, issuer, StringComparison.Ordinal))
+        {
+            return UpstreamProviderErrors.IdentityBindingRejected;
+        }
+
+        if (this.BoundIssuer is null)
+        {
+            this.BoundIssuer = issuer;
+            this.IdentityVersion = Guid.NewGuid();
+        }
+        this.LockIdentityConfiguration();
+        return Result.Success();
+    }
+
     /// <summary>
     /// Gets the OAuth2 client ID.
     /// </summary>
@@ -293,6 +336,12 @@ public sealed class UpstreamProvider
             return UpstreamProviderErrors.AuthorityInvalidUrl;
         }
 
+        if (this.IdentityConfigurationLocked && !string.Equals(this.Authority, authority.TrimEnd('/'), StringComparison.Ordinal))
+        {
+            return UpstreamProviderErrors.IdentityConfigurationLocked;
+        }
+
+        this.IdentityVersion = Guid.NewGuid();
         this.Authority = authority.TrimEnd('/');
         this.UpdatedAt = DateTimeOffset.UtcNow;
         return Result.Success();
@@ -319,6 +368,11 @@ public sealed class UpstreamProvider
 /// </summary>
 public static class UpstreamProviderErrors
 {
+    public static readonly DomainError IdentityConfigurationLocked =
+        DomainError.Validation("UpstreamProvider.IdentityConfigurationLocked", "Linked provider authority cannot change. Register a replacement provider and migrate identities explicitly.");
+
+    public static readonly DomainError IdentityBindingRejected =
+        DomainError.Forbidden("Federation.AuthenticationFailed", "External authentication could not be completed.");
     public static readonly DomainError NameRequired =
         DomainError.Validation("UpstreamProvider.NameRequired", "Provider name is required.");
 
