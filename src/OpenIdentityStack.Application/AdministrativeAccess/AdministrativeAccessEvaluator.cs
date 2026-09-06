@@ -5,9 +5,18 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Application.AdministrativeAccess;
 
-public sealed class AdministrativeAccessEvaluator(IResourcePermissionService resources, IAdministrativeAuthoritySnapshot authoritySnapshot) : IAdministrativeAccessEvaluator
+public sealed class AdministrativeAccessEvaluator(IResourcePermissionService resources, IAdministrativeAuthoritySnapshot authoritySnapshot)
+    : IAdministrativeAccessProjectionEvaluator
 {
     public async Task<Result<IReadOnlyList<string>>> EvaluateAsync(AdministrativeAccessRequest request, CancellationToken cancellationToken = default)
+    {
+        Result<AdministrativeAccessEvaluation> result = await this.EvaluateProjectionAsync(request, cancellationToken);
+        return result.IsSuccess ? result.Value.Permissions.ToList() : result.Error;
+    }
+
+    public async Task<Result<AdministrativeAccessEvaluation>> EvaluateProjectionAsync(
+        AdministrativeAccessRequest request,
+        CancellationToken cancellationToken = default)
     {
         // Bind the later mutation fence to these authorization reads. A use-case capture
         // must reuse this revision rather than accepting a revocation that happened in between.
@@ -20,6 +29,6 @@ public sealed class AdministrativeAccessEvaluator(IResourcePermissionService res
         {
             return ResourceAccessErrors.NotGranted;
         }
-        return current.Value.Permissions.ToList();
+        return new AdministrativeAccessEvaluation(current.Value.Permissions.ToList(), current.Value.GrantRevisions);
     }
 }
