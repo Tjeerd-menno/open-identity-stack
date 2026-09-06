@@ -270,6 +270,32 @@ public sealed class CredentialCutoverReadinessStoreTests
     }
 
     [Fact]
+    public async Task ConcurrentAuthorityChangeRejectsStaleEmergencyProofWithoutAudit()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        long originalRevision = await database.Db.Set<AdministrativeAuthorityRevision>().Select(value => value.Revision).SingleAsync();
+        await new AdministrativeAuthoritySnapshot(database.Db).CaptureAsync();
+        await using (OpenIdentityStackDbContext writer = database.CreateContext())
+        {
+            Role role = Role.Create($"concurrent-{Guid.NewGuid():N}", "Concurrent authority change", null).Value;
+            role.SetPermissions(["users:read"]);
+            writer.Roles.Add(role);
+            await writer.SaveChangesAsync();
+        }
+        await using (OpenIdentityStackDbContext changed = database.CreateContext())
+        {
+            (await changed.Set<AdministrativeAuthorityRevision>().Select(value => value.Revision).SingleAsync()).ShouldBe(originalRevision + 1);
+        }
+
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(async () => await database.Store.RecordEmergencyAccessAsync(actor));
+
+        await using OpenIdentityStackDbContext verification = database.CreateContext();
+        (await verification.EmergencyAccessEvidence.AnyAsync()).ShouldBeFalse();
+        (await verification.AuditLogEntries.AnyAsync(entry => entry.Action == "CredentialCutover.EmergencyAccessTested")).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task ReviewsAtTheSameInstantRequireAnUnambiguousLaterReview()
     {
         await using TestDatabase database = await TestDatabase.CreateAsync();

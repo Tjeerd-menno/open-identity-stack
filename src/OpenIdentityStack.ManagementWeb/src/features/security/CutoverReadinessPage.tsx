@@ -80,8 +80,8 @@ export function CutoverReadinessPage() {
           {emergency.isError && <ErrorState message={getApiErrorMessage(emergency.error)} />}
           <Button onClick={() => emergency.mutate()} loading={emergency.isPending}>Verify my emergency access</Button>
         </Stack></SectionCard>
-        <SectionCard title="Administrative clients"><Table><Table.Thead><Table.Tr><Table.Th>Client</Table.Th><Table.Th>State</Table.Th><Table.Th>Delegated ceiling</Table.Th></Table.Tr></Table.Thead><Table.Tbody>
-          {data.administrativeClients.map((client) => <Table.Tr key={client.id}><Table.Td>{client.clientId}</Table.Td><Table.Td>{client.active ? 'Active' : 'Disabled'} · {client.approved ? 'Approved' : 'Unapproved'}{client.requiresMigrationReview ? ' · Migration review required' : ''}</Table.Td><Table.Td>{client.delegatedPermissions.join(', ') || 'None'}</Table.Td></Table.Tr>)}
+        <SectionCard title="Administrative clients"><Table><Table.Thead><Table.Tr><Table.Th>Client</Table.Th><Table.Th>State</Table.Th><Table.Th>Delegated ceiling</Table.Th><Table.Th>Application permissions</Table.Th></Table.Tr></Table.Thead><Table.Tbody>
+          {data.administrativeClients.map((client) => <Table.Tr key={client.id}><Table.Td>{client.clientId}</Table.Td><Table.Td>{client.active ? 'Active' : 'Disabled'} · {client.approved ? 'Approved' : 'Unapproved'}{client.requiresMigrationReview ? ' · Migration review required' : ''}</Table.Td><Table.Td>{client.delegatedPermissions.join(', ') || 'None'}</Table.Td><Table.Td>{client.applicationPermissions.join(', ') || 'None'}</Table.Td></Table.Tr>)}
         </Table.Tbody></Table></SectionCard>
         <Text>Outstanding access tokens: {data.outstandingAccessTokens}. Latest known expiry: {data.latestAccessTokenExpiry ?? 'None'}. Offline validators and relying-party sessions are not globally recalled.</Text>
         {data.businessResources.map((resource) => <ResourceReview key={`${resource.resourceId}-${resource.revision}`} resource={resource} refresh={refresh} />)}

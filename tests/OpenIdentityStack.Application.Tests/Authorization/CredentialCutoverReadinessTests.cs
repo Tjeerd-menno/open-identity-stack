@@ -25,6 +25,29 @@ public sealed class CredentialCutoverReadinessTests
         await approval.Received(1).RecordOutcomeAsync(false, Arg.Any<CancellationToken>());
         await store.DidNotReceive().RecordEmergencyAccessAsync(Arg.Any<AdministrativeActor>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task EmergencyProofCapturesAuthorityBeforeApprovalAndPersistence()
+    {
+        ICredentialCutoverReadinessStore store = Substitute.For<ICredentialCutoverReadinessStore>();
+        IAdministrativeApproval approval = Substitute.For<IAdministrativeApproval>();
+        IAdministrativeActorContext actor = Substitute.For<IAdministrativeActorContext>();
+        AdministrativeActor current = new(UserId.Create(), DateTimeOffset.UtcNow, true, true, Guid.NewGuid(), Guid.Empty);
+        actor.Current.Returns(current);
+        approval.RequireAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
+        store.RecordEmergencyAccessAsync(Arg.Any<AdministrativeActor>(), Arg.Any<CancellationToken>())
+            .Returns(new EmergencyAccessEvidence(Guid.NewGuid(), current.UserId.Value, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, true));
+        var workflow = new CredentialCutoverReadiness(store, approval, actor, Substitute.For<IAuditLog>());
+
+        (await workflow.RecordEmergencyAccessAsync()).IsSuccess.ShouldBeTrue();
+
+        Received.InOrder(() =>
+        {
+            approval.CaptureAuthorityAsync(Arg.Any<CancellationToken>());
+            approval.RequireAsync("CredentialCutover.RecordEmergencyAccess", "current-operator", false, Arg.Any<CancellationToken>());
+            store.RecordEmergencyAccessAsync(current, Arg.Any<CancellationToken>());
+        });
+    }
     [Theory]
     [InlineData("AssumeSafe", 0, "reference")]
     [InlineData("OfflineExpiry", -1, "reference")]

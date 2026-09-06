@@ -26,6 +26,7 @@ public partial class OpenIdentityStackDbContext
         entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
         (entry.Entity is Role or RoleAssignment or Group or GroupMapping or GroupMembership
             || entry.Entity is User && (entry.State != EntityState.Modified || Changed(entry, nameof(User.Status), nameof(User.PasswordHash), "CredentialRevision"))
+            || entry.Entity is EmergencyAccessRecord
             // These later feature slices use the same save boundary; matching model names
             // keeps the fence independent of resource-domain contracts.
             || entry.Metadata.ClrType.Name is "Application" or "ApplicationCredential" or "ClientResourceGrant" or "ProtectedResource" or "CredentialBoundaryState" or "ResourceWindowReviewRecord"));
