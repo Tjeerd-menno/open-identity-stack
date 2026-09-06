@@ -169,7 +169,7 @@ internal static class ProvidersApi
     {
         if (request.Authority is not null)
         {
-            await auditLog.LogAsync(httpContext.User.FindFirst("sub")?.Value ?? "management", "Federation.AuthorityReplacementRejected", "UpstreamProvider", id.ToString(), "Provider replacement requires a new registration and explicit identity migration.", cancellationToken);
+            await auditLog.LogAsync(httpContext.User.FindFirstValue("sub") ?? httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "management", "Federation.AuthorityReplacementRejected", "UpstreamProvider", id.ToString(), "Provider replacement requires a new registration and explicit identity migration.", cancellationToken);
             return TypedResults.BadRequest(new { error = "Provider authority cannot be replaced. Register a new provider and migrate identities explicitly." });
         }
 
