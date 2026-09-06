@@ -1,6 +1,6 @@
 # Email verification evidence
 
-An active account does not establish ownership of its email address. Provider email trust defaults to off, including existing registrations after migration. Existing account status and email fields are never backfilled as verification evidence.
+An active account does not by itself establish ownership of its email address. The one-time independent-evidence migration retains the legacy verification invariant for existing non-pending users that have a non-empty local password hash: it records independent evidence for their current normalized email, timestamped from `ModifiedAt` or `CreatedAt`. Pending and federated-only accounts are not backfilled. Provider email trust defaults to off, including existing registrations after migration.
 
 An operator with provider write permission can change **Trust email verification** in the provider Settings page. The dedicated policy endpoint is `PUT /api/admin/providers/{id}/email-verification-trust` with `{ "trusted": true }` or `false`. Each committed change has a durable `Provider.EmailVerificationTrustChanged` audit entry. Ordinary provider edits preserve this setting.
 
@@ -10,7 +10,7 @@ Operators with user read permission can inspect current verification and its sou
 
 Turning trust off withdraws that provider's evidence in the same transaction as the policy and audit change. Independent verification survives. Evidence remains available for investigation with its withdrawal time. A concurrency version prevents a login using stale provider trust from restoring evidence after withdrawal. A racing operation fails rather than overriding committed policy; retry it after reading current state.
 
-The earlier independent-evidence migration creates an empty evidence table. `RecordEmailVerificationEvidence` extends it with provider provenance and defaults every provider to untrusted. No seed routine should call email verification merely to activate an account. Use forward corrective migrations and preserve evidence backups once evidence has been recorded.
+The earlier `RecordIndependentEmailVerificationEvidence` migration creates the evidence table and performs that bounded local-password backfill. `RecordEmailVerificationEvidence` then extends the table with provider provenance and defaults every provider to untrusted. No seed routine should call email verification merely to activate an account. Use forward corrective migrations and preserve evidence backups once evidence has been recorded.
 
 Withdrawal of evidence controls subsequent issuance and UserInfo. Revoking already issued credentials, including downstream services that validate tokens locally, is completed by the separate provider-trust withdrawal lifecycle ticket and the cutover runbook.
 

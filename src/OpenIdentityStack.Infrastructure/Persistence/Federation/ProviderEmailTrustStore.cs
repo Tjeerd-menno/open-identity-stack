@@ -24,6 +24,12 @@ public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext
         }
 
         await dbContext.Entry(provider).ReloadAsync(cancellationToken);
+        if (provider.TrustEmailVerification == trusted)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return Result.Success();
+        }
+
         provider.SetEmailVerificationTrust(trusted);
         if (!trusted)
         {

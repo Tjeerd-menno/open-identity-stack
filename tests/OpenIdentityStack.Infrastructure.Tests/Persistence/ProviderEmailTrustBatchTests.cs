@@ -86,6 +86,36 @@ public sealed class ProviderEmailTrustBatchTests(FederationPolicyTestFixture fix
     }
 
     [Fact]
+    public async Task NoOpTrustWithdrawalPreservesVersionEvidenceAndAuditHistory()
+    {
+        UpstreamProvider provider = UpstreamProvider.Create(
+            $"provider-{Guid.NewGuid():N}", "Provider", "https://issuer.example", "client").Value;
+        provider.SetEmailVerificationTrust(true);
+        User user = User.CreateFederated($"{Guid.NewGuid():N}@example.com", "User", new Clock()).Value;
+        user.RecordProviderEmailVerification(provider, "https://issuer.example", user.Email, true, DateTimeOffset.UtcNow);
+        provider.SetEmailVerificationTrust(false);
+        Guid unchangedVersion = provider.EmailTrustVersion;
+        await using (OpenIdentityStackDbContext seed = fixture.CreateDbContext())
+        {
+            seed.AddRange(provider, user);
+            await seed.SaveChangesAsync();
+        }
+
+        await using (OpenIdentityStackDbContext writer = fixture.CreateDbContext())
+        {
+            (await new ProviderEmailTrustStore(writer, Audit(writer))
+                .SetAsync(provider.Id, false, "operator", default)).IsSuccess.ShouldBeTrue();
+        }
+
+        await using OpenIdentityStackDbContext read = fixture.CreateDbContext();
+        UpstreamProvider persistedProvider = await read.UpstreamProviders.SingleAsync(p => p.Id == provider.Id);
+        persistedProvider.EmailTrustVersion.ShouldBe(unchangedVersion);
+        (await read.Users.SingleAsync(u => u.Id == user.Id)).EmailVerificationEvidence.Single().WithdrawnAt.ShouldBeNull();
+        (await read.AuditLogEntries.CountAsync(entry => entry.EntityId == provider.Id.Value.ToString()
+            && entry.Action == "Provider.EmailVerificationTrustChanged")).ShouldBe(0);
+    }
+
+    [Fact]
     public void ActiveProviderEvidenceHasASeekablePartialIndex()
     {
         using OpenIdentityStackDbContext db = fixture.CreateDbContext();

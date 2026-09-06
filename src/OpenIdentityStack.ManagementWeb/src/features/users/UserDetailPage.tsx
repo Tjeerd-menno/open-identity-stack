@@ -348,7 +348,7 @@ function ProfileCard({ user, canWrite }: { user: User; canWrite: boolean }) {
         {(user.emailVerificationEvidence ?? []).map((evidence, index) => (
           <FieldRow key={`${evidence.providerId ?? 'local'}-${evidence.verifiedAt}-${index}`}
             label={evidence.providerId ? 'Provider evidence' : 'Independent evidence'}
-            value={`${evidence.issuer ?? 'Local email verification'} · ${formatDateTime(evidence.verifiedAt)}${evidence.withdrawnAt ? ' · Withdrawn' : ''}`} />
+            value={`${evidence.providerId ? `Provider ${evidence.providerId} · ` : ''}${evidence.issuer ?? 'Local email verification'} · ${formatDateTime(evidence.verifiedAt)}${evidence.withdrawnAt ? ' · Withdrawn' : ''}`} />
         ))}
         <FieldRow label="MFA" value={user.mfaEnabled ? 'Enabled' : 'Not enabled'} />
         <FieldRow label="Last sign-in" value={formatRelativeTime(user.lastLoginAt)} />

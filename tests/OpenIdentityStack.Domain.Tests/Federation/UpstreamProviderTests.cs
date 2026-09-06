@@ -46,6 +46,18 @@ public sealed class UpstreamProviderTests
     }
 
     [Fact]
+    public void SetEmailVerificationTrust_WithCurrentValue_PreservesPolicyVersion()
+    {
+        UpstreamProvider provider = CreateValidProvider();
+        Guid version = provider.EmailTrustVersion;
+
+        provider.SetEmailVerificationTrust(false);
+
+        provider.TrustEmailVerification.ShouldBeFalse();
+        provider.EmailTrustVersion.ShouldBe(version);
+    }
+
+    [Fact]
     public void Create_WithEmptyName_ReturnsError()
     {
         // Act
