@@ -36,6 +36,12 @@ public sealed class UserCredentialRevisionValidation(OpenIdentityStackDbContext 
 
     public async ValueTask HandleAsync(OpenIddictServerEvents.ProcessSignInContext context)
     {
+        Claim[] subjectKinds = context.Principal?.FindAll(TokenSubjectClaims.Kind).ToArray() ?? [];
+        if (subjectKinds.Length == 0
+            && Guid.TryParse(context.Principal?.GetClaim(OpenIddictConstants.Claims.Subject), out Guid subject))
+        {
+            await dbContext.LockUserCredentialBoundaryAsync(new UserId(subject), context.CancellationToken);
+        }
         if (!await this.IsCurrentAsync(context.Principal, context.CancellationToken))
         {
             context.Reject(OpenIddictConstants.Errors.InvalidGrant, "Fresh authentication is required.");

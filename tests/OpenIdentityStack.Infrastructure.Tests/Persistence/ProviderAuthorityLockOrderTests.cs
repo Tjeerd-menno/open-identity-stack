@@ -6,6 +6,7 @@ using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure.Audit;
 using OpenIdentityStack.Infrastructure.Persistence;
 using OpenIdentityStack.Infrastructure.Persistence.Federation;
+using OpenIdentityStack.Infrastructure.Identity;
 using OpenIdentityStack.Infrastructure.Tests.Common;
 using SharedKernel;
 
@@ -13,6 +14,26 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class ProviderAuthorityLockOrderTests(FederationPolicyTestFixture fixture) : IClassFixture<FederationPolicyTestFixture>
 {
+    [Fact]
+    public async Task UnrelatedTokenIssuanceDoesNotWaitForGlobalAuthorityWriter()
+    {
+        Assert.SkipWhen(!fixture.IsPostgres, "Overlapping row-lock verification requires PostgreSQL.");
+        await using OpenIdentityStackDbContext owner = fixture.CreateDbContext();
+        await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction heldAuthority = await owner.Database.BeginTransactionAsync();
+        await owner.Database.ExecuteSqlRawAsync("""
+            UPDATE "AdministrativeAuthorityRevision" SET "Revision" = "Revision" WHERE "Id" = 1
+            """);
+
+        await using OpenIdentityStackDbContext issuer = fixture.CreateDbContext();
+        await using var issuance = new TokenIssuanceTransaction(issuer);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+        await issuance.BeginAsync(deadline.Token);
+        issuer.Database.CurrentTransaction.ShouldNotBeNull();
+
+        await heldAuthority.RollbackAsync();
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
