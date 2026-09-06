@@ -32,3 +32,20 @@ it.each([true, false])('only provider writers can change email verification trus
     expect(toggle).toBeDisabled();
   }
 });
+
+it('requires explicit confirmation before withdrawing trust', async () => {
+  mockApi.providers.getProvider.mockResolvedValue({ id: 'p1', name: 'provider', displayName: 'Provider', authority: 'https://issuer.example', clientId: 'client', scopes: [], status: 'Active', createdAt: '2026-06-01T00:00:00Z', jitProvisioningEnabled: true, trustEmailVerification: true });
+  const user = userEvent.setup();
+  renderManagementWeb(<Routes><Route path="/providers/:providerId" element={<ProviderDetailPage />} /></Routes>, {
+    auth: makeAuth({ permissions: ['providers:read', 'providers:write'] }), initialEntries: ['/providers/p1'],
+  });
+  await user.click(await screen.findByRole('tab', { name: 'Settings' }));
+
+  await user.click(screen.getByRole('switch', { name: 'Trust email verification' }));
+
+  expect(mockApi.providers.setEmailVerificationTrust).not.toHaveBeenCalled();
+  expect(screen.getByText(/existing proofs from this provider remain withdrawn/i)).toBeInTheDocument();
+  expect(screen.getByRole('switch', { name: 'Trust email verification' })).toBeChecked();
+  await user.click(screen.getByRole('button', { name: 'Withdraw trust' }));
+  await waitFor(() => expect(mockApi.providers.setEmailVerificationTrust).toHaveBeenCalledWith('p1', false));
+});
