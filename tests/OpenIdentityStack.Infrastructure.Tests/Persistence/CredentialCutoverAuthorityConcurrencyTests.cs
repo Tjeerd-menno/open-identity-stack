@@ -21,6 +21,26 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 public sealed class CredentialCutoverAuthorityConcurrencyTests(AdministrativeAuthorityTestFixture fixture) : IClassFixture<AdministrativeAuthorityTestFixture>
 {
     [Fact]
+    public async Task ConcurrentTokenIssuersShareTheBoundaryFence()
+    {
+        await using (OpenIdentityStackDbContext probe = fixture.CreateDbContext())
+        {
+            Assert.SkipWhen(!probe.Database.IsNpgsql(), "Shared credential-boundary lock verification requires PostgreSQL.");
+        }
+
+        await using OpenIdentityStackDbContext firstDb = fixture.CreateDbContext();
+        await using var first = new TokenIssuanceTransaction(firstDb);
+        await first.BeginAsync(default);
+
+        await using OpenIdentityStackDbContext secondDb = fixture.CreateDbContext();
+        await using var second = new TokenIssuanceTransaction(secondDb);
+        await second.BeginAsync(default).WaitAsync(TimeSpan.FromSeconds(5));
+
+        await second.CommitAsync(default);
+        await first.CommitAsync(default);
+    }
+
+    [Fact]
     public async Task CutoverBoundaryFenceBlocksIssuanceUntilTheNewEpochCommits()
     {
         await using (OpenIdentityStackDbContext probe = fixture.CreateDbContext())
