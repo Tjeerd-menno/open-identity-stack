@@ -48,6 +48,12 @@ public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext
                 if (page.Count == 0) { break; }
                 afterUserId = page[^1];
                 UserId[] userIds = page.Select(id => new UserId(id)).ToArray();
+                // Preserve authority -> provider -> ordered subject lock acquisition. Credential
+                // enumeration must not run until issuance for every subject in this bounded page commits.
+                foreach (UserId userId in userIds)
+                {
+                    await dbContext.LockUserCredentialBoundaryAsync(userId, cancellationToken);
+                }
                 List<User> affectedUsers = await dbContext.Users.Where(user => userIds.Contains(user.Id)).ToListAsync(cancellationToken);
                 foreach (User user in affectedUsers)
                 {
