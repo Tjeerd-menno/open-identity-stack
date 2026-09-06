@@ -161,7 +161,7 @@ public class AuthorizationControllerTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity([
             new Claim(ClaimTypes.NameIdentifier, subject),
             new Claim(OpenIddictConstants.Claims.Subject, subject)], "Cookies"));
-        this.SetupMockServices(principal);
+        this.SetupMockServices(WithSession(principal));
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest { ClientId = "browser-client", GrantType = flow });
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
