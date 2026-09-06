@@ -180,6 +180,26 @@ public sealed class JitProvisioningPersistenceTests
         (await read.AuditLogEntries.CountAsync(entry => entry.Action == "Federation.NewAccountAssociationRecorded")).ShouldBe(1);
     }
 
+    [Fact]
+    public async Task EmailEvidenceAuditFailureRollsBackNewJitProvisioning()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync(bindIssuer: false, trustedEmail: true);
+        await using OpenIdentityStackDbContext attempt = database.CreateContext();
+        await attempt.Database.ExecuteSqlRawAsync("""
+            CREATE TRIGGER reject_email_evidence_audit BEFORE INSERT ON "AuditLogEntries"
+            WHEN NEW."Action" = 'Federation.EmailVerificationEvidenceRecorded'
+            BEGIN SELECT RAISE(ABORT, 'injected email evidence audit failure'); END;
+            """);
+
+        await Should.ThrowAsync<DbUpdateException>(() => CreateUseCase(attempt)
+            .ExecuteAsync(database.Command("subject", "person@example.com", verified: true)));
+
+        await using OpenIdentityStackDbContext read = database.CreateContext();
+        (await read.Users.CountAsync()).ShouldBe(0);
+        (await read.AuditLogEntries.CountAsync()).ShouldBe(0);
+        (await read.UpstreamProviders.SingleAsync()).BoundIssuer.ShouldBeNull();
+    }
+
     [Theory]
     [InlineData("identity")]
     [InlineData("email")]
