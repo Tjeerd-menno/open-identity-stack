@@ -46,11 +46,10 @@ public sealed class CredentialCutoverReadinessTests
         ICredentialCutoverReadinessStore store = Substitute.For<ICredentialCutoverReadinessStore>();
         IAuditLog audit = Substitute.For<IAuditLog>();
         var emergencyUser = Guid.NewGuid();
-        var emergencySession = Guid.NewGuid();
         DateTimeOffset now = DateTimeOffset.UtcNow;
         var preflight = new CredentialCutoverPreflight(Guid.NewGuid(), now,
             [new("Resource.WindowUnresolved", "A resource requires review")],
-            new(Guid.NewGuid(), emergencyUser, emergencySession, now, now, true),
+            new(Guid.NewGuid(), emergencyUser, now, now, true),
             new(0, 0, 0, 0, 0, 0, 0, 0), [], [], 12, now.AddMinutes(5));
         store.EvaluateAsync(Arg.Any<CancellationToken>()).Returns(preflight);
         var workflow = new CredentialCutoverReadiness(store, Substitute.For<IAdministrativeApproval>(),
@@ -62,8 +61,7 @@ public sealed class CredentialCutoverReadinessTests
             preflight.Epoch.ToString(), Arg.Is<string?>(value => value == null),
             Arg.Is<string>(json => json.Contains("Resource.WindowUnresolved", StringComparison.Ordinal)
                 && json.Contains("OutstandingAccessTokens", StringComparison.Ordinal)
-                && !json.Contains(emergencyUser.ToString(), StringComparison.Ordinal)
-                && !json.Contains(emergencySession.ToString(), StringComparison.Ordinal)), Arg.Any<CancellationToken>());
+                && !json.Contains(emergencyUser.ToString(), StringComparison.Ordinal)), Arg.Any<CancellationToken>());
     }
 
     [Fact]
