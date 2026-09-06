@@ -1466,20 +1466,17 @@ components:
         providerName:
           type: string
         issuer:
-          type: string
-          nullable: true
+          type: [string, 'null']
         subjectId:
           type: string
         email:
-          type: string
-          nullable: true
+          type: [string, 'null']
         linkedAt:
           type: string
           format: date-time
         lastLoginAt:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         associationEvidence:
           type: string
           enum: [Unknown, NewAccountProvisioning]

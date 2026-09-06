@@ -15,6 +15,10 @@ public sealed class IdentityBoundaryResponseContractTests
         response.ShouldContain("providerId:");
         response.ShouldContain("subjectId:");
         response.ShouldContain("lastLoginAt:");
+        response.ShouldMatch(@"issuer:\s+type: \[string, 'null'\]");
+        response.ShouldMatch(@"email:\s+type: \[string, 'null'\]");
+        response.ShouldMatch(@"lastLoginAt:\s+type: \[string, 'null'\]\s+format: date-time");
+        response.ShouldNotContain("nullable: true");
         Schema(contract, "UpstreamIdentitiesResponse").ShouldContain("required: [items]");
         string operation = contract[contract.IndexOf("operationId: listUserUpstreamIdentities", StringComparison.Ordinal)..];
         operation[..operation.IndexOf("    post:", StringComparison.Ordinal)]
