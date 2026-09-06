@@ -46,6 +46,22 @@ public sealed class CredentialCutoverConfiguration : IEntityTypeConfiguration<Cr
     }
 }
 
+internal static class CredentialBoundaryFence
+{
+    public static async Task AcquireAsync(OpenIdentityStackDbContext db, CancellationToken cancellationToken)
+    {
+        // A write creates an MVCC dependency with a serializable cutover even when
+        // issuance begins after the cutover has taken its database snapshot.
+        int affected = await db.Database.ExecuteSqlRawAsync(
+            """UPDATE "CredentialBoundary" SET "Epoch" = "Epoch" WHERE "Id" = 1""",
+            cancellationToken);
+        if (affected != 1)
+        {
+            throw new InvalidOperationException("The credential boundary fence is unavailable.");
+        }
+    }
+}
+
 public sealed class CredentialBoundaryStore(OpenIdentityStackDbContext db, IOpenIddictTokenManager tokens,
     IOpenIddictAuthorizationManager grants, IDateTimeProvider clock, OpenIdentityStack.Application.Abstractions.ICredentialCutoverGate gate) : ICredentialBoundaryStore
 {
@@ -62,6 +78,7 @@ public sealed class CredentialBoundaryStore(OpenIdentityStackDbContext db, IOpen
     public async Task<Result<CredentialCutoverResult>> ExecuteAsync(Guid operationId, string actorId, CancellationToken cancellationToken = default)
     {
         await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        await CredentialBoundaryFence.AcquireAsync(db, cancellationToken);
         CredentialCutoverRecord? previous = await db.Set<CredentialCutoverRecord>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == operationId, cancellationToken);
         if (previous is not null) { return previous.ToResult(); }
         CredentialCutoverPreflight preflight = await gate.EvaluateAsync(cancellationToken);

@@ -18,6 +18,16 @@ public sealed class TokenIssuanceTransaction(OpenIdentityStackDbContext dbContex
         }
 
         this.transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await CredentialBoundaryFence.AcquireAsync(dbContext, cancellationToken);
+        }
+        catch
+        {
+            await this.transaction.DisposeAsync();
+            this.transaction = null;
+            throw;
+        }
     }
 
     public async Task CommitAsync(CancellationToken cancellationToken)
