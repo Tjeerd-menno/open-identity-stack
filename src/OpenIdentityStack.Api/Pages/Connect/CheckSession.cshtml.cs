@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using OpenIdentityStack.Api.Authentication;
+using OpenIdentityStack.Api.Configuration;
 using OpenIdentityStack.Infrastructure.Identity;
 
 namespace OpenIdentityStack.Api.Pages.Connect;
 
+[EnableRateLimiting(RateLimitingConfiguration.CheckSessionPolicy)]
 public class CheckSessionModel(ISessionMonitoringCookieService sessionMonitoringCookies) : PageModel
 {
     public string SessionCookieName => SessionManagementDefaults.SessionCookieName;
