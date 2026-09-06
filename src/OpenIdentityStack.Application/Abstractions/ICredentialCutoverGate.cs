@@ -34,7 +34,7 @@ public sealed class CredentialCutoverReadiness(
     {
         CredentialCutoverPreflight result = await store.EvaluateAsync(cancellationToken);
         await audit.LogChangeAsync(actor.Current?.UserId.Value.ToString() ?? "unknown", "CredentialCutover.PreflightEvaluated", "CredentialBoundary",
-            result.Epoch.ToString(), null, System.Text.Json.JsonSerializer.Serialize(result), cancellationToken);
+            result.Epoch.ToString(), null, System.Text.Json.JsonSerializer.Serialize(CredentialCutoverAuditSummary.From(result)), cancellationToken);
         return result;
     }
 
@@ -45,6 +45,7 @@ public sealed class CredentialCutoverReadiness(
         AdministrativeActor? current = actor.Current;
         if (current is null || !current.IsHuman || current.LocalPasswordSessionId is null || current.CredentialEpoch is null)
         {
+            await approval.RecordOutcomeAsync(false, cancellationToken);
             return DomainError.Forbidden("CredentialCutover.IndependentLoginRequired", "Sign in with the emergency administrator's local password before recording access evidence.");
         }
         Result<EmergencyAccessEvidence> result = await store.RecordEmergencyAccessAsync(current, cancellationToken);
@@ -59,6 +60,7 @@ public sealed class CredentialCutoverReadiness(
         if (review.Mechanism is not ("OnlineIntrospection" or "ConsumerRevocation" or "OfflineExpiry") || review.ResidualSeconds < 0 ||
             string.IsNullOrWhiteSpace(review.EvidenceReference) || review.EvidenceReference.Length > 1000)
         {
+            await approval.RecordOutcomeAsync(false, cancellationToken);
             return DomainError.Validation("CredentialCutover.InvalidResourceWindow", "Specify the external control, a nonnegative maximum residual window, and an evidence reference of at most 1000 characters.");
         }
         Result result = await store.ReviewResourceWindowAsync(review, actor.Current!.UserId.Value.ToString(), cancellationToken);

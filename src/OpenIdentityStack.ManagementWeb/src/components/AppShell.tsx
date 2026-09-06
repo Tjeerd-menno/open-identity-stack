@@ -16,7 +16,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '@/lib/auth-context';
-import { hasAnyPermission } from '@/lib/permissions';
+import { credentialCutoverPermissions, hasAnyPermission, hasEveryPermission } from '@/lib/permissions';
 import { getInitials } from '@/lib/format';
 import { useThemePreference } from './ThemeProvider';
 import { Icon, type IconName } from './Icon';
@@ -27,10 +27,11 @@ type NavItem = {
   icon: IconName;
   match: string[];
   permissions?: string[];
+  requireAll?: boolean;
 };
 
 const NAV: NavItem[] = [
-  { label: 'Credential cutover', to: '/security/cutover', icon: 'shield-check', match: ['/security/cutover'], permissions: ['sessions:revoke'] },
+  { label: 'Credential cutover', to: '/security/cutover', icon: 'shield-check', match: ['/security/cutover'], permissions: credentialCutoverPermissions, requireAll: true },
   { label: 'Overview', to: '/', icon: 'layout-dashboard', match: ['/'] },
   { label: 'Users', to: '/users', icon: 'users', match: ['/users'], permissions: ['users:read'] },
   { label: 'Groups', to: '/groups', icon: 'users-round', match: ['/groups'], permissions: ['groups:read'] },
@@ -71,7 +72,7 @@ export function AppShell() {
   const { resolvedTheme, toggle: toggleTheme } = useThemePreference();
   const location = useLocation();
 
-  const visibleNav = NAV.filter((item) => !item.permissions || hasAnyPermission(auth.permissions, item.permissions));
+  const visibleNav = NAV.filter((item) => !item.permissions || (item.requireAll ? hasEveryPermission(auth.permissions, item.permissions) : hasAnyPermission(auth.permissions, item.permissions)));
   const current = [...visibleNav].reverse().find((item) => isActive(location.pathname, item));
 
   return (

@@ -6,7 +6,7 @@ import { AppShell } from '@/components/AppShell';
 import { Icon } from '@/components/Icon';
 import { CenteredState } from '@/components/primitives';
 import { useAuth } from '@/lib/auth-context';
-import { hasAnyPermission } from '@/lib/permissions';
+import { credentialCutoverPermissions, hasAnyPermission, hasEveryPermission } from '@/lib/permissions';
 import { OverviewPage } from '@/features/overview/OverviewPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { UserDetailPage } from '@/features/users/UserDetailPage';
@@ -78,15 +78,15 @@ function FullScreenLoader({ label }: { label: string }) {
   );
 }
 
-function RequirePermissions({ permissions, children }: { permissions: string[]; children: ReactNode }) {
+function RequirePermissions({ permissions, children, requireAll = false }: { permissions: string[]; children: ReactNode; requireAll?: boolean }) {
   const auth = useAuth();
-  if (!hasAnyPermission(auth.permissions, permissions)) {
+  if (!(requireAll ? hasEveryPermission(auth.permissions, permissions) : hasAnyPermission(auth.permissions, permissions))) {
     return (
       <CenteredState
         icon="shield-off"
         iconColor="orange"
         title="Access denied"
-        text={`You need one of: ${permissions.join(', ')} to view this area.`}
+        text={`You need ${requireAll ? 'all of' : 'one of'}: ${permissions.join(', ')} to view this area.`}
       />
     );
   }
@@ -113,7 +113,7 @@ export function AppRoutes() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<OverviewPage />} />
-        <Route path="security/cutover" element={<RequirePermissions permissions={['sessions:revoke']}><CutoverReadinessPage /></RequirePermissions>} />
+        <Route path="security/cutover" element={<RequirePermissions requireAll permissions={credentialCutoverPermissions}><CutoverReadinessPage /></RequirePermissions>} />
         <Route
           path="users"
           element={

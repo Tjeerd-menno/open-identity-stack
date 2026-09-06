@@ -41,8 +41,11 @@ public sealed class CredentialBoundaryTests(SqliteTestFixture fixture) : IClassF
     {
         await using OpenIdentityStackDbContext db = fixture.CreateDbContext();
         ICredentialCutoverGate gate = Substitute.For<ICredentialCutoverGate>();
+        var emergencyUser = Guid.NewGuid();
+        var emergencySession = Guid.NewGuid();
         var preflight = new CredentialCutoverPreflight(Guid.Empty, DateTimeOffset.UtcNow,
-            [new CutoverBlocker("Identity.Quarantined", "Recovery is not specified.")], null, new(1, 1, 1, 0, 0, 0, 0, 0), [], [], 0, null);
+            [new CutoverBlocker("Identity.Quarantined", "Recovery is not specified.")],
+            new(Guid.NewGuid(), emergencyUser, emergencySession, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, true), new(1, 1, 1, 0, 0, 0, 0, 0), [], [], 0, null);
         gate.EvaluateAsync(Arg.Any<CancellationToken>()).Returns(preflight);
         IOpenIddictTokenManager tokens = Substitute.For<IOpenIddictTokenManager>();
         IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
@@ -56,7 +59,12 @@ public sealed class CredentialBoundaryTests(SqliteTestFixture fixture) : IClassF
         result.IsFailure.ShouldBeTrue();
         (await store.GetEpochAsync()).ShouldBe(before);
         (await db.Set<CredentialCutoverRecord>().AnyAsync(x => x.Id == operation)).ShouldBeFalse();
-        (await db.AuditLogEntries.AnyAsync(x => x.Action == "CredentialCutover.PreflightBlocked" && x.EntityId == operation.ToString())).ShouldBeTrue();
+        string? auditSummary = await db.AuditLogEntries.Where(x => x.Action == "CredentialCutover.PreflightBlocked" && x.EntityId == operation.ToString())
+            .Select(x => x.AfterState).SingleAsync();
+        auditSummary.ShouldNotBeNull();
+        auditSummary.ShouldContain("Identity.Quarantined");
+        auditSummary.ShouldNotContain(emergencyUser.ToString());
+        auditSummary.ShouldNotContain(emergencySession.ToString());
 #pragma warning disable CA2012
         await tokens.DidNotReceive().RevokeAsync(null, null, null, null, Arg.Any<CancellationToken>());
 #pragma warning restore CA2012

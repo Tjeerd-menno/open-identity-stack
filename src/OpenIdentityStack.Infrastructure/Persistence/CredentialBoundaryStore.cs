@@ -70,7 +70,7 @@ public sealed class CredentialBoundaryStore(OpenIdentityStackDbContext db, IOpen
             UserId = actorId, Action = preflight.Ready ? "CredentialCutover.PreflightPassed" : "CredentialCutover.PreflightBlocked",
             EntityType = "CredentialBoundary", EntityId = operationId.ToString(), Timestamp = clock.UtcNow,
             Details = "Cutover prerequisites rechecked inside the serializable transaction.",
-            AfterState = System.Text.Json.JsonSerializer.Serialize(preflight)
+            AfterState = System.Text.Json.JsonSerializer.Serialize(CredentialCutoverAuditSummary.From(preflight))
         });
         if (!preflight.Ready)
         {
