@@ -6,6 +6,7 @@ using OpenIdentityStack.Application.Security.Commands;
 using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Sessions;
+using OpenIdentityStack.Domain.Settings;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure.Persistence;
 using OpenIdentityStack.Infrastructure.Persistence.Groups;
@@ -19,9 +20,10 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 public sealed class CredentialCutoverAuthorityConcurrencyTests(AdministrativeAuthorityTestFixture fixture) : IClassFixture<AdministrativeAuthorityTestFixture>
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RevokedOperatorCannotAdvanceBoundaryAfterApprovalReads(bool removeUnrestrictedPermission)
+    [InlineData("permission")]
+    [InlineData("user")]
+    [InlineData("local-fallback")]
+    public async Task AuthorityChangeCannotAdvanceBoundaryAfterApprovalReads(string change)
     {
         IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
@@ -44,8 +46,15 @@ public sealed class CredentialCutoverAuthorityConcurrencyTests(AdministrativeAut
             {
                 // The real approval has read the active user and unrestricted role. Another
                 // request now commits their revocation before the boundary store starts.
-                if (removeUnrestrictedPermission) { role.RemovePermission("*"); }
-                else { user.Disable("Other administrator", clock); }
+                if (change == "permission") { role.RemovePermission("*"); }
+                else if (change == "user") { user.Disable("Other administrator", clock); }
+                else
+                {
+                    AuthenticationSettings settings = await writer.AuthenticationSettings.SingleOrDefaultAsync()
+                        ?? AuthenticationSettings.CreateDefault(clock);
+                    if (writer.Entry(settings).State == EntityState.Detached) { writer.AuthenticationSettings.Add(settings); }
+                    settings.DisableLocalFallback(clock);
+                }
                 await writer.SaveChangesAsync();
             });
         var approval = new AdministrativeApproval(actor, new UserRepository(stale),
