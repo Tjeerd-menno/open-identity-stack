@@ -101,6 +101,20 @@ public sealed class CredentialCutoverReadinessStoreTests
         proofQuery.ShouldContain("AuthenticatedAt\" <=", Case.Insensitive);
     }
 
+    [Fact]
+    public async Task EmergencyAccessAuditDoesNotExposeTheLiveSessionIdentifier()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+
+        (await database.Store.RecordEmergencyAccessAsync(actor)).IsSuccess.ShouldBeTrue();
+
+        string afterState = (await database.Db.AuditLogEntries.SingleAsync(entry =>
+            entry.Action == "CredentialCutover.EmergencyAccessTested")).AfterState!;
+        afterState.ShouldNotContain(actor.LocalPasswordSessionId!.Value.ToString(), Case.Insensitive);
+        afterState.ShouldContain(actor.UserId.Value.ToString(), Case.Insensitive);
+    }
+
     [Theory]
     [InlineData(30, 15, true)]
     [InlineData(300, 299, true)]

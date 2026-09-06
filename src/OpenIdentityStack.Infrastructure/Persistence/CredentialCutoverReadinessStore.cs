@@ -116,12 +116,13 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
         {
             return DomainError.Forbidden("CredentialCutover.EmergencyAccessUnavailable", "Test current independent emergency access before continuing.");
         }
+        var evidence = new EmergencyAccessEvidence(proof.Id, proof.UserId, proof.AuthenticatedAt, proof.RecordedAt, true);
         db.EmergencyAccessEvidence.Add(proof);
         db.AuditLogEntries.Add(new AuditLogEntry { UserId = actor.UserId.Value.ToString(), Action = "CredentialCutover.EmergencyAccessTested", EntityType = "CredentialBoundary", EntityId = epoch.ToString(), Timestamp = clock.UtcNow,
-            Details = "Fresh local password authentication and a live session established current unrestricted emergency access.", AfterState = JsonSerializer.Serialize(proof) });
+            Details = "Fresh local password authentication and a live session established current unrestricted emergency access.", AfterState = JsonSerializer.Serialize(evidence) });
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return new EmergencyAccessEvidence(proof.Id, proof.UserId, proof.AuthenticatedAt, proof.RecordedAt, true);
+        return evidence;
     }
 
     public async Task<Result> ReviewResourceWindowAsync(ResourceWindowReview review, string actorId, CancellationToken cancellationToken = default)
