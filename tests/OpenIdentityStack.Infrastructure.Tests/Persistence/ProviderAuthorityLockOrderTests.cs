@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Federation;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure.Audit;
@@ -35,7 +36,9 @@ public sealed class ProviderAuthorityLockOrderTests(FederationPolicyTestFixture 
         Task<Result> operation;
         if (withdrawal)
         {
-            operation = new ProviderEmailTrustStore(writer, Audit(writer)).SetAsync(provider.Id, false, "operator", default);
+            IEmailTrustCredentialInvalidator invalidator = Substitute.For<IEmailTrustCredentialInvalidator>();
+            invalidator.RevokeAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns(new EmailTrustCredentialInvalidation(0, 0, 0));
+            operation = new ProviderEmailTrustStore(writer, Audit(writer), invalidator).SetAsync(provider.Id, false, "operator", default);
         }
         else
         {
