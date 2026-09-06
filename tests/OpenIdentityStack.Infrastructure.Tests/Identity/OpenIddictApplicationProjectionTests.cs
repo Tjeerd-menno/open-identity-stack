@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Infrastructure.Identity;
@@ -97,6 +98,22 @@ public sealed class OpenIddictApplicationProjectionTests
                 descriptor!.ClientId == application.ClientId &&
                 descriptor.DisplayName == application.DisplayName),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpsertAsync_WhenAuthorityFenceChanges_ReturnsConflict()
+    {
+        DomainApplication application = this.CreateWebApplication();
+        object existing = new();
+        this.applicationManager.FindByClientIdAsync(application.ClientId, Arg.Any<CancellationToken>())
+            .Returns(existing);
+        this.applicationManager.UpdateAsync(existing, Arg.Any<OpenIddictApplicationDescriptor>(), Arg.Any<CancellationToken>())
+            .Returns(_ => throw new DbUpdateConcurrencyException("Administrative authority changed."));
+
+        Result result = await this.projection.UpsertAsync(application);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.ProjectionConflict");
     }
 
     [Fact]
