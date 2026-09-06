@@ -638,6 +638,7 @@ static async Task SeedIsotopesApiResourceClientAsync(IServiceProvider servicePro
             OpenIddictConstants.Permissions.Endpoints.Introspection
         }
     };
+    SeededOpenIddictApplicationUpdater.AttachProjectionIdentity(descriptor, prepared.Value.Id);
 
     if (existingClient is null)
     {
