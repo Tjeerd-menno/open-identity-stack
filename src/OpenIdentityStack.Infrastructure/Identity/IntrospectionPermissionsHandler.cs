@@ -25,6 +25,12 @@ internal sealed class IntrospectionPermissionsHandler(IResourcePermissionService
 
         ImmutableArray<string> audiences = principal.GetAudiences();
         if (audiences.IsEmpty) { audiences = principal.GetResources(); }
+        if (audiences.IsEmpty)
+        {
+            context.Reject(OpenIddictConstants.Errors.InvalidToken);
+            return;
+        }
+
         foreach (string audience in audiences)
         {
             ProtectedResource? resource = await resources.FindByAudienceAsync(audience, context.CancellationToken);

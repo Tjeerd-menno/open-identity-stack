@@ -12,6 +12,34 @@ namespace OpenIdentityStack.Infrastructure.Tests.Identity;
 
 public sealed class IntrospectionPermissionsHandlerTests
 {
+    [Fact]
+    public async Task HandleAsync_WhenTokenHasNoAudience_RejectsWithoutProjectingClaims()
+    {
+        IResourcePermissionService projection = Substitute.For<IResourcePermissionService>();
+        IResourceAccessRepository resources = Substitute.For<IResourceAccessRepository>();
+        IApplicationRepository applications = Substitute.For<IApplicationRepository>();
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        ClientApplication caller = ClientApplication.CreateMachineToMachine("resource-server", "Resource server", null, ["orders"], clock).Value;
+        applications.GetByClientIdAsync(caller.ClientId, Arg.Any<CancellationToken>()).Returns(caller);
+        projection.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>()).Returns(
+            (Result<ResourceTokenProjection>)new ResourceTokenProjection([], [], new Dictionary<Guid, long>()));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim("sub", Guid.NewGuid().ToString()), new Claim("client_id", "browser-client"),
+            new Claim(ResourceTokenActorTypes.ClaimType, ResourceTokenActorTypes.User)
+        ]));
+        principal.SetScopes("openid", "profile", "email");
+        var context = new HandleIntrospectionRequestContext(new OpenIddict.Server.OpenIddictServerTransaction
+        {
+            Request = new OpenIddictRequest { ClientId = caller.ClientId }
+        }) { GenericTokenPrincipal = principal };
+
+        await new IntrospectionPermissionsHandler(projection, resources, applications).HandleAsync(context);
+
+        context.IsRejected.ShouldBeTrue();
+        await projection.DidNotReceive().ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>());
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

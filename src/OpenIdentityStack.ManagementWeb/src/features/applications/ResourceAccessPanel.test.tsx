@@ -53,6 +53,22 @@ it('prevents switching resources while a grant save is pending', async () => {
   await waitFor(() => expect(selector).toBeEnabled());
 });
 
+it('disambiguates resources with the same display name by audience and scope', async () => {
+  const user = userEvent.setup();
+  mockApi.applications.listProtectedResources.mockResolvedValue([
+    { id: 'orders-read', displayName: 'Orders API', audience: 'https://orders.example.com', scope: 'orders.read', permissionNamespaces: ['orders'], enabled: true, revision: 1, isAdministrative: false },
+    { id: 'orders-write', displayName: 'Orders API', audience: 'https://fulfillment.example.com', scope: 'orders.write', permissionNamespaces: ['orders'], enabled: true, revision: 1, isAdministrative: false },
+  ]);
+  renderManagementWeb(<ResourceAccessPanel applicationId="client" canWrite />);
+  const selector = screen.getByRole('combobox', { name: 'Protected resource' });
+  await waitFor(() => expect(selector).toBeEnabled());
+
+  await user.click(selector);
+
+  expect(screen.getByRole('option', { name: 'Orders API — https://orders.example.com — orders.read' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'Orders API — https://fulfillment.example.com — orders.write' })).toBeInTheDocument();
+});
+
 it('clears grant editing state while grants for a different application load', async () => {
   const user = userEvent.setup();
   let completeSecondLoad!: (value: Array<{ resourceId: string; delegatedPermissions: string[]; applicationPermissions: string[]; revision: number }>) => void;
