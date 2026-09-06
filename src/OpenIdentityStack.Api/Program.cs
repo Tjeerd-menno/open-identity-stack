@@ -144,7 +144,10 @@ if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
 
 // ProblemDetails middleware for consistent error responses
 app.UseExceptionHandler();
-app.UseStatusCodePages();
+app.UseStatusCodePages(static context =>
+    context.HttpContext.Response.StatusCode == StatusCodes.Status403Forbidden
+        ? Results.Problem(statusCode: StatusCodes.Status403Forbidden).ExecuteAsync(context.HttpContext)
+        : Task.CompletedTask);
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

@@ -13,6 +13,18 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 
 public sealed class AdministrativeEntitlementTests(AppHostFixture fixture)
 {
+    [Fact]
+    public async Task AuthenticationChallengeRemainsBodyless()
+    {
+        using HttpClient client = fixture.CreateClient();
+
+        using HttpResponseMessage response = await client.GetAsync("/api/me");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        response.Content.Headers.ContentType.ShouldBeNull();
+        (await response.Content.ReadAsStringAsync()).ShouldBeEmpty();
+    }
+
     [Theory]
     [InlineData("oauth")]
     [InlineData("enable")]
