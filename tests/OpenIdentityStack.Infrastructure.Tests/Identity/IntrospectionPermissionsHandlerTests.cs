@@ -1,123 +1,120 @@
 using System.Security.Claims;
-
 using OpenIddict.Abstractions;
-using OpenIddict.Server;
-using OpenIdentityStack.Application.Roles.Queries;
-using OpenIdentityStack.Application.Users.Queries;
+using OpenIdentityStack.Application.Applications;
+using OpenIdentityStack.Application.Resources;
+using OpenIdentityStack.Domain.Resources;
 using OpenIdentityStack.Infrastructure.Identity;
 using static OpenIddict.Server.OpenIddictServerEvents;
-
 using SharedKernel;
+using ClientApplication = OpenIdentityStack.Domain.Applications.Application;
 
 namespace OpenIdentityStack.Infrastructure.Tests.Identity;
 
 public sealed class IntrospectionPermissionsHandlerTests
 {
-    private readonly IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
-
     [Fact]
-    public async Task HandleAsync_UsesFreshRolePermissionsAndFiltersByRequestingClient()
+    public async Task HandleAsync_WhenTokenHasNoAudience_RejectsWithoutProjectingClaims()
     {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var handler = new IntrospectionPermissionsHandler(this.getUserEffectiveRolesQueryHandler);
-        HandleIntrospectionRequestContext context = CreateContext("patient-api", userId.ToString());
-
-        var role = new RoleDto(
-            Guid.NewGuid(),
-            "patient-user",
-            "Patient User",
-            "Patient permissions",
-            IsSystemRole: false,
-            IsActive: true,
-            Permissions: ["patient-api:patient:read", "patient-api:patient:write", "inventory-api:stock:read"]);
-
-        this.getUserEffectiveRolesQueryHandler.HandleAsync(
-                Arg.Is<UserId>(id => id.Value == userId),
-                Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { role });
-
-        // Act
-        await handler.HandleAsync(context);
-
-        // Assert
-        GetPermissions(context).ShouldBe(["patient-api:patient:read", "patient-api:patient:write"]);
-    }
-
-    [Fact]
-    public async Task HandleAsync_EmitsConcreteDynamicPermissionsOnlyAndOmitsPlatformAndWildcardPermissions()
-    {
-        var userId = Guid.NewGuid();
-        var handler = new IntrospectionPermissionsHandler(this.getUserEffectiveRolesQueryHandler);
-        HandleIntrospectionRequestContext context = CreateContext("patient-api", userId.ToString());
-
-        var role = new RoleDto(
-            Guid.NewGuid(),
-            "patient-admin",
-            "Patient Admin",
-            "Patient permissions",
-            IsSystemRole: false,
-            IsActive: true,
-            Permissions: ["*", "users:read", "patient-api:patient:*", "patient-api:patient:read"]);
-
-        this.getUserEffectiveRolesQueryHandler.HandleAsync(
-                Arg.Is<UserId>(id => id.Value == userId),
-                Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { role });
-
-        await handler.HandleAsync(context);
-
-        GetPermissions(context).ShouldBe(["patient-api:patient:read"]);
-    }
-
-    [Fact]
-    public async Task HandleAsync_FallsBackToTokenPermissionClaimsForNonUserSubjects()
-    {
-        // Arrange
-        var handler = new IntrospectionPermissionsHandler(this.getUserEffectiveRolesQueryHandler);
-        HandleIntrospectionRequestContext context = CreateContext("patient-api", "service-account");
-        context.GenericTokenPrincipal = new ClaimsPrincipal(new ClaimsIdentity(
-        [
-            new Claim("permission", "patient-api:patient:read inventory-api:stock:read"),
-            new Claim("permissions", "patient-api:patient:write")
+        IResourcePermissionService projection = Substitute.For<IResourcePermissionService>();
+        IResourceAccessRepository resources = Substitute.For<IResourceAccessRepository>();
+        IApplicationRepository applications = Substitute.For<IApplicationRepository>();
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        ClientApplication caller = ClientApplication.CreateMachineToMachine("resource-server", "Resource server", null, ["orders"], clock).Value;
+        applications.GetByClientIdAsync(caller.ClientId, Arg.Any<CancellationToken>()).Returns(caller);
+        projection.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>()).Returns(
+            (Result<ResourceTokenProjection>)new ResourceTokenProjection([], [], new Dictionary<Guid, long>()));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim("sub", Guid.NewGuid().ToString()), new Claim("client_id", "browser-client"),
+            new Claim(ResourceTokenActorTypes.ClaimType, ResourceTokenActorTypes.User)
         ]));
+        principal.SetScopes("openid", "profile", "email");
+        var context = new HandleIntrospectionRequestContext(new OpenIddict.Server.OpenIddictServerTransaction
+        {
+            Request = new OpenIddictRequest { ClientId = caller.ClientId }
+        }) { GenericTokenPrincipal = principal };
 
-        // Act
+        await new IntrospectionPermissionsHandler(projection, resources, applications).HandleAsync(context);
+
+        context.IsRejected.ShouldBeTrue();
+        await projection.DidNotReceive().ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task HandleAsync_RequiresExplicitResourceAssignmentAndPreservesOriginalTokenCeiling(bool granted)
+    {
+        IResourcePermissionService projection = Substitute.For<IResourcePermissionService>();
+        IResourceAccessRepository resources = Substitute.For<IResourceAccessRepository>();
+        IApplicationRepository applications = Substitute.For<IApplicationRepository>();
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        ClientApplication caller = ClientApplication.CreateMachineToMachine("unrelated-client", "Caller", null, ["orders"], clock).Value;
+        ProtectedResource resource = ProtectedResource.Create("https://orders.example.com", "orders", "Orders", ["orders"]).Value;
+        applications.GetByClientIdAsync(caller.ClientId, Arg.Any<CancellationToken>()).Returns(caller);
+        resources.FindByAudienceAsync(resource.Audience, Arg.Any<CancellationToken>()).Returns(resource);
+        if (granted)
+        {
+            resources.GetGrantAsync(caller.Id, resource.Id, Arg.Any<CancellationToken>()).Returns(ClientResourceGrant.Create(caller.Id, resource.Id, [], []).Value);
+        }
+        projection.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>()).Returns(
+            (Result<ResourceTokenProjection>)new ResourceTokenProjection([resource.Audience], ["orders:invoice:read"], new Dictionary<Guid, long>()));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim("sub", Guid.NewGuid().ToString()), new Claim("client_id", "browser-client"),
+            new Claim(ResourceTokenActorTypes.ClaimType, ResourceTokenActorTypes.User), new Claim("permission", "orders:invoice:read")
+        ]));
+        principal.SetScopes("orders");
+        principal.SetAudiences(resource.Audience);
+        var context = new HandleIntrospectionRequestContext(new OpenIddict.Server.OpenIddictServerTransaction
+        {
+            Request = new OpenIddictRequest { ClientId = caller.ClientId }
+        }) { GenericTokenPrincipal = principal };
+        var handler = new IntrospectionPermissionsHandler(projection, resources, applications);
         await handler.HandleAsync(context);
+        context.IsRejected.ShouldBe(!granted);
+        if (granted)
+        {
+            context.Claims["permissions"].GetUnnamedParameters().Select(static value => value.ToString()).ShouldBe(["orders:invoice:read"]);
+            await projection.Received().ProjectAsync(Arg.Is<ResourceTokenRequest>(request => request.ClientId == "browser-client"
+                && request.OriginalPermissions!.Count == 1 && request.OriginalPermissions[0] == "orders:invoice:read"
+                && request.OriginalAudiences!.SequenceEqual(new[] { resource.Audience })), Arg.Any<CancellationToken>());
+        }
+    }
 
-        // Assert
-        GetPermissions(context).ShouldBe(["patient-api:patient:read", "patient-api:patient:write"]);
-        await this.getUserEffectiveRolesQueryHandler.DidNotReceive().HandleAsync(
-            Arg.Any<UserId>(),
+    [Fact]
+    public async Task HandleAsync_WhenUserIdEqualsClientId_UsesExplicitUserActorType()
+    {
+        IResourcePermissionService projection = Substitute.For<IResourcePermissionService>();
+        IResourceAccessRepository resources = Substitute.For<IResourceAccessRepository>();
+        IApplicationRepository applications = Substitute.For<IApplicationRepository>();
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var overlappingId = Guid.NewGuid();
+        string clientId = overlappingId.ToString();
+        ClientApplication caller = ClientApplication.CreateMachineToMachine("resource-server", "Resource server", null, ["orders"], clock).Value;
+        ProtectedResource resource = ProtectedResource.Create("https://orders.example.com", "orders", "Orders", ["orders"]).Value;
+        applications.GetByClientIdAsync(caller.ClientId, Arg.Any<CancellationToken>()).Returns(caller);
+        resources.FindByAudienceAsync(resource.Audience, Arg.Any<CancellationToken>()).Returns(resource);
+        resources.GetGrantAsync(caller.Id, resource.Id, Arg.Any<CancellationToken>()).Returns(ClientResourceGrant.Create(caller.Id, resource.Id, [], []).Value);
+        projection.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>()).Returns(
+            (Result<ResourceTokenProjection>)new ResourceTokenProjection([resource.Audience], ["orders:read"], new Dictionary<Guid, long>()));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim("sub", clientId), new Claim("client_id", clientId),
+            new Claim(ResourceTokenActorTypes.ClaimType, ResourceTokenActorTypes.User)
+        ]));
+        principal.SetScopes("orders");
+        principal.SetAudiences(resource.Audience);
+        var context = new HandleIntrospectionRequestContext(new OpenIddict.Server.OpenIddictServerTransaction
+        {
+            Request = new OpenIddictRequest { ClientId = caller.ClientId }
+        }) { GenericTokenPrincipal = principal };
+
+        await new IntrospectionPermissionsHandler(projection, resources, applications).HandleAsync(context);
+
+        context.IsRejected.ShouldBeFalse();
+        await projection.Received().ProjectAsync(
+            Arg.Is<ResourceTokenRequest>(request => request.UserId == new UserId(overlappingId)),
             Arg.Any<CancellationToken>());
     }
-
-    private static HandleIntrospectionRequestContext CreateContext(string requestingClientId, string subject)
-    {
-        var transaction = new OpenIddictServerTransaction
-        {
-            Request = new OpenIddictRequest
-            {
-                ClientId = requestingClientId
-            }
-        };
-
-        var context = new HandleIntrospectionRequestContext(transaction)
-        {
-            Subject = subject,
-            GenericTokenPrincipal = new ClaimsPrincipal(new ClaimsIdentity(
-            [
-                new Claim(OpenIddictConstants.Claims.Subject, subject),
-                new Claim("permission", "patient-api:stale-token-permission")
-            ]))
-        };
-
-        return context;
-    }
-
-    private static IReadOnlyList<string?> GetPermissions(HandleIntrospectionRequestContext context) =>
-        context.Claims["permissions"]
-            .GetUnnamedParameters()
-            .Select(static parameter => parameter.ToString())
-            .ToList();
 }

@@ -45,6 +45,8 @@ public static class DependencyInjection
         services.AddScoped<IAdministrativeApproval, AdministrativeApproval>();
         services.TryAddSingleton<IAdministrativeActorContext, UnauthenticatedAdministrativeActorContext>();
         services.AddScoped<UnrestrictedGrantPolicy>();
+        services.AddScoped<AdministrativeAccess.ManagementWebPreparation>();
+        services.AddScoped<Applications.SeededOAuthClientPreparation>();
 
         return services;
     }
@@ -128,6 +130,8 @@ public static class DependencyInjection
         services.AddScoped<ListApplicationProfilePoliciesQueryHandler>();
         services.AddScoped<IListApplicationProfilePoliciesQueryHandler>(provider => provider.GetRequiredService<ListApplicationProfilePoliciesQueryHandler>());
         services.AddScoped<IApplicationsAdminWorkflow, ApplicationsAdminWorkflow>();
+        services.AddScoped<Resources.IResourcePermissionService, Resources.ResourcePermissionService>();
+        services.AddScoped<Resources.ResourceAccessWorkflow>();
     }
 
     private static void AddApplicationPermissionUseCases(IServiceCollection services)

@@ -26,6 +26,7 @@ import { DataTable, type Column } from '@/components/DataTable';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
 import { EditOAuthModal } from './EditOAuthModal';
+import { ResourceAccessPanel } from './ResourceAccessPanel';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
@@ -187,6 +188,7 @@ export function ApplicationDetailPage() {
         <Tabs.List mb="lg">
           <Tabs.Tab value="config">Configuration</Tabs.Tab>
           <Tabs.Tab value="oauth">Scopes &amp; grants</Tabs.Tab>
+          <Tabs.Tab value="resources">Resource access</Tabs.Tab>
           <Tabs.Tab value="uris">Redirect URIs</Tabs.Tab>
           <Tabs.Tab value="credentials">Credentials ({credentials.length})</Tabs.Tab>
           <Tabs.Tab value="settings">Settings</Tabs.Tab>
@@ -304,6 +306,7 @@ export function ApplicationDetailPage() {
         <Tabs.Panel value="settings">
           <AppSettings app={app} canWrite={canWrite} canDelete={canDelete} onEdited={invalidateApp} onDelete={deleteControls.open} />
         </Tabs.Panel>
+        <Tabs.Panel value="resources"><ResourceAccessPanel applicationId={applicationId} canWrite={canWrite} /></Tabs.Panel>
       </Tabs>
 
       {addSecretOpened && (

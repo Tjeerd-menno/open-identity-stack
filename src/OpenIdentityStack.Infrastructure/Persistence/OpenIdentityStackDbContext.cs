@@ -26,6 +26,8 @@ namespace OpenIdentityStack.Infrastructure.Persistence;
 /// </summary>
 public partial class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
 {
+    public DbSet<Domain.Resources.ProtectedResource> ProtectedResources => this.Set<Domain.Resources.ProtectedResource>();
+    public DbSet<Domain.Resources.ClientResourceGrant> ClientResourceGrants => this.Set<Domain.Resources.ClientResourceGrant>();
     public OpenIdentityStackDbContext(DbContextOptions<OpenIdentityStackDbContext> options)
         : base(options)
     {

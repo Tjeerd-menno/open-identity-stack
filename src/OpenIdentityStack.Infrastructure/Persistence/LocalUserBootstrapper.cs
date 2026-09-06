@@ -23,6 +23,7 @@ public sealed class LocalUserBootstrapper(
         string password,
         bool assignAdministrator,
         UserProfileData? profile = null,
+        IReadOnlyList<string>? additionalAdministratorPermissions = null,
         CancellationToken cancellationToken = default)
     {
         await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
@@ -46,6 +47,13 @@ public sealed class LocalUserBootstrapper(
         if (assignAdministrator && (role is null || !role.IsSystemRole || !role.Permissions.Contains("*", StringComparer.Ordinal)))
         {
             throw new InvalidOperationException("Controlled administration bootstrap requires the existing explicit all-permissions system role.");
+        }
+
+        if (role is not null && additionalAdministratorPermissions is { Count: > 0 })
+        {
+            string[] permissions = role.Permissions.Concat(additionalAdministratorPermissions)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            role.SetPermissions(permissions);
         }
 
         Result<User> creation = User.CreateBootstrap(email, displayName, passwordHasher.HashPassword(password), clock, profile);
