@@ -255,9 +255,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UpstreamIdentityResponse'
+                $ref: '#/components/schemas/UpstreamIdentitiesResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1460,17 +1458,44 @@ components:
 
     UpstreamIdentityResponse:
       type: object
+      required: [providerId, providerName, subjectId, linkedAt, associationEvidence, isQuarantined]
       properties:
+        providerId:
+          type: string
+          format: uuid
+        providerName:
+          type: string
         issuer:
           type: string
-        subject:
+          nullable: true
+        subjectId:
           type: string
+        email:
+          type: string
+          nullable: true
         linkedAt:
           type: string
           format: date-time
-        lastUsedAt:
+        lastLoginAt:
           type: string
           format: date-time
+          nullable: true
+        associationEvidence:
+          type: string
+          enum: [Unknown, NewAccountProvisioning]
+          description: Retained provenance for the local-account association; unknown evidence does not establish account ownership.
+        isQuarantined:
+          type: boolean
+          description: Whether the association is blocked from authentication and ordinary unlinking or account deletion pending independent proof.
+
+    UpstreamIdentitiesResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpstreamIdentityResponse'
 
     AssignRoleRequest:
       type: object
