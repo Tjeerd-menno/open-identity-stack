@@ -41,7 +41,8 @@ public sealed class AdministrativeGrantRevisionRequirementTests
         AuthorizationHandlerContext context = new([revisionRequirement, permissionRequirement], principal, null);
 
         await new AdministrativeGrantRevisionHandler(permissions).HandleAsync(context);
-        await new PermissionAuthorizationHandler().HandleAsync(context);
+        var administrativeAccess = new AdministrativeRequestAuthorization(new TokenPermissionEvaluator());
+        await new PermissionAuthorizationHandler(administrativeAccess).HandleAsync(context);
 
         context.HasSucceeded.ShouldBeFalse();
     }
@@ -52,5 +53,13 @@ public sealed class AdministrativeGrantRevisionRequirementTests
             ResourceTokenRequest request,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<Result<ResourceTokenProjection>>(projection);
+    }
+
+    private sealed class TokenPermissionEvaluator : OpenIdentityStack.Application.Abstractions.IAdministrativeAccessEvaluator
+    {
+        public Task<Result<IReadOnlyList<string>>> EvaluateAsync(
+            OpenIdentityStack.Application.Abstractions.AdministrativeAccessRequest request,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult((Result<IReadOnlyList<string>>)request.TokenPermissions.ToList());
     }
 }
