@@ -15,6 +15,24 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixture)
 {
     [Fact]
+    public async Task SystemNamedClientHasTheSameTypedActorInExplicitAndAutomaticAudits()
+    {
+        Guid userId = await fixture.CreateTestUserAsync($"actor-{Guid.NewGuid():N}@example.test", "Subject", "Password123!@#");
+        using HttpClient client = await fixture.CreateAuthenticatedClientAsync("system", "fixture-secret");
+        Guid[] previous = [];
+        await fixture.ExecuteDbContextAsync(async db => previous = await db.AuditLogEntries.Where(entry => entry.EntityId == userId.ToString()).Select(entry => entry.Id).ToArrayAsync());
+        using HttpResponseMessage response = await client.PostAsJsonAsync($"/api/admin/users/{userId}/disable", new { Reason = "Actor identity regression" });
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            OpenIdentityStack.Infrastructure.Audit.AuditLogEntry[] entries = await db.AuditLogEntries.Where(entry =>
+                entry.EntityId == userId.ToString() && !previous.Contains(entry.Id) && (entry.Action == "User.Disabled" || entry.Action == "AdministrativeAuthorityChanged")).ToArrayAsync();
+            entries.Length.ShouldBe(2);
+            entries.ShouldAllBe(entry => entry.UserId == "client:system");
+        });
+    }
+
+    [Fact]
     public async Task SigningInAgainWithoutAuthorityChangesDoesNotRecordAnAuthorityChange()
     {
         AuthoritySubject authority = await this.CreateHumanAsync();
@@ -257,6 +275,7 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
 
     [Theory]
     [InlineData(64)]
+    [InlineData(0)]
     [InlineData(129)]
     [InlineData(255)]
     public async Task RolePermissionWithdrawalImmediatelyDeniesExistingBearerAndCommitsActorAudit(int actorLength)
@@ -277,7 +296,7 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
         string bearer = subject.DefaultRequestHeaders.Authorization!.Parameter!;
         (await subject.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        string actorId = $"withdrawal-operator-{Guid.NewGuid():N}".PadRight(actorLength, 'x');
+        string actorId = actorLength == 0 ? "system" : $"withdrawal-operator-{Guid.NewGuid():N}".PadRight(actorLength, 'x');
         using HttpClient actor = await fixture.CreateAuthenticatedClientAsync(actorId, "fixture-secret");
         using HttpResponseMessage withdrawal = await actor.DeleteAsync($"/api/admin/roles/{role.Id.Value}/permissions/users:read");
         withdrawal.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -288,7 +307,8 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
         {
             OpenIdentityStack.Infrastructure.Audit.AuditLogEntry audit = await db.AuditLogEntries.SingleAsync(entry =>
                 entry.Action == "AdministrativeAuthorityChanged" && entry.EntityId == role.Id.Value.ToString());
-            if (actorLength <= 128) { audit.UserId.ShouldBe(actorId); }
+            audit.UserId.ShouldBe(OpenIdentityStack.Infrastructure.Audit.AuditActorIdentifier.Normalize("client:" + actorId));
+            if (actorLength <= 128) { audit.UserId.ShouldBe("client:" + actorId); }
             else
             {
                 audit.UserId.ShouldStartWith("sha256:");

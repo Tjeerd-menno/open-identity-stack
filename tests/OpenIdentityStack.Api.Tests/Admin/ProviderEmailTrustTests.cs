@@ -14,7 +14,8 @@ public sealed class ProviderEmailTrustTests(AppHostFixture fixture)
     [Fact]
     public async Task TrustPolicyAndEvidenceAreVisibleAndWithdrawalIsAudited()
     {
-        using HttpClient client = await fixture.CreateAuthenticatedClientAsync($"email-admin-{Guid.NewGuid():N}", "test-admin-secret");
+        string actorId = $"email-admin-{Guid.NewGuid():N}";
+        using HttpClient client = await fixture.CreateAuthenticatedClientAsync(actorId, "test-admin-secret");
         HttpResponseMessage created = await client.PostAsJsonAsync("/api/admin/providers", new
         {
             Name = $"email-{Guid.NewGuid():N}", DisplayName = "Email evidence", Authority = "https://issuer.example", ClientId = "client"
@@ -52,6 +53,11 @@ public sealed class ProviderEmailTrustTests(AppHostFixture fixture)
         withdrawn["emailVerified"]!.GetValue<bool>().ShouldBeFalse();
         withdrawn["emailVerificationEvidence"]![0]!["withdrawnAt"].ShouldNotBeNull();
         await fixture.ExecuteDbContextAsync(async db =>
-            (await db.AuditLogEntries.CountAsync(e => e.Action == "Provider.EmailVerificationTrustChanged" && e.EntityId == id.ToString())).ShouldBe(2));
+        {
+            OpenIdentityStack.Infrastructure.Audit.AuditLogEntry[] entries = await db.AuditLogEntries
+                .Where(e => e.Action == "Provider.EmailVerificationTrustChanged" && e.EntityId == id.ToString()).ToArrayAsync();
+            entries.Length.ShouldBe(2);
+            entries.ShouldAllBe(entry => entry.UserId == "client:" + actorId);
+        });
     }
 }

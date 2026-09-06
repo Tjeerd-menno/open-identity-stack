@@ -108,7 +108,7 @@ internal static class ProvidersApi
         Guid id, ProviderEmailVerificationTrustRequest request, HttpContext context,
         [FromServices] SetProviderEmailVerificationTrust useCase, CancellationToken cancellationToken)
     {
-        string actorId = context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? context.User.FindFirstValue("sub") ?? string.Empty;
+        string actorId = Authorization.AdministrativeActorContext.ResolveAuditActorId(context.User);
         Result result = await useCase.ExecuteAsync(id, request.Trusted, actorId, cancellationToken);
         return result.IsSuccess ? TypedResults.NoContent() : Common.ErrorResultMapper.ToErrorResult(result.Error);
     }
@@ -143,7 +143,7 @@ internal static class ProvidersApi
             request.ClientSecret,
             request.Scopes,
             request.JitProvisioningEnabled,
-            context.User.FindFirstValue("sub") ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier));
+            Authorization.AdministrativeActorContext.ResolveAuditActorId(context.User));
 
         Result<CreateProviderResult> result = await createProviderUseCase.ExecuteAsync(command, cancellationToken);
 
@@ -187,7 +187,7 @@ internal static class ProvidersApi
     {
         if (request.Authority is not null)
         {
-            await auditLog.LogAsync(httpContext.User.FindFirstValue("sub") ?? httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "management", "Federation.AuthorityReplacementRejected", "UpstreamProvider", id.ToString(), "Provider replacement requires a new registration and explicit identity migration.", cancellationToken);
+            await auditLog.LogAsync(Authorization.AdministrativeActorContext.ResolveAuditActorId(httpContext.User), "Federation.AuthorityReplacementRejected", "UpstreamProvider", id.ToString(), "Provider replacement requires a new registration and explicit identity migration.", cancellationToken);
             return TypedResults.BadRequest(new { error = "Provider authority cannot be replaced. Register a new provider and migrate identities explicitly." });
         }
 
@@ -199,7 +199,7 @@ internal static class ProvidersApi
             request.Scopes,
             request.JitProvisioningEnabled,
             request.Status,
-            httpContext.User.FindFirstValue("sub") ?? httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier));
+            Authorization.AdministrativeActorContext.ResolveAuditActorId(httpContext.User));
 
         Result<UpdateProviderResult> result = await updateProviderUseCase.ExecuteAsync(command, cancellationToken);
 

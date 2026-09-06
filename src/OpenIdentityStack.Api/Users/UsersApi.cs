@@ -552,7 +552,5 @@ internal static class UsersApi
 
     /// <summary>Resolves the acting admin's id from the authenticated principal for audit logging.</summary>
     private static string GetActorId(HttpContext context) =>
-        context.User.FindFirstValue("sub")
-            ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? "system";
+        Authorization.AdministrativeActorContext.ResolveAuditActorId(context.User);
 }
