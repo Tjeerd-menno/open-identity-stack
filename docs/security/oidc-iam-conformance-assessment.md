@@ -1,8 +1,11 @@
 # OpenIdentityStack: OIDC conformance and IAM security assessment
 
-Assessment date: **5 September 2026**  
-Assessed commit: **`8de63f288420830ec61f2e472c80e97d2335de93`**  
-Method: source review, official specification/library research, and execution of existing backend tests.  
+Assessment date: **5 September 2026**
+
+Assessed commit: **`8de63f288420830ec61f2e472c80e97d2335de93`**
+
+Method: source review, official specification/library research, and execution of existing backend tests.
+
 Scope: OpenID Provider/authorization server, upstream federation client, Admin API resource server, Management Web, and supporting credential/session operations.
 
 ## Executive assessment
@@ -238,7 +241,7 @@ Treat the High findings as release decisions requiring a fix or a documented, de
 | Contract test module | **60 passed**, zero failed/skipped. |
 | Test execution form | `dotnet test --test-modules 'tests/**/bin/Debug/net10.0/*<Suite>.dll' --no-build --no-restore`; API/contract runs also used `--max-parallel-test-modules 1`. |
 | Strict documentation build | **Passed** with the repository's pinned documentation dependencies in a temporary folder; existing informational notices concerned unrelated pages/links. |
-| Report integrity | All reference-style citations resolve to definitions; all commit-pinned repository paths and line anchors were checked against this checkout. `git diff --check` passed. External URLs were researched, not exhaustively link-crawled. |
+| Report integrity | All reference-style citations resolve to definitions; all commit-pinned repository paths and line anchors were checked against this checkout. The initial claim that `git diff --check` passed was incorrect: the metadata used trailing spaces for Markdown line breaks. Review follow-up removed those spaces and verified the corrected design diff. External URLs were researched, not exhaustively link-crawled. |
 
 The earlier no-restore attempts found no test project/assets in the fresh checkout; restore/build resolved that prerequisite. Test counts above are from the subsequent successful runs. Domain, architecture, frontend Vitest, browser E2E, live OIDF plans, and production infrastructure tests were **not run** for this assessment. Passing API tests in Testing mode does not validate production TLS, certificate deployment, enforced production rate limits, encrypted-token integration, or external RP delivery. Existing tests are evidence for their assertions, not independent proof that the security requirements are correct.
 
