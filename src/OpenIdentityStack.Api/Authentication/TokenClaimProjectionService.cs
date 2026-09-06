@@ -102,7 +102,13 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             identity.AddClaim(new Claim("permission", permission));
         }
 
-        foreach (GroupClaimDto groupClaim in request.GroupClaims)
+        foreach (string type in new[] { OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim })
+        {
+            Claim[] sourceClaims = request.Principal.FindAll(type).ToArray();
+            if (sourceClaims.Length == 1) { identity.AddClaim(sourceClaims[0]); }
+        }
+
+        foreach (GroupClaimDto groupClaim in request.GroupClaims.Where(claim => !ReservedGroupClaimTypes.IsReserved(claim.Type)))
         {
             identity.AddClaim(CreateGroupClaim(groupClaim));
         }

@@ -791,7 +791,7 @@ public class AuthorizationControllerTests
     }
 
     [Fact]
-    public async Task Authorize_WhenAuthenticationTicketIssuedUtcIsPresent_CopiesItToOidcPrincipal()
+    public async Task Authorize_WhenOnlyCookieIssuedUtcIsPresent_DoesNotManufactureAuthenticationTime()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -829,11 +829,7 @@ public class AuthorizationControllerTests
 
         // Assert
         SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
-        Claim authTimeClaim = signIn.Principal!.Claims.Single(c => c.Type == OpenIddictConstants.Claims.AuthenticationTime);
-        Assert.Equal(authTime.ToString(CultureInfo.InvariantCulture), authTimeClaim.Value);
-        Assert.Equal(ClaimValueTypes.Integer64, authTimeClaim.ValueType);
-        Assert.DoesNotContain(OpenIddictConstants.Destinations.AccessToken, authTimeClaim.GetDestinations());
-        Assert.Contains(OpenIddictConstants.Destinations.IdentityToken, authTimeClaim.GetDestinations());
+        Assert.DoesNotContain(signIn.Principal!.Claims, claim => claim.Type == OpenIddictConstants.Claims.AuthenticationTime);
     }
 
     [Fact]
@@ -1124,7 +1120,7 @@ public class AuthorizationControllerTests
     }
 
     [Fact]
-    public async Task Exchange_AuthorizationCode_RestoresAuthenticationTimeFromAuthenticationTicket()
+    public async Task Exchange_AuthorizationCode_DoesNotInferAuthenticationTimeFromTicketRenewal()
     {
         // Arrange
         var request = new OpenIddictRequest
@@ -1154,10 +1150,7 @@ public class AuthorizationControllerTests
 
         // Assert
         SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
-        Claim authTimeClaim = signIn.Principal!.Claims.Single(c => c.Type == OpenIddictConstants.Claims.AuthenticationTime);
-        Assert.Equal(authTime.ToString(CultureInfo.InvariantCulture), authTimeClaim.Value);
-        Assert.Equal(ClaimValueTypes.Integer64, authTimeClaim.ValueType);
-        Assert.Contains(OpenIddictConstants.Destinations.IdentityToken, authTimeClaim.GetDestinations());
+        Assert.DoesNotContain(signIn.Principal!.Claims, claim => claim.Type == OpenIddictConstants.Claims.AuthenticationTime);
     }
 
     [Fact]

@@ -82,14 +82,18 @@ internal static class UsersApi
         group.MapPost("{id:guid}/enable", EnableUser)
             .RequireAuthorization(Permissions.Users.Write)
             .Produces<UserStatusChangeResponse>(StatusCodes.Status200OK)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("EnableUser")
             .WithSummary("Enables a disabled user account");
 
         group.MapPost("{id:guid}/reset-password", ResetPassword)
             .RequireAuthorization(Permissions.Users.ResetPassword)
             .Produces<PasswordResetResponse>(StatusCodes.Status200OK)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("ResetPassword")
             .WithSummary("Resets a user's password");
 
@@ -104,8 +108,9 @@ internal static class UsersApi
         group.MapPost("{userId:guid}/roles/{roleId:guid}", AssignRole)
             .RequireAuthorization(Permissions.Roles.Assign)
             .Produces(StatusCodes.Status200OK)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AssignRole")
             .WithSummary("Assigns a role to a user");
 

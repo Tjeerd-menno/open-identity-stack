@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Authorization;
 
 using Microsoft.Extensions.Logging;
 using OpenIdentityStack.Application.Abstractions;
@@ -28,6 +29,7 @@ public sealed class AssignRoleUseCase : IAssignRoleUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IRoleRepository roleRepository;
+    private readonly IAdministrativeApproval approval;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
     private readonly ILogger<AssignRoleUseCase> logger;
@@ -45,10 +47,12 @@ public sealed class AssignRoleUseCase : IAssignRoleUseCase
         IRoleRepository roleRepository,
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog,
-        ILogger<AssignRoleUseCase> logger)
+        ILogger<AssignRoleUseCase> logger,
+        IAdministrativeApproval approval)
     {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.approval = approval;
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
         this.logger = logger;
@@ -59,6 +63,7 @@ public sealed class AssignRoleUseCase : IAssignRoleUseCase
         AssignRoleCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         // Fetch entities sequentially to avoid DbContext concurrency issues
         User? user = await this.userRepository.GetByIdAsync(command.UserId, cancellationToken);
         Role? role = await this.roleRepository.GetByIdAsync(command.RoleId, cancellationToken);
@@ -104,6 +109,12 @@ public sealed class AssignRoleUseCase : IAssignRoleUseCase
         }
 
         // Create and save the assignment
+        if (UnrestrictedGrantPolicy.IncludesAllPermissions(role.Permissions))
+        {
+            Result approvalResult = await this.approval.RequireAsync("User.AssignUnrestrictedRole", $"user:{command.UserId.Value}/role:{command.RoleId.Value}", cancellationToken: cancellationToken);
+            if (approvalResult.IsFailure) { return approvalResult.Error; }
+        }
+
         Result<RoleAssignment> assignmentResult = RoleAssignment.Create(
             command.UserId,
             command.RoleId,
@@ -116,6 +127,7 @@ public sealed class AssignRoleUseCase : IAssignRoleUseCase
 
         await this.roleRepository.AssignRoleAsync(assignmentResult.Value, cancellationToken);
         await this.roleRepository.SaveChangesAsync(cancellationToken);
+        await this.approval.RecordOutcomeAsync(true, cancellationToken);
 
         this.logger.LogRoleAssigned(command.RoleId.Value, command.UserId.Value);
 

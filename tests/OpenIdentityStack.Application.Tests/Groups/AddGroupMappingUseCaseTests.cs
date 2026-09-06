@@ -21,7 +21,7 @@ public sealed class AddGroupMappingUseCaseTests
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._dateTimeProvider.UtcNow.Returns(TestTime);
 
-        this._useCase = new AddGroupMappingUseCase(this._groupRepository, this._dateTimeProvider);
+        this._useCase = new AddGroupMappingUseCase(this._groupRepository, this._dateTimeProvider, Substitute.For<IAdministrativeApproval>(), new OpenIdentityStack.Application.Authorization.UnrestrictedGrantPolicy(Substitute.For<IRoleRepository>()));
     }
 
     [Fact]
