@@ -42,6 +42,7 @@ public class AuthorizationController : ControllerBase
     private readonly IAddClientSessionUseCase addClientSessionUseCase;
     private readonly IValidateSessionQueryHandler validateSessionQueryHandler;
     private readonly IOpenIddictRequestService requestService;
+    private readonly IAuditLog auditLog;
     private readonly IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository;
     private readonly IPermissionClaimProjectionService permissionClaimProjectionService;
     private readonly ITokenClaimProjectionService tokenClaimProjectionService;
@@ -56,6 +57,7 @@ public class AuthorizationController : ControllerBase
         IAddClientSessionUseCase addClientSessionUseCase,
         IValidateSessionQueryHandler validateSessionQueryHandler,
         IOpenIddictRequestService requestService,
+        IAuditLog auditLog,
         IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null,
         IHostEnvironment? environment = null,
         IPermissionClaimProjectionService? permissionClaimProjectionService = null,
@@ -69,6 +71,7 @@ public class AuthorizationController : ControllerBase
         this.addClientSessionUseCase = addClientSessionUseCase;
         this.validateSessionQueryHandler = validateSessionQueryHandler;
         this.requestService = requestService;
+        this.auditLog = auditLog;
         this.applicationPermissionRegistryRepository = applicationPermissionRegistryRepository;
         this.permissionClaimProjectionService = permissionClaimProjectionService
             ?? new PermissionClaimProjectionService(applicationPermissionRegistryRepository);
@@ -152,6 +155,7 @@ public class AuthorizationController : ControllerBase
 
         if (persistedUser?.Status == Domain.Users.UserStatus.Disabled)
         {
+            await this.AuditDisabledAccountAsync(persistedUser.Id, "authorization");
             return this.RejectUnavailableCredentials(Errors.AccessDenied);
         }
 
@@ -325,6 +329,7 @@ public class AuthorizationController : ControllerBase
                 Domain.Users.User? tokenUser = await this.userRepository.GetByIdAsync(tokenUserId, this.HttpContext.RequestAborted);
                 if (tokenUser?.Status == Domain.Users.UserStatus.Disabled)
                 {
+                    await this.AuditDisabledAccountAsync(tokenUser.Id, request.IsAuthorizationCodeGrantType() ? GrantTypes.AuthorizationCode : GrantTypes.RefreshToken);
                     return this.RejectUnavailableCredentials();
                 }
             }
@@ -390,6 +395,10 @@ public class AuthorizationController : ControllerBase
 
     // NOTE: Logout endpoint is handled by LogoutController which implements
     // full Single Logout (SLO) with front-channel and back-channel support.
+
+    private Task AuditDisabledAccountAsync(UserId userId, string flow) =>
+        this.auditLog.LogAsync(userId.Value.ToString(), "Authentication.DisabledAccountDenied", "User", userId.Value.ToString(),
+            $"Local account is disabled. Flow: {flow}.", this.HttpContext.RequestAborted);
 
     private ForbidResult RejectUnavailableCredentials(string error = Errors.InvalidGrant) => this.Forbid(
         authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
