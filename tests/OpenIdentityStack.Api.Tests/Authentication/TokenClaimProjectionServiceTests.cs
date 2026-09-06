@@ -44,6 +44,13 @@ public sealed class TokenClaimProjectionServiceTests
         User user = User.CreateLocal("verified@example.test", "Verified", "fixture-hash", this.dateTimeProvider).Value;
         user.VerifyEmail(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
 
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            [OpenIddictConstants.Scopes.Email], [], null, null, null));
+
+        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("true");
+    }
+
     [Fact]
     public void ActiveFederatedAccount_WithoutEvidence_DoesNotAssertVerifiedEmail()
     {
