@@ -29,6 +29,13 @@ public sealed class DeleteUserUseCase : IDeleteUserUseCase
             return UserErrors.NotFound;
         }
 
+        if (user.UpstreamIdentities.Any(identity => identity.IsQuarantined))
+        {
+            await this.auditLog.LogAsync(command.ActorId, "User.QuarantinedIdentityDeletionDenied", "User",
+                user.Id.Value.ToString(), "Retained association evidence cannot be erased by ordinary account deletion.", cancellationToken);
+            return UpstreamIdentityErrors.QuarantineRetentionRequired;
+        }
+
         await this.userRepository.DeleteAsync(user, cancellationToken);
         await this.userRepository.SaveChangesAsync(cancellationToken);
 

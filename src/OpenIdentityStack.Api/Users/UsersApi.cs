@@ -66,6 +66,7 @@ internal static class UsersApi
         group.MapDelete("{id:guid}", DeleteUser)
             .RequireAuthorization(Permissions.Users.Delete)
             .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("DeleteUser")
             .WithSummary("Deletes a user");
@@ -140,6 +141,7 @@ internal static class UsersApi
 
         group.MapDelete("{userId:guid}/upstream-identities/{providerId:guid}", UnlinkUpstreamIdentity)
             .RequireAuthorization(Permissions.Users.Write)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("UnlinkUpstreamIdentity")

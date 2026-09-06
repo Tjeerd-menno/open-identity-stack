@@ -216,6 +216,31 @@ public sealed class UserManagementTests : ManagementWebPageTest
         JsonNode identities = await ApiGetAsync($"/api/admin/users/{_adaId}/upstream-identities");
         identities.ToJsonString().ShouldContain("legacy-quarantined-subject");
         identities.ToJsonString().ShouldContain("\"isQuarantined\":true");
+
+        await GotoAsync("/users");
+        await Page.GetByLabel("Search users").FillAsync(_adaName);
+        ILocator row = Page.Locator("tbody tr", new() { Has = Page.GetByText(_adaName) }).First;
+        await row.WaitForAsync();
+        int deletionRequests = 0;
+        Page.Request += (_, request) =>
+        {
+            if (request.Method is "DELETE" or "POST" && new Uri(request.Url).AbsolutePath == $"/api/admin/users/{_adaId}")
+            {
+                Interlocked.Increment(ref deletionRequests);
+            }
+        };
+        await row.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).ClickAsync();
+        await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Delete user", Exact = true }).ClickAsync();
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByText(new Regex("Quarantined identity evidence must be retained", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Assertions.Expect(dialog.GetByRole(AriaRole.Button, new() { Name = "Delete user", Exact = true })).ToBeDisabledAsync();
+        string screenshotDirectory = Path.Combine(Path.GetTempPath(), "ois-quarantine-retention-e2e");
+        Directory.CreateDirectory(screenshotDirectory);
+        await Page.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "quarantined-user-deletion-blocked.png"), FullPage = true, Animations = ScreenshotAnimations.Disabled });
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Cancel", Exact = true }).ClickAsync();
+        deletionRequests.ShouldBe(0);
+        JsonNode retainedIdentities = await ApiGetAsync($"/api/admin/users/{_adaId}/upstream-identities");
+        retainedIdentities.ToJsonString().ShouldBe(identities.ToJsonString());
     }
     private static readonly string[] OpenidScope = ["openid"];
 }
