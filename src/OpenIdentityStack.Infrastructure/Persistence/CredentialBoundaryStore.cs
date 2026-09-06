@@ -70,12 +70,16 @@ public sealed class CredentialBoundaryStore(OpenIdentityStackDbContext db, IOpen
         await db.SaveChangesAsync(cancellationToken);
         long revokedTokens = await tokens.RevokeAsync(null, null, null, null, cancellationToken);
         long revokedGrants = await grants.RevokeAsync(null, null, null, null, cancellationToken);
-        List<UserSession> sessions = await db.UserSessions.Where(x => x.Status == SessionStatus.Active).ToListAsync(cancellationToken);
-        foreach (UserSession session in sessions) { session.Revoke(clock); }
-        var record = new CredentialCutoverRecord { Id = operationId, CompletedAt = clock.UtcNow, Tokens = revokedTokens, Grants = revokedGrants, Sessions = sessions.Count };
+        DateTimeOffset revokedAt = clock.UtcNow;
+        int revokedSessions = await db.UserSessions
+            .Where(x => x.Status == SessionStatus.Active)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.Status, SessionStatus.Revoked)
+                .SetProperty(x => x.RevokedAt, revokedAt), cancellationToken);
+        var record = new CredentialCutoverRecord { Id = operationId, CompletedAt = revokedAt, Tokens = revokedTokens, Grants = revokedGrants, Sessions = revokedSessions };
         db.Set<CredentialCutoverRecord>().Add(record);
         db.AuditLogEntries.Add(new AuditLogEntry { UserId = actorId, Action = "CredentialBoundary.CutoverCompleted", EntityType = "CredentialBoundary", EntityId = operationId.ToString(), Timestamp = record.CompletedAt,
-            Details = $"Revoked {revokedTokens} tokens, {revokedGrants} grants and {sessions.Count} sessions. Offline resource validators require separate action." });
+            Details = $"Revoked {revokedTokens} tokens, {revokedGrants} grants and {revokedSessions} sessions. Offline resource validators require separate action." });
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return record.ToResult();
