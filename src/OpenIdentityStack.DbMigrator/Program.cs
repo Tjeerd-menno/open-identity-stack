@@ -7,6 +7,7 @@ using OpenIddict.Abstractions;
 using OpenIdentityStack.Application;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Applications;
+using OpenIdentityStack.DbMigrator;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Resources;
 using OpenIdentityStack.Domain.Roles;
@@ -357,7 +358,7 @@ static async Task SeedCertificationClientAsync(
     object? existingApplication = await applicationManager.FindByClientIdAsync(clientId);
     if (existingApplication is not null)
     {
-        await applicationManager.UpdateAsync(existingApplication, descriptor);
+        await SeededOpenIddictApplicationUpdater.UpdateAsync(applicationManager, existingApplication, descriptor);
         logger.LogInformation("Updated certification OpenIddict client '{ClientId}'.", clientId);
         return;
     }
@@ -561,7 +562,7 @@ static async Task SeedTraceableIsotopesWebClientAsync(IServiceProvider servicePr
     object? existingApp = await applicationManager.FindByClientIdAsync(clientId);
     if (existingApp is not null)
     {
-        await applicationManager.UpdateAsync(existingApp, descriptor);
+        await SeededOpenIddictApplicationUpdater.UpdateAsync(applicationManager, existingApp, descriptor);
         logger.LogInformation("Updated OpenIddict public client '{ClientId}' for Traceable Isotopes Web", clientId);
         return;
     }
@@ -645,7 +646,7 @@ static async Task SeedIsotopesApiResourceClientAsync(IServiceProvider servicePro
         return;
     }
 
-    await applicationManager.UpdateAsync(existingClient, descriptor);
+    await SeededOpenIddictApplicationUpdater.UpdateAsync(applicationManager, existingClient, descriptor);
     logger.LogInformation("Updated OpenIddict introspection client '{ClientId}' for IsotopesApi", clientId);
 }
 
