@@ -7,6 +7,7 @@ public static class ReservedGroupClaimTypes
     {
         "sub", "iss", "aud", "azp", "client_id", "scope", "scp", "permission", "permissions",
         "role", "roles", "auth_time", "amr", "acr", "nonce", "sid", "session_id", "exp", "iat", "nbf", "jti",
+        "requested_userinfo_claim",
         "email", "email_verified", "phone_number", "phone_number_verified", "ois_human_authenticated_at", "auth_method", "provider",
         "name", "given_name", "family_name", "middle_name", "nickname", "preferred_username", "profile", "picture",
         "website", "gender", "birthdate", "zoneinfo", "locale", "address", "updated_at",

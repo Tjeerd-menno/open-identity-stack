@@ -53,11 +53,14 @@ public sealed class TokenClaimProjectionServiceTests
              new GroupClaimDto("ois.example", "forged", TokenTarget.Both),
              new GroupClaimDto("OIS.example", "forged", TokenTarget.Both),
              new GroupClaimDto("nonce", "forged", TokenTarget.Both),
+             new GroupClaimDto(RequestedUserInfoClaim, OpenIddictConstants.Claims.Email, TokenTarget.Both),
              new GroupClaimDto("ois_human_authenticated_at", "9999999999", TokenTarget.Both)],
             ["openid", "api"], [], null, null, null));
         principal.HasClaim(claim => claim.Type == "permission" || claim.Type.StartsWith("ois_human_", StringComparison.Ordinal)).ShouldBeFalse();
         principal.HasClaim(claim => claim.Type.StartsWith("ois.", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
         principal.HasClaim("nonce", "forged").ShouldBeFalse();
+        principal.HasClaim(RequestedUserInfoClaim, OpenIddictConstants.Claims.Email).ShouldBeFalse();
+        this.service.CreateUserInfoResponse(principal).ShouldNotContainKey(OpenIddictConstants.Claims.Email);
     }
 
     [Fact]

@@ -13,6 +13,7 @@ public class GroupMappingTests
     [InlineData("role")]
     [InlineData("auth_time")]
     [InlineData("nonce")]
+    [InlineData("requested_userinfo_claim")]
     [InlineData("ois_human_subject")]
     [InlineData("ois.example")]
     [InlineData("OIS.example")]
