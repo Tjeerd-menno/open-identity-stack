@@ -16,4 +16,6 @@ Before deploying this layer, identify integrations using identifier-only linking
 
 The checked-in OpenAPI contract marks raw linking as deprecated and describes its proof-required 403 response. The shared administrative client no longer exports `linkUserUpstreamIdentity` or its request type. This is an intentional breaking security change: remove raw-link calls from integrations; there is no supported replacement until an independent proof workflow is delivered. Identity listing remains supported.
 
+The Admin API contract release is **2.0.0**, advancing from 1.1.0 for this removal of the advertised raw-link success response and shared-client operation. Release the API, shared administrative client, and Management Web together under [ADR 0003](../adr/0003-unified-release-train-for-breaking-api-changes.md). This contract release does not introduce a versioned URL: `/api/admin` remains the administrative base path. Consumers must migrate away from raw-link calls before upgrading; the endpoint continues to return the documented proof-required 403.
+
 Implementation issues are [#445–#456](https://github.com/Tjeerd-menno/open-identity-stack/issues?q=is%3Aissue+is%3Aopen+label%3Aready-for-agent). Broader assessment findings and formal OpenID Connect certification are separate work. Production cutover is not authorized by implementing these changes.
