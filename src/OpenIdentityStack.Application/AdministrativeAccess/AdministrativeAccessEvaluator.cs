@@ -5,10 +5,13 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Application.AdministrativeAccess;
 
-public sealed class AdministrativeAccessEvaluator(IResourcePermissionService resources) : IAdministrativeAccessEvaluator
+public sealed class AdministrativeAccessEvaluator(IResourcePermissionService resources, IAdministrativeAuthoritySnapshot authoritySnapshot) : IAdministrativeAccessEvaluator
 {
     public async Task<Result<IReadOnlyList<string>>> EvaluateAsync(AdministrativeAccessRequest request, CancellationToken cancellationToken = default)
     {
+        // Bind the later mutation fence to these authorization reads. A use-case capture
+        // must reuse this revision rather than accepting a revocation that happened in between.
+        await authoritySnapshot.CaptureAsync(cancellationToken);
         Result<ResourceTokenProjection> current = await resources.ProjectAsync(new ResourceTokenRequest(request.ClientId,
             [ProtectedResource.AdministrativeScope], [ProtectedResource.AdministrativeAudience], request.UserId,
             request.TokenPermissions, [ProtectedResource.AdministrativeAudience]), cancellationToken);
