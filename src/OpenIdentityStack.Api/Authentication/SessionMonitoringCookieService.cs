@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.WebUtilities;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Sessions;
@@ -60,7 +61,8 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
         }
         catch (Exception exception) when (exception is CryptographicException or JsonException)
         {
-            return false;
+            return IsLegacyCookie(value)
+                && await this.boundary.IsCurrentAsync(null, cancellationToken);
         }
 
         if (payload is null
@@ -81,6 +83,18 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
             && session?.UserId == userId
             && session.Status == SessionStatus.Active
             && !session.IsExpired(this.clock);
+    }
+
+    private static bool IsLegacyCookie(string value)
+    {
+        try
+        {
+            return WebEncoders.Base64UrlDecode(value).Length == 32;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     private sealed record SessionMonitoringCookiePayload(

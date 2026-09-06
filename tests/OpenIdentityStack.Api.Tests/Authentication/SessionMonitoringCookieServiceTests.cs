@@ -54,6 +54,24 @@ public sealed class SessionMonitoringCookieServiceTests
     }
 
     [Fact]
+    public async Task LegacyBase64UrlCookieRemainsCurrentBeforeCredentialCutover()
+    {
+        const string legacyValue = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        this.boundary.IsCurrentAsync(null, Arg.Any<CancellationToken>()).Returns(true);
+
+        (await this.service.IsCurrentAsync(legacyValue)).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task LegacyBase64UrlCookieFailsClosedAfterCredentialCutover()
+    {
+        const string legacyValue = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        this.boundary.IsCurrentAsync(null, Arg.Any<CancellationToken>()).Returns(false);
+
+        (await this.service.IsCurrentAsync(legacyValue)).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task TamperedCookieFailsClosed()
     {
         string value = this.service.Create(

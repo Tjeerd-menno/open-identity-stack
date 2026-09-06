@@ -5,18 +5,39 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 public sealed class CheckSessionTests(AppHostFixture fixture)
 {
     [Fact]
-    public async Task LegacyMonitoringCookieIsClearedWithoutAuthenticationCookie()
+    public async Task MonitoringPollsAcrossIframeClientsAreRateLimitedBySession()
+    {
+        using HttpClient firstIframe = fixture.CreateClient(allowAutoRedirect: false);
+        using HttpClient secondIframe = fixture.CreateClient(allowAutoRedirect: false);
+        const string cookie = "op_session=rate-limit-session";
+        firstIframe.DefaultRequestHeaders.Add("Cookie", cookie);
+        secondIframe.DefaultRequestHeaders.Add("Cookie", cookie);
+        firstIframe.DefaultRequestHeaders.Add("X-OIS-Session-Poll", "1");
+        secondIframe.DefaultRequestHeaders.Add("X-OIS-Session-Poll", "1");
+
+        (await firstIframe.GetAsync("/connect/check_session")).StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+        (await secondIframe.GetAsync("/connect/check_session")).StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+        (await firstIframe.GetAsync("/connect/check_session")).StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+
+        (await secondIframe.GetAsync("/connect/check_session")).StatusCode
+            .ShouldBe(System.Net.HttpStatusCode.TooManyRequests);
+
+        using HttpClient otherSession = fixture.CreateClient(allowAutoRedirect: false);
+        otherSession.DefaultRequestHeaders.Add("Cookie", "op_session=other-rate-limit-session");
+        otherSession.DefaultRequestHeaders.Add("X-OIS-Session-Poll", "1");
+        (await otherSession.GetAsync("/connect/check_session")).StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task LegacyMonitoringCookieIsRetainedBeforeCredentialCutover()
     {
         using HttpClient browser = fixture.CreateClient(allowAutoRedirect: false);
-        browser.DefaultRequestHeaders.Add("Cookie", "op_session=legacy-random-value");
+        browser.DefaultRequestHeaders.Add("Cookie", "op_session=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
         HttpResponseMessage response = await browser.GetAsync("/connect/check_session");
 
         response.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
-        string cleared = response.Headers.GetValues("Set-Cookie")
-            .Single(value => value.StartsWith("op_session=", StringComparison.Ordinal));
-        cleared.ShouldContain("op_session=;");
-        cleared.ShouldContain("samesite=none");
+        response.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? values).ShouldBeFalse();
     }
 
     [Theory]
