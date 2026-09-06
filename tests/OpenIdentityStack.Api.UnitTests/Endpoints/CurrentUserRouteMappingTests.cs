@@ -34,6 +34,8 @@ public sealed class CurrentUserRouteMappingTests
 
         IAuthorizeData authorizeData = endpoint.Metadata.OfType<IAuthorizeData>().Single();
         authorizeData.Policy.ShouldBe(AuthorizationOptionsExtensions.AdminPolicy);
+        endpoint.Metadata.OfType<IProducesResponseTypeMetadata>()
+            .Select(static response => response.StatusCode).ShouldContain(403);
     }
 
     private static WebApplication CreateApplication()
