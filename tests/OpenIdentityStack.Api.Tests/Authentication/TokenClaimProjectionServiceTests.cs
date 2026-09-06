@@ -89,6 +89,7 @@ public sealed class TokenClaimProjectionServiceTests
         claim.ValueKind.ShouldBe(verified ? JsonValueKind.True : JsonValueKind.False);
         claim.GetBoolean().ShouldBe(verified);
     }
+
     [Fact]
     public void ProjectSubjectClaims_ProfileAndEmailClaimsAreDestinationlessWithoutScopeOrClaimsRequest()
     {
