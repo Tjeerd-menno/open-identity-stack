@@ -1,11 +1,16 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenIdentityStack.Domain.Federation;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure.Audit;
 using OpenIdentityStack.Infrastructure.Persistence;
 using OpenIdentityStack.Infrastructure.Persistence.Federation;
+using OpenIdentityStack.Infrastructure.Persistence.Migrations;
 using OpenIdentityStack.Infrastructure.Tests.Common;
 using SharedKernel;
 
@@ -13,6 +18,83 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class ProviderEmailTrustBatchTests(FederationPolicyTestFixture fixture) : IClassFixture<FederationPolicyTestFixture>
 {
+    [Fact]
+    public async Task MigrationCreatesAnIndexThatCanSeekTheNextEvidencePage()
+    {
+        UpstreamProviderId providerId = await this.SeedAsync();
+        await using OpenIdentityStackDbContext db = fixture.CreateDbContext();
+        var migration = new IndexActiveProviderEmailEvidence();
+        IMigrationsSqlGenerator generator = db.GetService<IMigrationsSqlGenerator>();
+        foreach (MigrationCommand command in generator.Generate(migration.DownOperations))
+        {
+            await db.Database.ExecuteSqlRawAsync(command.CommandText);
+        }
+        foreach (MigrationCommand command in generator.Generate(migration.UpOperations))
+        {
+            await db.Database.ExecuteSqlRawAsync(command.CommandText);
+        }
+        UserId after = await db.Users.Where(user => user.EmailVerificationEvidence.Any(e => e.ProviderId == providerId.Value))
+            .OrderBy(user => user.Id).Skip(100).Select(user => user.Id).FirstAsync();
+        await using IDbContextTransaction transaction = await db.Database.BeginTransactionAsync();
+        if (fixture.IsPostgres)
+        {
+            // Isolate index capability from the cost model for this deliberately small fixture.
+            await db.Database.ExecuteSqlRawAsync("SET LOCAL enable_seqscan = off");
+        }
+        await using DbCommand explain = db.Database.GetDbConnection().CreateCommand();
+        explain.Transaction = transaction.GetDbTransaction();
+        explain.CommandText = (fixture.IsPostgres ? "EXPLAIN (ANALYZE, FORMAT TEXT) " : "EXPLAIN QUERY PLAN ") +
+            """SELECT DISTINCT "UserId" FROM "UserEmailVerificationEvidence" WHERE "ProviderId" = @provider AND "WithdrawnAt" IS NULL AND "UserId" > @after ORDER BY "UserId" LIMIT 100""";
+        DbParameter providerParameter = explain.CreateParameter();
+        providerParameter.ParameterName = "provider";
+        providerParameter.Value = providerId.Value;
+        explain.Parameters.Add(providerParameter);
+        DbParameter afterParameter = explain.CreateParameter();
+        afterParameter.ParameterName = "after";
+        afterParameter.Value = after.Value;
+        explain.Parameters.Add(afterParameter);
+        var plan = new List<string>();
+        await using DbDataReader reader = await explain.ExecuteReaderAsync();
+        while (await reader.ReadAsync()) { plan.Add(reader.GetString(fixture.IsPostgres ? 0 : 3)); }
+        string executionPlan = string.Join(Environment.NewLine, plan);
+        executionPlan.ShouldContain("IX_EmailEvidence_ActiveProviderUser");
+        if (fixture.IsPostgres)
+        {
+            executionPlan.ShouldContain("Index Only Scan");
+            executionPlan.ShouldContain("Index Cond:");
+            executionPlan.ShouldContain("\"UserId\" >");
+        }
+        else { executionPlan.ShouldContain("UserId>?"); }
+    }
+
+    [Fact]
+    public async Task WithdrawalSeeksThroughActiveProviderEvidenceInBoundedPages()
+    {
+        UpstreamProviderId providerId = await this.SeedAsync();
+        var observer = new EvidencePageObserver();
+        await using OpenIdentityStackDbContext writer = fixture.CreateDbContext(observer);
+        (await new ProviderEmailTrustStore(writer, Audit(writer)).SetAsync(providerId, false, "operator", default)).IsSuccess.ShouldBeTrue();
+
+        observer.Commands.Count.ShouldBe(4); // Three pages for 205 users, then the terminal empty page.
+        observer.Commands[0].ShouldNotContain(" > ");
+        observer.Commands.Skip(1).ShouldAllBe(command => command.Contains(" > ", StringComparison.Ordinal));
+        observer.Commands.ShouldAllBe(command => command.Contains("LIMIT", StringComparison.Ordinal)
+            && command.Contains("UserEmailVerificationEvidence", StringComparison.Ordinal)
+            && !command.Contains("\"Users\"", StringComparison.Ordinal));
+        observer.Cursors.Count.ShouldBe(3);
+        observer.Cursors.Distinct().Count().ShouldBe(3);
+    }
+
+    [Fact]
+    public void ActiveProviderEvidenceHasASeekablePartialIndex()
+    {
+        using OpenIdentityStackDbContext db = fixture.CreateDbContext();
+        Microsoft.EntityFrameworkCore.Metadata.IEntityType evidence = db.Model.FindEntityType(typeof(EmailVerificationEvidence))!;
+        evidence.GetIndexes().ShouldContain(index => index.GetDatabaseName() == "IX_EmailEvidence_ActiveProviderUser"
+            && index.Properties.Count == 2 && index.Properties[0].Name == "ProviderId" && index.Properties[1].Name == "UserId"
+            && index.GetFilter() == "\"WithdrawnAt\" IS NULL");
+    }
+
     [Fact]
     public async Task WithdrawalUsesBoundedTrackingAcrossMultipleBatches()
     {
@@ -75,6 +157,25 @@ public sealed class ProviderEmailTrustBatchTests(FederationPolicyTestFixture fix
     {
         public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
         public DateTimeOffset Now => DateTimeOffset.Now;
+    }
+
+    private sealed class EvidencePageObserver : DbCommandInterceptor
+    {
+        public List<string> Commands { get; } = [];
+        public List<Guid> Cursors { get; } = [];
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData,
+            InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("ProviderEmailTrust:active-evidence-batch", StringComparison.Ordinal))
+            {
+                this.Commands.Add(command.CommandText);
+                Guid[] identifiers = command.Parameters.Cast<DbParameter>().Where(parameter => parameter.Value is Guid)
+                    .Select(parameter => (Guid)parameter.Value!).ToArray();
+                if (identifiers.Length == 2) { this.Cursors.Add(identifiers[1]); }
+            }
+            return ValueTask.FromResult(result);
+        }
     }
 
     private sealed class BatchObserver : SaveChangesInterceptor

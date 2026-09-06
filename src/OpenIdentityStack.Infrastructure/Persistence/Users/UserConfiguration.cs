@@ -150,6 +150,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             evidence.Property(e => e.NormalizedEmail).HasMaxLength(256).IsRequired();
             evidence.Property(e => e.Issuer).HasMaxLength(2048);
             evidence.HasIndex("UserId", nameof(EmailVerificationEvidence.ProviderId));
+            evidence.HasIndex(nameof(EmailVerificationEvidence.ProviderId), "UserId")
+                .HasDatabaseName("IX_EmailEvidence_ActiveProviderUser")
+                .HasFilter("\"WithdrawnAt\" IS NULL");
         });
 
         // Configure owned UpstreamIdentities collection using navigation property and backing field

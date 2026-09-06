@@ -28,15 +28,20 @@ public sealed class ProviderEmailTrustStore(OpenIdentityStackDbContext dbContext
         if (!trusted)
         {
             DateTimeOffset withdrawnAt = DateTimeOffset.UtcNow;
+            Guid? afterUserId = null;
             while (true)
             {
-                // Saved withdrawals leave the predicate, so no population-sized ID list or offset is needed.
-                List<User> affectedUsers = await dbContext.Users
-                    .Where(u => u.EmailVerificationEvidence.Any(e => e.ProviderId == providerId.Value && e.WithdrawnAt == null))
-                    .OrderBy(user => user.Id)
-                    .Take(100)
-                    .ToListAsync(cancellationToken);
-                if (affectedUsers.Count == 0) { break; }
+                // Seek the active provider index, not the Users table. A cursor also skips retired
+                // index entries still visible to PostgreSQL until this atomic transaction commits.
+                FormattableString pageQuery = afterUserId is { } after
+                    ? (FormattableString)$"""SELECT DISTINCT "UserId" AS "Value" FROM "UserEmailVerificationEvidence" WHERE "ProviderId" = {providerId.Value} AND "WithdrawnAt" IS NULL AND "UserId" > {after}"""
+                    : (FormattableString)$"""SELECT DISTINCT "UserId" AS "Value" FROM "UserEmailVerificationEvidence" WHERE "ProviderId" = {providerId.Value} AND "WithdrawnAt" IS NULL""";
+                List<Guid> page = await dbContext.Database.SqlQuery<Guid>(pageQuery)
+                    .TagWith("ProviderEmailTrust:active-evidence-batch").OrderBy(id => id).Take(100).ToListAsync(cancellationToken);
+                if (page.Count == 0) { break; }
+                afterUserId = page[^1];
+                UserId[] userIds = page.Select(id => new UserId(id)).ToArray();
+                List<User> affectedUsers = await dbContext.Users.Where(user => userIds.Contains(user.Id)).ToListAsync(cancellationToken);
                 foreach (User user in affectedUsers)
                 {
                     user.WithdrawProviderEmailVerification(providerId.Value, withdrawnAt);
