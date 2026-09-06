@@ -80,8 +80,7 @@ public sealed class UnrestrictedGrantTests(AppHostFixture fixture)
         HttpResponseMessage denied = await client.PostAsJsonAsync("/api/admin/roles",
             new { Name = $"withdrawn-{Guid.NewGuid():N}", Permissions = (string[])["*"], AcknowledgeWildcardGrant = true });
         denied.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        string denial = await denied.Content.ReadAsStringAsync();
-        denial.ShouldContain("AdministrativeApproval.AuthorityRequired");
+        (await denied.Content.ReadAsStringAsync()).ShouldContain("AdministrativeApproval.AuthorityRequired");
     }
 
     private async Task<HttpClient> SignInHumanAsync(string email, string password) =>

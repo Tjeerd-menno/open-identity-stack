@@ -13,6 +13,28 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 public sealed class ResourceAccessTests(AppHostFixture fixture)
 {
     [Fact]
+    public async Task AdministrativeRequest_WithTokenIssuedBeforeGrantWithdrawal_IsForbidden()
+    {
+        string clientId = "withdrawn-admin-" + Guid.NewGuid().ToString("N");
+        using HttpClient admin = await fixture.CreateAuthenticatedClientAsync(clientId, "fixture-secret");
+
+        using HttpResponseMessage initiallyAuthorized = await admin.GetAsync("/api/admin/applications/resources");
+        initiallyAuthorized.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            OpenIdentityStack.Domain.Applications.Application application = await db.Applications.SingleAsync(application => application.ClientId == clientId);
+            ClientResourceGrant grant = await db.ClientResourceGrants.SingleAsync(grant => grant.ClientApplicationId == application.Id
+                && grant.ResourceId == ProtectedResource.AdministrativeResourceId);
+            grant.Configure([], []);
+            await db.SaveChangesAsync();
+        });
+
+        using HttpResponseMessage withdrawn = await admin.GetAsync("/api/admin/applications/resources");
+        withdrawn.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task ResourceConfiguration_WithNullNamespace_ReturnsValidationProblem()
     {
         using HttpClient admin = await fixture.CreateAuthenticatedClientAsync("invalid-resource-" + Guid.NewGuid().ToString("N"), "fixture-secret");
