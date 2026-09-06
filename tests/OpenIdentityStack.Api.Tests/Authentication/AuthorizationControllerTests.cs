@@ -119,6 +119,34 @@ public class AuthorizationControllerTests
     #region Authorize Tests
 
     [Theory]
+    [InlineData("authorization", false, "access_denied")]
+    [InlineData("authorization", true, "invalid_target")]
+    [InlineData("authorization_code", false, "invalid_grant")]
+    [InlineData("authorization_code", true, "invalid_target")]
+    [InlineData("refresh_token", false, "invalid_grant")]
+    [InlineData("refresh_token", true, "invalid_target")]
+    public async Task ResourceDenial_UsesEndpointSpecificProtocolError(string flow, bool unknownResource, string expectedError)
+    {
+        string subject = Guid.NewGuid().ToString();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, subject),
+            new Claim(OpenIddictConstants.Claims.Subject, subject)], "Cookies"));
+        this.SetupMockServices(principal);
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest { ClientId = "browser-client", GrantType = flow });
+        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
+        this.resourcePermissions.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>())
+            .Returns((Result<ResourceTokenProjection>)(unknownResource
+                ? Domain.Resources.ResourceAccessErrors.UnknownResource : Domain.Resources.ResourceAccessErrors.NotGranted));
+
+        IActionResult result = flow == "authorization" ? await this._controller.Authorize() : await this._controller.Exchange();
+
+        result.ShouldBeOfType<ForbidResult>().Properties!.Items[OpenIddictServerAspNetCoreConstants.Properties.Error].ShouldBe(expectedError);
+    }
+
+    [Theory]
     [InlineData("authorization")]
     [InlineData("authorization_code")]
     [InlineData("refresh_token")]
