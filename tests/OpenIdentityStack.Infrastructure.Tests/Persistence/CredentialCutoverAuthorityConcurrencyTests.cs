@@ -54,7 +54,9 @@ public sealed class CredentialCutoverAuthorityConcurrencyTests(AdministrativeAut
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AdministrativeApproval>.Instance);
         IOpenIddictTokenManager tokens = Substitute.For<IOpenIddictTokenManager>();
         IOpenIddictAuthorizationManager grants = Substitute.For<IOpenIddictAuthorizationManager>();
-        var store = new CredentialBoundaryStore(stale, tokens, grants, clock);
+        ICredentialCutoverGate gate = Substitute.For<ICredentialCutoverGate>();
+        gate.EvaluateAsync(Arg.Any<CancellationToken>()).Returns(new CredentialCutoverPreflight(originalEpoch, DateTimeOffset.UtcNow, [], null, new(0, 0, 0, 0, 0, 0, 0, 0), [], [], 0, null));
+        var store = new CredentialBoundaryStore(stale, tokens, grants, clock, gate);
         var useCase = new ExecuteCredentialCutoverUseCase(store, approval, actor);
 
         await Should.ThrowAsync<DbUpdateConcurrencyException>(() => useCase.ExecuteAsync(operationId));
@@ -64,6 +66,7 @@ public sealed class CredentialCutoverAuthorityConcurrencyTests(AdministrativeAut
         (await verify.Set<CredentialCutoverRecord>().AnyAsync(value => value.Id == operationId)).ShouldBeFalse();
         (await verify.UserSessions.SingleAsync(value => value.Id == session.Id)).Status.ShouldBe(SessionStatus.Active);
         (await verify.AuditLogEntries.AnyAsync(value => value.Action == "CredentialBoundary.CutoverCompleted" && value.EntityId == operationId.ToString())).ShouldBeFalse();
+        (await verify.AuditLogEntries.AnyAsync(value => value.Action == "CredentialCutover.PreflightPassed" && value.EntityId == operationId.ToString())).ShouldBeFalse();
         await tokens.DidNotReceive().RevokeAsync(Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
         await grants.DidNotReceive().RevokeAsync(Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
         await audit.DidNotReceive().LogAsync(Arg.Any<string>(), "AdministrativeApproval.MutationSucceeded", Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
