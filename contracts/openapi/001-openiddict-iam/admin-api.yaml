@@ -865,6 +865,105 @@ paths:
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['roles:delete']
 
+  /roles/{roleId}/enable:
+    parameters:
+      - $ref: '#/components/parameters/RoleId'
+    post:
+      tags: [Roles]
+      summary: Enable role
+      operationId: enableRole
+      responses:
+        '200':
+          description: Role enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['roles:update']
+
+  /roles/{roleId}/permissions:
+    parameters:
+      - $ref: '#/components/parameters/RoleId'
+    put:
+      tags: [Roles]
+      summary: Replace role permissions
+      operationId: setRolePermissions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permissions]
+              properties:
+                permissions:
+                  type: array
+                  items:
+                    type: string
+                acknowledgeWildcardGrant:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Role permissions replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-required-permissions: ['roles:assign']
+
+    post:
+      tags: [Roles]
+      summary: Add role permission
+      operationId: addRolePermission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permission]
+              properties:
+                permission:
+                  type: string
+                acknowledgeWildcardGrant:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Role permission added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-required-permissions: ['roles:assign']
+
   # ============================================================================
   # SERVICE ACCOUNTS
   # ============================================================================

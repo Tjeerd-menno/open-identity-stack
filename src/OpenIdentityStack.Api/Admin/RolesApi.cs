@@ -39,6 +39,7 @@ internal static class RolesApi
             .RequireAuthorization(Permissions.Roles.Write)
             .Produces<RoleResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status409Conflict)
             .WithName("CreateRole")
             .WithSummary("Creates a new role");
@@ -46,6 +47,7 @@ internal static class RolesApi
         group.MapPut("{id:guid}", UpdateRole)
             .RequireAuthorization(Permissions.Roles.Write)
             .Produces<RoleResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("UpdateRole")
             .WithSummary("Updates a role");
@@ -71,6 +73,7 @@ internal static class RolesApi
             .RequireAuthorization(Permissions.Roles.Write)
             .Produces<RoleResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("EnableRole")
             .WithSummary("Enables a role");
@@ -87,6 +90,7 @@ internal static class RolesApi
             .RequireAuthorization(Permissions.Roles.Assign)
             .Produces<RoleResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("SetRolePermissions")
             .WithSummary("Sets the permissions for a role, replacing any existing permissions");
@@ -95,6 +99,7 @@ internal static class RolesApi
             .RequireAuthorization(Permissions.Roles.Assign)
             .Produces<RoleResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict)
             .WithName("AddRolePermission")
