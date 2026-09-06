@@ -31,5 +31,11 @@ public sealed class BoundedAuditActorTests(AdministrativeAuthorityTestFixture fi
         recorded.Distinct().Count().ShouldBe(1);
         recorded[0].ShouldStartWith("sha256:");
         recorded[0].Length.ShouldBe(71);
+        AuditLogEntry[] materialized = await verify.AuditLogEntries.AsNoTracking().Where(entry => entry.EntityId == entityId).ToArrayAsync();
+        materialized.Select(entry => entry.UserId).ShouldBe(recorded);
+        foreach (AuditLogEntry entry in materialized)
+        {
+            (await verify.AuditLogEntries.AsNoTracking().SingleAsync(value => value.Id == entry.Id)).UserId.ShouldBe(entry.UserId);
+        }
     }
 }
