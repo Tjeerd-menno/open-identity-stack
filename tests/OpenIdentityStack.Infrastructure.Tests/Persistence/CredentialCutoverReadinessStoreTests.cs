@@ -14,6 +14,45 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 public sealed class CredentialCutoverReadinessStoreTests
 {
     [Theory]
+    [InlineData(30, 15, true)]
+    [InlineData(300, 299, true)]
+    [InlineData(0, 0, true)]
+    [InlineData(301, 20, false)]
+    [InlineData(-1, 0, false)]
+    [InlineData(30, 31, false)]
+    [InlineData(30, -1, false)]
+    public async Task EmergencyProofUsesOneFreshnessWindowForAuthenticationAndSessionCreation(int authenticationAgeSeconds, int sessionDelaySeconds, bool accepted)
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        DateTimeOffset now = database.Clock.UtcNow;
+        DateTimeOffset authenticatedAt = now.AddSeconds(-authenticationAgeSeconds);
+        database.Clock.UtcNow.Returns(authenticatedAt.AddSeconds(sessionDelaySeconds));
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        database.Clock.UtcNow.Returns(now);
+
+        Result<EmergencyAccessEvidence> result = await database.Store.RecordEmergencyAccessAsync(actor with { AuthenticatedAt = authenticatedAt });
+
+        result.IsSuccess.ShouldBe(accepted);
+        (await database.Db.EmergencyAccessEvidence.CountAsync()).ShouldBe(accepted ? 1 : 0);
+        (await database.Store.EvaluateAsync()).Ready.ShouldBe(accepted);
+    }
+
+    [Fact]
+    public async Task FreshSessionMustBelongToTheAuthenticatedEmergencyUser()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        User other = User.CreateLocal("other@example.com", "Other", "hash", database.Clock).Value;
+        database.Db.Add(other);
+        UserSession session = UserSession.Create(other.Id, "127.0.0.1", "test", database.Clock).Value;
+        database.Db.Add(session);
+        await database.Db.SaveChangesAsync();
+
+        (await database.Store.RecordEmergencyAccessAsync(actor with { LocalPasswordSessionId = session.Id.Value })).IsFailure.ShouldBeTrue();
+        (await database.Db.EmergencyAccessEvidence.CountAsync()).ShouldBe(0);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task QuarantinedAssociationsBlockEvenWithConfiguredPasswordAndTestedEmergencyAccess(bool passwordCandidate)
