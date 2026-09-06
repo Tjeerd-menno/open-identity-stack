@@ -77,6 +77,7 @@ public sealed class AdminApiRouteMappingTests
         const string roles = "OpenIdentityStack.Api.Admin.RolesApi";
         const string users = "OpenIdentityStack.Api.Users.UsersApi";
         const string groups = "OpenIdentityStack.Api.Groups.GroupsApi";
+        const string applications = "OpenIdentityStack.Api.Applications.ApplicationsApi";
 
         foreach (ApprovalEndpointExpectation expectation in new ApprovalEndpointExpectation[]
         {
@@ -89,7 +90,11 @@ public sealed class AdminApiRouteMappingTests
             new(users, "MapUsersApi", "ResetPassword"),
             new(users, "MapUsersApi", "AssignRole"),
             new(groups, "MapGroupsApi", "AddGroupMember"),
-            new(groups, "MapGroupsApi", "AddGroupMapping")
+            new(groups, "MapGroupsApi", "AddGroupMapping"),
+            new(applications, "MapApplicationsApi", "ConfigureApplicationOAuth"),
+            new(applications, "MapApplicationsApi", "EnableApplication"),
+            new(applications, "MapApplicationsApi", "AddApplicationSecret"),
+            new(applications, "MapApplicationsApi", "AddApplicationCertificate")
         })
         {
             yield return [expectation];
