@@ -46,7 +46,7 @@ The architecture export excludes temporary agent worktrees so its source rules e
 
 ## PR review follow-up
 
-The follow-up addresses 37 review threads across the design PR and twelve implementation PRs. JIT creation now rechecks current provisioning policy inside its transaction. Email evidence and trust withdrawal share ordered locks without rotating the provider version on each sign-in. PostgreSQL overlap tests verify both successful concurrent logins and withdrawal of evidence committed while the operator waits. Authority saves preserve caller-owned transactions with savepoints. Additional changes cover denial and outcome audits, bounded machine-actor identifiers, reserved verification claims, current UI permissions, and single-login recovery.
+The follow-up addresses 38 review threads across the design PR and twelve implementation PRs, including a correction to the assessment's historical whitespace-check claim. JIT creation now rechecks current provisioning policy inside its transaction. Email evidence and trust withdrawal share ordered locks without rotating the provider version on each sign-in. PostgreSQL overlap tests verify both successful concurrent logins and withdrawal of evidence committed while the operator waits. Authority saves preserve caller-owned transactions with savepoints. Additional changes cover denial and outcome audits, bounded machine-actor identifiers, reserved verification claims, current UI permissions, and single-login recovery.
 
 On 6 September 2026, the combined backend was verified at `f274149cca662d55d35a47984319cc420491111b`; later image and documentation changes record these results.
 
