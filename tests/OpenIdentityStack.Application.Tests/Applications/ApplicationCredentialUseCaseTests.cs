@@ -15,6 +15,7 @@ public sealed class ApplicationCredentialUseCaseTests
     private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeActorContext actorContext;
     private readonly ApplicationCredentialUseCases credentialUseCases;
     private readonly ApplicationCredentialValidationUseCases validationUseCases;
     private readonly DateTimeOffset now = new(2026, 5, 24, 12, 0, 0, TimeSpan.Zero);
@@ -26,6 +27,8 @@ public sealed class ApplicationCredentialUseCaseTests
         this.passwordHasher = Substitute.For<IPasswordHasher>();
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.auditLog = Substitute.For<IAuditLog>();
+        this.actorContext = Substitute.For<IAdministrativeActorContext>();
+        this.actorContext.AuditActorId.Returns("user:credential-admin");
         IAdministrativeClientGuard administrativeGuard = Substitute.For<IAdministrativeClientGuard>();
         administrativeGuard.RequireAsync(Arg.Any<OpenIdentityStack.Domain.Applications.ApplicationId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         this.dateTimeProvider.UtcNow.Returns(this.now);
@@ -39,12 +42,13 @@ public sealed class ApplicationCredentialUseCaseTests
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog, administrativeGuard);
+            this.auditLog, administrativeGuard, this.actorContext);
         this.validationUseCases = new ApplicationCredentialValidationUseCases(
             this.repository,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog);
+            this.auditLog,
+            this.actorContext);
     }
 
     [Fact]
@@ -65,7 +69,7 @@ public sealed class ApplicationCredentialUseCaseTests
         await this.projection.Received(1).UpsertAsync(application, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "system",
+            "user:credential-admin",
             "ApplicationCredential.SecretAdded",
             "Application",
             application.Id.Value.ToString(),
@@ -166,7 +170,7 @@ public sealed class ApplicationCredentialUseCaseTests
         credential.LastUsedAt.ShouldBe(this.now);
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "system",
+            "user:credential-admin",
             "ApplicationCredential.Used",
             "Application",
             application.Id.Value.ToString(),
@@ -192,7 +196,7 @@ public sealed class ApplicationCredentialUseCaseTests
         credential.LastUsedAt.ShouldBe(this.now);
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "system",
+            "user:credential-admin",
             "ApplicationCredential.Used",
             "Application",
             application.Id.Value.ToString(),
