@@ -1,4 +1,5 @@
 using OpenIdentityStack.Application.Abstractions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using OpenIdentityStack.Domain.Applications;
 using OpenIddict.Abstractions;
@@ -17,6 +18,8 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
     private const int placeholderSecretLengthBytes = 32;
     private static readonly DomainError projectionFailed =
         DomainError.Failure("Application.ProjectionFailed", "Failed to synchronize application protocol configuration.");
+    private static readonly DomainError projectionConflict =
+        DomainError.Conflict("Application.ProjectionConflict", "Administrative authority changed; reload before saving.");
 
     private readonly IOpenIddictApplicationManager applicationManager;
     private readonly IOpenIddictScopeManager scopeManager;
@@ -73,6 +76,11 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
             }
 
             return Result.Success();
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            Log.ApplicationProjectionFailed(this.logger, ex, application.ClientId);
+            return projectionConflict;
         }
         catch (Exception ex)
         {
