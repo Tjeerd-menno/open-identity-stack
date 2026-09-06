@@ -5,6 +5,33 @@ namespace OpenIdentityStack.Contract.Tests.Admin;
 public sealed class IdentityBoundaryResponseContractTests
 {
     [Fact]
+    public void IdentityMigrationInventoryIsPartOfCanonicalAdminContract()
+    {
+        string contract = ReadContract();
+        int pathStart = contract.IndexOf("  /users/identity-migration-inventory:", StringComparison.Ordinal);
+        pathStart.ShouldBeGreaterThan(0);
+        int pathEnd = contract.IndexOf("\n  /", pathStart + 1, StringComparison.Ordinal);
+        string operation = contract[pathStart..pathEnd];
+
+        operation.ShouldContain("operationId: GetIdentityMigrationInventory");
+        operation.ShouldContain("$ref: '#/components/schemas/IdentityMigrationInventoryResponse'");
+        operation.ShouldContain("x-required-permissions: ['users:read']");
+
+        string inventory = Schema(contract, "IdentityMigrationInventoryResponse");
+        inventory.ShouldContain("required: [items, totalCount, page, pageSize]");
+        inventory.ShouldContain("$ref: '#/components/schemas/IdentityMigrationUser'");
+
+        string user = Schema(contract, "IdentityMigrationUser");
+        user.ShouldContain("required: [userId, displayName, status, hasPasswordCredential, candidateFederationProviderIds, migrationBlocked, recoveryRequired, identities]");
+        user.ShouldContain("$ref: '#/components/schemas/IdentityMigrationLink'");
+
+        string link = Schema(contract, "IdentityMigrationLink");
+        link.ShouldContain("required: [providerId, providerName, subjectId, issuer, associationEvidence, isQuarantined]");
+        link.ShouldMatch(@"issuer:\s+type: \[string, 'null'\]");
+        link.ShouldNotContain("nullable: true");
+    }
+
+    [Fact]
     public void UpstreamIdentityContractIncludesRetainedEvidenceAndQuarantine()
     {
         string contract = ReadContract();

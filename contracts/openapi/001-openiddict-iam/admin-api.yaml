@@ -102,6 +102,46 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
       x-required-permissions: ['users:create']
 
+  /users/identity-migration-inventory:
+    get:
+      tags: [Users]
+      summary: Read retained federation associations and migration blockers
+      description: Requires users:read. Inventory does not establish ownership or approve migration. Configured credentials are candidates requiring independent access verification.
+      operationId: GetIdentityMigrationInventory
+      parameters:
+        - name: providerId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Inventory ordered by user ID; repeated reads do not mutate associations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityMigrationInventoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      x-required-permissions: ['users:read']
+
   /users/{userId}:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -1429,6 +1469,71 @@ components:
             $ref: '#/components/schemas/UserResponse'
         nextPageToken:
           type: string
+
+    IdentityMigrationInventoryResponse:
+      type: object
+      required: [items, totalCount, page, pageSize]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdentityMigrationUser'
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+
+    IdentityMigrationUser:
+      type: object
+      required: [userId, displayName, status, hasPasswordCredential, candidateFederationProviderIds, migrationBlocked, recoveryRequired, identities]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        status:
+          type: string
+        hasPasswordCredential:
+          type: boolean
+          description: Configuration only. Does not prove ownership, usable access, or safe migration.
+        candidateFederationProviderIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Active providers with association evidence and matching issuer; independent access still requires verification.
+        migrationBlocked:
+          type: boolean
+          description: True whenever any retained association is quarantined, including users with candidate credentials.
+        recoveryRequired:
+          type: boolean
+          description: True when migration is blocked and no enabled-account login candidate is available. False never approves migration.
+        identities:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdentityMigrationLink'
+
+    IdentityMigrationLink:
+      type: object
+      required: [providerId, providerName, subjectId, issuer, associationEvidence, isQuarantined]
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        providerName:
+          type: string
+        subjectId:
+          type: string
+        issuer:
+          type: [string, 'null']
+        associationEvidence:
+          type: string
+          enum: [Unknown, NewAccountProvisioning]
+        isQuarantined:
+          type: boolean
 
     ResetPasswordRequest:
       type: object
