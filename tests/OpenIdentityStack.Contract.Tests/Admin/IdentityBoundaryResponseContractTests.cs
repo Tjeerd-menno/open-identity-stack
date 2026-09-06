@@ -37,6 +37,13 @@ public sealed class IdentityBoundaryResponseContractTests
         string contract = ReadContract();
         contract.ShouldContain("/providers/{providerId}/email-verification-trust:");
         contract.ShouldContain("operationId: setProviderEmailVerificationTrust");
+        string operation = contract[contract.IndexOf("operationId: setProviderEmailVerificationTrust", StringComparison.Ordinal)..];
+        operation = operation[..operation.IndexOf("      responses:", StringComparison.Ordinal)];
+        operation.ShouldContain("tokens, authorizations, and sessions");
+        operation.ShouldContain("Offline JWT");
+        operation.ShouldContain("rely on their own expiration or revocation policy");
+        operation.ShouldContain("RP sessions");
+        operation.ShouldContain("remain active until logout or session expiry");
         Schema(contract, "ProviderEmailVerificationTrustRequest").ShouldMatch(@"trusted:\s+type: boolean");
         Schema(contract, "ProviderResponse").ShouldMatch(@"trustEmailVerification:\s+type: boolean");
         Schema(contract, "UserResponse").ShouldMatch(@"emailVerified:\s+type: boolean");

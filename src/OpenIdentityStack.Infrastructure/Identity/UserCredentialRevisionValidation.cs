@@ -12,6 +12,7 @@ namespace OpenIdentityStack.Infrastructure.Identity;
 /// <summary>Rejects stale user credentials, including issuance racing a committed trust withdrawal.</summary>
 public sealed class UserCredentialRevisionValidation(OpenIdentityStackDbContext dbContext) :
     IOpenIddictServerHandler<OpenIddictServerEvents.ValidateTokenContext>,
+    IOpenIddictServerHandler<OpenIddictServerEvents.ProcessSignInContext>,
     IOpenIddictValidationHandler<OpenIddictValidationEvents.ValidateTokenContext>
 {
     public async ValueTask HandleAsync(OpenIddictServerEvents.ValidateTokenContext context)
@@ -30,6 +31,14 @@ public sealed class UserCredentialRevisionValidation(OpenIdentityStackDbContext 
         if (!await this.IsCurrentAsync(context.Principal, context.CancellationToken))
         {
             context.Reject(OpenIddictConstants.Errors.InvalidToken, "The credential is no longer valid.");
+        }
+    }
+
+    public async ValueTask HandleAsync(OpenIddictServerEvents.ProcessSignInContext context)
+    {
+        if (!await this.IsCurrentAsync(context.Principal, context.CancellationToken))
+        {
+            context.Reject(OpenIddictConstants.Errors.InvalidGrant, "Fresh authentication is required.");
         }
     }
 
