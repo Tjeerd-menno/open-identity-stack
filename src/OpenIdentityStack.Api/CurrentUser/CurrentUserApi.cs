@@ -29,7 +29,11 @@ public static partial class CurrentUserApi
         return app;
     }
 
-    public static IResult GetCurrentUser(ClaimsPrincipal user, [FromServices] ILoggerFactory loggerFactory)
+    public static async Task<IResult> GetCurrentUser(ClaimsPrincipal user,
+        [FromServices] AdministrativeRequestAuthorization authorization, [FromServices] ILoggerFactory loggerFactory)
+        => CreateResponse(user, await authorization.EvaluateAsync(user), loggerFactory);
+
+    public static IResult CreateResponse(ClaimsPrincipal user, IReadOnlyList<string> permissions, ILoggerFactory loggerFactory)
     {
         ILogger logger = loggerFactory.CreateLogger(nameof(CurrentUserApi));
         string? subject = FirstClaimValue(user, OpenIddictConstants.Claims.Subject, ClaimTypes.NameIdentifier);
@@ -48,38 +52,10 @@ public static partial class CurrentUserApi
             FirstNonBlank(preferredUserName, name, email, subject),
             FirstNonBlank(name, preferredUserName, email, subject),
             email,
-            CollectPermissions(user));
+            permissions);
 
         return TypedResults.Ok(response);
     }
-
-    private static string[] CollectPermissions(ClaimsPrincipal user)
-    {
-        var permissions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (Claim claim in user.Claims)
-        {
-            if (!IsPermissionClaim(claim))
-            {
-                continue;
-            }
-
-            foreach (string permission in SplitPermissionClaim(claim.Value))
-            {
-                permissions.TryAdd(permission, permission);
-            }
-        }
-
-        return permissions.Values.ToArray();
-    }
-
-    private static bool IsPermissionClaim(Claim claim) =>
-        string.Equals(claim.Type, "permission", StringComparison.Ordinal)
-        || string.Equals(claim.Type, "permissions", StringComparison.Ordinal);
-
-    private static IEnumerable<string> SplitPermissionClaim(string value) =>
-        value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(static permission => !string.IsNullOrWhiteSpace(permission));
 
     private static string? FirstClaimValue(ClaimsPrincipal user, params string[] claimTypes)
     {
