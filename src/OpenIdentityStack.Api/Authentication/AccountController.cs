@@ -293,12 +293,13 @@ public class AccountController : Controller
             userAgent);
 
         Result<CreateSessionResult> sessionResult = await this.createSessionUseCase.ExecuteAsync(createSessionCommand);
-        if (sessionResult.IsSuccess)
+        if (sessionResult.IsFailure)
         {
-            string sessionId = sessionResult.Value.SessionId.Value.ToString();
-            claims.Add(new Claim("sid", sessionId));
-            claims.Add(new Claim("session_id", sessionId));
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
+        string sessionId = sessionResult.Value.SessionId.Value.ToString();
+        claims.Add(new Claim("sid", sessionId));
+        claims.Add(new Claim("session_id", sessionId));
 
         var claimsIdentity = new ClaimsIdentity(claims, "Cookies");
         var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
@@ -311,12 +312,9 @@ public class AccountController : Controller
         };
 
         await this.HttpContext.SignInAsync("Cookies", claimsPrincipal, authProperties);
-        if (sessionResult.IsSuccess)
-        {
-            Guid capturedEpoch = Guid.TryParse(credentialEpoch, out Guid parsedEpoch) ? parsedEpoch : Guid.Empty;
-            this.AppendSessionMonitoringCookie(
-                user.Id, sessionResult.Value.SessionId, capturedEpoch, authProperties.ExpiresUtc!.Value);
-        }
+        Guid capturedEpoch = Guid.TryParse(credentialEpoch, out Guid parsedEpoch) ? parsedEpoch : Guid.Empty;
+        this.AppendSessionMonitoringCookie(
+            user.Id, sessionResult.Value.SessionId, capturedEpoch, authProperties.ExpiresUtc!.Value);
 
         return this.RedirectToValidatedUrl(returnUrl);
     }
@@ -370,12 +368,14 @@ public class AccountController : Controller
             userAgent);
 
         Result<CreateSessionResult> sessionResult = await this.createSessionUseCase.ExecuteAsync(createSessionCommand);
-        if (sessionResult.IsSuccess)
+        if (sessionResult.IsFailure)
         {
-            string sessionId = sessionResult.Value.SessionId.Value.ToString();
-            claims.Add(new Claim("sid", sessionId));
-            claims.Add(new Claim("session_id", sessionId));
+            this.ModelState.AddModelError(string.Empty, "Unable to complete sign-in. Please try again.");
+            return this.View(model);
         }
+        string sessionId = sessionResult.Value.SessionId.Value.ToString();
+        claims.Add(new Claim("sid", sessionId));
+        claims.Add(new Claim("session_id", sessionId));
 
         var claimsIdentity = new ClaimsIdentity(claims, "Cookies");
         var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
@@ -388,11 +388,8 @@ public class AccountController : Controller
         };
 
         await this.HttpContext.SignInAsync("Cookies", claimsPrincipal, authProperties);
-        if (sessionResult.IsSuccess)
-        {
-            this.AppendSessionMonitoringCookie(
-                result.Value.UserId, sessionResult.Value.SessionId, credentialEpoch, authProperties.ExpiresUtc!.Value);
-        }
+        this.AppendSessionMonitoringCookie(
+            result.Value.UserId, sessionResult.Value.SessionId, credentialEpoch, authProperties.ExpiresUtc!.Value);
 
         return this.RedirectToValidatedUrl(returnUrl);
     }
