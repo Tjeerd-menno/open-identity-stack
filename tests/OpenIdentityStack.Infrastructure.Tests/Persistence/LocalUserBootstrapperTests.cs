@@ -109,4 +109,42 @@ public sealed class LocalUserBootstrapperTests(SqliteTestFixture fixture) : ICla
         (await verification.RoleAssignments.CountAsync(assignment => assignment.UserId == user.Id)).ShouldBe(1);
         (await verification.AuditLogEntries.CountAsync(entry => entry.Action == "User.BootstrapCreated")).ShouldBe(1);
     }
+
+    [Fact]
+    public async Task CreateIfAbsentAsync_AssignsExplicitBusinessPermissionsToNewDevelopmentAdministrator()
+    {
+        await fixture.ClearAllDataAsync();
+        await using OpenIdentityStackDbContext db = fixture.CreateDbContext();
+        await SeedData.SeedAsync(db);
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        IPasswordHasher hasher = Substitute.For<IPasswordHasher>();
+        hasher.HashPassword(Arg.Any<string>()).Returns("hashed-secret");
+        IPasswordPolicyValidator validator = Substitute.For<IPasswordPolicyValidator>();
+        validator.ValidatePassword(Arg.Any<string>()).Returns(Result.Success());
+        var bootstrapper = new LocalUserBootstrapper(db, hasher, validator, clock);
+        string[] permissions =
+        [
+            "traceable-isotopes:isotopes:read",
+            "traceable-isotopes:isotopes:write",
+            "traceable-isotopes:exports:read",
+            "traceable-isotopes:exports:write",
+            "traceable-isotopes:audit:read"
+        ];
+
+        bool created = await bootstrapper.CreateIfAbsentAsync(
+            "admin@localhost.dev", "Default Admin", "SecretPassword123!", assignAdministrator: true,
+            additionalAdministratorPermissions: permissions);
+
+        created.ShouldBeTrue();
+        await using OpenIdentityStackDbContext verification = fixture.CreateDbContext();
+        Domain.Roles.Role assignedRole = await verification.RoleAssignments
+            .Where(assignment => assignment.UserId == verification.Users.Single().Id)
+            .Join(verification.Roles, assignment => assignment.RoleId, role => role.Id, (_, role) => role)
+            .SingleAsync();
+        foreach (string permission in permissions)
+        {
+            assignedRole.Permissions.ShouldContain(permission);
+        }
+    }
 }

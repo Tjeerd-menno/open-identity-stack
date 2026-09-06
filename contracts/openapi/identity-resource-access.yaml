@@ -1,0 +1,157 @@
+openapi: 3.1.0
+info:
+  title: OpenIdentityStack resource access
+  version: 0.1.0
+  description: Explicit protected resource mappings and client ceilings. Administrative resources require the dedicated approval workflow.
+servers:
+  - url: /api/admin/applications
+security:
+  - bearerAuth: []
+paths:
+  /resources:
+    get:
+      operationId: ListProtectedResources
+      x-required-permission: applications:read
+      responses:
+        '200':
+          description: Resource mappings including the read-only administrative resource.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProtectedResource' }
+    post:
+      operationId: CreateProtectedResource
+      x-required-permission: applications:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResourceConfiguration' }
+      responses:
+        '200':
+          description: Created resource mapping.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProtectedResource' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /resources/{resourceId}:
+    parameters:
+      - { name: resourceId, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: ConfigureProtectedResource
+      x-required-permission: applications:write
+      description: Requires current expectedRevision. Audience and scope are immutable. Reserved administrative mappings cannot be edited here.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResourceConfiguration' }
+      responses:
+        '200':
+          description: Updated mapping and revision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProtectedResource' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /{id}/resource-grants:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: ListClientResourceGrants
+      x-required-permission: applications:read
+      responses:
+        '200':
+          description: Explicit grants for the client application.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ClientResourceGrant' }
+  /{id}/resource-grants/{resourceId}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: resourceId, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: ConfigureClientResourceGrant
+      x-required-permission: applications:write
+      description: Requires expectedRevision for an existing grant; omit it for a new grant. Empty lists grant zero permissions. Admin access is rejected by this route.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClientResourceGrantConfiguration' }
+      responses:
+        '200':
+          description: Saved grant and revision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientResourceGrant' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  responses:
+    Problem:
+      description: Validation, reserved-boundary denial, or stale/duplicate configuration. Reload after a conflict.
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [status, title, detail, code]
+            properties:
+              status: { type: integer }
+              title: { type: string }
+              detail: { type: string }
+              code: { type: string }
+  schemas:
+    ResourceConfiguration:
+      type: object
+      required: [audience, scope, displayName, permissionNamespaces]
+      properties:
+        audience: { type: string, format: uri, maxLength: 2048 }
+        scope: { type: string, maxLength: 100 }
+        displayName: { type: string, maxLength: 200 }
+        permissionNamespaces:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { type: string, maxLength: 63 }
+        enabled: { type: boolean, default: true }
+        expectedRevision: { type: [integer, 'null'], format: int64 }
+    ProtectedResource:
+      allOf:
+        - $ref: '#/components/schemas/ResourceConfiguration'
+        - type: object
+          required: [id, revision, isAdministrative, enabled]
+          properties:
+            id: { type: string, format: uuid }
+            revision: { type: integer, format: int64 }
+            isAdministrative: { type: boolean }
+    ClientResourceGrantConfiguration:
+      type: object
+      required: [delegatedPermissions, applicationPermissions]
+      properties:
+        delegatedPermissions:
+          type: array
+          maxItems: 500
+          items: { type: string, maxLength: 255 }
+        applicationPermissions:
+          type: array
+          maxItems: 500
+          items: { type: string, maxLength: 255 }
+        expectedRevision: { type: [integer, 'null'], format: int64 }
+    ClientResourceGrant:
+      allOf:
+        - $ref: '#/components/schemas/ClientResourceGrantConfiguration'
+        - type: object
+          required: [resourceId, revision]
+          properties:
+            resourceId: { type: string, format: uuid }
+            revision: { type: integer, format: int64 }

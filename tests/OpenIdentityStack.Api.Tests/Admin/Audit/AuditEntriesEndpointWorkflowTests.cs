@@ -98,8 +98,8 @@ public sealed class AuditEntriesEndpointWorkflowTests(AppHostFixture fixture) : 
     {
         string clientId = $"audit-limited-{Guid.NewGuid():N}";
         const string clientSecret = "test-secret-123";
-        await this.fixture.CreateServiceAccountAsync(clientId, clientSecret, ["limited"]);
-        string token = await this.fixture.GetAccessTokenAsync(clientId, clientSecret, "limited");
+        using HttpClient limited = await this.fixture.CreateAuthenticatedClientAsync(clientId, clientSecret, administrativePermissions: ["users:read"]);
+        string token = limited.DefaultRequestHeaders.Authorization!.Parameter!;
         var request = new HttpRequestMessage(HttpMethod.Get, "/api/admin/audit-entries");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
@@ -112,8 +112,8 @@ public sealed class AuditEntriesEndpointWorkflowTests(AppHostFixture fixture) : 
     {
         string clientId = $"audit-contract-{Guid.NewGuid():N}";
         const string clientSecret = "test-secret-123";
-        await this.fixture.CreateServiceAccountAsync(clientId, clientSecret);
-        this.accessToken = await this.fixture.GetAccessTokenAsync(clientId, clientSecret);
+        using HttpClient authenticated = await this.fixture.CreateAuthenticatedClientAsync(clientId, clientSecret);
+        this.accessToken = authenticated.DefaultRequestHeaders.Authorization!.Parameter;
     }
 
     private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string url)
