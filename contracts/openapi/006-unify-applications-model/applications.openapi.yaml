@@ -126,6 +126,8 @@ paths:
           $ref: "#/components/responses/ValidationError"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
     delete:
       tags: [Applications]
       operationId: deleteApplication
@@ -164,6 +166,8 @@ paths:
           $ref: "#/components/responses/ValidationError"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/disable:
     post:
       tags: [Applications]
@@ -181,6 +185,8 @@ paths:
                 $ref: "#/components/schemas/ApplicationResponse"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/enable:
     post:
       tags: [Applications]
@@ -200,6 +206,8 @@ paths:
           $ref: "#/components/responses/ValidationError"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/credentials:
     get:
       tags: [Applications]
@@ -246,6 +254,8 @@ paths:
           $ref: "#/components/responses/ValidationError"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/credentials/certificates:
     post:
       tags: [Applications]
@@ -271,6 +281,8 @@ paths:
           $ref: "#/components/responses/ValidationError"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /applications/{id}/credentials/{credentialId}:
     delete:
       tags: [Applications]
@@ -290,6 +302,8 @@ paths:
           description: Credential revoked.
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
   /clients:
     get:
       tags: [Deprecated compatibility]

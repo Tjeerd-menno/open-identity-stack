@@ -380,8 +380,9 @@ public sealed class ApplicationLifecycleUseCases
             return CreatePersistenceFailed();
         }
 
-        _ = exception;
-        return CreatePersistenceFailed();
+        return exception is IConcurrencyConflict
+            ? ApplicationErrors.CreateConflict
+            : CreatePersistenceFailed();
     }
 
     private static DomainError CreatePersistenceFailed() =>

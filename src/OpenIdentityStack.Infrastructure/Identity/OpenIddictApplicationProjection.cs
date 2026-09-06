@@ -116,6 +116,11 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
 
             return Result.Success();
         }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            Log.ApplicationProjectionDeleteFailed(this.logger, ex, applicationId.Value);
+            return projectionConflict;
+        }
         catch (Exception ex)
         {
             Log.ApplicationProjectionDeleteFailed(this.logger, ex, applicationId.Value);
