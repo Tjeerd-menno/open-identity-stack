@@ -13,6 +13,7 @@ public sealed class ExecuteCredentialCutoverUseCase(ICredentialBoundaryStore sto
     public async Task<Result<CredentialCutoverResult>> ExecuteAsync(Guid operationId, CancellationToken cancellationToken = default)
     {
         if (operationId == Guid.Empty) { return DomainError.Validation("CredentialCutover.OperationRequired", "A nonempty operation identifier is required."); }
+        await approval.CaptureAuthorityAsync(cancellationToken);
         Result approved = await approval.RequireAsync("CredentialBoundary.Cutover", operationId.ToString(), cancellationToken: cancellationToken);
         if (approved.IsFailure) { return approved.Error; }
         CredentialCutoverResult result = await store.ExecuteAsync(operationId, actor.Current!.UserId.Value.ToString(), cancellationToken);
