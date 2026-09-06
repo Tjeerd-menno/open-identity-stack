@@ -42,7 +42,11 @@ public sealed class AdministrativeAccessManagementTests(ManagementWebAppHostFixt
         await editor.GetByRole(AriaRole.Button, new() { Name = "Save resource", Exact = true }).ClickAsync();
         await editor.WaitForAsync(new() { State = WaitForSelectorState.Hidden });
         await Page.GetByRole(AriaRole.Combobox, new() { Name = "Protected resource", Exact = true }).ClickAsync();
-        await Page.GetByRole(AriaRole.Option, new() { Name = $"Business resource {Unique}", Exact = true }).ClickAsync();
+        await Page.GetByRole(AriaRole.Option, new()
+        {
+            Name = $"Business resource {Unique} — urn:boundary:{Unique} — boundary.{Unique}",
+            Exact = true,
+        }).ClickAsync();
         await Page.GetByLabel("Application permissions", new() { Exact = true }).FillAsync($"{permissionNamespace}:orders:read");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Save resource grant", Exact = true }).ClickAsync();
         await Page.GetByRole(AriaRole.Status).Filter(new() { HasText = "Resource grant saved." }).WaitForAsync();
