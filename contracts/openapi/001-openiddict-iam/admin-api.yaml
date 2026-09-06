@@ -268,7 +268,9 @@ paths:
 
     post:
       tags: [Users]
-      summary: Link upstream identity to user
+      summary: Reject identifier-only upstream identity linking
+      deprecated: true
+      description: Identifier-only linking is unsupported. Existing accounts require independently proven account control through a separately specified linking workflow.
       operationId: linkUpstreamIdentity
       requestBody:
         required: true
@@ -277,26 +279,21 @@ paths:
             schema:
               $ref: '#/components/schemas/LinkUpstreamIdentityRequest'
       responses:
-        '201':
-          description: Identity linked
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UpstreamIdentityResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Identity already linked to another user
+          description: Identifier-only linking is forbidden; independent account-control proof is required.
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+              example:
+                status: 403
+                title: Account linking denied
+                code: Forbidden.UpstreamIdentity.ProofRequired
+                detail: Linking an existing account requires proof of account control.
       x-required-permissions: ['users:update']
 
   /users/{userId}/upstream-identities/{issuer}/{subject}:

@@ -249,7 +249,7 @@ describe('Admin API domain contracts', () => {
     await contract.getUserGroups('user-1');
     await expect(contract.getUserUpstreamIdentities('user-1')).resolves.toEqual([{ providerId: 'provider-1', subject: 'sub-1' }]);
     await expect(contract.getUserUpstreamIdentities('user-1')).resolves.toEqual([{ providerId: 'provider-2', subject: 'sub-2' }]);
-    await contract.linkUserUpstreamIdentity('user-1', { providerId: 'provider-1', subject: 'subject-1', email: 'ada@example.com' });
+    expect(contract).not.toHaveProperty('linkUserUpstreamIdentity');
     await contract.unlinkUserUpstreamIdentity('user-1', 'provider-1');
 
     expectCalls(client.get, [
@@ -267,11 +267,6 @@ describe('Admin API domain contracts', () => {
       ['/api/admin/users/user-1/enable'],
       ['/api/admin/users/user-1/reset-password', { newPassword: 'NewPassword123!' }],
       ['/api/admin/users/user-1/roles/role-1'],
-      ['/api/admin/users/user-1/upstream-identities', {
-        providerId: 'provider-1',
-        subjectId: 'subject-1',
-        email: 'ada@example.com',
-      }],
     ]);
     expectCalls(client.put, [['/api/admin/users/user-1', { displayName: 'Ada Lovelace' }]]);
     expectCalls(client.delete, [
