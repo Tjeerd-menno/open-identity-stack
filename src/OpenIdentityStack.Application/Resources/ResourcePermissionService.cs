@@ -79,6 +79,8 @@ public sealed class ResourcePermissionService(
             if (!client.AllowedScopes.Contains(resource.Scope, StringComparer.Ordinal)) { return ResourceAccessErrors.NotGranted; }
             ClientResourceGrant? grant = await resources.GetGrantAsync(client.Id, resource.Id, cancellationToken);
             if (grant is null) { return ResourceAccessErrors.NotGranted; }
+            IReadOnlyList<string> assigned = request.UserId is null ? grant.ApplicationPermissions : grant.DelegatedPermissions;
+            if (assigned.Count == 0) { return ResourceAccessErrors.NotGranted; }
             revisions[resource.Id] = grant.Revision;
             foreach (string permissionNamespace in resource.PermissionNamespaces)
             {
@@ -94,7 +96,6 @@ public sealed class ResourcePermissionService(
                     candidates = catalog.Permissions.Where(static permission => !permission.IsRemoved).Select(static permission => permission.FullPermissionKey).ToArray();
                 }
 
-                IReadOnlyList<string> assigned = request.UserId is null ? grant.ApplicationPermissions : grant.DelegatedPermissions;
                 foreach (string candidate in candidates)
                 {
                     if (assigned.Any(permission => PermissionSemantics.Matches(permission, candidate))

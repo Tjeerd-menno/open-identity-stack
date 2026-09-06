@@ -79,16 +79,21 @@ public sealed class ResourcePermissionServiceTests
         result.Error.ShouldBe(ResourceAccessErrors.UnknownResource);
     }
 
-    [Fact]
-    public async Task ProjectAsync_EmptyExplicitGrantIsValidButMissingGrantIsDenied()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProjectAsync_EmptySubjectCeilingAndMissingGrantAreDenied(bool delegated)
     {
         this.resources.GetGrantAsync(this.client.Id, this.resource.Id, Arg.Any<CancellationToken>()).Returns(
-            ClientResourceGrant.Create(this.client.Id, this.resource.Id, [], []).Value);
-        Result<ResourceTokenProjection> empty = await this.service.ProjectAsync(new ResourceTokenRequest(this.client.ClientId, ["orders-api"], [], null));
-        empty.IsSuccess.ShouldBeTrue();
-        empty.Value.Permissions.ShouldBeEmpty();
+            ClientResourceGrant.Create(this.client.Id, this.resource.Id,
+                delegated ? [] : ["orders:invoice:read"],
+                delegated ? ["orders:invoice:write"] : []).Value);
+        Result<ResourceTokenProjection> empty = await this.service.ProjectAsync(new ResourceTokenRequest(
+            this.client.ClientId, ["orders-api"], [], delegated ? this.user.Id : null));
+        empty.Error.ShouldBe(ResourceAccessErrors.NotGranted);
         this.resources.GetGrantAsync(this.client.Id, this.resource.Id, Arg.Any<CancellationToken>()).Returns((ClientResourceGrant?)null);
-        Result<ResourceTokenProjection> absent = await this.service.ProjectAsync(new ResourceTokenRequest(this.client.ClientId, ["orders-api"], [], null));
+        Result<ResourceTokenProjection> absent = await this.service.ProjectAsync(new ResourceTokenRequest(
+            this.client.ClientId, ["orders-api"], [], delegated ? this.user.Id : null));
         absent.Error.ShouldBe(ResourceAccessErrors.NotGranted);
     }
 
