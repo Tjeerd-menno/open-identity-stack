@@ -25,19 +25,21 @@ public sealed class EmailTrustCredentialTests(AppHostFixture fixture)
     [InlineData(false, true)]
     [InlineData(false, false, true)]
     [InlineData(false, false, false, true)]
-    public async Task WithdrawalEnforcesIssuedCredentialsAndNewLoginUsesCurrentEvidence(bool independentEvidence, bool lateIssuedState, bool collidingApplication = false, bool staleSessionActivity = false)
+    [InlineData(false, false, false, false, true)]
+    public async Task WithdrawalEnforcesIssuedCredentialsAndNewLoginUsesCurrentEvidence(bool independentEvidence, bool lateIssuedState, bool collidingApplication = false, bool staleSessionActivity = false, bool userMatchesClientId = false)
     {
         string email = $"withdraw-{Guid.NewGuid():N}@example.test";
         const string password = "Password123!@#";
         string clientId = $"withdraw-client-{Guid.NewGuid():N}";
         const string clientSecret = "test-client-secret";
         Guid userId = await fixture.CreateTestUserAsync(email, "Withdrawal subject", password);
+        if (userMatchesClientId) { clientId = userId.ToString(); }
         await fixture.CreateServiceAccountAsync(clientId, clientSecret,
             allowedScopes: ["openid", "email", "ois.admin", "offline_access"],
             allowedGrantTypes: ["authorization_code", "refresh_token"], redirectUris: ["https://localhost/callback"]);
         if (collidingApplication)
         {
-            await fixture.CreateServiceAccountAsync(userId.ToString(), clientSecret, allowedScopes: ["ois.admin"]);
+            await fixture.CreateServiceAccountAsync(userId.ToString(), clientSecret, allowedScopes: ["ois.admin", "openid", "email"]);
         }
         using HttpClient admin = await fixture.CreateAuthenticatedClientAsync($"withdraw-admin-{Guid.NewGuid():N}", "test-admin-secret");
         UpstreamProvider provider = UpstreamProvider.Create($"withdraw-{Guid.NewGuid():N}", "Provider", "https://issuer.example", "client").Value;
@@ -78,7 +80,7 @@ public sealed class EmailTrustCredentialTests(AppHostFixture fixture)
         using HttpClient subject = fixture.CreateClient();
         subject.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issued["access_token"]!.GetValue<string>());
         (await subject.GetFromJsonAsync<JsonNode>("/connect/userinfo"))!["email_verified"]!.GetValue<bool>().ShouldBeTrue();
-        (await IntrospectAsync(subject, clientId, clientSecret, issued["access_token"]!.GetValue<string>())).ShouldBeTrue();
+        (await IntrospectAsync(subject, clientId, clientSecret, issued["access_token"]!.GetValue<string>(), userMatchesClientId ? "users:read" : null)).ShouldBeTrue();
         // Warm the local validation cache before withdrawal as well as the server token path.
         (await subject.GetAsync("/api/admin/users")).StatusCode.ShouldNotBe(HttpStatusCode.Unauthorized);
 
@@ -89,6 +91,8 @@ public sealed class EmailTrustCredentialTests(AppHostFixture fixture)
             machineToken = await IssueMachineTokenAsync(machine, userId.ToString(), clientSecret);
             machine.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", machineToken);
             (await machine.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.OK);
+            JsonNode machineInfo = (await machine.GetFromJsonAsync<JsonNode>("/connect/userinfo"))!;
+            machineInfo["email"].ShouldBeNull();
         }
 
         var activityLoaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -166,7 +170,7 @@ public sealed class EmailTrustCredentialTests(AppHostFixture fixture)
                 humanStates.ShouldNotBeEmpty();
                 humanStates.ShouldAllBe(status => status == "revoked");
                 List<string?> machineStates = await db.Set<OpenIddictEntityFrameworkCoreToken>()
-                    .Where(token => token.Subject == subjectId && token.Application!.ClientId == subjectId)
+                    .Where(token => token.Subject == subjectId && token.Application!.ClientId == subjectId && token.Type == OpenIddict.Abstractions.OpenIddictConstants.TokenTypeIdentifiers.AccessToken)
                     .Select(token => token.Status).ToListAsync();
                 machineStates.ShouldNotBeEmpty();
                 machineStates.ShouldAllBe(status => status == "valid");
@@ -196,20 +200,25 @@ public sealed class EmailTrustCredentialTests(AppHostFixture fixture)
         HttpResponseMessage response = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials", ["client_id"] = clientId,
-            ["client_secret"] = clientSecret, ["scope"] = "ois.admin"
+            ["client_secret"] = clientSecret, ["scope"] = "openid email ois.admin"
         }));
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         return (await response.Content.ReadFromJsonAsync<JsonNode>())!["access_token"]!.GetValue<string>();
     }
 
-    private static async Task<bool> IntrospectAsync(HttpClient client, string clientId, string clientSecret, string token)
+    private static async Task<bool> IntrospectAsync(HttpClient client, string clientId, string clientSecret, string token, string? expectedPermission = null)
     {
         HttpResponseMessage response = await client.PostAsync("/connect/introspect", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["client_id"] = clientId, ["client_secret"] = clientSecret, ["token"] = token
         }));
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        return (await response.Content.ReadFromJsonAsync<JsonNode>())!["active"]!.GetValue<bool>();
+        JsonNode details = (await response.Content.ReadFromJsonAsync<JsonNode>())!;
+        if (expectedPermission is not null)
+        {
+            details["permissions"]!.AsArray().ShouldContain(permission => permission!.GetValue<string>() == expectedPermission);
+        }
+        return details["active"]!.GetValue<bool>();
     }
     private static async Task<(JsonNode Tokens, string AuthorizationUrl)> LoginAndIssueAsync(HttpClient browser, string email, string password, string clientId, string clientSecret)
     {
