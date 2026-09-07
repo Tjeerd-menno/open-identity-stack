@@ -67,21 +67,25 @@ internal static class CredentialBoundaryFence
         await AcquireRowWriteAsync(db, cancellationToken);
     }
 
-    public static async Task AcquireExclusiveAsync(OpenIdentityStackDbContext db, CancellationToken cancellationToken)
+    public static async Task AcquireExclusiveSessionAsync(OpenIdentityStackDbContext db, CancellationToken cancellationToken)
     {
-        if (db.Database.IsNpgsql())
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_lock({advisoryLockKey}); /* CredentialBoundary */",
+            cancellationToken);
+        if (!await db.Set<CredentialBoundaryState>().AsNoTracking().AnyAsync(x => x.Id == 1, cancellationToken))
         {
-            await db.Database.ExecuteSqlInterpolatedAsync(
-                $"SELECT pg_advisory_xact_lock({advisoryLockKey}); /* CredentialBoundary */",
-                cancellationToken);
-            if (!await db.Set<CredentialBoundaryState>().AsNoTracking().AnyAsync(x => x.Id == 1, cancellationToken))
-            {
-                throw new InvalidOperationException("The credential boundary fence is unavailable.");
-            }
-            return;
+            throw new InvalidOperationException("The credential boundary fence is unavailable.");
         }
+    }
 
-        await AcquireRowWriteAsync(db, cancellationToken);
+    public static Task ReleaseExclusiveSessionAsync(OpenIdentityStackDbContext db) =>
+        db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_unlock({advisoryLockKey}); /* CredentialBoundary */",
+            CancellationToken.None);
+
+    public static Task AcquireExclusiveRowAsync(OpenIdentityStackDbContext db, CancellationToken cancellationToken)
+    {
+        return AcquireRowWriteAsync(db, cancellationToken);
     }
 
     private static async Task AcquireRowWriteAsync(OpenIdentityStackDbContext db, CancellationToken cancellationToken)
@@ -110,8 +114,37 @@ public sealed class CredentialBoundaryStore(OpenIdentityStackDbContext db, IOpen
 
     public async Task<Result<CredentialCutoverResult>> ExecuteAsync(Guid operationId, string actorId, CancellationToken cancellationToken = default)
     {
+        if (!db.Database.IsNpgsql())
+        {
+            return await this.ExecuteTransactionAsync(operationId, actorId, acquireRowFence: true, cancellationToken);
+        }
+
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        bool acquired = false;
+        try
+        {
+            await CredentialBoundaryFence.AcquireExclusiveSessionAsync(db, cancellationToken);
+            acquired = true;
+            return await this.ExecuteTransactionAsync(operationId, actorId, acquireRowFence: false, cancellationToken);
+        }
+        finally
+        {
+            try
+            {
+                if (acquired) { await CredentialBoundaryFence.ReleaseExclusiveSessionAsync(db); }
+            }
+            finally
+            {
+                await db.Database.CloseConnectionAsync();
+            }
+        }
+    }
+
+    private async Task<Result<CredentialCutoverResult>> ExecuteTransactionAsync(
+        Guid operationId, string actorId, bool acquireRowFence, CancellationToken cancellationToken)
+    {
         await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        await CredentialBoundaryFence.AcquireExclusiveAsync(db, cancellationToken);
+        if (acquireRowFence) { await CredentialBoundaryFence.AcquireExclusiveRowAsync(db, cancellationToken); }
         CredentialCutoverRecord? previous = await db.Set<CredentialCutoverRecord>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == operationId, cancellationToken);
         if (previous is not null) { return previous.ToResult(); }
         CredentialCutoverPreflight preflight = await gate.EvaluateAsync(cancellationToken);

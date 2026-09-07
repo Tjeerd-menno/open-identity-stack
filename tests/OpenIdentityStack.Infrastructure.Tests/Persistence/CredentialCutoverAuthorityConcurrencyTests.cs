@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OpenIddict.EntityFrameworkCore.Models;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authorization;
@@ -96,6 +97,61 @@ public sealed class CredentialCutoverAuthorityConcurrencyTests(AdministrativeAut
         (await issuanceDb.Set<CredentialBoundaryState>().AsNoTracking().Select(value => value.Epoch).SingleAsync())
             .ShouldBe(operationId);
         await issuance.CommitAsync(default);
+    }
+
+    [Fact]
+    public async Task CutoverSnapshotStartsAfterEarlierIssuerCommits()
+    {
+        await using (OpenIdentityStackDbContext probe = fixture.CreateDbContext())
+        {
+            Assert.SkipWhen(!probe.Database.IsNpgsql(), "Credential-boundary snapshot ordering requires PostgreSQL.");
+        }
+
+        string tokenId = Guid.NewGuid().ToString();
+        await using OpenIdentityStackDbContext issuanceDb = fixture.CreateDbContext();
+        await using var issuance = new TokenIssuanceTransaction(issuanceDb);
+        await issuance.BeginAsync(default);
+        issuanceDb.Add(new OpenIddictEntityFrameworkCoreToken
+        {
+            Id = tokenId,
+            Type = OpenIddictConstants.TokenTypeIdentifiers.AccessToken,
+            Status = OpenIddictConstants.Statuses.Valid
+        });
+        await issuanceDb.SaveChangesAsync();
+
+        await using OpenIdentityStackDbContext cutoverDb = fixture.CreateDbContext();
+        bool observedIssuedToken = false;
+        ICredentialCutoverGate gate = Substitute.For<ICredentialCutoverGate>();
+        gate.EvaluateAsync(Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            observedIssuedToken = await cutoverDb.Set<OpenIddictEntityFrameworkCoreToken>().AsNoTracking()
+                .AnyAsync(token => token.Id == tokenId, call.Arg<CancellationToken>());
+            return new CredentialCutoverPreflight(Guid.Empty, DateTimeOffset.UtcNow, [], null,
+                new(0, 0, 0, 0, 0, 0, 0, 0), [], [], 0, null);
+        });
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var store = new CredentialBoundaryStore(cutoverDb, Substitute.For<IOpenIddictTokenManager>(),
+            Substitute.For<IOpenIddictAuthorizationManager>(), clock, gate);
+
+        Task<Result<CredentialCutoverResult>> cutover = store.ExecuteAsync(Guid.NewGuid(), "operator");
+        await using OpenIdentityStackDbContext observer = fixture.CreateDbContext();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        bool observedWaiting = false;
+        while (!cutover.IsCompleted)
+        {
+            observedWaiting = await observer.Database.SqlQueryRaw<bool>("""
+                SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database()
+                    AND wait_event_type = 'Lock' AND query LIKE '%CredentialBoundary%') AS "Value"
+                """).SingleAsync(deadline.Token);
+            if (observedWaiting) { break; }
+            await Task.Delay(20, deadline.Token);
+        }
+        observedWaiting.ShouldBeTrue();
+        await issuance.CommitAsync(default);
+
+        (await cutover).IsSuccess.ShouldBeTrue();
+        observedIssuedToken.ShouldBeTrue();
     }
 
     [Theory]
