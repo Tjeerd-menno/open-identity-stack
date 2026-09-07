@@ -25,7 +25,16 @@ public sealed class CredentialCutoverTests
         string email = $"monitoring-{Guid.NewGuid():N}@example.test";
         const string password = "Password123!@#";
         Guid userId = await fixture.CreateTestUserAsync(email, "Session monitor", password);
-        HumanAdministrativeSession authenticated = await HumanAdministrativeSession.SignInAsync(fixture, email, password, []);
+        await fixture.ExecuteDbContextAsync(async db =>
+        {
+            Role role = Role.Create("session-monitor", null).Value;
+            role.SetPermissions(["users:read"]);
+            db.Roles.Add(role);
+            db.RoleAssignments.Add(RoleAssignment.Create(new UserId(userId), role.Id, DateTimeOffset.UtcNow).Value);
+            await db.SaveChangesAsync();
+        });
+        HumanAdministrativeSession authenticated = await HumanAdministrativeSession.SignInAsync(
+            fixture, email, password, ["users:read"]);
         using HttpClient browser = authenticated.Client;
         (await browser.GetAsync("/connect/check_session")).StatusCode.ShouldBe(HttpStatusCode.OK);
         using HttpClient thirdPartyIframe = fixture.CreateClient(allowAutoRedirect: false);

@@ -13,6 +13,8 @@ public interface ISessionMonitoringCookieService
 {
     string Create(UserId userId, SessionId sessionId, Guid credentialEpoch, DateTimeOffset expiresUtc);
 
+    string? GetRateLimitPartitionKey(string? value);
+
     Task<bool> IsCurrentAsync(string? value, CancellationToken cancellationToken = default);
 }
 
@@ -47,6 +49,17 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
         return this.protector.Protect(JsonSerializer.Serialize(payload));
     }
 
+    public string? GetRateLimitPartitionKey(string? value)
+    {
+        return this.TryReadProtectedPayload(value, out SessionMonitoringCookiePayload payload)
+            && payload.Version == currentVersion
+            && payload.UserId != Guid.Empty
+            && payload.SessionId != Guid.Empty
+            && payload.ExpiresUtc > this.clock.UtcNow
+                ? payload.SessionId.ToString("N")
+                : null;
+    }
+
     public async Task<bool> IsCurrentAsync(string? value, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -54,12 +67,7 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
             return false;
         }
 
-        SessionMonitoringCookiePayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<SessionMonitoringCookiePayload>(this.protector.Unprotect(value));
-        }
-        catch (Exception exception) when (exception is CryptographicException or JsonException)
+        if (!this.TryReadProtectedPayload(value, out SessionMonitoringCookiePayload payload))
         {
             return IsLegacyCookie(value)
                 && await this.boundary.IsCurrentAsync(null, cancellationToken);
@@ -83,6 +91,32 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
             && session?.UserId == userId
             && session.Status == SessionStatus.Active
             && !session.IsExpired(this.clock);
+    }
+
+    private bool TryReadProtectedPayload(string? value, out SessionMonitoringCookiePayload payload)
+    {
+        payload = null!;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            SessionMonitoringCookiePayload? candidate = JsonSerializer.Deserialize<SessionMonitoringCookiePayload>(
+                this.protector.Unprotect(value));
+            if (candidate is null)
+            {
+                return false;
+            }
+
+            payload = candidate;
+            return true;
+        }
+        catch (Exception exception) when (exception is CryptographicException or JsonException)
+        {
+            return false;
+        }
     }
 
     private static bool IsLegacyCookie(string value)

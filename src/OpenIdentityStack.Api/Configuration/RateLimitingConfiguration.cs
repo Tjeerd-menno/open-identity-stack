@@ -2,6 +2,8 @@ using System.Threading.RateLimiting;
 
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Hosting;
+using OpenIdentityStack.Api.Authentication;
+using OpenIdentityStack.Infrastructure.Identity;
 
 namespace OpenIdentityStack.Api.Configuration;
 
@@ -44,14 +46,25 @@ public static class RateLimitingConfiguration
                     }));
 
             options.AddPolicy(CheckSessionPolicy, httpContext =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    GetClientPartitionKey(httpContext, "check-session"),
+            {
+                ISessionMonitoringCookieService cookies = httpContext.RequestServices
+                    .GetRequiredService<ISessionMonitoringCookieService>();
+                string? protectedSession = cookies.GetRateLimitPartitionKey(
+                    httpContext.Request.Cookies[SessionManagementDefaults.SessionCookieName]);
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    protectedSession is null
+                        ? GetClientPartitionKey(httpContext, "check-session")
+                        : $"check-session:protected:{protectedSession}",
                     _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = environment.IsEnvironment("Testing") ? 3 : 300,
+                        PermitLimit = protectedSession is null
+                            ? environment.IsEnvironment("Testing") ? 3 : 300
+                            : environment.IsEnvironment("Testing") ? 6 : 600,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0
-                    }));
+                    });
+            });
 
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
             {
@@ -62,6 +75,18 @@ public static class RateLimitingConfiguration
                         _ => new FixedWindowRateLimiterOptions
                         {
                             PermitLimit = disableRateLimiting ? int.MaxValue : 60,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        });
+                }
+
+                if (httpContext.Request.Path.StartsWithSegments("/connect/check_session", StringComparison.OrdinalIgnoreCase))
+                {
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        GetClientPartitionKey(httpContext, "check-session-aggregate"),
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = environment.IsEnvironment("Testing") ? 30 : 3000,
                             Window = TimeSpan.FromMinutes(1),
                             QueueLimit = 0
                         });

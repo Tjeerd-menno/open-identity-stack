@@ -6,6 +6,76 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 public sealed class CheckSessionTests(AppHostFixture fixture)
 {
     [Fact]
+    public async Task ProtectedSessionCookiesHaveIndependentRateLimitPartitionsBehindSharedIp()
+    {
+        await using var isolatedFixture = new AppHostFixture($"check-session-protected-rate-{Guid.NewGuid():N}");
+        await isolatedFixture.InitializeAsync();
+        var responses = new List<HttpResponseMessage>();
+
+        for (int index = 1; index <= 4; index++)
+        {
+            Guid userId = await isolatedFixture.CreateTestUserAsync(
+                $"monitor-{index}@example.test", $"Monitor {index}", "Password123!");
+            Guid sessionId = await isolatedFixture.CreateSessionAsync(userId);
+            string protectedCookie = await isolatedFixture.CreateSessionMonitoringCookieAsync(userId, sessionId);
+            using HttpClient iframe = isolatedFixture.CreateClient(allowAutoRedirect: false);
+            iframe.DefaultRequestHeaders.Add("Cookie", $"op_session={protectedCookie}");
+            iframe.DefaultRequestHeaders.Add("X-OIS-Session-Poll", "1");
+            responses.Add(await iframe.GetAsync("/connect/check_session"));
+        }
+
+        responses.ShouldAllBe(response => response.StatusCode == System.Net.HttpStatusCode.OK);
+        foreach (HttpResponseMessage response in responses) { response.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ProtectedSessionAllowsMultipleRelyingPartyPollers()
+    {
+        await using var isolatedFixture = new AppHostFixture($"check-session-rp-rate-{Guid.NewGuid():N}");
+        await isolatedFixture.InitializeAsync();
+        Guid userId = await isolatedFixture.CreateTestUserAsync(
+            "multi-rp-monitor@example.test", "Multi-RP Monitor", "Password123!");
+        Guid sessionId = await isolatedFixture.CreateSessionAsync(userId);
+        string protectedCookie = await isolatedFixture.CreateSessionMonitoringCookieAsync(userId, sessionId);
+        var responses = new List<HttpResponseMessage>();
+
+        for (int index = 0; index < 4; index++)
+        {
+            using HttpClient iframe = isolatedFixture.CreateClient(allowAutoRedirect: false);
+            iframe.DefaultRequestHeaders.Add("Cookie", $"op_session={protectedCookie}");
+            iframe.DefaultRequestHeaders.Add("X-OIS-Session-Poll", "1");
+            responses.Add(await iframe.GetAsync("/connect/check_session"));
+        }
+
+        responses.ShouldAllBe(response => response.StatusCode == System.Net.HttpStatusCode.OK);
+        foreach (HttpResponseMessage response in responses) { response.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ProtectedSessionPartitionsRemainBoundedByAggregateIpRateLimit()
+    {
+        await using var isolatedFixture = new AppHostFixture($"check-session-aggregate-rate-{Guid.NewGuid():N}");
+        await isolatedFixture.InitializeAsync();
+        Guid userId = await isolatedFixture.CreateTestUserAsync(
+            "aggregate-monitor@example.test", "Aggregate Monitor", "Password123!");
+        var responses = new List<HttpResponseMessage>();
+
+        for (int index = 0; index < 31; index++)
+        {
+            Guid sessionId = await isolatedFixture.CreateSessionAsync(userId);
+            string protectedCookie = await isolatedFixture.CreateSessionMonitoringCookieAsync(userId, sessionId);
+            using HttpClient iframe = isolatedFixture.CreateClient(allowAutoRedirect: false);
+            iframe.DefaultRequestHeaders.Add("Cookie", $"op_session={protectedCookie}");
+            iframe.DefaultRequestHeaders.Add("X-OIS-Session-Poll", "1");
+            responses.Add(await iframe.GetAsync("/connect/check_session"));
+        }
+
+        responses.Take(30).ShouldAllBe(response => response.StatusCode == System.Net.HttpStatusCode.OK);
+        responses[30].StatusCode.ShouldBe(System.Net.HttpStatusCode.TooManyRequests);
+        foreach (HttpResponseMessage response in responses) { response.Dispose(); }
+    }
+
+    [Fact]
     public async Task AttackerControlledLegacyCookiesShareTheIpRateLimitPartition()
     {
         await using var isolatedFixture = new AppHostFixture($"check-session-rate-{Guid.NewGuid():N}");

@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using OpenIdentityStack.Api.Authentication;
+using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Infrastructure.Persistence;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -232,6 +234,24 @@ public class AppHostFixture : IAsyncLifetime
         }
 
         return await this.TestSeeder.CreateSessionAsync(userId, ipAddress, userAgent, durationMinutes);
+    }
+
+    public async Task<string> CreateSessionMonitoringCookieAsync(Guid userId, Guid sessionId)
+    {
+        if (this.Factory is null)
+        {
+            throw new InvalidOperationException("Factory is not initialized.");
+        }
+
+        using IServiceScope scope = this.Factory.Services.CreateScope();
+        ICredentialBoundaryStore boundary = scope.ServiceProvider.GetRequiredService<ICredentialBoundaryStore>();
+        ISessionMonitoringCookieService cookies = scope.ServiceProvider.GetRequiredService<ISessionMonitoringCookieService>();
+        Guid epoch = await boundary.GetEpochAsync();
+        return cookies.Create(
+            new SharedKernel.UserId(userId),
+            new OpenIdentityStack.Domain.Common.SessionId(sessionId),
+            epoch,
+            DateTimeOffset.UtcNow.AddHours(1));
     }
 
     public async Task ValidateUserCredentialsAsync(string email, string password)

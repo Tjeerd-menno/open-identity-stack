@@ -44,6 +44,34 @@ public sealed class SessionMonitoringCookieServiceTests
             Arg.Any<UserSession>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public void ProtectedCookiesUseIndependentRateLimitPartitions()
+    {
+        string first = this.service.Create(
+            this.user.Id, this.session.Id, this.epoch, this.clock.UtcNow.AddHours(1));
+        UserSession otherSession = UserSession.Create(this.user.Id, "127.0.0.1", "tests", this.clock).Value;
+        string second = this.service.Create(
+            this.user.Id, otherSession.Id, this.epoch, this.clock.UtcNow.AddHours(1));
+
+        this.service.GetRateLimitPartitionKey(first).ShouldBe(this.session.Id.Value.ToString("N"));
+        this.service.GetRateLimitPartitionKey(second).ShouldBe(otherSession.Id.Value.ToString("N"));
+    }
+
+    [Fact]
+    public void UnprotectedCookieCannotChooseRateLimitPartition()
+    {
+        this.service.GetRateLimitPartitionKey("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").ShouldBeNull();
+    }
+
+    [Fact]
+    public void ExpiredProtectedCookieCannotChooseRateLimitPartition()
+    {
+        string value = this.service.Create(
+            this.user.Id, this.session.Id, this.epoch, this.clock.UtcNow.AddMinutes(-1));
+
+        this.service.GetRateLimitPartitionKey(value).ShouldBeNull();
+    }
+
     [Theory]
     [InlineData("legacy-random-cookie")]
     [InlineData("")]
