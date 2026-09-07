@@ -55,6 +55,7 @@ public sealed class AdminApiRouteMappingTests
                 new("CreateUser", "api/admin/users", "POST", Permissions.Users.Write),
                 new("GetUser", "api/admin/users/{id:guid}", "GET", Permissions.Users.Read),
                 new("ListUsers", "api/admin/users", "GET", Permissions.Users.Read),
+                new("GetIdentityMigrationInventory", "api/admin/users/identity-migration-inventory", "GET", Permissions.Users.Read),
                 new("UpdateUser", "api/admin/users/{id:guid}", "PUT", Permissions.Users.Write),
                 new("DeleteUser", "api/admin/users/{id:guid}", "DELETE", Permissions.Users.Delete),
                 new("DisableUser", "api/admin/users/{id:guid}/disable", "POST", Permissions.Users.Disable),

@@ -29,14 +29,11 @@ public sealed class UnlinkUpstreamIdentityUseCaseTests
         string providerName = "test-provider",
         string subjectId = "ext-user-123")
     {
+        UpstreamProviderId pid = providerId ?? UpstreamProviderId.Create();
+        User user = User.ProvisionFederated(email, "Test User", pid, providerName, subjectId, "https://issuer.example").Value;
         IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
-        Result<User> result = User.CreateLocal(email, "Test User", "password_hash", dateTimeProvider);
-        User user = result.Value;
-
-        UpstreamProviderId pid = providerId ?? UpstreamProviderId.Create();
-        user.LinkUpstreamIdentity(pid, providerName, subjectId, null);
-        
+        user.SetPassword("password_hash", dateTimeProvider);
         return user;
     }
 
@@ -121,12 +118,7 @@ public sealed class UnlinkUpstreamIdentityUseCaseTests
         var provider1Id = UpstreamProviderId.Create();
         var provider2Id = UpstreamProviderId.Create();
 
-        IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
-        dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
-        Result<User> userResult = User.CreateLocal("test@example.com", "Test User", "password_hash", dateTimeProvider);
-        User user = userResult.Value;
-        
-        user.LinkUpstreamIdentity(provider1Id, "provider1", "ext-user-123", null);
+        User user = CreateTestUserWithIdentity(providerId: provider1Id, providerName: "provider1");
         user.LinkUpstreamIdentity(provider2Id, "provider2", "ext-user-456", null);
 
         var command = new UnlinkUpstreamIdentityCommand(

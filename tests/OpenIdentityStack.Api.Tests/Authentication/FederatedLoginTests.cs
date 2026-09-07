@@ -251,7 +251,7 @@ public sealed class FederatedLoginTests
     }
 
     [Fact]
-    public async Task UpstreamIdentity_CanBeUnlinked()
+    public async Task QuarantinedUpstreamIdentity_CannotBeUnlinkedThroughOrdinaryEndpoint()
     {
         // Arrange
         string clientId = $"admin-client-{Guid.NewGuid():N}";
@@ -289,6 +289,11 @@ public sealed class FederatedLoginTests
         HttpResponseMessage unlinkResponse = await client.DeleteAsync($"/api/admin/users/{userId}/upstream-identities/{providerId}");
 
         // Assert
-        unlinkResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        unlinkResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        await this._fixture.ExecuteDbContextAsync(async dbContext =>
+        {
+            User user = await dbContext.Users.SingleAsync(user => user.Id == new UserId(userId));
+            user.UpstreamIdentities.ShouldContain(identity => identity.ProviderId == new UpstreamProviderId(providerId) && identity.IsQuarantined);
+        });
     }
 }

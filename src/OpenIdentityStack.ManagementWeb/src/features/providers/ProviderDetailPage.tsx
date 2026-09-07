@@ -1,3 +1,4 @@
+import { ProviderIdentityInventory } from './ProviderIdentityInventory';
 import { Badge, Button, Group, PasswordInput, Stack, Switch, Tabs, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
@@ -114,6 +115,7 @@ export function ProviderDetailPage() {
               <FieldRow label="Client ID" value={provider.clientId} mono />
               <FieldRow label="Created" value={formatDateTime(provider.createdAt)} last />
             </SectionCard>
+            {hasPermission(auth.permissions, 'users:read') && <ProviderIdentityInventory key={providerId} providerId={providerId} />}
             <SectionCard title="Scopes" description="Scopes requested from this provider during sign-in.">
               <Group gap="xs">
                 {provider.scopes.length === 0 ? (

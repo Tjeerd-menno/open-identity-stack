@@ -64,7 +64,7 @@ describe('UserDetailPage', () => {
   it('retains linked identities and allows authorized unlinking', async () => {
     const user = userEvent.setup();
     mockApi.users.getUserUpstreamIdentities.mockResolvedValue([
-      { providerId: 'p1', providerName: 'Example provider', subjectId: 'existing-subject' },
+      { providerId: 'p1', providerName: 'Example provider', subjectId: 'existing-subject', associationEvidence: 'NewAccountProvisioning', isQuarantined: false },
     ]);
     mockApi.users.unlinkUserUpstreamIdentity.mockResolvedValue(undefined);
     renderDetail(makeAuth({ permissions: ['users:read', 'users:write'] }));
@@ -76,6 +76,15 @@ describe('UserDetailPage', () => {
     await waitFor(() => expect(mockApi.users.unlinkUserUpstreamIdentity).toHaveBeenCalledWith('u1', 'p1'));
   });
 
+  it('keeps quarantined evidence visible without offering unlink or trust controls', async () => {
+    mockApi.users.getUserUpstreamIdentities.mockResolvedValue([{ providerId: 'p1', providerName: 'Legacy provider', subjectId: 'legacy', associationEvidence: 'Unknown', isQuarantined: true }]);
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Ada Lovelace' });
+    await userEvent.click(screen.getByRole('tab', { name: /upstream identities/i }));
+    expect(await screen.findByText('Quarantined — authentication and migration blocked')).toBeInTheDocument();
+    expect(screen.getByText('Evidence: Unknown')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Unlink Legacy provider' })).not.toBeInTheDocument();
+  });
   it('renders the user header and profile fields', async () => {
     renderDetail();
 

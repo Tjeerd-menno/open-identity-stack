@@ -128,10 +128,10 @@ public sealed class UpstreamIdentityManagementTests
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
-        Guid userId = await CreateUserAsync(client);
         Guid providerId = await CreateProviderAsync(client);
-        await this.SeedExistingIdentityAsync(userId, providerId);
-
+        OpenIdentityStack.Domain.Users.User user = OpenIdentityStack.Domain.Users.User.ProvisionFederated($"proven-{Guid.NewGuid():N}@example.com", "Proven", OpenIdentityStack.Domain.Federation.UpstreamProviderId.From(providerId), "provider", "subject-123", "https://example.com").Value;
+        await this._fixture.ExecuteDbContextAsync(async db => { db.Users.Add(user); await db.SaveChangesAsync(); });
+        Guid userId = user.Id.Value;
         // Act
         HttpResponseMessage response = await client.DeleteAsync($"/api/admin/users/{userId}/upstream-identities/{providerId}");
 
@@ -175,11 +175,13 @@ public sealed class UpstreamIdentityManagementTests
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
-        Guid userId = await CreateUserAsync(client);
         Guid providerId = await CreateProviderAsync(client);
         var request = new { ProviderId = providerId, SubjectId = "subject-123", Email = "upstream@example.com" };
 
-        await this.SeedExistingIdentityAsync(userId, providerId);
+        User user = User.ProvisionFederated($"proven-{Guid.NewGuid():N}@example.com", "Proven",
+            UpstreamProviderId.From(providerId), "provider", "subject-123", "https://example.com").Value;
+        await this._fixture.ExecuteDbContextAsync(async db => { db.Users.Add(user); await db.SaveChangesAsync(); });
+        Guid userId = user.Id.Value;
 
         HttpResponseMessage unlink = await client.DeleteAsync($"/api/admin/users/{userId}/upstream-identities/{providerId}");
         unlink.StatusCode.ShouldBe(HttpStatusCode.NoContent);

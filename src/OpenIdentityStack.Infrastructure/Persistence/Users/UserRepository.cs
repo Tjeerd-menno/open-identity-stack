@@ -145,6 +145,19 @@ public sealed class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<(IReadOnlyList<User> Items, int TotalCount)> ListWithUpstreamIdentitiesAsync(int page, int pageSize, UpstreamProviderId? providerId = null, CancellationToken cancellationToken = default)
+    {
+        IQueryable<User> query = this.dbContext.Users.AsNoTracking().Where(user => user.UpstreamIdentities.Any());
+        if (providerId is UpstreamProviderId id)
+        {
+            query = query.Where(user => user.UpstreamIdentities.Any(identity => identity.ProviderId == id));
+        }
+        int totalCount = await query.CountAsync(cancellationToken);
+        List<User> items = await query.OrderBy(user => user.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+        return (items, totalCount);
+    }
+
+    /// <inheritdoc />
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return await this.dbContext.SaveChangesAsync(cancellationToken);

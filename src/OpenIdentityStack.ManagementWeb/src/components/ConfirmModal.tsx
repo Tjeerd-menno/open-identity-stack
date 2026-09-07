@@ -8,6 +8,7 @@ export function ConfirmModal({
   confirmLabel = 'Confirm',
   danger = true,
   loading = false,
+  disabled = false,
   onConfirm,
   onClose,
 }: {
@@ -17,6 +18,7 @@ export function ConfirmModal({
   confirmLabel?: string;
   danger?: boolean;
   loading?: boolean;
+  disabled?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -39,7 +41,7 @@ export function ConfirmModal({
         <Button variant="default" onClick={onClose} disabled={loading}>
           Cancel
         </Button>
-        <Button color={danger ? 'red' : undefined} loading={loading} onClick={onConfirm}>
+        <Button color={danger ? 'red' : undefined} loading={loading} disabled={disabled} onClick={onConfirm}>
           {confirmLabel}
         </Button>
       </Group>

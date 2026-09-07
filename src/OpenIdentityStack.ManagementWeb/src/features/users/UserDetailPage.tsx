@@ -279,8 +279,12 @@ export function UserDetailPage() {
                       <Text c="dimmed" className="mw-mono" size="xs" truncate>
                         {identity.subjectId ?? identity.subject}
                       </Text>
+                      <Text size="xs" c={identity.isQuarantined !== false ? 'red' : 'dimmed'}>
+                        {identity.isQuarantined !== false ? 'Quarantined — authentication and migration blocked' : 'Association evidence recorded'}
+                      </Text>
+                      <Text size="xs" c="dimmed">Evidence: {identity.associationEvidence ?? 'Unknown'}</Text>
                     </Box>
-                    {canWrite && (
+                    {canWrite && identity.isQuarantined === false && (
                       <ActionIcon
                         aria-label={`Unlink ${identity.providerName ?? identity.providerId}`}
                         color="red"

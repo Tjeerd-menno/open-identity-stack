@@ -78,13 +78,13 @@ public sealed class JitProvisioningPersistenceTests
         await using (OpenIdentityStackDbContext setup = database.CreateContext())
         {
             UpstreamProvider provider = await setup.UpstreamProviders.SingleAsync();
-            User user = User.CreateFederated(
+            User user = User.ProvisionFederated(
                 "person@example.com",
                 "Person",
                 provider.Id,
                 provider.Name,
                 "subject",
-                issuer: "https://issuer.example").Value;
+                "https://issuer.example").Value;
             setup.Users.Add(user);
             await setup.SaveChangesAsync();
         }

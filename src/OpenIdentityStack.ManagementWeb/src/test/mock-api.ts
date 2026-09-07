@@ -24,6 +24,7 @@ export const mockApi = {
     unassignUserRole: vi.fn(),
     getUserGroups: vi.fn(),
     getUserUpstreamIdentities: vi.fn(),
+    getIdentityMigrationInventory: vi.fn(),
     unlinkUserUpstreamIdentity: vi.fn(),
   },
   applications: {

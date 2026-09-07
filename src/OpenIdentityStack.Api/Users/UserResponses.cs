@@ -102,7 +102,10 @@ public sealed record UpstreamIdentityResponse(
     string SubjectId,
     string? Email,
     DateTimeOffset LinkedAt,
-    DateTimeOffset? LastLoginAt);
+    DateTimeOffset? LastLoginAt,
+    string? Issuer = null,
+    string AssociationEvidence = "Unknown",
+    bool IsQuarantined = true);
 
 /// <summary>
 /// Response for listing user upstream identities.

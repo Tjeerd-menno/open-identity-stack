@@ -35,7 +35,37 @@ export type UserGroup = {
   memberCount?: number;
 };
 
+export type IdentityMigrationLink = {
+  providerId: string;
+  providerName: string;
+  subjectId: string;
+  issuer: string | null;
+  associationEvidence: string;
+  isQuarantined: boolean;
+};
+
+export type IdentityMigrationUser = {
+  userId: string;
+  displayName: string;
+  status: string;
+  hasPasswordCredential: boolean;
+  candidateFederationProviderIds: string[];
+  migrationBlocked: boolean;
+  recoveryRequired: boolean;
+  identities: IdentityMigrationLink[];
+};
+
+export type IdentityMigrationInventory = {
+  items: IdentityMigrationUser[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+};
+
 export type UpstreamIdentity = {
+  issuer?: string | null;
+  associationEvidence?: string;
+  isQuarantined?: boolean;
   providerId: string;
   providerName?: string | null;
   subject: string;
@@ -94,6 +124,7 @@ export type UsersContract = {
   assignUserRole: (userId: string, roleId: string) => Promise<void>;
   unassignUserRole: (userId: string, roleId: string) => Promise<void>;
   getUserGroups: (userId: string) => Promise<UserGroup[]>;
+  getIdentityMigrationInventory: (params: { providerId?: string; page?: number; pageSize?: number }) => Promise<IdentityMigrationInventory>;
   getUserUpstreamIdentities: (userId: string) => Promise<UpstreamIdentity[]>;
   unlinkUserUpstreamIdentity: (userId: string, providerId: string) => Promise<void>;
 };
@@ -125,6 +156,7 @@ export function createUsersContract(client: AdminApiClient): UsersContract {
     assignUserRole: (userId, roleId) => client.post<void>(`/api/admin/users/${userId}/roles/${roleId}`),
     unassignUserRole: (userId, roleId) => client.delete<void>(`/api/admin/users/${userId}/roles/${roleId}`),
     getUserGroups: (userId) => client.get<UserGroup[]>(`/api/admin/users/${userId}/groups`),
+    getIdentityMigrationInventory: (params) => client.get<IdentityMigrationInventory>("/api/admin/users/identity-migration-inventory", params),
     getUserUpstreamIdentities: async (userId) => {
       const response = await client.get<{ items: UpstreamIdentity[] }>(`/api/admin/users/${userId}/upstream-identities`);
       return normalizeUpstreamIdentityListResponse(response);
