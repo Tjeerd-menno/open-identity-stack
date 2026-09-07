@@ -98,8 +98,9 @@ public sealed class AdministrativeClientConcurrencyTests(AdministrativeAuthority
         IPasswordHasher hasher = Substitute.For<IPasswordHasher>();
         IAuditLog audit = Substitute.For<IAuditLog>();
         var workflow = new ApplicationsAdminWorkflow(new ApplicationLifecycleUseCases(repository, projection, hasher, clock, audit, guard,
-                Substitute.For<IApplicationProtocolProjectionTransaction>()),
-            new ApplicationCredentialUseCases(repository, projection, hasher, clock, audit, guard));
+                Substitute.For<IApplicationProtocolProjectionTransaction>(), new UnauthenticatedAdministrativeActorContext()),
+            new ApplicationCredentialUseCases(repository, projection, hasher, clock, audit, guard,
+                new UnauthenticatedAdministrativeActorContext()));
 
         Result<ApplicationDetails> result = await workflow.EnableAsync(new(client.Id));
 

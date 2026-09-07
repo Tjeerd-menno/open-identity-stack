@@ -39,7 +39,7 @@ internal static class ResourceAccessApi
             .RequireAuthorization(Permissions.Applications.Write).Produces(204).Produces<ProblemDetails>(400).Produces<ProblemDetails>(403).Produces<ProblemDetails>(409).WithName("RevokeClientResourceGrant");
     }
 
-    private static string Actor(ClaimsPrincipal principal) => principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown";
+    private static string Actor(ClaimsPrincipal principal) => Authorization.AdministrativeActorContext.ResolveAuditActorId(principal);
     private static IResult ToResult<T>(Result<T> result)
     {
         if (result.IsSuccess) { return TypedResults.Ok(result.Value); }

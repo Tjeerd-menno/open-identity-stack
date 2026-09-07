@@ -44,7 +44,7 @@ public sealed class ApplicationProfilePolicyUseCaseTests
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog, administrativeGuard);
+            this.auditLog, administrativeGuard, new UnauthenticatedAdministrativeActorContext());
     }
 
     [Fact]
