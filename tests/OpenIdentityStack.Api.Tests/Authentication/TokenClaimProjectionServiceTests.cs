@@ -39,18 +39,6 @@ public sealed class TokenClaimProjectionServiceTests
     }
 
     [Fact]
-    public void RefreshDoesNotCopyAStaleVerifiedEmailAssertion()
-    {
-        User user = CreateUser();
-        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
-        principal.SetClaim(OpenIddictConstants.Claims.EmailVerified, "true");
-
-        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal);
-
-        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
-    }
-
-    [Fact]
     public void VerifiedLocalAccountAssertsVerifiedEmail()
     {
         User user = User.CreateLocal("verified@example.test", "Verified", "fixture-hash", this.dateTimeProvider).Value;
@@ -61,6 +49,32 @@ public sealed class TokenClaimProjectionServiceTests
             [OpenIddictConstants.Scopes.Email], [], null, null, null));
 
         projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("true");
+    }
+
+    [Fact]
+    public void ActiveFederatedAccount_WithoutEvidence_DoesNotAssertVerifiedEmail()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            [OpenIddictConstants.Scopes.Email], [], null, null, null));
+
+        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RefreshRecomputesVerificationInsteadOfCopyingOldAssertion(bool hasPersistedUser)
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
+        principal.SetClaim(OpenIddictConstants.Claims.EmailVerified, "true");
+        principal.SetClaim(OpenIddictConstants.Claims.Email, user.Email);
+
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: hasPersistedUser ? user : null);
+
+        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
     }
 
     [Theory]
@@ -82,7 +96,6 @@ public sealed class TokenClaimProjectionServiceTests
         claim.ValueKind.ShouldBe(verified ? JsonValueKind.True : JsonValueKind.False);
         claim.GetBoolean().ShouldBe(verified);
     }
-
 
     [Fact]
     public void ProjectSubjectClaims_ProfileAndEmailClaimsAreDestinationlessWithoutScopeOrClaimsRequest()

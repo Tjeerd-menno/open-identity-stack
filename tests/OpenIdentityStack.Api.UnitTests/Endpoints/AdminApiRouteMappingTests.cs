@@ -159,6 +159,7 @@ public sealed class AdminApiRouteMappingTests
                 new("GetProvider", "api/admin/providers/{id:guid}", "GET", Permissions.Providers.Read),
                 new("CreateProvider", "api/admin/providers", "POST", Permissions.Providers.Write),
                 new("UpdateProvider", "api/admin/providers/{id:guid}", "PATCH", Permissions.Providers.Write),
+                new("SetProviderEmailVerificationTrust", "api/admin/providers/{id:guid}/email-verification-trust", "PUT", Permissions.Providers.Write),
                 new("DeleteProvider", "api/admin/providers/{id:guid}", "DELETE", Permissions.Providers.Delete),
                 new("DisableProvider", "api/admin/providers/{id:guid}/disable", "POST", Permissions.Providers.Write),
                 new("EnableProvider", "api/admin/providers/{id:guid}/enable", "POST", Permissions.Providers.Write)

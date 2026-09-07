@@ -1,7 +1,11 @@
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure.Persistence;
+using OpenIdentityStack.Infrastructure.Persistence.Migrations;
 using OpenIdentityStack.Infrastructure.Tests.Common;
 using SharedKernel;
 
@@ -9,6 +13,26 @@ namespace OpenIdentityStack.Infrastructure.Tests.Persistence;
 
 public sealed class EmailVerificationEvidencePersistenceTests(SqliteTestFixture fixture) : IClassFixture<SqliteTestFixture>
 {
+    [Fact]
+    public void RollbackBlocksProviderEvidenceBeforeDroppingItsProvenanceColumn()
+    {
+        var migration = new RecordEmailVerificationEvidence();
+        var builder = new MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
+        MethodInfo down = typeof(RecordEmailVerificationEvidence)
+            .GetMethod("Down", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        down.Invoke(migration, [builder]);
+
+        var operations = builder.Operations.ToList();
+        int guardProviderEvidence = operations.FindIndex(operation => operation is SqlOperation sql
+            && sql.Sql.Contains("RAISE EXCEPTION", StringComparison.Ordinal)
+            && sql.Sql.Contains("\"ProviderId\" IS NOT NULL", StringComparison.Ordinal));
+        int dropProviderId = operations.FindIndex(operation => operation is DropColumnOperation
+            { Table: "UserEmailVerificationEvidence", Name: "ProviderId" });
+        guardProviderEvidence.ShouldBeGreaterThanOrEqualTo(0);
+        guardProviderEvidence.ShouldBeLessThan(dropProviderId);
+    }
+
     [Fact]
     public async Task IndependentEvidenceRoundTripsWhileBootstrapRemainsUnverified()
     {

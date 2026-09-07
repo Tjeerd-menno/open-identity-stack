@@ -95,6 +95,30 @@ describe('UserDetailPage', () => {
     expect(screen.getByRole('tab', { name: /upstream identities/i })).toBeInTheDocument();
   });
 
+  it('distinguishes email evidence from providers that share an issuer', async () => {
+    mockApi.users.getUser.mockResolvedValue({
+      id: 'u1',
+      email: 'ada@northwind.io',
+      displayName: 'Ada Lovelace',
+      status: 'Active',
+      createdAt: '2026-06-01T00:00:00Z',
+      mfaEnabled: false,
+      lastLoginAt: null,
+      modifiedAt: null,
+      profile: {},
+      emailVerified: true,
+      emailVerificationEvidence: [
+        { email: 'ada@northwind.io', providerId: 'provider-one', issuer: 'https://issuer.example', verifiedAt: '2026-06-02T00:00:00Z', withdrawnAt: null },
+        { email: 'ada@northwind.io', providerId: 'provider-two', issuer: 'https://issuer.example', verifiedAt: '2026-06-03T00:00:00Z', withdrawnAt: null },
+      ],
+    });
+
+    renderDetail();
+
+    expect(await screen.findByText(/provider-one/)).toBeInTheDocument();
+    expect(screen.getByText(/provider-two/)).toBeInTheDocument();
+  });
+
   it('offers reset and disable actions gated on their granular permissions', async () => {
     renderDetail(makeAuth({ permissions: ['users:read', 'users:reset-password', 'users:disable'] }));
 

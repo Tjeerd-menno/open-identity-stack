@@ -192,6 +192,7 @@ public static class ServiceCollectionExtensions
             .ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddScoped<IPermissionDiagnosticsReader, PermissionDiagnosticsReader>();
         services.AddScoped<IUpstreamProviderRepository, UpstreamProviderRepository>();
+        services.AddScoped<IProviderEmailTrustStore, ProviderEmailTrustStore>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();

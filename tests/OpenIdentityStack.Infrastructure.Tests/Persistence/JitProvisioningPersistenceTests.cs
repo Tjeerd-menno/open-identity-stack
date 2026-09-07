@@ -156,27 +156,48 @@ public sealed class JitProvisioningPersistenceTests
     }
 
     [Fact]
-    public async Task CreationAuditFailureRollsBackUserAssociationAndIssuerBinding()
+    public async Task CreationAuditFailureRollsBackUserAssociationEmailEvidenceAndIssuerBinding()
     {
-        await using TestDatabase database = await TestDatabase.CreateAsync(bindIssuer: false);
+        await using TestDatabase database = await TestDatabase.CreateAsync(bindIssuer: false, trustedEmail: true);
         await using OpenIdentityStackDbContext attempt = database.CreateContext();
         await attempt.Database.ExecuteSqlRawAsync("""
             CREATE TRIGGER reject_creation_audit BEFORE INSERT ON "AuditLogEntries"
             WHEN NEW."Action" = 'Federation.NewAccountAssociationRecorded'
             BEGIN SELECT RAISE(ABORT, 'injected audit insertion failure'); END;
             """);
-        await Should.ThrowAsync<DbUpdateException>(() => CreateUseCase(attempt).ExecuteAsync(database.Command("subject", "person@example.com")));
+        await Should.ThrowAsync<DbUpdateException>(() => CreateUseCase(attempt).ExecuteAsync(database.Command("subject", "person@example.com", verified: true)));
 
         await using OpenIdentityStackDbContext read = database.CreateContext();
         (await read.Users.CountAsync()).ShouldBe(0);
         (await read.AuditLogEntries.CountAsync()).ShouldBe(0);
         (await read.UpstreamProviders.SingleAsync()).BoundIssuer.ShouldBeNull();
         await attempt.Database.ExecuteSqlRawAsync("DROP TRIGGER reject_creation_audit;");
-        (await CreateUseCase(attempt).ExecuteAsync(database.Command("subject", "person@example.com"))).IsSuccess.ShouldBeTrue();
+        (await CreateUseCase(attempt).ExecuteAsync(database.Command("subject", "person@example.com", verified: true))).IsSuccess.ShouldBeTrue();
         read.ChangeTracker.Clear();
         User retry = await read.Users.SingleAsync();
-        retry.UpstreamIdentities.Single().SubjectId.ShouldBe("subject");
+        retry.EmailVerified.ShouldBeTrue();
+        retry.UpstreamIdentities.Single().IsQuarantined.ShouldBeFalse();
         (await read.AuditLogEntries.CountAsync(entry => entry.Action == "Federation.NewAccountAssociationRecorded")).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task EmailEvidenceAuditFailureRollsBackNewJitProvisioning()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync(bindIssuer: false, trustedEmail: true);
+        await using OpenIdentityStackDbContext attempt = database.CreateContext();
+        await attempt.Database.ExecuteSqlRawAsync("""
+            CREATE TRIGGER reject_email_evidence_audit BEFORE INSERT ON "AuditLogEntries"
+            WHEN NEW."Action" = 'Federation.EmailVerificationEvidenceRecorded'
+            BEGIN SELECT RAISE(ABORT, 'injected email evidence audit failure'); END;
+            """);
+
+        await Should.ThrowAsync<DbUpdateException>(() => CreateUseCase(attempt)
+            .ExecuteAsync(database.Command("subject", "person@example.com", verified: true)));
+
+        await using OpenIdentityStackDbContext read = database.CreateContext();
+        (await read.Users.CountAsync()).ShouldBe(0);
+        (await read.AuditLogEntries.CountAsync()).ShouldBe(0);
+        (await read.UpstreamProviders.SingleAsync()).BoundIssuer.ShouldBeNull();
     }
 
     [Theory]
@@ -273,10 +294,10 @@ public sealed class JitProvisioningPersistenceTests
         private DbContextOptions<OpenIdentityStackDbContext> options = null!;
         private UpstreamProviderId providerId;
         public OpenIdentityStackDbContext CreateContext() => new(this.options);
-        public JitProvisionUserCommand Command(string subject, string email) =>
-            new(this.providerId, subject, email, "Person", "https://issuer.example", "https://issuer.example");
+        public JitProvisionUserCommand Command(string subject, string email, bool verified = false) =>
+            new(this.providerId, subject, email, "Person", "https://issuer.example", "https://issuer.example", verified);
 
-        public static async Task<TestDatabase> CreateAsync(bool bindIssuer = true)
+        public static async Task<TestDatabase> CreateAsync(bool bindIssuer = true, bool trustedEmail = false)
         {
             var database = new TestDatabase();
             await database.connection.OpenAsync();
@@ -285,6 +306,7 @@ public sealed class JitProvisioningPersistenceTests
             await db.Database.EnsureCreatedAsync();
             UpstreamProvider provider = UpstreamProvider.Create("provider", "Provider", "https://issuer.example", "client").Value;
             if (bindIssuer) { provider.BindIssuer("https://issuer.example", "https://issuer.example").IsSuccess.ShouldBeTrue(); }
+            if (trustedEmail) { provider.SetEmailVerificationTrust(true); }
             db.UpstreamProviders.Add(provider);
             await db.SaveChangesAsync();
             database.providerId = provider.Id;

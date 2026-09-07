@@ -13,6 +13,8 @@ export type UserListItem = {
 export type UserProfile = Record<string, unknown>;
 
 export type User = UserListItem & {
+  emailVerified?: boolean;
+  emailVerificationEvidence?: { email: string; providerId: string | null; issuer: string | null; verifiedAt: string; withdrawnAt: string | null }[];
   mfaEnabled: boolean;
   lastLoginAt: string | null;
   modifiedAt: string | null;

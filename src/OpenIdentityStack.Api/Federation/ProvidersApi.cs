@@ -22,6 +22,14 @@ internal static class ProvidersApi
             .WithTags(nameof(ProvidersApi));
 
         // Provider CRUD
+        group.MapPut("{id:guid}/email-verification-trust", SetEmailVerificationTrust)
+            .RequireAuthorization(Permissions.Providers.Write)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .WithName("SetProviderEmailVerificationTrust")
+            .WithSummary("Sets explicit trust in a provider's verified-email assertions");
         group.MapGet(string.Empty, ListProviders)
             .RequireAuthorization(Permissions.Providers.Read)
             .Produces<IReadOnlyList<ProviderResponse>>(StatusCodes.Status200OK)
@@ -50,6 +58,7 @@ internal static class ProvidersApi
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithName("UpdateProvider")
             .WithSummary("Updates an existing provider");
 
@@ -93,6 +102,15 @@ internal static class ProvidersApi
 
         var responses = result.Value.Select(MapToResponse).ToList();
         return TypedResults.Ok(responses);
+    }
+
+    private static async Task<IResult> SetEmailVerificationTrust(
+        Guid id, ProviderEmailVerificationTrustRequest request, HttpContext context,
+        [FromServices] SetProviderEmailVerificationTrust useCase, CancellationToken cancellationToken)
+    {
+        string actorId = context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? context.User.FindFirstValue("sub") ?? string.Empty;
+        Result result = await useCase.ExecuteAsync(id, request.Trusted, actorId, cancellationToken);
+        return result.IsSuccess ? TypedResults.NoContent() : Common.ErrorResultMapper.ToErrorResult(result.Error);
     }
 
     private static async Task<IResult> GetProvider(
@@ -208,6 +226,7 @@ internal static class ProvidersApi
             ClientId = result.Value.ClientId,
             Scopes = result.Value.Scopes,
             JitProvisioningEnabled = result.Value.JitProvisioningEnabled,
+            TrustEmailVerification = result.Value.TrustEmailVerification,
             Status = result.Value.Status,
             CreatedAt = result.Value.CreatedAt
         };
@@ -301,6 +320,7 @@ internal static class ProvidersApi
             ClientId = dto.ClientId,
             Scopes = dto.Scopes,
             JitProvisioningEnabled = dto.JitProvisioningEnabled,
+            TrustEmailVerification = dto.TrustEmailVerification,
             Status = dto.Status,
             CreatedAt = dto.CreatedAt
         };
@@ -317,6 +337,7 @@ internal static class ProvidersApi
             ClientId = provider.ClientId,
             Scopes = [],
             JitProvisioningEnabled = provider.JitProvisioningEnabled,
+            TrustEmailVerification = provider.TrustEmailVerification,
             Status = provider.Status.ToString(),
             CreatedAt = provider.CreatedAt
         };

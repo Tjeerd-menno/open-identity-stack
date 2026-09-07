@@ -22,7 +22,13 @@ public sealed record UserResponse(
     DateTimeOffset? LastLoginAt,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ModifiedAt,
-    UserProfileResponse Profile);
+    UserProfileResponse Profile)
+{
+    public bool EmailVerified { get; init; }
+    public IReadOnlyList<EmailVerificationEvidenceResponse> EmailVerificationEvidence { get; init; } = [];
+}
+
+public sealed record EmailVerificationEvidenceResponse(string Email, Guid? ProviderId, string? Issuer, DateTimeOffset VerifiedAt, DateTimeOffset? WithdrawnAt);
 
 /// <summary>
 /// Response for a user in a list.

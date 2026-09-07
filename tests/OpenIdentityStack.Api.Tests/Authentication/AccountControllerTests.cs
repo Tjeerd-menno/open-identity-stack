@@ -130,6 +130,26 @@ public class AccountControllerTests : IDisposable
         await this._authService.DidNotReceive().SignInAsync(Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
     }
 
+    [Theory]
+    [InlineData("PERSON@EXAMPLE.COM", " person@example.com ", true)]
+    [InlineData("person@example.com", "other@example.com", false)]
+    public async Task VerifiedEmailEvidenceUsesNormalizedCurrentAddress(string email, string verifiedEmail, bool expected)
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("sub", "subject"), new Claim("email", email) }, "ExternalCookie"));
+        var properties = new AuthenticationProperties();
+        properties.SetString(ExternalIdentityProperties.ProviderId, Guid.NewGuid().ToString());
+        properties.SetString(ExternalIdentityProperties.ProviderName, "provider");
+        properties.SetString(ExternalIdentityProperties.ValidatedIssuer, "https://issuer.example");
+        properties.SetString(ExternalIdentityProperties.Authority, "https://issuer.example");
+        properties.SetString("ois.verified_email", verifiedEmail);
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie")
+            .Returns(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "ExternalCookie")));
+        this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
+            .Returns(DomainError.Forbidden("Test.Denial", "Test stops after evidence mapping."));
+        await this._controller.ExternalLoginCallback("provider");
+        await this._jitProvisionUseCase.Received(1).ExecuteAsync(Arg.Is<JitProvisionUserCommand>(command => command.EmailVerified == expected), Arg.Any<CancellationToken>());
+    }
+
     public void Dispose()
     {
         this._controller.Dispose();
