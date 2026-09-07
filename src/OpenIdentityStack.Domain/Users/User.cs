@@ -273,7 +273,8 @@ public sealed partial class User : AggregateRoot<UserId>
         UpstreamProviderId providerId,
         string providerName,
         string subjectId,
-        UserProfileData? profile = null)
+        UserProfileData? profile = null,
+        string? issuer = null)
     {
         Result validationResult = ValidateFederatedUserInput(email, displayName, profile);
         if (validationResult.IsFailure)
@@ -281,7 +282,7 @@ public sealed partial class User : AggregateRoot<UserId>
             return validationResult.Error;
         }
 
-        Result<UpstreamIdentity> identityResult = UpstreamIdentity.Create(providerId, providerName, subjectId, email);
+        Result<UpstreamIdentity> identityResult = UpstreamIdentity.Create(providerId, providerName, subjectId, email, issuer);
         if (identityResult.IsFailure)
         {
             return identityResult.Error;
@@ -463,14 +464,14 @@ public sealed partial class User : AggregateRoot<UserId>
         UpstreamProviderId providerId,
         string providerName,
         string subjectId,
-        string? email)
+        string? email, string? issuer = null)
     {
         if (this.upstreamIdentities.Any(i => i.ProviderId == providerId))
         {
             return UpstreamIdentityErrors.AlreadyLinked;
         }
 
-        Result<UpstreamIdentity> identityResult = UpstreamIdentity.Create(providerId, providerName, subjectId, email);
+        Result<UpstreamIdentity> identityResult = UpstreamIdentity.Create(providerId, providerName, subjectId, email, issuer);
         if (identityResult.IsFailure)
         {
             return identityResult.Error;

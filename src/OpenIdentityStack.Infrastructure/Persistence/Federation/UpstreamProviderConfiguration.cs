@@ -45,6 +45,10 @@ public sealed class UpstreamProviderConfiguration : IEntityTypeConfiguration<Ups
             .HasMaxLength(500)
             .IsRequired();
 
+        builder.Property(p => p.IdentityConfigurationLocked).HasColumnName("identity_configuration_locked");
+        builder.Property(p => p.BoundIssuer).HasColumnName("bound_issuer").HasMaxLength(2048);
+        builder.Property(p => p.IdentityVersion).HasColumnName("identity_version").IsConcurrencyToken();
+
         builder.Property(p => p.ClientId)
             .HasColumnName("client_id")
             .HasMaxLength(256)

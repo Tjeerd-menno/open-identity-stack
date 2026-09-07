@@ -184,6 +184,8 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
                 .HasMaxLength(512)
                 .IsRequired();
 
+            identityBuilder.Property(i => i.Issuer).HasMaxLength(2048);
+
             identityBuilder.Property(i => i.Email)
                 .HasColumnName("Email")
                 .HasMaxLength(256);

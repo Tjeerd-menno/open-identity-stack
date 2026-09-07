@@ -47,7 +47,20 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
 
         if (!provider.IsActive)
         {
+            await this.auditLog.LogAsync("federation", "Federation.AccountAssociationDenied", "UpstreamProvider", provider.Id.Value.ToString(),
+                "Upstream provider is disabled.", cancellationToken);
             return UpstreamProviderErrors.ProviderDisabled;
+        }
+
+        if (string.IsNullOrWhiteSpace(command.ValidatedIssuer) || string.IsNullOrWhiteSpace(command.AuthenticationAuthority))
+        {
+            return await this.RejectBindingAsync(command.ProviderId, cancellationToken);
+        }
+
+        if (!string.Equals(provider.Authority, command.AuthenticationAuthority, StringComparison.Ordinal) ||
+            (provider.BoundIssuer is not null && !string.Equals(provider.BoundIssuer, command.ValidatedIssuer, StringComparison.Ordinal)))
+        {
+            return await this.RejectBindingAsync(command.ProviderId, cancellationToken);
         }
 
         // Check if user already exists with this upstream identity
@@ -60,10 +73,21 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
         {
             if (existingUser.Status == UserStatus.Disabled)
             {
+                await this.auditLog.LogAsync("federation", "Federation.AccountAssociationDenied", "User", existingUser.Id.Value.ToString(),
+                    $"Local account is disabled. Provider: {command.ProviderId.Value}.", cancellationToken);
                 return UserErrors.AccountDisabled;
             }
 
-            // User already linked - just return
+            UpstreamIdentity? identity = existingUser.UpstreamIdentities.SingleOrDefault(i => i.Matches(command.ProviderId, command.SubjectId));
+            if (identity?.Issuer is null || !string.Equals(identity.Issuer, command.ValidatedIssuer, StringComparison.Ordinal))
+            {
+                return await this.RejectBindingAsync(command.ProviderId, cancellationToken);
+            }
+
+            provider.BindIssuer(command.ValidatedIssuer, command.AuthenticationAuthority);
+            Result committed = await this.persistence.CommitAsync(existingUser.Id, command.ProviderId, isNewUser: false, cancellationToken);
+            if (committed.IsFailure) { return committed.Error; }
+            // User already linked with matching issuer evidence
             return new JitProvisionUserResult(
                 existingUser.Id,
                 IsNewUser: false,
@@ -102,13 +126,14 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
             displayName,
             command.ProviderId,
             provider.Name,
-            command.SubjectId);
+            command.SubjectId, issuer: command.ValidatedIssuer);
 
         if (userResult.IsFailure)
         {
             return userResult.Error;
         }
 
+        provider.BindIssuer(command.ValidatedIssuer, command.AuthenticationAuthority);
         await this.userRepository.AddAsync(userResult.Value, cancellationToken);
         Result created = await this.persistence.CommitAsync(userResult.Value.Id, command.ProviderId, isNewUser: true, cancellationToken);
         if (created.IsFailure) { return created.Error; }
@@ -118,5 +143,11 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
             IsNewUser: true,
             userResult.Value.Email,
             userResult.Value.DisplayName);
+    }
+
+    private async Task<DomainError> RejectBindingAsync(UpstreamProviderId providerId, CancellationToken cancellationToken)
+    {
+        await this.auditLog.LogAsync("federation", "Federation.IssuerBindingRejected", "UpstreamProvider", providerId.Value.ToString(), "Validated issuer or independent identity binding is missing or inconsistent.", cancellationToken);
+        return UpstreamProviderErrors.IdentityBindingRejected;
     }
 }

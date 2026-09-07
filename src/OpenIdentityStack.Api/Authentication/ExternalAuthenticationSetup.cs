@@ -81,6 +81,22 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
             SignInScheme = "ExternalCookie",
             Events = new OpenIdConnectEvents
             {
+                OnTokenValidated = context =>
+                {
+                    string? issuer = context.SecurityToken?.Issuer;
+                    if (string.IsNullOrWhiteSpace(issuer) || context.Properties is null)
+                    {
+                        context.Fail("External authentication could not be completed.");
+                        return Task.CompletedTask;
+                    }
+
+                    // These values travel in the protected external cookie, never in callback query parameters.
+                    context.Properties.SetString(ExternalIdentityProperties.ValidatedIssuer, issuer);
+                    context.Properties.SetString(ExternalIdentityProperties.ProviderId, provider.Id.Value.ToString());
+                    context.Properties.SetString(ExternalIdentityProperties.ProviderName, context.Scheme.Name);
+                    context.Properties.SetString(ExternalIdentityProperties.Authority, context.Options.Authority);
+                    return Task.CompletedTask;
+                },
                 // Pass prompt=login to upstream IdP when requested
                 OnRedirectToIdentityProvider = context =>
                 {
@@ -255,4 +271,13 @@ public static class ExternalAuthenticationExtensions
         services.AddHostedService<ExternalAuthenticationStartupService>();
         return services;
     }
+}
+
+/// <summary>Protected ticket metadata produced only after upstream token validation.</summary>
+public static class ExternalIdentityProperties
+{
+    public const string ValidatedIssuer = "ois.validated_issuer";
+    public const string ProviderId = "ois.provider_id";
+    public const string ProviderName = "ois.provider_name";
+    public const string Authority = "ois.authentication_authority";
 }

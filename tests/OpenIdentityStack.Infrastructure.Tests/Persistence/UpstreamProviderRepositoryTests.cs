@@ -31,6 +31,88 @@ public sealed class UpstreamProviderRepositoryTests : IClassFixture<SqliteTestFi
     }
 
     [Fact]
+    public async Task Migration_QuiescesAndLocksLegacyProvidersWithoutBackfillingIssuerEvidence()
+    {
+        UpstreamProvider provider = await this.SeedAsync("legacy-provider", "Legacy Provider");
+        OpenIdentityStack.Domain.Users.User user = OpenIdentityStack.Domain.Users.User.CreateFederated("legacy@example.com", "Legacy", provider.Id, provider.Name, "subject").Value;
+        this._dbContext.Users.Add(user);
+        await this._dbContext.SaveChangesAsync();
+        await this._dbContext.Database.ExecuteSqlRawAsync("UPDATE upstream_providers SET identity_configuration_locked = FALSE");
+        var migration = new OpenIdentityStack.Infrastructure.Persistence.Migrations.BindFederationIssuers();
+        foreach (Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation operation in migration.UpOperations.OfType<Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation>())
+        {
+            await this._dbContext.Database.ExecuteSqlRawAsync(operation.Sql);
+        }
+
+        this._dbContext.ChangeTracker.Clear();
+        UpstreamProvider reloaded = (await this._repository.GetByIdAsync(provider.Id))!;
+        reloaded.Status.ShouldBe(ProviderStatus.Disabled);
+        reloaded.IdentityConfigurationLocked.ShouldBeTrue();
+        reloaded.BoundIssuer.ShouldBeNull();
+        OpenIdentityStack.Domain.Users.User reloadedUser = (await this._dbContext.Users.FindAsync(user.Id))!;
+        reloadedUser.UpstreamIdentities.Single().Issuer.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Migration_QuiescesAndLocksActiveProviderWithoutLegacyIdentities()
+    {
+        UpstreamProvider provider = await this.SeedAsync("unused-legacy-provider", "Unused Legacy Provider");
+        await this._dbContext.Database.ExecuteSqlRawAsync("UPDATE upstream_providers SET identity_configuration_locked = FALSE");
+        var migration = new OpenIdentityStack.Infrastructure.Persistence.Migrations.BindFederationIssuers();
+
+        foreach (Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation operation in migration.UpOperations.OfType<Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation>())
+        {
+            await this._dbContext.Database.ExecuteSqlRawAsync(operation.Sql);
+        }
+
+        this._dbContext.ChangeTracker.Clear();
+        UpstreamProvider reloaded = (await this._repository.GetByIdAsync(provider.Id))!;
+        reloaded.Status.ShouldBe(ProviderStatus.Disabled);
+        reloaded.IdentityConfigurationLocked.ShouldBeTrue();
+        reloaded.BoundIssuer.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FirstLink_RejectsConcurrentStaleAuthorityUpdate()
+    {
+        UpstreamProvider provider = await this.SeedAsync("racing-provider", "Racing Provider");
+        await using OpenIdentityStackDbContext staleContext = this._fixture.CreateDbContext();
+        UpstreamProvider staleProvider = (await staleContext.UpstreamProviders.FindAsync(provider.Id))!;
+        staleProvider.UpdateAuthority("https://replacement.example.com").IsSuccess.ShouldBeTrue();
+        OpenIdentityStack.Domain.Users.User user = OpenIdentityStack.Domain.Users.User.CreateFederated("race@example.com", "Race", provider.Id, provider.Name, "subject").Value;
+        this._dbContext.Users.Add(user);
+        await this._dbContext.SaveChangesAsync();
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(() => staleContext.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task AuthorityUpdate_RejectsConcurrentFirstLinkAndRollsBackUserInsertion()
+    {
+        UpstreamProvider provider = await this.SeedAsync("reverse-race", "Reverse Race");
+        await using OpenIdentityStackDbContext linkingContext = this._fixture.CreateDbContext();
+        UpstreamProvider linkingProvider = (await linkingContext.UpstreamProviders.FindAsync(provider.Id))!;
+        linkingProvider.BindIssuer("https://issuer.example/", linkingProvider.Authority).IsSuccess.ShouldBeTrue();
+        OpenIdentityStack.Domain.Users.User user = OpenIdentityStack.Domain.Users.User.CreateFederated("reverse@example.com", "Race", provider.Id, provider.Name, "subject", issuer: "https://issuer.example/").Value;
+        linkingContext.Users.Add(user);
+        provider.UpdateAuthority("https://replacement.example.com").IsSuccess.ShouldBeTrue();
+        await this._dbContext.SaveChangesAsync();
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(() => linkingContext.SaveChangesAsync());
+        this._dbContext.ChangeTracker.Clear();
+        (await this._dbContext.Users.FindAsync(user.Id)).ShouldBeNull();
+    }
+    [Fact]
+    public async Task LinkedProvider_AuthorityCannotChangeAfterReload()
+    {
+        UpstreamProvider provider = await this.SeedAsync("linked-provider", "Linked Provider");
+        OpenIdentityStack.Domain.Users.User user = OpenIdentityStack.Domain.Users.User.CreateFederated("bound@example.com", "Bound user", provider.Id, provider.Name, "subject").Value;
+        this._dbContext.Users.Add(user);
+        await this._dbContext.SaveChangesAsync();
+        this._dbContext.ChangeTracker.Clear();
+        UpstreamProvider reloaded = (await this._repository.GetByIdAsync(provider.Id))!;
+        reloaded.UpdateAuthority("https://replacement.example.com").IsFailure.ShouldBeTrue();
+        reloaded.UpdateDisplayName("Renamed provider").IsSuccess.ShouldBeTrue();
+    }
+    [Fact]
     public async Task GetByIdAsync_ReturnsProvider_WhenExists()
     {
         UpstreamProvider provider = await this.SeedAsync("test-provider", "Test Provider");

@@ -1,0 +1,11 @@
+# Replacing an upstream issuer
+
+A provider registration identifies one upstream issuer. Its discovery authority may differ from the exact issuer in a validated token (for example, a tenant discovery endpoint). Authentication retains the exact issuer in the protected external ticket and the linked identity; issuer comparison is ordinal, including trailing slashes. A callback query parameter cannot select or replace that binding.
+
+Provider-management updates cannot replace authority. Create a new provider registration for a replacement issuer, then explicitly migrate identities through independently proven account control. Equal email or subject text across registrations is not migration evidence. Display name, credentials and status remain editable. Rejected authority replacement and inconsistent issuer authentication are audited without tokens, email addresses or subjects.
+
+The first linked identity permanently locks the provider's identity configuration. An optimistic concurrency marker serializes first-link creation against authority changes; the provider lock and identity insertion save atomically. Configuration reloads use persisted provider state. A changed issuer in upstream discovery is rejected even when discovery authority is unchanged.
+
+The migration locks providers with existing identity rows but leaves issuer evidence null. Those legacy identities cannot authenticate until the separate quarantine and proof-based migration process supplies independent evidence. A login through the legacy link is not proof. Inventory alternative login methods and verify independent emergency administration before deploying this migration.
+
+Back up the database and rehearse cutover before deploying. If authentication fails during replacement, disable the replacement registration, retain the original registration and binding evidence, and use independently available administrative access. Do not point the original registration at a different authority or populate issuer evidence from configuration. Rolling back the schema removes security evidence and the immutability guard; a code/schema rollback must keep federation disabled until the protected version is restored. Do not treat rollback as permission to restore unsafe authentication behavior.

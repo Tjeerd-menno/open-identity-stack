@@ -10,11 +10,15 @@ namespace OpenIdentityStack.Application.Federation.Commands;
 /// <param name="SubjectId">The subject ID from the upstream provider.</param>
 /// <param name="Email">The email from the upstream claims (optional).</param>
 /// <param name="DisplayName">The display name from the upstream claims (optional).</param>
+/// <param name="ValidatedIssuer">Exact issuer from the validated token, never a query parameter.</param>
+/// <param name="AuthenticationAuthority">Authority captured by the validating authentication scheme.</param>
 public sealed record JitProvisionUserCommand(
     UpstreamProviderId ProviderId,
     string SubjectId,
     string? Email,
-    string? DisplayName);
+    string? DisplayName,
+    string? ValidatedIssuer = null,
+    string? AuthenticationAuthority = null);
 
 /// <summary>
 /// Result of JIT provisioning.

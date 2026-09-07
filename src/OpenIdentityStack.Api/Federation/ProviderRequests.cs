@@ -46,6 +46,8 @@ public sealed record CreateProviderRequest
 /// </summary>
 public sealed record UpdateProviderRequest
 {
+    /// <summary>Authority replacement is unsupported; supplied values are rejected with migration guidance.</summary>
+    public string? Authority { get; init; }
     /// <summary>
     /// Gets or sets the new display name.
     /// </summary>
