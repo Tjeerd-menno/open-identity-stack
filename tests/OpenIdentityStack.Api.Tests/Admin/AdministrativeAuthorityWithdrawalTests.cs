@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using OpenIdentityStack.Api.Tests.Fixtures;
+using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Domain.Resources;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Groups;
@@ -299,7 +300,7 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
                     else
                     {
                         GroupMapping mapping = group.Mappings.Single();
-                        auditId = db.Entry(mapping).Property<Guid>("Id").CurrentValue.ToString();
+                        auditId = $"{group.Id.Value}:{mapping.GetDeterministicId()}";
                         group.RemoveMapping(mapping, clock).IsSuccess.ShouldBeTrue();
                     }
                     break;

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Users;
@@ -82,7 +83,7 @@ public sealed class AdministrativeAuthorityAuditInterceptor(
             Role role when entry.State != EntityState.Added => new(nameof(Role), role.Id.Value.ToString(), ChangedFields(entry, nameof(Role.Permissions), nameof(Role.IsActive))),
             RoleAssignment assignment when entry.State != EntityState.Modified => new(nameof(RoleAssignment), $"{assignment.UserId.Value}:{assignment.RoleId.Value}", [nameof(RoleAssignment.UserId), nameof(RoleAssignment.RoleId)]),
             GroupMembership membership when entry.State != EntityState.Modified => new(nameof(GroupMembership), $"{membership.GroupId.Value}:{membership.UserId.Value}", [nameof(GroupMembership.GroupId), nameof(GroupMembership.UserId)]),
-            GroupMapping mapping when mapping.Type == MappingType.Role && entry.State != EntityState.Modified => new(nameof(GroupMapping), entry.Property("Id").CurrentValue!.ToString()!, [nameof(GroupMapping.Type), nameof(GroupMapping.Target)]),
+            GroupMapping mapping when mapping.Type == MappingType.Role && entry.State != EntityState.Modified => DescribeRoleMapping(entry, mapping),
             Group group when entry.State == EntityState.Deleted => new(nameof(Group), group.Id.Value.ToString(), [nameof(Group.Memberships), nameof(Group.Mappings)]),
             User user when entry.State != EntityState.Added => new(nameof(User), user.Id.Value.ToString(), ChangedFields(entry, nameof(User.Status))),
             Domain.Applications.Application application when entry.State != EntityState.Added => new(nameof(Domain.Applications.Application), application.Id.Value.ToString(),
@@ -90,6 +91,12 @@ public sealed class AdministrativeAuthorityAuditInterceptor(
             _ => null,
         };
     }
+
+    private static AuthorityChange DescribeRoleMapping(EntityEntry entry, GroupMapping mapping) =>
+        new(
+            nameof(GroupMapping),
+            $"{entry.Property("GroupId").CurrentValue}:{mapping.GetDeterministicId()}",
+            [nameof(GroupMapping.Type), nameof(GroupMapping.Target)]);
 
     private static string[] ChangedFields(EntityEntry entry, params string[] fields) =>
         entry.State == EntityState.Deleted ? fields : fields.Where(field => IsChanged(entry.Property(field))).ToArray();
