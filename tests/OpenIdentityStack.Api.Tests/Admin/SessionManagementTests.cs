@@ -77,6 +77,28 @@ public sealed class SessionManagementTests
     }
 
     [Fact]
+    public async Task ListSessions_SearchFiltersBeforePaginationAndCombinesWithUserAndStatus()
+    {
+        HttpClient client = await this.CreateAuthenticatedClientAsync();
+        Guid userId = await CreateUserAsync(client);
+        Guid first = await this._fixture.CreateSessionAsync(userId, "192.0.2.41", "Search Browser");
+        Guid second = await this._fixture.CreateSessionAsync(userId, "192.0.2.42", "Search Browser");
+        Guid revoked = await this._fixture.CreateSessionAsync(userId, "192.0.2.43", "Search Browser");
+        (await client.DeleteAsync($"/api/admin/sessions/{revoked}")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await this._fixture.CreateSessionAsync(userId, "198.51.100.1", "Other Browser");
+
+        foreach ((string search, int expectedTotal) in new[] { ("  search BROWSER  ", 2), ("192.0.2.41", 1), ("no-such-session", 0), ("%", 0) })
+        {
+            HttpResponseMessage response = await client.GetAsync($"/api/admin/sessions?userId={userId}&status=Active&pageSize=1&search={Uri.EscapeDataString(search)}");
+            response.StatusCode.ShouldBe(HttpStatusCode.OK);
+            JsonNode json = (await response.Content.ReadFromJsonAsync<JsonNode>())!;
+            json["totalCount"]!.GetValue<int>().ShouldBe(expectedTotal);
+            json["items"]!.AsArray().Count.ShouldBe(Math.Min(expectedTotal, 1));
+            json["items"]!.AsArray().All(item => new[] { first, second }.Contains(item!["id"]!.GetValue<Guid>())).ShouldBeTrue();
+        }
+    }
+
+    [Fact]
     public async Task RevokeSession_WithActiveSession_Returns204()
     {
         // Arrange

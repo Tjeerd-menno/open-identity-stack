@@ -42,6 +42,7 @@ public class AuthorizationController : ControllerBase
     private readonly IAddClientSessionUseCase addClientSessionUseCase;
     private readonly IValidateSessionQueryHandler validateSessionQueryHandler;
     private readonly IOpenIddictRequestService requestService;
+    private readonly IAuditLog auditLog;
     private readonly IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository;
     private readonly IPermissionClaimProjectionService permissionClaimProjectionService;
     private readonly ITokenClaimProjectionService tokenClaimProjectionService;
@@ -56,6 +57,7 @@ public class AuthorizationController : ControllerBase
         IAddClientSessionUseCase addClientSessionUseCase,
         IValidateSessionQueryHandler validateSessionQueryHandler,
         IOpenIddictRequestService requestService,
+        IAuditLog auditLog,
         IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null,
         IHostEnvironment? environment = null,
         IPermissionClaimProjectionService? permissionClaimProjectionService = null,
@@ -69,6 +71,7 @@ public class AuthorizationController : ControllerBase
         this.addClientSessionUseCase = addClientSessionUseCase;
         this.validateSessionQueryHandler = validateSessionQueryHandler;
         this.requestService = requestService;
+        this.auditLog = auditLog;
         this.applicationPermissionRegistryRepository = applicationPermissionRegistryRepository;
         this.permissionClaimProjectionService = permissionClaimProjectionService
             ?? new PermissionClaimProjectionService(applicationPermissionRegistryRepository);
@@ -149,6 +152,12 @@ public class AuthorizationController : ControllerBase
         Domain.Users.User? persistedUser = userId is { } parsedUserId
             ? await this.userRepository.GetByIdAsync(parsedUserId)
             : null;
+
+        if (persistedUser?.Status == Domain.Users.UserStatus.Disabled)
+        {
+            await this.AuditDisabledAccountAsync(persistedUser.Id, "authorization");
+            return this.RejectUnavailableCredentials(Errors.AccessDenied);
+        }
 
         string? sessionIdValue = null;
         if (user.FindFirstValue("sid") is { } sessionIdStr && Guid.TryParse(sessionIdStr, out Guid sessionIdGuid))
@@ -314,6 +323,18 @@ public class AuthorizationController : ControllerBase
                     }));
             }
 
+            string? subject = result.Principal.GetClaim(Claims.Subject) ?? result.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            Domain.Users.User? tokenUser = null;
+            if (TryParseUserId(subject ?? string.Empty) is { } tokenUserId)
+            {
+                tokenUser = await this.userRepository.GetByIdAsync(tokenUserId, this.HttpContext.RequestAborted);
+                if (tokenUser?.Status == Domain.Users.UserStatus.Disabled)
+                {
+                    await this.AuditDisabledAccountAsync(tokenUser.Id, request.IsAuthorizationCodeGrantType() ? GrantTypes.AuthorizationCode : GrantTypes.RefreshToken);
+                    return this.RejectUnavailableCredentials();
+                }
+            }
+
             string? sessionIdStr = result.Principal.FindFirst("sid")?.Value
                 ?? result.Principal.FindFirst(legacySessionIdClaim)?.Value;
 
@@ -338,7 +359,7 @@ public class AuthorizationController : ControllerBase
             }
 
             DateTimeOffset? authenticationTime = GetAuthenticationTime(result.Properties, result.Principal!);
-            ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, authenticationTime);
+            ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, authenticationTime, tokenUser);
             return this.SignIn(
                 projectedPrincipal,
                 CreateOpenIddictAuthenticationProperties(authenticationTime),
@@ -370,11 +391,27 @@ public class AuthorizationController : ControllerBase
                 }));
         }
 
-        return this.Ok(this.tokenClaimProjectionService.CreateUserInfoResponse(result.Principal!));
+        Domain.Users.User? emailEvidenceUser = TryParseUserId(result.Principal!.GetClaim(Claims.Subject) ?? string.Empty) is { } userId
+            ? await this.userRepository.GetByIdAsync(userId, this.HttpContext.RequestAborted)
+            : null;
+        ClaimsPrincipal projected = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, persistedUser: emailEvidenceUser);
+        return this.Ok(this.tokenClaimProjectionService.CreateUserInfoResponse(projected));
     }
 
     // NOTE: Logout endpoint is handled by LogoutController which implements
     // full Single Logout (SLO) with front-channel and back-channel support.
+
+    private Task AuditDisabledAccountAsync(UserId userId, string flow) =>
+        this.auditLog.LogAsync(userId.Value.ToString(), "Authentication.DisabledAccountDenied", "User", userId.Value.ToString(),
+            $"Local account is disabled. Flow: {flow}.", this.HttpContext.RequestAborted);
+
+    private ForbidResult RejectUnavailableCredentials(string error = Errors.InvalidGrant) => this.Forbid(
+        authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
+        properties: new AuthenticationProperties(new Dictionary<string, string?>
+        {
+            [OpenIddictServerAspNetCoreConstants.Properties.Error] = error,
+            [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The credentials are no longer valid."
+        }));
 
     private async Task<IReadOnlyList<string>> ResolveIntrospectionPermissionsAsync(
         ClaimsPrincipal principal,

@@ -54,12 +54,12 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
         if (!string.IsNullOrWhiteSpace(request.PersistedUser?.Email))
         {
             identity.AddClaim(new Claim(Claims.Email, request.PersistedUser.Email));
-            identity.AddClaim(new Claim(Claims.EmailVerified, "true", ClaimValueTypes.Boolean));
+            identity.AddClaim(new Claim(Claims.EmailVerified, request.PersistedUser.EmailVerified ? "true" : "false", ClaimValueTypes.Boolean));
         }
         else if (request.Principal.FindFirstValue(ClaimTypes.Email) is { } email)
         {
             identity.AddClaim(new Claim(Claims.Email, email));
-            identity.AddClaim(new Claim(Claims.EmailVerified, "true", ClaimValueTypes.Boolean));
+            identity.AddClaim(new Claim(Claims.EmailVerified, "false", ClaimValueTypes.Boolean));
         }
 
         if (request.PersistedUser is not null)
@@ -115,12 +115,14 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
     public ClaimsPrincipal ProjectExistingPrincipal(
         ClaimsPrincipal principal,
-        DateTimeOffset? authenticationTime = null)
+        DateTimeOffset? authenticationTime = null,
+        User? persistedUser = null)
     {
         var identity = new ClaimsIdentity(
             principal.Claims.Where(claim =>
                 !string.Equals(claim.Type, LegacySessionIdClaim, StringComparison.Ordinal)
-                && !string.Equals(claim.Type, Claims.AuthenticationTime, StringComparison.Ordinal)),
+                && !string.Equals(claim.Type, Claims.AuthenticationTime, StringComparison.Ordinal)
+                && !string.Equals(claim.Type, Claims.EmailVerified, StringComparison.Ordinal)),
             authenticationType: OpenIddict.Server.AspNetCore.OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
             nameType: Claims.Name,
             roleType: Claims.Role);
@@ -128,6 +130,9 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
         ClaimsPrincipal projected = new(identity);
         projected.SetScopes(principal.GetScopes());
         projected.SetResources(principal.GetResources());
+
+        projected.SetClaim(Claims.Email, persistedUser?.Email ?? principal.GetClaim(Claims.Email));
+        identity.AddClaim(new Claim(Claims.EmailVerified, persistedUser?.EmailVerified == true ? "true" : "false", ClaimValueTypes.Boolean));
 
         if (authenticationTime is { } authTime)
         {

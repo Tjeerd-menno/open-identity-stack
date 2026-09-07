@@ -37,6 +37,6 @@ This page is the compact reference view of the deployment inputs operators usual
 | `Seed__AdminUser__Email` | Email address of the seeded admin |
 | `Seed__AdminUser__Password` | Password for the seeded admin |
 | `Seed__AdminUser__DisplayName` | Display name for the seeded admin |
-| `Seed__AdminUser__ResetPasswordOnExistingUser` | Allows password reset for an existing seeded user when explicitly enabled |
+| `Seed__AdminUser__ResetPasswordOnExistingUser` | Obsolete and ignored; seed reruns preserve existing passwords, status and privileges |
 
 For examples and deployment context, see [Environment variables](../configuration/environment-variables.md) and [Production deployment](../installation/production.md).

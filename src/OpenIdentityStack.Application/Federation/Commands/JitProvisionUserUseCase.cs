@@ -58,6 +58,11 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
 
         if (existingUser is not null)
         {
+            if (existingUser.Status == UserStatus.Disabled)
+            {
+                return UserErrors.AccountDisabled;
+            }
+
             // User already linked - just return
             return new JitProvisionUserResult(
                 existingUser.Id,

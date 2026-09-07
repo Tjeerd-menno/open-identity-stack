@@ -1035,6 +1035,11 @@ paths:
       parameters:
         - $ref: '#/components/parameters/PageSize'
         - $ref: '#/components/parameters/PageToken'
+        - name: search
+          in: query
+          description: Case-insensitive substring of the IP address or user agent. Surrounding whitespace is ignored. Filtering applies before pagination.
+          schema:
+            type: string
         - name: userId
           in: query
           schema:

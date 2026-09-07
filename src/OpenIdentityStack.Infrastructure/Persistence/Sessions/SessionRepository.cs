@@ -73,6 +73,7 @@ public sealed class SessionRepository : ISessionRepository
         int pageSize,
         UserId? userIdFilter = null,
         SessionStatus? statusFilter = null,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
         IQueryable<UserSession> query = this.context.UserSessions
@@ -87,6 +88,14 @@ public sealed class SessionRepository : ISessionRepository
         if (statusFilter.HasValue)
         {
             query = query.Where(s => s.Status == statusFilter.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            string term = search.Trim().ToLowerInvariant();
+#pragma warning disable CA1304, CA1311, CA1862 // Parameterless ToLower translates to SQL for both PostgreSQL and SQLite.
+            query = query.Where(s => s.IpAddress.ToLower().Contains(term) || s.UserAgent.ToLower().Contains(term));
+#pragma warning restore CA1304, CA1311, CA1862
         }
 
         int totalCount = await query.CountAsync(cancellationToken);

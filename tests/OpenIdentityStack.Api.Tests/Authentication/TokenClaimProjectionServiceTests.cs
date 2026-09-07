@@ -1,4 +1,7 @@
 using System.Security.Claims;
+using System.Text.Json;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Groups.Queries;
@@ -22,6 +25,64 @@ public sealed class TokenClaimProjectionServiceTests
     {
         this.dateTimeProvider.UtcNow.Returns(new DateTimeOffset(2026, 1, 18, 12, 0, 0, TimeSpan.Zero));
     }
+
+    [Fact]
+    public void ActiveBootstrapAccountWithoutEvidenceDoesNotAssertVerifiedEmail()
+    {
+        User user = User.CreateBootstrap("bootstrap@example.test", "Bootstrap", "fixture-hash", this.dateTimeProvider).Value;
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            [OpenIddictConstants.Scopes.Email], [], null, null, null));
+
+        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
+    }
+
+    [Fact]
+    public void RefreshDoesNotCopyAStaleVerifiedEmailAssertion()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
+        principal.SetClaim(OpenIddictConstants.Claims.EmailVerified, "true");
+
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal);
+
+        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
+    }
+
+    [Fact]
+    public void VerifiedLocalAccountAssertsVerifiedEmail()
+    {
+        User user = User.CreateLocal("verified@example.test", "Verified", "fixture-hash", this.dateTimeProvider).Value;
+        user.VerifyEmail(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            [OpenIddictConstants.Scopes.Email], [], null, null, null));
+
+        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("true");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExistingPrincipalSerializesVerifiedEmailAsJsonBoolean(bool verified)
+    {
+        User user = User.CreateLocal("serialized@example.com", "User", "fixture-hash", this.dateTimeProvider).Value;
+        if (verified) { user.VerifyEmail(this.dateTimeProvider).IsSuccess.ShouldBeTrue(); }
+        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
+        principal.SetScopes(OpenIddictConstants.Scopes.Email);
+        principal.SetClaim(OpenIddictConstants.Claims.EmailVerified, !verified);
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: user);
+        var handler = new JsonWebTokenHandler();
+        string token = handler.CreateToken(new SecurityTokenDescriptor { Subject = (ClaimsIdentity)projected.Identity! });
+        using var payload = JsonDocument.Parse(Base64UrlEncoder.Decode(handler.ReadJsonWebToken(token).EncodedPayload));
+
+        JsonElement claim = payload.RootElement.GetProperty(OpenIddictConstants.Claims.EmailVerified);
+        claim.ValueKind.ShouldBe(verified ? JsonValueKind.True : JsonValueKind.False);
+        claim.GetBoolean().ShouldBe(verified);
+    }
+
 
     [Fact]
     public void ProjectSubjectClaims_ProfileAndEmailClaimsAreDestinationlessWithoutScopeOrClaimsRequest()

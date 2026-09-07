@@ -45,5 +45,6 @@ public interface ISessionRepository
         int pageSize,
         UserId? userIdFilter = null,
         SessionStatus? statusFilter = null,
+        string? search = null,
         CancellationToken cancellationToken = default);
 }
