@@ -358,27 +358,33 @@ public class AuthorizationController : ControllerBase
         string? subject = principal.GetClaim(Claims.Subject);
         string? revision = principal.GetClaim(UserCredentialClaims.Revision);
         Claim[] subjectKinds = principal.FindAll(TokenSubjectClaims.Kind).ToArray();
-        bool validApplicationSubject = subjectKinds is [{ Value: TokenSubjectClaims.Application }]
+        bool applicationSubject = subjectKinds is [{ Value: TokenSubjectClaims.Application }]
             && revision is null
             && !string.IsNullOrWhiteSpace(subject)
             && string.Equals(subject, principal.GetClaim(Claims.ClientId), StringComparison.Ordinal);
-        if (subjectKinds.Length != 0 && !validApplicationSubject)
+        if (subjectKinds.Length != 0 && !applicationSubject)
         {
             return this.InvalidUserInfoToken();
         }
 
-        bool ambiguousLegacyApplicationSubject = subjectKinds.Length == 0
+        bool legacyApplicationSubject = subjectKinds.Length == 0
             && revision is null
             && !string.IsNullOrWhiteSpace(subject)
             && string.Equals(subject, principal.GetClaim(Claims.ClientId), StringComparison.Ordinal)
             && await this.applicationManager.FindByClientIdAsync(subject, this.HttpContext.RequestAborted) is not null;
-        if (ambiguousLegacyApplicationSubject)
+        if (legacyApplicationSubject)
         {
-            return this.InvalidUserInfoToken();
+            if (TryParseUserId(subject!) is { } possibleUserId
+                && await this.userRepository.GetByIdAsync(possibleUserId, this.HttpContext.RequestAborted) is not null)
+            {
+                return this.InvalidUserInfoToken();
+            }
+
+            applicationSubject = true;
         }
 
         Domain.Users.User? emailEvidenceUser = null;
-        if (!validApplicationSubject)
+        if (!applicationSubject)
         {
             if (TryParseUserId(subject ?? string.Empty) is not { } userId)
             {

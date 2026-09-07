@@ -1435,6 +1435,32 @@ public class AuthorizationControllerTests
         claims[OpenIddictConstants.Claims.EmailVerified].ShouldBe(true);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UserInfo_RevisionlessUntaggedApplicationWithoutUserCollisionRemainsValid(bool useGuidSubject)
+    {
+        string clientId = useGuidSubject ? Guid.NewGuid().ToString() : "legacy-machine-client";
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(OpenIddictConstants.Claims.Subject, clientId),
+            new Claim(OpenIddictConstants.Claims.ClientId, clientId)
+        ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
+        object application = new();
+#pragma warning disable CA2012
+        this._applicationManager.FindByClientIdAsync(clientId, Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<object?>(application));
+#pragma warning restore CA2012
+        this.SetupMockServices(principal);
+
+        (await this._controller.UserInfo()).ShouldBeOfType<OkObjectResult>();
+        if (!useGuidSubject)
+        {
+            await this._userRepository.DidNotReceive()
+                .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+        }
+    }
+
     [Fact]
     public async Task UserInfo_RevisionlessUntaggedApplicationSubjectMatchingUserFailsClosed()
     {
@@ -1456,8 +1482,8 @@ public class AuthorizationControllerTests
         this.SetupMockServices(principal);
 
         (await this._controller.UserInfo()).ShouldBeOfType<ChallengeResult>();
-        await this._userRepository.DidNotReceive()
-            .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+        await this._userRepository.Received(1)
+            .GetByIdAsync(collidingUser.Id, Arg.Any<CancellationToken>());
     }
 
     [Fact]
