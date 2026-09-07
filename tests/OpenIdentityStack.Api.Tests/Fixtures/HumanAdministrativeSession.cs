@@ -13,7 +13,12 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Api.Tests.Fixtures;
 
-internal sealed record HumanAdministrativeSession(HttpClient Client, string ClientId, string ClientSecret, string RefreshToken)
+internal sealed record HumanAdministrativeSession(
+    HttpClient Client,
+    string ClientId,
+    string ClientSecret,
+    string RefreshToken,
+    string MonitoringCookie)
 {
     public static async Task<HumanAdministrativeSession> SignInAsync(AppHostFixture fixture, string email, string password, IReadOnlyList<string> ceiling)
     {
@@ -58,6 +63,9 @@ internal sealed record HumanAdministrativeSession(HttpClient Client, string Clie
             ["__RequestVerificationToken"] = WebUtility.HtmlDecode(match.Groups["value"].Value),
         }));
         login.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        string monitoringCookie = login.Headers.GetValues("Set-Cookie")
+            .Single(value => value.StartsWith("op_session=", StringComparison.Ordinal))
+            .Split(';', 2)[0]["op_session=".Length..];
         HttpResponseMessage authorize = await client.GetAsync(login.Headers.Location);
         authorize.StatusCode.ShouldBe(HttpStatusCode.Redirect);
         string code = QueryHelpers.ParseQuery(authorize.Headers.Location!.Query)["code"].Single()!;
@@ -69,6 +77,6 @@ internal sealed record HumanAdministrativeSession(HttpClient Client, string Clie
         tokenResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         JsonNode tokens = (await tokenResponse.Content.ReadFromJsonAsync<JsonNode>())!;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens["access_token"]!.GetValue<string>());
-        return new(client, clientId, secret, tokens["refresh_token"]!.GetValue<string>());
+        return new(client, clientId, secret, tokens["refresh_token"]!.GetValue<string>(), monitoringCookie);
     }
 }

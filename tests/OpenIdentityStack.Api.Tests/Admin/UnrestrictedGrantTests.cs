@@ -83,7 +83,7 @@ public sealed class UnrestrictedGrantTests(AppHostFixture fixture)
         (await denied.Content.ReadAsStringAsync()).ShouldContain("AdministrativeApproval.AuthorityRequired");
     }
 
-    private async Task<HttpClient> SignInHumanAsync(string email, string password) =>
+    internal async Task<HttpClient> SignInHumanAsync(string email, string password) =>
         (await HumanAdministrativeSession.SignInAsync(fixture, email, password, ["*"])).Client;
     [Fact]
     public async Task MachineCannotCreateUnrestrictedRoleEvenWhenAcknowledged()

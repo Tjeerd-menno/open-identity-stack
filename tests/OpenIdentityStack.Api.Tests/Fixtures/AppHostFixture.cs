@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using OpenIdentityStack.Api.Authentication;
+using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Infrastructure.Persistence;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -29,7 +31,14 @@ namespace OpenIdentityStack.Api.Tests.Fixtures;
 public class AppHostFixture : IAsyncLifetime
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
-    private const string ConnectionString = "Data Source=file:openidentitystack_api_tests;Mode=Memory;Cache=Shared";
+    private string ConnectionString { get; }
+
+    public AppHostFixture() : this("openidentitystack_api_tests") { }
+
+    internal AppHostFixture(string databaseName)
+    {
+        this.ConnectionString = new SqliteConnectionStringBuilder { DataSource = "file:" + databaseName, Mode = SqliteOpenMode.Memory, Cache = SqliteCacheMode.Shared }.ToString();
+    }
 
     private SqliteConnection? Connection { get; set; }
     private OpenIdentityStackApiFactory? Factory { get; set; }
@@ -58,7 +67,7 @@ public class AppHostFixture : IAsyncLifetime
 
         this.TestSeeder = await OpenIdentityStackTestSeeder.CreateAsync(ConnectionString);
 
-        this.Factory = new OpenIdentityStackApiFactory();
+        this.Factory = new OpenIdentityStackApiFactory(this.ConnectionString);
         this.HttpClient = this.CreateClient();
         this.HttpClient.Timeout = RequestTimeout;
     }
@@ -227,6 +236,24 @@ public class AppHostFixture : IAsyncLifetime
         return await this.TestSeeder.CreateSessionAsync(userId, ipAddress, userAgent, durationMinutes);
     }
 
+    public async Task<string> CreateSessionMonitoringCookieAsync(Guid userId, Guid sessionId)
+    {
+        if (this.Factory is null)
+        {
+            throw new InvalidOperationException("Factory is not initialized.");
+        }
+
+        using IServiceScope scope = this.Factory.Services.CreateScope();
+        ICredentialBoundaryStore boundary = scope.ServiceProvider.GetRequiredService<ICredentialBoundaryStore>();
+        ISessionMonitoringCookieService cookies = scope.ServiceProvider.GetRequiredService<ISessionMonitoringCookieService>();
+        Guid epoch = await boundary.GetEpochAsync();
+        return cookies.Create(
+            new SharedKernel.UserId(userId),
+            new OpenIdentityStack.Domain.Common.SessionId(sessionId),
+            epoch,
+            DateTimeOffset.UtcNow.AddHours(1));
+    }
+
     public async Task ValidateUserCredentialsAsync(string email, string password)
     {
         if (this.TestSeeder is null)
@@ -337,7 +364,7 @@ public class AppHostFixture : IAsyncLifetime
         GC.SuppressFinalize(this);
     }
 
-    private sealed class OpenIdentityStackApiFactory : WebApplicationFactory<Program>
+    private sealed class OpenIdentityStackApiFactory(string connectionString) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -346,7 +373,7 @@ public class AppHostFixture : IAsyncLifetime
             {
                 configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:openidentitystack"] = ConnectionString,
+                    ["ConnectionStrings:openidentitystack"] = connectionString,
                     ["OpenIddict:Issuer"] = "https://issuer.example.com"
                 });
             });
@@ -358,7 +385,7 @@ public class AppHostFixture : IAsyncLifetime
 
                 services.AddDbContext<OpenIdentityStackDbContext>(options =>
                 {
-                    options.UseSqlite(ConnectionString);
+                    options.UseSqlite(connectionString);
                     options.UseOpenIddict();
                 });
 

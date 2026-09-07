@@ -104,7 +104,7 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             identity.AddClaim(new Claim("permission", permission));
         }
 
-        foreach (string type in new[] { OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim })
+        foreach (string type in new[] { OpenIdentityStack.Application.Abstractions.CredentialBoundaryClaims.Epoch, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim })
         {
             Claim[] sourceClaims = request.Principal.FindAll(type).ToArray();
             if (sourceClaims.Length == 1) { identity.AddClaim(sourceClaims[0]); }
@@ -141,6 +141,12 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
         projected.SetClaim(Claims.Email, persistedUser?.Email ?? principal.GetClaim(Claims.Email));
         identity.AddClaim(new Claim(Claims.EmailVerified, persistedUser?.EmailVerified == true ? "true" : "false", ClaimValueTypes.Boolean));
+
+        if (principal.GetClaim(UserCredentialClaims.Revision) is null
+            && persistedUser?.CredentialRevision == Guid.Empty)
+        {
+            identity.AddClaim(new Claim(UserCredentialClaims.Revision, Guid.Empty.ToString()));
+        }
 
         if (authenticationTime is { } authTime)
         {

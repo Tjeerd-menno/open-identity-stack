@@ -190,13 +190,22 @@ public sealed class AuthorizationCodeFlowTests
         error["error_description"]!.GetValue<string>().ShouldBe("The credentials are no longer valid.");
         HttpResponseMessage cookieReuse = await browser.GetAsync(authorizeUrl);
         cookieReuse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
-        QueryHelpers.ParseQuery(cookieReuse.Headers.Location!.Query)["error"].Single().ShouldBe("access_denied");
+        cookieReuse.Headers.Location!.ToString().ShouldContain("/Account/Login");
 
         HttpResponseMessage enable = await administrator.PostAsync($"/api/admin/users/{userId}/enable", null);
         enable.IsSuccessStatusCode.ShouldBeTrue();
         HttpResponseMessage authorizedAgain = await browser.GetAsync(authorizeUrl);
         authorizedAgain.StatusCode.ShouldBe(HttpStatusCode.Redirect);
-        QueryHelpers.ParseQuery(authorizedAgain.Headers.Location!.Query)["code"].Single().ShouldNotBeNullOrWhiteSpace();
+        authorizedAgain.Headers.Location!.ToString().ShouldContain("/Account/Login");
+        // Re-enablement does not resurrect a rejected cookie; prove local control again.
+        string freshLoginPage = await browser.GetStringAsync(authorizedAgain.Headers.Location);
+        HttpResponseMessage freshLogin = await browser.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email, ["Password"] = password, ["returnUrl"] = authorizeUrl,
+            ["__RequestVerificationToken"] = ExtractAntiForgeryToken(freshLoginPage)
+        }));
+        HttpResponseMessage freshAuthorization = await browser.GetAsync(freshLogin.Headers.Location);
+        QueryHelpers.ParseQuery(freshAuthorization.Headers.Location!.Query)["code"].Single().ShouldNotBeNullOrWhiteSpace();
     }
 
     [Fact]
@@ -323,8 +332,12 @@ public sealed class AuthorizationCodeFlowTests
         query["state"].Single().ShouldBe(state);
     }
 
-    [Fact]
-    public async Task Authorize_WithAuthenticatedSession_IncludesSessionStateInCallbackRedirect()
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("login", null)]
+    [InlineData(null, 0L)]
+    [InlineData("login", 0L)]
+    public async Task Authorize_WithAuthenticatedSession_IncludesSessionStateInCallbackRedirect(string? prompt, long? maxAge)
     {
         // Arrange
         string clientId = $"session-state-client-{Guid.NewGuid():N}";
@@ -358,7 +371,10 @@ public sealed class AuthorizationCodeFlowTests
             ["code_challenge_method"] = "S256"
         }).ReadAsStringAsync();
 
-        // Act
+        if (prompt is not null) { authorizeQuery += "&prompt=" + Uri.EscapeDataString(prompt); }
+        if (maxAge is not null) { authorizeQuery += "&max_age=" + maxAge.Value.ToString(System.Globalization.CultureInfo.InvariantCulture); }
+
+        // A single local password submission must complete the authorization request.
         HttpResponseMessage authorizeResponse = await client.GetAsync("/connect/authorize?" + authorizeQuery);
         authorizeResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
         authorizeResponse.Headers.Location.ShouldNotBeNull();
@@ -383,6 +399,7 @@ public sealed class AuthorizationCodeFlowTests
         callbackResponse.Headers.Location.ShouldNotBeNull();
 
         // Assert
+        callbackResponse.Headers.Location.IsAbsoluteUri.ShouldBeTrue("one local login must complete authorization without another login redirect");
         callbackResponse.Headers.Location.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
 
         Dictionary<string, Microsoft.Extensions.Primitives.StringValues> callbackQuery =

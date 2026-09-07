@@ -197,6 +197,11 @@ public static class OpenIddictSetup
                 }
 
                 options.AddApplicationClientAuthentication();
+                options.AddEventHandler<OpenIddictServerEvents.ValidateTokenContext>(builder => builder
+                    .UseScopedHandler<CredentialBoundaryValidation>()
+                    .SetOrder(OpenIddictServerHandlers.Protection.ValidateAuthorizationEntry.Descriptor.Order + 2_000));
+                options.AddEventHandler<OpenIddictServerEvents.ProcessSignInContext>(builder => builder
+                    .UseScopedHandler<CredentialBoundaryValidation>().SetOrder(int.MinValue + 100_000));
 
                 // Enrich successful token introspection responses with caller-filtered
                 // permission metadata while keeping OpenIddict's client authentication
@@ -219,6 +224,9 @@ public static class OpenIddictSetup
                         .SetOrder(OpenIddict.Validation.OpenIddictValidationHandlers.Protection.ValidateAuthorizationEntry.Descriptor.Order + 1_000));
                 // Import the configuration from the local OpenIddict server instance
                 options.UseLocalServer();
+                options.AddEventHandler<OpenIddict.Validation.OpenIddictValidationEvents.ValidateTokenContext>(builder => builder
+                    .UseScopedHandler<CredentialBoundaryValidation>()
+                    .SetOrder(OpenIddict.Validation.OpenIddictValidationHandlers.Protection.ValidateAuthorizationEntry.Descriptor.Order + 2_000));
 
                 // Enforce token/authorization entry validation for immediate revocation checks
                 options.EnableTokenEntryValidation()
