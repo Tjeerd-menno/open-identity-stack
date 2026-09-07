@@ -6,6 +6,7 @@ import type { CurrentUserResponse } from '@openidentitystack/admin-api-client';
 import { api, setAccessTokenProvider, setUnauthorizedHandler } from './api';
 import { AuthContextProvider, type AuthContextValue } from './auth-context';
 import { getOidcAuthority, getOidcClientId } from './runtime-config';
+import { AdministrativeApprovalDialog } from '@/components/AdministrativeApprovalDialog';
 
 type CurrentUserLoadState =
   | { token: string; status: 'success'; user: CurrentUserResponse }
@@ -54,6 +55,10 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async () => userManager.signinRedirect(), [userManager]);
   const logout = useCallback(async () => userManager.signoutRedirect(), [userManager]);
+  const reauthenticate = useCallback(async () => {
+    sessionStorage.setItem('administrative-approval-return', location.pathname + location.search);
+    await userManager.signinRedirect({ prompt: 'login', max_age: 0 });
+  }, [location.pathname, location.search, userManager]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +76,9 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
         } finally {
           // Redeemed (or failed) — reload at the app root; init below reads the
           // stored user from sessionStorage and resolves the authenticated state.
-          window.location.replace('/');
+          const returnPath = sessionStorage.getItem('administrative-approval-return');
+          sessionStorage.removeItem('administrative-approval-return');
+          window.location.replace(returnPath?.startsWith('/') && !returnPath.startsWith('//') && !returnPath.includes('\\') ? returnPath : '/');
         }
       } else {
         try {
@@ -181,7 +188,7 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
+  return <AuthContextProvider value={value}>{children}<AdministrativeApprovalDialog onReauthenticate={reauthenticate} /></AuthContextProvider>;
 }
 
 function getFallbackDisplayName(user: User | null): string {

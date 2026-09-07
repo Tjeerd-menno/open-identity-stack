@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using OpenIdentityStack.Api.Common;
 using OpenIddict.Validation.AspNetCore;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authorization;
@@ -72,7 +73,9 @@ internal static class GroupsApi
             .RequireAuthorization(Permissions.Groups.ManageMembers)
             .Produces(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AddGroupMember")
             .WithSummary("Adds a user to a group");
 
@@ -96,7 +99,9 @@ internal static class GroupsApi
             .RequireAuthorization(Permissions.Groups.Write)
             .Produces(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AddGroupMapping")
             .WithSummary("Adds a mapping (role or claim) to a group");
 
@@ -417,6 +422,10 @@ internal static class GroupsApi
     /// </summary>
     private static IResult MapFailure(DomainError error)
     {
+        if (error.Code.StartsWith("Forbidden.AdministrativeApproval.", StringComparison.Ordinal))
+        {
+            return OpenIdentityStack.Api.Common.ErrorResultMapper.ToErrorResult(error);
+        }
         if (error.Code is "Group.NotFound" or "GroupMapping.NotFound")
         {
             return TypedResults.NotFound();

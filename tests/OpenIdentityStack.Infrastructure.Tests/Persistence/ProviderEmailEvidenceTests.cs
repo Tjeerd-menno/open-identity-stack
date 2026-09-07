@@ -145,7 +145,7 @@ public sealed class ProviderEmailEvidenceTests(FederationPolicyTestFixture fixtu
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             while (!await observer.Database.SqlQueryRaw<bool>("""
                 SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database()
-                    AND wait_event_type = 'Lock' AND query LIKE '%upstream_providers%') AS "Value"
+                    AND wait_event_type = 'Lock' AND (query LIKE '%upstream_providers%' OR query LIKE '%AdministrativeAuthorityRevision%')) AS "Value"
                 """).SingleAsync(deadline.Token))
             {
                 await Task.Delay(20, deadline.Token);

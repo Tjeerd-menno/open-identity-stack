@@ -36,6 +36,7 @@ vi.mock('@/lib/api', async () => ({
   api: (await import('@/test/mock-api')).mockApi,
   setAccessTokenProvider: vi.fn(),
   setUnauthorizedHandler: vi.fn(),
+  setAdministrativeApprovalHandler: vi.fn(),
 }));
 
 function AuthProbe() {

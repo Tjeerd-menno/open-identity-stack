@@ -16,6 +16,62 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 
 public sealed class TokenClaimProjectionServiceTests
 {
+    [Fact]
+    public void GroupClaimsCannotReplacePersistedVerifiedPhoneOrStandardProfile()
+    {
+        User user = User.CreateFederated("profile@example.test", "Persisted name", this.dateTimeProvider,
+            new UserProfileData(GivenName: "Persisted", PhoneNumber: "+31205550100", PhoneNumberVerified: true)).Value;
+        string[] profileTypes = ["phone_number", "phone_number_verified", "name", "given_name", "family_name", "middle_name",
+            "nickname", "preferred_username", "profile", "picture", "website", "gender", "birthdate", "zoneinfo", "locale", "address", "updated_at"];
+        var request = new TokenClaimProjectionRequest(CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            ["openid", "profile", "phone"], [], null, null, null);
+        ClaimsPrincipal expected = this.service.ProjectSubjectClaims(request);
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(request with
+        {
+            GroupClaims = profileTypes.Select(type => new GroupClaimDto(type, "forged", TokenTarget.Both)).ToArray()
+        });
+
+        foreach (string type in profileTypes)
+        {
+            projected.FindAll(type).Select(claim => claim.Value).ShouldBe(expected.FindAll(type).Select(claim => claim.Value));
+        }
+        projected.GetClaim("phone_number").ShouldBe("+31205550100");
+        projected.GetClaim("phone_number_verified").ShouldBe("true");
+        IReadOnlyDictionary<string, object> userInfo = this.service.CreateUserInfoResponse(projected);
+        userInfo["phone_number"].ShouldBe("+31205550100");
+        userInfo["phone_number_verified"].ShouldBe(true);
+    }
+
+    [Fact]
+    public void GroupMappingsCannotForgeHumanProofOrPrivilegeClaims()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [],
+            [new GroupClaimDto("permission", "*", TokenTarget.Both),
+             new GroupClaimDto("ois_human_subject", user.Id.Value.ToString(), TokenTarget.Both),
+             new GroupClaimDto("ois.example", "forged", TokenTarget.Both),
+             new GroupClaimDto("OIS.example", "forged", TokenTarget.Both),
+             new GroupClaimDto("nonce", "forged", TokenTarget.Both),
+             new GroupClaimDto(RequestedUserInfoClaim, OpenIddictConstants.Claims.Email, TokenTarget.Both),
+             new GroupClaimDto("ois_human_authenticated_at", "9999999999", TokenTarget.Both)],
+            ["openid", "api"], [], null, null, null));
+        principal.HasClaim(claim => claim.Type == "permission" || claim.Type.StartsWith("ois_human_", StringComparison.Ordinal)).ShouldBeFalse();
+        principal.HasClaim(claim => claim.Type.StartsWith("ois.", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
+        principal.HasClaim("nonce", "forged").ShouldBeFalse();
+        principal.HasClaim(RequestedUserInfoClaim, OpenIddictConstants.Claims.Email).ShouldBeFalse();
+        this.service.CreateUserInfoResponse(principal).ShouldNotContainKey(OpenIddictConstants.Claims.Email);
+    }
+
+    [Fact]
+    public void TokenRenewalPreservesOriginalHumanAuthenticationProof()
+    {
+        Claim[] claims = [new("sub", Guid.NewGuid().ToString()), new("ois_human_authenticated_at", "100")];
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "token"));
+        ClaimsPrincipal renewed = this.service.ProjectExistingPrincipal(principal, DateTimeOffset.UtcNow);
+        renewed.FindFirst("ois_human_authenticated_at")!.Value.ShouldBe("100");
+    }
+
     private const string RequestedUserInfoClaim = "requested_userinfo_claim";
 
     private readonly IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();

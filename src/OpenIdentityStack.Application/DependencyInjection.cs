@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.ApplicationPermissions;
@@ -41,6 +42,9 @@ public static class DependencyInjection
         AddAuditUseCases(services);
         AddProviderUseCases(services);
         AddAuthorizationServices(services);
+        services.AddScoped<IAdministrativeApproval, AdministrativeApproval>();
+        services.TryAddSingleton<IAdministrativeActorContext, UnauthenticatedAdministrativeActorContext>();
+        services.AddScoped<UnrestrictedGrantPolicy>();
 
         return services;
     }

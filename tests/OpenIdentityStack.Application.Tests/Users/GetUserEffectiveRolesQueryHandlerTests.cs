@@ -9,6 +9,27 @@ using SharedKernel;
 namespace OpenIdentityStack.Application.Tests.Users;
 public class GetUserEffectiveRolesQueryHandlerTests
 {
+    [Fact]
+    public async Task GuidShapedRoleNameTakesPrecedenceForEntitlementsAndApproval()
+    {
+        Role other = Role.Create("other", null).Value;
+        Role named = Role.Create(other.Id.Value.ToString(), null).Value;
+        named.AddPermission("*");
+        var userId = new UserId(Guid.NewGuid());
+        Group group = Group.Create("mapped", null, this._dateTimeProvider).Value;
+        group.AddMapping(MappingType.Role, named.Name, null, TokenTarget.Both, this._dateTimeProvider);
+        this._roleRepository.GetUserRolesAsync(userId, true, Arg.Any<CancellationToken>()).Returns(Array.Empty<Role>());
+        this._groupRepository.GetGroupsForUserAsync(userId, Arg.Any<CancellationToken>()).Returns(new[] { group });
+        this._roleRepository.GetByNameAsync(named.Name, Arg.Any<CancellationToken>()).Returns(named);
+        this._roleRepository.GetByIdAsync(other.Id, Arg.Any<CancellationToken>()).Returns(other);
+
+        Result<IReadOnlyList<RoleDto>> result = await this._handler.HandleAsync(userId);
+
+        result.Value.Single().Id.ShouldBe(named.Id.Value);
+        (await new OpenIdentityStack.Application.Authorization.UnrestrictedGrantPolicy(this._roleRepository)
+            .GroupIsUnrestrictedAsync(group, CancellationToken.None)).ShouldBeTrue();
+    }
+
     private readonly IRoleRepository _roleRepository;
     private readonly IGroupRepository _groupRepository;
     private readonly GetUserEffectiveRolesQueryHandler _handler;

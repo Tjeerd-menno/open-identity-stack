@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Claims;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using OpenIdentityStack.Application.Abstractions;
@@ -153,7 +154,7 @@ public class AccountController : Controller
             this.Request.Scheme) ?? "/";
 
         // Challenge the external authentication scheme
-        AuthenticationProperties properties = new()
+        OpenIdConnectChallengeProperties properties = new()
         {
             RedirectUri = callbackUrl,
             Items =
@@ -169,6 +170,7 @@ public class AccountController : Controller
         if (fresh)
         {
             properties.Items.Add("prompt", "login");
+            properties.MaxAge = TimeSpan.Zero;
         }
 
         return this.Challenge(properties, provider);
@@ -257,8 +259,16 @@ public class AccountController : Controller
             new(ClaimTypes.Name, user.DisplayName),
             new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
             new("auth_method", "external"),
+            new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, user.Id.Value.ToString()),
             new("provider", authenticatedProvider)
         };
+
+        // Only the upstream's validated authentication event can establish freshness; receiving an SSO callback cannot.
+        string? upstreamAuthenticationTime = authenticateResult.Properties?.GetString(ExternalIdentityProperties.AuthenticationTime);
+        if (upstreamAuthenticationTime is not null)
+        {
+            claims.Add(new Claim(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim, upstreamAuthenticationTime));
+        }
 
         // Create user session
         string ipAddress = this.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
@@ -329,7 +339,9 @@ public class AccountController : Controller
             new(ClaimTypes.NameIdentifier, result.Value.UserId.Value.ToString()),
             new(ClaimTypes.Email, result.Value.Email),
             new(ClaimTypes.Name, result.Value.DisplayName),
-            new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64)
+            new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
+            new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, result.Value.UserId.Value.ToString()),
+            new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64)
         };
 
         // Create user session

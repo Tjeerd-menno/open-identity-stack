@@ -255,9 +255,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['users:update']
 
   /users/{userId}/reset-password:
@@ -285,9 +287,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['users:update']
 
   /users/{userId}/upstream-identities:
@@ -420,9 +424,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['roles:assign']
 
   /users/{userId}/roles/{roleId}:
@@ -638,9 +644,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['groups:update']
 
   /groups/{groupId}/members/{userId}:
@@ -709,9 +717,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['groups:update']
 
   /groups/{groupId}/mappings/{mappingId}:
@@ -785,7 +795,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '409':
           description: Role name already exists
           content:
@@ -839,9 +849,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
       x-required-permissions: ['roles:update']
 
     delete:
@@ -864,6 +876,109 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
       x-required-permissions: ['roles:delete']
+
+  /roles/{roleId}/enable:
+    parameters:
+      - $ref: '#/components/parameters/RoleId'
+    post:
+      tags: [Roles]
+      summary: Enable role
+      operationId: enableRole
+      responses:
+        '200':
+          description: Role enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-required-permissions: ['roles:write']
+
+  /roles/{roleId}/permissions:
+    parameters:
+      - $ref: '#/components/parameters/RoleId'
+    put:
+      tags: [Roles]
+      summary: Replace role permissions
+      operationId: setRolePermissions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permissions]
+              properties:
+                permissions:
+                  type: array
+                  items:
+                    type: string
+                acknowledgeWildcardGrant:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Role permissions replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-required-permissions: ['roles:assign']
+
+    post:
+      tags: [Roles]
+      summary: Add role permission
+      operationId: addRolePermission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permission]
+              properties:
+                permission:
+                  type: string
+                acknowledgeWildcardGrant:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Role permission added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AdministrativeApprovalRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-required-permissions: ['roles:assign']
 
   # ============================================================================
   # SERVICE ACCOUNTS
@@ -1404,6 +1519,32 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
 
+    AdministrativeApprovalRequired:
+      description: Insufficient route permission, or administrative approval is required or no longer valid
+      content:
+        application/problem+json:
+          schema:
+            oneOf:
+              - allOf:
+                  - $ref: '#/components/schemas/ProblemDetails'
+                  - not:
+                      required: [errorCode]
+                      properties:
+                        errorCode:
+                          enum:
+                            - Forbidden.AdministrativeApproval.HumanRequired
+                            - Forbidden.AdministrativeApproval.AuthorityRequired
+                            - Forbidden.AdministrativeApproval.ReauthenticationRequired
+                            - Forbidden.AdministrativeApproval.AcknowledgementRequired
+              - $ref: '#/components/schemas/AdministrativeApprovalProblemDetails'
+
+    Conflict:
+      description: The resource changed concurrently; reload the latest state and retry
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
     NotFound:
       description: Resource not found
       content:
@@ -1432,6 +1573,22 @@ components:
             type: array
             items:
               type: string
+
+    AdministrativeApprovalProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          required: [errorCode]
+          discriminator:
+            propertyName: errorCode
+          properties:
+            errorCode:
+              type: string
+              enum:
+                - Forbidden.AdministrativeApproval.HumanRequired
+                - Forbidden.AdministrativeApproval.AuthorityRequired
+                - Forbidden.AdministrativeApproval.ReauthenticationRequired
+                - Forbidden.AdministrativeApproval.AcknowledgementRequired
 
     UserStatus:
       type: string

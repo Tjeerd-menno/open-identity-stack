@@ -629,11 +629,6 @@ public class AuthorizationController : ControllerBase
 
     private static DateTimeOffset? GetAuthenticationTime(AuthenticationProperties? properties, ClaimsPrincipal? principal)
     {
-        if (properties?.IssuedUtc is { } issuedUtc)
-        {
-            return issuedUtc;
-        }
-
         return principal is null ? null : GetAuthenticationTime(principal);
     }
 

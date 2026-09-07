@@ -17,6 +17,7 @@ public sealed class JitProvisioningPersistence(OpenIdentityStackDbContext db, IA
         try
         {
             await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            if (isNewUser) { await db.LockAuthorityBeforeProviderAsync(cancellationToken); }
             bool recordsTrust = db.ChangeTracker.Entries<EmailVerificationEvidence>().Any(entry =>
                 entry.State == EntityState.Added && entry.Entity.ProviderId == providerId.Value);
             Guid expectedTrust = recordsTrust

@@ -24,7 +24,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence;
 /// Main database context for the OpenIdentityStack.
 /// Configured to use OpenIddict entity stores for OIDC/OAuth2 entities.
 /// </summary>
-public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
+public partial class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
 {
     public OpenIdentityStackDbContext(DbContextOptions<OpenIdentityStackDbContext> options)
         : base(options)
@@ -106,14 +106,14 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
         {
             this.UpstreamProviders.Find(providerId)?.LockIdentityConfiguration();
         }
-        return base.SaveChanges(acceptAllChangesOnSuccess);
+        return this.SaveWithAuthorityFence(acceptAllChangesOnSuccess);
     }
 
     /// <inheritdoc />
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         await this.LockLinkedProvidersAsync(cancellationToken);
-        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        return await this.SaveWithAuthorityFenceAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     private async Task LockLinkedProvidersAsync(CancellationToken cancellationToken)

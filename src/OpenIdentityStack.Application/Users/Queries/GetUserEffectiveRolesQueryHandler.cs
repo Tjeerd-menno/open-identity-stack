@@ -59,6 +59,10 @@ public sealed class GetUserEffectiveRolesQueryHandler : IGetUserEffectiveRolesQu
             }
 
             Role? role = await this.roleRepository.GetByNameAsync(roleName, cancellationToken);
+            if (role is null && Guid.TryParse(roleName, out Guid roleId))
+            {
+                role = await this.roleRepository.GetByIdAsync(new RoleId(roleId), cancellationToken);
+            }
             if (role != null && role.IsActive)
             {
                 effectiveRolesMap.TryAdd(role.Id, role);

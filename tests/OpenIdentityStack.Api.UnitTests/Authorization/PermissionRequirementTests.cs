@@ -91,7 +91,7 @@ public sealed class PermissionAuthorizationHandlerTests
     }
 
     [Fact]
-    public async Task HandleRequirementAsync_WithAdminRole_GrantsAllPermissions()
+    public async Task HandleRequirementAsync_WithAdminRole_DoesNotGrantPermissions()
     {
         Claim[] claims = [new Claim(ClaimTypes.Role, "admin")];
         ClaimsPrincipal user = new(new ClaimsIdentity(claims, "test"));
@@ -100,11 +100,11 @@ public sealed class PermissionAuthorizationHandlerTests
 
         await this.handler.HandleAsync(context);
 
-        context.HasSucceeded.ShouldBeTrue();
+        context.HasSucceeded.ShouldBeFalse();
     }
 
     [Fact]
-    public async Task HandleRequirementAsync_WithRoleClaim_GrantsAllPermissionsForAdmin()
+    public async Task HandleRequirementAsync_WithRoleClaim_DoesNotGrantPermissionsForAdmin()
     {
         Claim[] claims = [new Claim("role", "ADMIN")]; // case-insensitive
         ClaimsPrincipal user = new(new ClaimsIdentity(claims, "test"));
@@ -113,7 +113,7 @@ public sealed class PermissionAuthorizationHandlerTests
 
         await this.handler.HandleAsync(context);
 
-        context.HasSucceeded.ShouldBeTrue();
+        context.HasSucceeded.ShouldBeFalse();
     }
 
     [Fact]

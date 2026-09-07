@@ -131,11 +131,10 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
             throw new InvalidOperationException("TestSeeder or ManagementWebUrl is not initialized.");
         }
 
-        // The browser signs in as this user; give it the seeded super-admin role so the
-        // real access token carries permission '*' and every admin surface renders.
+        // Bootstrap explicit local human authority only in this isolated fixture database.
+        // Runtime mutation paths still require fresh human approval and acknowledgement.
         Guid userId = await TestSeeder.CreateTestUserAsync(AdminEmail, "E2E Admin", AdminPassword);
-        Guid superAdminRoleId = await TestSeeder.CreateTestRoleAsync("super-admin", "Super Admin");
-        await TestSeeder.AssignRoleToUserAsync(userId, superAdminRoleId);
+        await TestSeeder.BootstrapHumanAdministratorFixtureAsync(userId);
 
         // Public OAuth client the SPA uses for the authorization-code + PKCE login flow.
         string baseUrl = ManagementWebUrl.TrimEnd('/');

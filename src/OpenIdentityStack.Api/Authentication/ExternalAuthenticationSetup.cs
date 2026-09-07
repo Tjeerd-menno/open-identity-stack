@@ -95,6 +95,9 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
                     context.Properties.SetString(ExternalIdentityProperties.ProviderId, provider.Id.Value.ToString());
                     context.Properties.SetString(ExternalIdentityProperties.ProviderName, context.Scheme.Name);
                     context.Properties.SetString(ExternalIdentityProperties.Authority, context.Options.Authority);
+                    System.Security.Claims.Claim[] authenticationTimes = context.SecurityToken.Claims.Where(c => c.Type == "auth_time").ToArray();
+                    context.Properties.SetString(ExternalIdentityProperties.AuthenticationTime,
+                        authenticationTimes.Length == 1 ? authenticationTimes[0].Value : null);
                     string? email = context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
                     System.Security.Claims.Claim? verifiedClaim = context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email_verified");
                     bool verified = verifiedClaim?.ValueType == System.Security.Claims.ClaimValueTypes.Boolean
@@ -296,4 +299,5 @@ public static class ExternalIdentityProperties
     public const string ProviderName = "ois.provider_name";
     public const string Authority = "ois.authentication_authority";
     public const string VerifiedEmail = "ois.verified_email";
+    public const string AuthenticationTime = "ois.validated_authentication_time";
 }

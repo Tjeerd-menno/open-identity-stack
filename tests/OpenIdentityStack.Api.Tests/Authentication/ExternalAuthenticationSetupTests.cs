@@ -67,6 +67,30 @@ public sealed class DynamicAuthenticationSchemeServiceTests
         byte[] serialized = TicketSerializer.Default.Serialize(ticket);
         TicketSerializer.Default.Deserialize(serialized).ShouldNotBeNull();
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("1788640000")]
+    public async Task RegisterSchemeAsync_AuthenticationTimeComesOnlyFromValidatedIdToken(string? authenticationTime)
+    {
+        IAuthenticationSchemeProvider schemes = Substitute.For<IAuthenticationSchemeProvider>();
+        var cache = new OptionsCache<OpenIdConnectOptions>();
+        IServiceProvider services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(IEnumerable<IPostConfigureOptions<OpenIdConnectOptions>>)).Returns(Array.Empty<IPostConfigureOptions<OpenIdConnectOptions>>());
+        var service = new DynamicAuthenticationSchemeService(schemes, cache, services, Substitute.For<ILogger<DynamicAuthenticationSchemeService>>());
+        UpstreamProvider provider = UpstreamProvider.Create("tenant", "Tenant", "https://issuer.example/", "client").Value;
+        await service.RegisterSchemeAsync(provider);
+        OpenIdConnectOptions options = cache.GetOrAdd("tenant", () => throw new InvalidOperationException());
+        var properties = new AuthenticationProperties();
+        var context = new TokenValidatedContext(new Microsoft.AspNetCore.Http.DefaultHttpContext(), new AuthenticationScheme("tenant", "Tenant", typeof(OpenIdConnectHandler)), options,
+            new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity([new System.Security.Claims.Claim("auth_time", "9999999999")])), properties)
+        {
+            SecurityToken = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(issuer: provider.Authority,
+                claims: authenticationTime is null ? [] : [new System.Security.Claims.Claim("auth_time", authenticationTime)])
+        };
+        await options.Events.TokenValidated(context);
+        properties.GetString("ois.validated_authentication_time").ShouldBe(authenticationTime);
+    }
     [Fact]
     public async Task RegisterSchemeAsync_AddsSchemeToProvider()
     {

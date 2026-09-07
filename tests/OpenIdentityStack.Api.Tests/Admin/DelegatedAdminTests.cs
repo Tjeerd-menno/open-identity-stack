@@ -44,7 +44,7 @@ public class DelegatedAdminTests
     }
 
     [Fact]
-    public async Task Admin_role_claim_grants_all_permissions()
+    public async Task Admin_role_claim_conveys_no_permissions()
     {
         Claim[] claims = new[] { new Claim(ClaimTypes.Role, "admin") };
         AuthorizationHandlerContext usersContext = CreateContext(Permissions.Users.Delete, claims);
@@ -55,9 +55,9 @@ public class DelegatedAdminTests
         await this.handler.HandleAsync(rolesContext);
         await this.handler.HandleAsync(groupsContext);
 
-        usersContext.HasSucceeded.ShouldBeTrue();
-        rolesContext.HasSucceeded.ShouldBeTrue();
-        groupsContext.HasSucceeded.ShouldBeTrue();
+        usersContext.HasSucceeded.ShouldBeFalse();
+        rolesContext.HasSucceeded.ShouldBeFalse();
+        groupsContext.HasSucceeded.ShouldBeFalse();
     }
 
     [Fact]
