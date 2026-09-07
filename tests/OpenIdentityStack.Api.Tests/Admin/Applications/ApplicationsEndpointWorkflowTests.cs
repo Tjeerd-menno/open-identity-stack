@@ -229,8 +229,8 @@ public sealed class ApplicationsEndpointWorkflowTests(AppHostFixture fixture) : 
         string clientId = $"applications-workflow-{Guid.NewGuid():N}";
         const string clientSecret = "test-secret-123";
 
-        await this.fixture.CreateServiceAccountAsync(clientId, clientSecret);
-        this.accessToken = await this.fixture.GetAccessTokenAsync(clientId, clientSecret);
+        using HttpClient authenticated = await this.fixture.CreateAuthenticatedClientAsync(clientId, clientSecret);
+        this.accessToken = authenticated.DefaultRequestHeaders.Authorization!.Parameter;
     }
 
     private async Task<JsonNode> CreateApplicationAsync()

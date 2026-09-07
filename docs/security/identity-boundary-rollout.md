@@ -12,6 +12,12 @@ New upstream identities with no email collision can receive ordinary local accou
 
 Before deploying this layer, identify integrations using identifier-only linking and preserve independently usable login methods for affected users. Restoring email-based linking or the raw-identifier bypass is not a safe rollback. Database uniqueness constraints continue to reject concurrent attempts to claim the same email or provider/subject; a failed attempt must not be treated as an existing-account authentication success.
 
+## Management Web deployment preparation
+
+DbMigrator prepares the fixed `management-web-client` in both the domain application registry and OpenIddict. For an independently reviewed initial deployment, set `Seed:AdministrativeAccess:BootstrapManagementWeb=true` to create its delegated administrative resource grant. The default is false; client registration alone grants no administrative access. This bootstrap grants no machine permissions and does not give users authority they do not already hold.
+
+Rerunning preparation preserves existing grants, including withdrawn access. An existing client whose status, profile, scopes, redirects, credentials, or PKCE configuration differs from the reviewed deployment configuration causes preparation to fail; reconcile it through the approved administrative workflow before rerunning. Keep the initial bootstrap flag out of ordinary runtime configuration.
+
 ## Delivery tracking
 
 The checked-in OpenAPI contract marks raw linking as deprecated and describes its proof-required 403 response. The shared administrative client no longer exports `linkUserUpstreamIdentity` or its request type. This is an intentional breaking security change: remove raw-link calls from integrations; there is no supported replacement until an independent proof workflow is delivered. Identity listing remains supported.

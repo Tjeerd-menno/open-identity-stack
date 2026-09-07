@@ -1,91 +1,71 @@
 using System.Collections.Immutable;
 using System.Security.Claims;
-
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
-using OpenIdentityStack.Application.Abstractions;
-using OpenIdentityStack.Application.Roles.Queries;
-using OpenIdentityStack.Application.Users.Queries;
-
+using OpenIdentityStack.Application.Applications;
+using OpenIdentityStack.Application.Resources;
+using OpenIdentityStack.Domain.Resources;
 using SharedKernel;
 
 namespace OpenIdentityStack.Infrastructure.Identity;
 
-internal sealed class IntrospectionPermissionsHandler :
+internal sealed class IntrospectionPermissionsHandler(IResourcePermissionService projection, IResourceAccessRepository resources, IApplicationRepository applications) :
     IOpenIddictServerHandler<OpenIddictServerEvents.HandleIntrospectionRequestContext>
 {
-    private readonly IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler;
-    private readonly IPermissionClaimProjectionService permissionClaimProjectionService;
-
-    public IntrospectionPermissionsHandler(
-        IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler,
-        IPermissionClaimProjectionService? permissionClaimProjectionService = null,
-        IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null)
-    {
-        this.getUserEffectiveRolesQueryHandler = getUserEffectiveRolesQueryHandler;
-        this.permissionClaimProjectionService = permissionClaimProjectionService
-            ?? new OpenIdentityStack.Application.Authorization.PermissionClaimProjectionService(applicationPermissionRegistryRepository);
-    }
-
     public async ValueTask HandleAsync(OpenIddictServerEvents.HandleIntrospectionRequestContext context)
     {
-        string? requestingClientId = context.Request?.ClientId;
-        string? subject = context.Subject ?? context.GenericTokenPrincipal?.GetClaim(OpenIddictConstants.Claims.Subject);
-
-        IReadOnlyList<string> permissions = await this.ResolvePermissionsAsync(
-            context.GenericTokenPrincipal,
-            subject,
-            requestingClientId,
-            context.CancellationToken).ConfigureAwait(false);
-
-        context.Claims["permissions"] = new OpenIddictParameter(
-            permissions.Select(static permission => (string?)permission).ToImmutableArray());
-    }
-
-    private async Task<IReadOnlyList<string>> ResolvePermissionsAsync(
-        ClaimsPrincipal? principal,
-        string? subject,
-        string? requestingClientId,
-        CancellationToken cancellationToken)
-    {
-        var permissions = new List<string>();
-        bool resolvedFromFreshRoles = false;
-
-        if (Guid.TryParse(subject, out Guid userId))
+        ClaimsPrincipal? principal = context.GenericTokenPrincipal;
+        string? clientId = principal?.GetClaim(OpenIddictConstants.Claims.ClientId);
+        Domain.Applications.Application? caller = await applications.GetByClientIdAsync(context.Request.ClientId ?? string.Empty, context.CancellationToken);
+        if (principal is null || string.IsNullOrEmpty(clientId) || caller is null || caller.Status != Domain.Applications.ApplicationStatus.Active)
         {
-            Result<IReadOnlyList<RoleDto>> rolesResult =
-                await this.getUserEffectiveRolesQueryHandler.HandleAsync(new UserId(userId), cancellationToken).ConfigureAwait(false);
+            context.Reject(OpenIddictConstants.Errors.InvalidToken);
+            return;
+        }
 
-            if (rolesResult.IsSuccess)
+        ImmutableArray<string> audiences = principal.GetAudiences();
+        if (audiences.IsEmpty) { audiences = principal.GetResources(); }
+        if (audiences.IsEmpty)
+        {
+            context.Reject(OpenIddictConstants.Errors.InvalidToken);
+            return;
+        }
+
+        foreach (string audience in audiences)
+        {
+            ProtectedResource? resource = await resources.FindByAudienceAsync(audience, context.CancellationToken);
+            if (resource is null || await resources.GetGrantAsync(caller.Id, resource.Id, context.CancellationToken) is null)
             {
-                resolvedFromFreshRoles = true;
-                foreach (RoleDto role in rolesResult.Value)
-                {
-                    permissions.AddRange(role.Permissions);
-                }
+                context.Reject(OpenIddictConstants.Errors.InvalidToken);
+                return;
             }
         }
 
-        if (!resolvedFromFreshRoles && principal is not null)
+        string? subject = principal.GetClaim(OpenIddictConstants.Claims.Subject);
+        string? actorType = principal.GetClaim(ResourceTokenActorTypes.ClaimType);
+        if (actorType is not (ResourceTokenActorTypes.User or ResourceTokenActorTypes.Application))
         {
-            permissions.AddRange(this.permissionClaimProjectionService.GetPermissionClaims(principal));
+            context.Reject(OpenIddictConstants.Errors.InvalidToken);
+            return;
         }
 
-        var expandedPermissions = new List<string>();
-        foreach (string permission in permissions)
+        UserId? userId = actorType == ResourceTokenActorTypes.User && Guid.TryParse(subject, out Guid value)
+            ? new UserId(value)
+            : null;
+        if (actorType == ResourceTokenActorTypes.User && userId is null)
         {
-            try
-            {
-                expandedPermissions.AddRange(await this.permissionClaimProjectionService
-                    .ExpandAssignedPermissionsAsync([permission], cancellationToken)
-                    .ConfigureAwait(false));
-            }
-            catch (InvalidOperationException)
-            {
-                // Introspection fails closed for an unexpandable wildcard without leaking the wildcard itself.
-            }
+            context.Reject(OpenIddictConstants.Errors.InvalidToken);
+            return;
+        }
+        Result<ResourceTokenProjection> result = await projection.ProjectAsync(new ResourceTokenRequest(clientId, principal.GetScopes(), audiences, userId,
+            principal.FindAll("permission").Select(static claim => claim.Value).ToArray(), audiences), context.CancellationToken);
+        if (result.IsFailure)
+        {
+            context.Reject(OpenIddictConstants.Errors.InvalidToken);
+            return;
         }
 
-        return this.permissionClaimProjectionService.FilterPermissionsForCaller(expandedPermissions, requestingClientId);
+        context.Claims.Remove("permission");
+        context.Claims["permissions"] = new OpenIddictParameter(result.Value.Permissions.Select(static permission => (string?)permission).ToImmutableArray());
     }
 }

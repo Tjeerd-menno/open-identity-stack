@@ -187,6 +187,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IJitProvisioningPersistence, JitProvisioningPersistence>();
         services.AddScoped<LocalUserBootstrapper>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
+        services.AddScoped<OpenIdentityStack.Application.Resources.IResourceAccessRepository, Resources.ResourceAccessRepository>();
+        services.AddScoped<Resources.ResourceAccessBootstrapper>();
         services.AddScoped<IApplicationPermissionRegistryRepository, ApplicationPermissionRegistryRepository>();
         services.AddScoped<IPermissionAssignmentStore, RolePermissionAssignmentStore>();
         services.AddScoped<IApplicationPermissionTransactionRunner, ApplicationPermissionTransactionRunner>();

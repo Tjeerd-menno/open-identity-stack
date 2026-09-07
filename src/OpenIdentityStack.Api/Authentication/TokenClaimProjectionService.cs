@@ -297,8 +297,6 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
                 yield break;
 
             case Claims.Role:
-                yield return Destinations.AccessToken;
-
                 if (claim.Subject?.HasScope(Scopes.Roles) == true)
                 {
                     yield return Destinations.IdentityToken;

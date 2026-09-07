@@ -98,6 +98,7 @@ public static class AuthorizationOptionsExtensions
         {
             policy.AddAuthenticationSchemes(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
             policy.RequireAuthenticatedUser();
+            policy.AddRequirements(new AdministrativeGrantRevisionRequirement());
         });
 
         foreach (string permission in Permissions.GetAllPermissions())
@@ -106,6 +107,7 @@ public static class AuthorizationOptionsExtensions
             {
                 policy.AddAuthenticationSchemes(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
                 policy.RequireAuthenticatedUser();
+                policy.AddRequirements(new AdministrativeGrantRevisionRequirement());
                 policy.AddRequirements(new PermissionRequirement(permission));
             });
         }

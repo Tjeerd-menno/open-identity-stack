@@ -162,6 +162,27 @@ describe('admin api client', () => {
     });
   });
 
+  it('retains the Problem Details code extension as errorCode', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          type: 'https://example.test/problems/administrative-approval',
+          title: 'Administrative approval required',
+          status: 403,
+          detail: 'Acknowledge the operation before continuing.',
+          code: 'Forbidden.AdministrativeApproval.AcknowledgementRequired',
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/problem+json' } }
+      )
+    );
+    const client = createAdminApiClient({ baseUrl: 'https://admin.example' });
+
+    await expect(client.post('/api/admin/applications', {})).rejects.toMatchObject({
+      status: 403,
+      errorCode: 'Forbidden.AdministrativeApproval.AcknowledgementRequired',
+    });
+  });
+
   it('normalizes simple error payloads', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: 'duplicate_user', message: 'User already exists.' }), {

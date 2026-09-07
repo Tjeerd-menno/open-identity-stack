@@ -17,12 +17,47 @@ public sealed class LocalUserBootstrapper(
     IPasswordPolicyValidator passwordPolicyValidator,
     IDateTimeProvider clock)
 {
+    public async Task EnsureAdministratorPermissionsAsync(
+        IReadOnlyList<string> permissions,
+        CancellationToken cancellationToken = default)
+    {
+        await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
+            await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        Role? role = await db.Roles.SingleOrDefaultAsync(
+            candidate => candidate.Name == SeedData.SystemRoles.SuperAdmin,
+            cancellationToken);
+        if (role is null || !role.IsSystemRole || !role.Permissions.Contains("*", StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("Development permission seeding requires the existing explicit all-permissions system role.");
+        }
+
+        string[] merged = role.Permissions.Concat(permissions)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (merged.Length != role.Permissions.Count)
+        {
+            role.SetPermissions(merged);
+            db.AuditLogEntries.Add(new AuditLogEntry
+            {
+                UserId = "installation-bootstrap",
+                Action = "Role.DevelopmentPermissionsSeeded",
+                EntityType = "Role",
+                EntityId = role.Id.Value.ToString(),
+                Details = "Added explicit development resource permissions to the system administrator role.",
+                Timestamp = clock.UtcNow
+            });
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     public async Task<bool> CreateIfAbsentAsync(
         string email,
         string displayName,
         string password,
         bool assignAdministrator,
         UserProfileData? profile = null,
+        IReadOnlyList<string>? additionalAdministratorPermissions = null,
         CancellationToken cancellationToken = default)
     {
         await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
@@ -46,6 +81,13 @@ public sealed class LocalUserBootstrapper(
         if (assignAdministrator && (role is null || !role.IsSystemRole || !role.Permissions.Contains("*", StringComparer.Ordinal)))
         {
             throw new InvalidOperationException("Controlled administration bootstrap requires the existing explicit all-permissions system role.");
+        }
+
+        if (role is not null && additionalAdministratorPermissions is { Count: > 0 })
+        {
+            string[] permissions = role.Permissions.Concat(additionalAdministratorPermissions)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            role.SetPermissions(permissions);
         }
 
         Result<User> creation = User.CreateBootstrap(email, displayName, passwordHasher.HashPassword(password), clock, profile);

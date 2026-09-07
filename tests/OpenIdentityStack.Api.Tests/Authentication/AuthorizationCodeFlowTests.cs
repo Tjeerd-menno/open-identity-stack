@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
 using OpenIdentityStack.Api.Tests.Fixtures;
 
 namespace OpenIdentityStack.Api.Tests.Authentication;
@@ -28,6 +29,55 @@ public sealed class AuthorizationCodeFlowTests
     }
 
     #region Discovery Endpoint
+
+    [Theory]
+    [InlineData(false, "access_denied")]
+    [InlineData(true, "invalid_target")]
+    public async Task Authorize_ResourceDenied_RedirectsWithProtocolErrorAndOriginalState(bool unknownResource, string expectedError)
+    {
+        string clientId = $"resource-denied-{Guid.NewGuid():N}";
+        string email = $"resource-denied-{Guid.NewGuid():N}@example.test";
+        const string password = "Password123!@#";
+        const string redirectUri = "https://localhost/callback";
+        const string state = "resource-denial-state";
+        await this._fixture.CreateTestUserAsync(email, "Resource user", password);
+        await this._fixture.CreateServiceAccountAsync(clientId, "test-secret", ["openid", "ois.admin"],
+            allowedGrantTypes: ["authorization_code"], redirectUris: [redirectUri]);
+        await this._fixture.ExecuteDbContextAsync(async db =>
+        {
+            if (!await db.ProtectedResources.AnyAsync(value => value.Id == Domain.Resources.ProtectedResource.AdministrativeResourceId))
+            {
+                db.ProtectedResources.Add(Domain.Resources.ProtectedResource.CreateAdministrative());
+            }
+            Domain.Applications.Application application = await db.Applications.SingleAsync(value => value.ClientId == clientId);
+            db.ClientResourceGrants.RemoveRange(await db.ClientResourceGrants.Where(value => value.ClientApplicationId == application.Id).ToListAsync());
+            await db.SaveChangesAsync();
+        });
+        using HttpClient client = this._fixture.CreateClient(allowAutoRedirect: false);
+        var parameters = new Dictionary<string, string>
+        {
+            ["response_type"] = "code", ["client_id"] = clientId, ["redirect_uri"] = redirectUri,
+            ["scope"] = "openid ois.admin", ["state"] = state,
+            ["code_challenge"] = GenerateCodeChallenge(GenerateCodeVerifier()), ["code_challenge_method"] = "S256"
+        };
+        if (unknownResource) { parameters["resource"] = "https://unknown.example.com/api"; }
+        string query = await new FormUrlEncodedContent(parameters).ReadAsStringAsync();
+        using HttpResponseMessage loginPage = await client.GetAsync("/Account/Login");
+        using HttpResponseMessage login = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email, ["Password"] = password, ["RememberMe"] = "false",
+            ["returnUrl"] = "/connect/authorize?" + query,
+            ["__RequestVerificationToken"] = ExtractAntiForgeryToken(await loginPage.Content.ReadAsStringAsync())
+        }));
+        using HttpResponseMessage callback = await client.GetAsync(login.Headers.Location);
+
+        callback.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        callback.Headers.Location!.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
+        Dictionary<string, Microsoft.Extensions.Primitives.StringValues> response = QueryHelpers.ParseQuery(callback.Headers.Location.Query);
+        response["error"].Single().ShouldBe(expectedError);
+        response["state"].Single().ShouldBe(state);
+        response.ContainsKey("code").ShouldBeFalse();
+    }
 
     [Fact]
     public async Task Discovery_ReturnsOpenIdConfiguration()

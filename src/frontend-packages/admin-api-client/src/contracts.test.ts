@@ -37,6 +37,22 @@ function expectCalls(mock: ReturnType<typeof vi.fn>, calls: readonly unknown[][]
 }
 
 describe('Admin API domain contracts', () => {
+  it('maps explicit resource identities and separate client ceilings to the application workflow', async () => {
+    const client = createMockClient();
+    const contract = createApplicationsContract(asAdminApiClient(client));
+    const resource = { audience: 'https://orders.example.com', scope: 'orders', displayName: 'Orders', permissionNamespaces: ['orders'], enabled: true };
+    const grant = { delegatedPermissions: ['orders:invoice:read'], applicationPermissions: [], expectedRevision: 2 };
+    await contract.listProtectedResources();
+    await contract.createProtectedResource(resource);
+    await contract.configureProtectedResource('resource', { ...resource, expectedRevision: 3 });
+    await contract.listClientResourceGrants('client');
+    await contract.configureClientResourceGrant('client', 'resource', grant);
+    await contract.revokeClientResourceGrant('client', 'resource', 2);
+    expectCalls(client.get, [['/api/admin/applications/resources'], ['/api/admin/applications/client/resource-grants']]);
+    expectCalls(client.post, [['/api/admin/applications/resources', resource]]);
+    expectCalls(client.put, [['/api/admin/applications/resources/resource', { ...resource, expectedRevision: 3 }], ['/api/admin/applications/client/resource-grants/resource', grant]]);
+    expectCalls(client.delete, [['/api/admin/applications/client/resource-grants/resource?expectedRevision=2']]);
+  });
   it('maps application lifecycle and credential operations to their routes', async () => {
     const client = createMockClient();
     const contract = createApplicationsContract(asAdminApiClient(client));

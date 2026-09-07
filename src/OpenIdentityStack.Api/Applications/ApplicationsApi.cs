@@ -20,6 +20,7 @@ internal static class ApplicationsApi
     {
         RouteGroupBuilder group = app.MapGroup("api/admin/applications")
             .WithTags("Applications");
+        group.MapResourceAccessApi();
 
         group.MapPost(string.Empty, CreateApplication)
             .RequireAuthorization(Permissions.Applications.Write)

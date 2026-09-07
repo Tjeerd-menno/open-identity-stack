@@ -28,6 +28,12 @@ export const mockApi = {
     unlinkUserUpstreamIdentity: vi.fn(),
   },
   applications: {
+    listProtectedResources: vi.fn().mockResolvedValue([]),
+    createProtectedResource: vi.fn(),
+    configureProtectedResource: vi.fn(),
+    listClientResourceGrants: vi.fn().mockResolvedValue([]),
+    configureClientResourceGrant: vi.fn(),
+    revokeClientResourceGrant: vi.fn(),
     getApplications: vi.fn(),
     getApplication: vi.fn(),
     getApplicationProfilePolicies: vi.fn(),
