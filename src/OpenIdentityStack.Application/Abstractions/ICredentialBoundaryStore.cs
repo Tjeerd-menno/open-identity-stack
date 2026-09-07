@@ -11,5 +11,5 @@ public interface ICredentialBoundaryStore
 {
     Task<Guid> GetEpochAsync(CancellationToken cancellationToken = default);
     Task<bool> IsCurrentAsync(string? epoch, CancellationToken cancellationToken = default);
-    Task<CredentialCutoverResult> ExecuteAsync(Guid operationId, string actorId, CancellationToken cancellationToken = default);
+    Task<Result<CredentialCutoverResult>> ExecuteAsync(Guid operationId, string actorId, CancellationToken cancellationToken = default);
 }

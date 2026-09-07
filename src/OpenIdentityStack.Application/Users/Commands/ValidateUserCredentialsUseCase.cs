@@ -127,7 +127,8 @@ public sealed class ValidateUserCredentialsUseCase : IValidateUserCredentialsUse
         return new ValidateUserCredentialsResult(
             user.Id,
             user.Email,
-            user.DisplayName);
+            user.DisplayName,
+            user.CredentialRevision);
     }
 
     /// <summary>

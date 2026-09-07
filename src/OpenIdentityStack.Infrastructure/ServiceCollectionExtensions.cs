@@ -211,6 +211,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmailTrustCredentialInvalidator, EmailTrustCredentialInvalidator>();
         services.AddScoped<ICredentialBoundaryStore, CredentialBoundaryStore>();
         services.AddScoped<IExecuteCredentialCutoverUseCase, ExecuteCredentialCutoverUseCase>();
+        services.AddScoped<CredentialCutoverReadiness>();
+        services.AddScoped<ICredentialCutoverResourceInventory, CredentialCutoverResourceInventory>();
+        services.AddScoped<ICredentialCutoverReadinessStore, CredentialCutoverReadinessStore>();
+        services.AddScoped<ICredentialCutoverGate>(provider => provider.GetRequiredService<ICredentialCutoverReadinessStore>());
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();

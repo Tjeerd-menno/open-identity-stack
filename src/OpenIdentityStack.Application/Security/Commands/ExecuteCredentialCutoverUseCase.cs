@@ -16,8 +16,8 @@ public sealed class ExecuteCredentialCutoverUseCase(ICredentialBoundaryStore sto
         await approval.CaptureAuthorityAsync(cancellationToken);
         Result approved = await approval.RequireAsync("CredentialBoundary.Cutover", operationId.ToString(), cancellationToken: cancellationToken);
         if (approved.IsFailure) { return approved.Error; }
-        CredentialCutoverResult result = await store.ExecuteAsync(operationId, actor.Current!.UserId.Value.ToString(), cancellationToken);
-        await approval.RecordOutcomeAsync(true, cancellationToken);
+        Result<CredentialCutoverResult> result = await store.ExecuteAsync(operationId, actor.Current!.UserId.Value.ToString(), cancellationToken);
+        await approval.RecordOutcomeAsync(result.IsSuccess, cancellationToken);
         return result;
     }
 }

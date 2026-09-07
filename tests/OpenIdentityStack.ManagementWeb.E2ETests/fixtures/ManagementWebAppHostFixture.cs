@@ -271,6 +271,35 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
         user.LinkUpstreamIdentity(OpenIdentityStack.Domain.Federation.UpstreamProviderId.From(providerId), providerName, subject, user.Email).IsSuccess.ShouldBeTrue();
         await db.SaveChangesAsync();
     }
+    /// <summary>Aggregate metadata only: never exposes token identifiers, subjects or payloads.</summary>
+    public async Task<IReadOnlyList<TokenMetadataAggregate>> ReadTokenMetadataAsync()
+    {
+        string connectionString = await GetRequiredConnectionStringAsync("openidentitystack");
+        DbContextOptions<OpenIdentityStack.Infrastructure.Persistence.OpenIdentityStackDbContext> options =
+            new DbContextOptionsBuilder<OpenIdentityStack.Infrastructure.Persistence.OpenIdentityStackDbContext>()
+                .UseNpgsql(connectionString).UseOpenIddict().Options;
+        await using var db = new OpenIdentityStack.Infrastructure.Persistence.OpenIdentityStackDbContext(options);
+        DateTime now = DateTime.UtcNow;
+        return await db.Set<OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreToken>().AsNoTracking()
+            .GroupBy(token => token.Type ?? "unknown")
+            .Select(group => new TokenMetadataAggregate(group.Key, group.Count(), group.Count(token => token.ExpirationDate > now), group.Count(token => token.ExpirationDate == null)))
+            .ToListAsync();
+    }
+    /// <summary>Creates a business resource for testing external token-window gates without invoking a cutover.</summary>
+    public async Task<Guid> SeedTokenWindowResourceAsync()
+    {
+        string connectionString = await GetRequiredConnectionStringAsync("openidentitystack");
+        DbContextOptions<OpenIdentityStack.Infrastructure.Persistence.OpenIdentityStackDbContext> options =
+            new DbContextOptionsBuilder<OpenIdentityStack.Infrastructure.Persistence.OpenIdentityStackDbContext>()
+                .UseNpgsql(connectionString).UseOpenIddict().Options;
+        await using var db = new OpenIdentityStack.Infrastructure.Persistence.OpenIdentityStackDbContext(options);
+        string suffix = Guid.NewGuid().ToString("N");
+        OpenIdentityStack.Domain.Resources.ProtectedResource resource = OpenIdentityStack.Domain.Resources.ProtectedResource
+            .Create($"urn:inventory:{suffix}", $"inventory.{suffix}", "Inventory regression resource", ["inventory"]).Value;
+        db.Add(resource);
+        await db.SaveChangesAsync();
+        return resource.Id;
+    }
     public async ValueTask DisposeAsync()
     {
         if (Browser is not null)
@@ -328,3 +357,5 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
         }
     }
 }
+
+public sealed record TokenMetadataAggregate(string Type, int Count, int Unexpired, int UnknownExpiry);

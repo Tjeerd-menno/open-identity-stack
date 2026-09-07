@@ -17,7 +17,7 @@ namespace OpenIdentityStack.Infrastructure.Tests.Identity;
 public sealed class TokenIssuanceTransactionTests
 {
     [Fact]
-    public async Task BeginDoesNotAcquireTheGlobalAuthorityFence()
+    public async Task BeginAcquiresCredentialBoundaryFenceWithoutAcquiringGlobalAuthorityFence()
     {
         await using SqliteConnection connection = await CreateDatabaseAsync();
         var commands = new CommandRecorder();
@@ -26,6 +26,7 @@ public sealed class TokenIssuanceTransactionTests
 
         await transaction.BeginAsync(default);
 
+        commands.Commands.ShouldContain(command => command.Contains("CredentialBoundary", StringComparison.Ordinal));
         commands.Commands.ShouldNotContain(command => command.Contains("AdministrativeAuthorityRevision", StringComparison.Ordinal));
     }
 

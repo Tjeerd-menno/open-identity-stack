@@ -46,8 +46,61 @@ public sealed class CredentialCutoverConfiguration : IEntityTypeConfiguration<Cr
     }
 }
 
+internal static class CredentialBoundaryFence
+{
+    private const long advisoryLockKey = 0x4F495343524544; // "OISCRED"
+
+    public static async Task AcquireSharedAsync(OpenIdentityStackDbContext db, CancellationToken cancellationToken)
+    {
+        if (db.Database.IsNpgsql())
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock_shared({advisoryLockKey}); /* CredentialBoundary */",
+                cancellationToken);
+            if (!await db.Set<CredentialBoundaryState>().AsNoTracking().AnyAsync(x => x.Id == 1, cancellationToken))
+            {
+                throw new InvalidOperationException("The credential boundary fence is unavailable.");
+            }
+            return;
+        }
+
+        await AcquireRowWriteAsync(db, cancellationToken);
+    }
+
+    public static async Task AcquireExclusiveSessionAsync(OpenIdentityStackDbContext db, CancellationToken cancellationToken)
+    {
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_lock({advisoryLockKey}); /* CredentialBoundary */",
+            cancellationToken);
+        if (!await db.Set<CredentialBoundaryState>().AsNoTracking().AnyAsync(x => x.Id == 1, cancellationToken))
+        {
+            throw new InvalidOperationException("The credential boundary fence is unavailable.");
+        }
+    }
+
+    public static Task ReleaseExclusiveSessionAsync(OpenIdentityStackDbContext db) =>
+        db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_unlock({advisoryLockKey}); /* CredentialBoundary */",
+            CancellationToken.None);
+
+    public static Task AcquireExclusiveRowAsync(OpenIdentityStackDbContext db, CancellationToken cancellationToken)
+    {
+        return AcquireRowWriteAsync(db, cancellationToken);
+    }
+
+    private static async Task AcquireRowWriteAsync(OpenIdentityStackDbContext db, CancellationToken cancellationToken)
+    {
+        int affected = await db.Database.ExecuteSqlRawAsync(
+            """UPDATE "CredentialBoundary" SET "Epoch" = "Epoch" WHERE "Id" = 1""", cancellationToken);
+        if (affected != 1)
+        {
+            throw new InvalidOperationException("The credential boundary fence is unavailable.");
+        }
+    }
+}
+
 public sealed class CredentialBoundaryStore(OpenIdentityStackDbContext db, IOpenIddictTokenManager tokens,
-    IOpenIddictAuthorizationManager grants, IDateTimeProvider clock) : ICredentialBoundaryStore
+    IOpenIddictAuthorizationManager grants, IDateTimeProvider clock, OpenIdentityStack.Application.Abstractions.ICredentialCutoverGate gate) : ICredentialBoundaryStore
 {
     // Fresh scalar reads deliberately bypass EF's identity map and all process-local caches.
     public Task<Guid> GetEpochAsync(CancellationToken cancellationToken = default) =>
@@ -59,11 +112,56 @@ public sealed class CredentialBoundaryStore(OpenIdentityStackDbContext db, IOpen
         return epoch is null ? current == Guid.Empty : Guid.TryParse(epoch, out Guid captured) && current == captured;
     }
 
-    public async Task<CredentialCutoverResult> ExecuteAsync(Guid operationId, string actorId, CancellationToken cancellationToken = default)
+    public async Task<Result<CredentialCutoverResult>> ExecuteAsync(Guid operationId, string actorId, CancellationToken cancellationToken = default)
+    {
+        if (!db.Database.IsNpgsql())
+        {
+            return await this.ExecuteTransactionAsync(operationId, actorId, acquireRowFence: true, cancellationToken);
+        }
+
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        bool acquired = false;
+        try
+        {
+            await CredentialBoundaryFence.AcquireExclusiveSessionAsync(db, cancellationToken);
+            acquired = true;
+            return await this.ExecuteTransactionAsync(operationId, actorId, acquireRowFence: false, cancellationToken);
+        }
+        finally
+        {
+            try
+            {
+                if (acquired) { await CredentialBoundaryFence.ReleaseExclusiveSessionAsync(db); }
+            }
+            finally
+            {
+                await db.Database.CloseConnectionAsync();
+            }
+        }
+    }
+
+    private async Task<Result<CredentialCutoverResult>> ExecuteTransactionAsync(
+        Guid operationId, string actorId, bool acquireRowFence, CancellationToken cancellationToken)
     {
         await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        if (acquireRowFence) { await CredentialBoundaryFence.AcquireExclusiveRowAsync(db, cancellationToken); }
         CredentialCutoverRecord? previous = await db.Set<CredentialCutoverRecord>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == operationId, cancellationToken);
         if (previous is not null) { return previous.ToResult(); }
+        CredentialCutoverPreflight preflight = await gate.EvaluateAsync(cancellationToken);
+        db.AuditLogEntries.Add(new AuditLogEntry
+        {
+            UserId = actorId, Action = preflight.Ready ? "CredentialCutover.PreflightPassed" : "CredentialCutover.PreflightBlocked",
+            EntityType = "CredentialBoundary", EntityId = operationId.ToString(), Timestamp = clock.UtcNow,
+            Details = "Cutover prerequisites rechecked inside the serializable transaction.",
+            AfterState = System.Text.Json.JsonSerializer.Serialize(CredentialCutoverAuditSummary.From(preflight))
+        });
+        if (!preflight.Ready)
+        {
+            // Commit only the blocked diagnostic; the boundary, grants, and sessions are unchanged.
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return DomainError.Conflict("CredentialCutover.PrerequisitesUnresolved", "Cutover is blocked. Review the current migration preflight and resolve every prerequisite.");
+        }
         CredentialBoundaryState boundary = await db.Set<CredentialBoundaryState>().SingleAsync(x => x.Id == 1, cancellationToken);
         boundary.Epoch = operationId;
         // Save the concurrency-checked boundary before revocation. All changes commit together.

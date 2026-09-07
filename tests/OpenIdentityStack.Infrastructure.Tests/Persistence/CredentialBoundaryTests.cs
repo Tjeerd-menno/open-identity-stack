@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.Domain.Common;
@@ -25,7 +26,7 @@ public sealed class CredentialBoundaryTests(SqliteTestFixture fixture) : IClassF
         db.ChangeTracker.Clear();
 
         OpenIdentityStack.Application.Abstractions.CredentialCutoverResult result =
-            await CreateStore(db, clock: clock).ExecuteAsync(Guid.NewGuid(), "operator");
+            (await CreateStore(db, clock: clock).ExecuteAsync(Guid.NewGuid(), "operator")).Value;
 
         result.Sessions.ShouldBe(sessions.Length);
         db.ChangeTracker.Entries<UserSession>().ShouldBeEmpty();
@@ -33,6 +34,38 @@ public sealed class CredentialBoundaryTests(SqliteTestFixture fixture) : IClassF
             .Where(session => sessions.Select(seed => seed.Id).Contains(session.Id))
             .ToArrayAsync();
         persisted.ShouldAllBe(session => session.Status == SessionStatus.Revoked && session.RevokedAt == now);
+    }
+
+    [Fact]
+    public async Task BlockedPreflightLeavesBoundaryAndCredentialsUntouchedAndRecordsTheFailure()
+    {
+        await using OpenIdentityStackDbContext db = fixture.CreateDbContext();
+        ICredentialCutoverGate gate = Substitute.For<ICredentialCutoverGate>();
+        var emergencyUser = Guid.NewGuid();
+        var preflight = new CredentialCutoverPreflight(Guid.Empty, DateTimeOffset.UtcNow,
+            [new CutoverBlocker("Identity.Quarantined", "Recovery is not specified.")],
+            new(Guid.NewGuid(), emergencyUser, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, true), new(1, 1, 1, 0, 0, 0, 0, 0), [], [], 0, null);
+        gate.EvaluateAsync(Arg.Any<CancellationToken>()).Returns(preflight);
+        IOpenIddictTokenManager tokens = Substitute.For<IOpenIddictTokenManager>();
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var store = new CredentialBoundaryStore(db, tokens, Substitute.For<IOpenIddictAuthorizationManager>(), clock, gate);
+        Guid before = await store.GetEpochAsync();
+        var operation = Guid.NewGuid();
+
+        Result<CredentialCutoverResult> result = await store.ExecuteAsync(operation, "operator");
+
+        result.IsFailure.ShouldBeTrue();
+        (await store.GetEpochAsync()).ShouldBe(before);
+        (await db.Set<CredentialCutoverRecord>().AnyAsync(x => x.Id == operation)).ShouldBeFalse();
+        string? auditSummary = await db.AuditLogEntries.Where(x => x.Action == "CredentialCutover.PreflightBlocked" && x.EntityId == operation.ToString())
+            .Select(x => x.AfterState).SingleAsync();
+        auditSummary.ShouldNotBeNull();
+        auditSummary.ShouldContain("Identity.Quarantined");
+        auditSummary.ShouldNotContain(emergencyUser.ToString());
+#pragma warning disable CA2012
+        await tokens.DidNotReceive().RevokeAsync(null, null, null, null, Arg.Any<CancellationToken>());
+#pragma warning restore CA2012
     }
 
     [Fact]
@@ -60,7 +93,7 @@ public sealed class CredentialBoundaryTests(SqliteTestFixture fixture) : IClassF
         CredentialBoundaryStore store = CreateStore(db);
         Guid before = await store.GetEpochAsync();
         var operation = Guid.NewGuid();
-        OpenIdentityStack.Application.Abstractions.CredentialCutoverResult completed = await store.ExecuteAsync(operation, "operator");
+        OpenIdentityStack.Application.Abstractions.CredentialCutoverResult completed = (await store.ExecuteAsync(operation, "operator")).Value;
         (await store.IsCurrentAsync(before.ToString())).ShouldBeFalse();
         (await store.IsCurrentAsync(null)).ShouldBeFalse();
         (await store.IsCurrentAsync(operation.ToString())).ShouldBeTrue();
@@ -68,7 +101,7 @@ public sealed class CredentialBoundaryTests(SqliteTestFixture fixture) : IClassF
         await using OpenIdentityStackDbContext restarted = fixture.CreateDbContext();
         CredentialBoundaryStore otherInstance = CreateStore(restarted);
         (await otherInstance.GetEpochAsync()).ShouldBe(operation);
-        (await otherInstance.ExecuteAsync(operation, "operator")).ShouldBe(completed);
+        (await otherInstance.ExecuteAsync(operation, "operator")).Value.ShouldBe(completed);
         var next = Guid.NewGuid();
         await otherInstance.ExecuteAsync(next, "operator");
         await otherInstance.ExecuteAsync(operation, "operator");
@@ -98,13 +131,16 @@ public sealed class CredentialBoundaryTests(SqliteTestFixture fixture) : IClassF
     private static CredentialBoundaryStore CreateStore(
         OpenIdentityStackDbContext db,
         IOpenIddictTokenManager? tokens = null,
-        IDateTimeProvider? clock = null)
+        IDateTimeProvider? clock = null,
+        ICredentialCutoverGate? gate = null)
     {
         if (clock is null)
         {
             clock = Substitute.For<IDateTimeProvider>();
             clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         }
-        return new CredentialBoundaryStore(db, tokens ?? Substitute.For<IOpenIddictTokenManager>(), Substitute.For<IOpenIddictAuthorizationManager>(), clock);
+        gate ??= Substitute.For<ICredentialCutoverGate>();
+        gate.EvaluateAsync(Arg.Any<CancellationToken>()).Returns(new CredentialCutoverPreflight(Guid.Empty, DateTimeOffset.UtcNow, [], null, new(0, 0, 0, 0, 0, 0, 0, 0), [], [], 0, null));
+        return new CredentialBoundaryStore(db, tokens ?? Substitute.For<IOpenIddictTokenManager>(), Substitute.For<IOpenIddictAuthorizationManager>(), clock, gate);
     }
 }

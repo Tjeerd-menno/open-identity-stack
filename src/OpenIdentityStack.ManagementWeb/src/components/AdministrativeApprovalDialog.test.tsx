@@ -27,6 +27,25 @@ describe('AdministrativeApprovalDialog', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('describes cutover approval without claiming to grant access', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ errorCode: 'Forbidden.AdministrativeApproval.AcknowledgementRequired' }), { status: 403 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ operationId: 'cutover', tokens: 2, grants: 1, sessions: 1 }), { status: 200 }));
+    globalThis.fetch = fetchMock;
+    renderManagementWeb(<AdministrativeApprovalDialog onReauthenticate={vi.fn()} />);
+    let pending!: Promise<unknown>;
+    await act(async () => { pending = api.cutover.execute('cutover'); });
+    expect(await screen.findByRole('dialog', { name: 'Approve administrative operation' })).toBeVisible();
+    expect(screen.queryByText(/access this operation grants/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve operation' })).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: 'I acknowledge the effects of this operation.' }));
+    await user.click(screen.getByRole('button', { name: 'Approve operation' }));
+    await pending;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get('X-OIS-Administrative-Approval')).toBe('acknowledge');
+  });
+
   it('requires acknowledgement before retrying the pending operation', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn()
