@@ -21,7 +21,16 @@ public sealed class CreateProviderUseCaseTests
         this.useCase = new CreateProviderUseCase(
             this.providerRepository,
             this.environmentProvider,
-            this.secretProtector);
+            this.secretProtector, Substitute.For<IAuditLog>());
+    }
+
+    [Fact]
+    public async Task MissingActorRejectsProviderCreationWithoutPersistence()
+    {
+        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(new CreateProviderCommand(
+            "provider", "Provider", "https://issuer.example", "client", null, null));
+        result.Error.Code.ShouldBe("Forbidden.Federation.OperatorRequired");
+        await this.providerRepository.DidNotReceive().AddAsync(Arg.Any<UpstreamProvider>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -41,7 +50,7 @@ public sealed class CreateProviderUseCaseTests
         this.providerRepository.AddAsync(Arg.Do<UpstreamProvider>(provider => addedProvider = provider), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command);
+        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command with { ActorId = "operator" });
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Name.ShouldBe("google");
@@ -71,7 +80,7 @@ public sealed class CreateProviderUseCaseTests
         this.providerRepository.GetByNameAsync(existingProvider.Name, Arg.Any<CancellationToken>())
             .Returns(existingProvider);
 
-        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command);
+        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command with { ActorId = "operator" });
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Conflict.ProviderNameExists");
@@ -92,7 +101,7 @@ public sealed class CreateProviderUseCaseTests
 
         this.environmentProvider.IsDevelopment.Returns(false);
 
-        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command);
+        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command with { ActorId = "operator" });
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe(UpstreamProviderErrors.HttpNotAllowed.Code);
@@ -112,7 +121,7 @@ public sealed class CreateProviderUseCaseTests
 
         this.environmentProvider.IsDevelopment.Returns(true);
 
-        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command);
+        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command with { ActorId = "operator" });
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Authority.ShouldBe("http://localhost:8080");
@@ -134,7 +143,7 @@ public sealed class CreateProviderUseCaseTests
         this.providerRepository.AddAsync(Arg.Do<UpstreamProvider>(provider => addedProvider = provider), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command);
+        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command with { ActorId = "operator" });
 
         result.IsSuccess.ShouldBeTrue();
         this.secretProtector.Received(1).Protect("plain-secret");
@@ -155,7 +164,7 @@ public sealed class CreateProviderUseCaseTests
 
         this.secretProtector.Protect("plain-secret").Returns(_ => throw new InvalidOperationException("failed"));
 
-        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command);
+        Result<CreateProviderResult> result = await this.useCase.ExecuteAsync(command with { ActorId = "operator" });
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Failure.ProviderClientSecretProtectionFailed");
@@ -174,7 +183,7 @@ public sealed class CreateProviderUseCaseTests
             null);
         using var cts = new CancellationTokenSource();
 
-        await this.useCase.ExecuteAsync(command, cts.Token);
+        await this.useCase.ExecuteAsync(command with { ActorId = "operator" }, cts.Token);
 
         await this.providerRepository.Received(1).GetByNameAsync(command.Name, cts.Token);
         await this.providerRepository.Received(1).AddAsync(Arg.Any<UpstreamProvider>(), cts.Token);

@@ -12,16 +12,19 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IUpstreamProviderRepository providerRepository;
-    private readonly IDateTimeProvider dateTimeProvider;
+    private readonly IAuditLog auditLog;
+    private readonly IJitProvisioningPersistence persistence;
 
     public JitProvisionUserUseCase(
         IUserRepository userRepository,
         IUpstreamProviderRepository providerRepository,
-        IDateTimeProvider dateTimeProvider)
+        IAuditLog auditLog,
+        IJitProvisioningPersistence persistence)
     {
         this.userRepository = userRepository;
         this.providerRepository = providerRepository;
-        this.dateTimeProvider = dateTimeProvider;
+        this.auditLog = auditLog;
+        this.persistence = persistence;
     }
 
     /// <inheritdoc />
@@ -63,31 +66,24 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
                 existingUser.DisplayName);
         }
 
+        if (!provider.JitProvisioningEnabled)
+        {
+            await this.auditLog.LogAsync(
+                "federation", "Federation.ProvisioningDenied", "UpstreamProvider",
+                provider.Id.Value.ToString(), "New account provisioning is disabled.", cancellationToken);
+            return DomainError.Forbidden("Federation.AuthenticationFailed", "Unable to complete sign-in.");
+        }
+
         // Check if a user exists with the same email
         if (!string.IsNullOrWhiteSpace(command.Email))
         {
             User? userByEmail = await this.userRepository.GetByEmailAsync(command.Email, cancellationToken);
             if (userByEmail is not null)
             {
-                // Link the upstream identity to existing user
-                Result linkResult = userByEmail.LinkUpstreamIdentity(
-                    command.ProviderId,
-                    provider.Name,
-                    command.SubjectId,
-                    command.Email);
-
-                if (linkResult.IsFailure)
-                {
-                    return linkResult.Error;
-                }
-
-                await this.userRepository.SaveChangesAsync(cancellationToken);
-
-                return new JitProvisionUserResult(
-                    userByEmail.Id,
-                    IsNewUser: false,
-                    userByEmail.Email,
-                    userByEmail.DisplayName);
+                await this.auditLog.LogAsync(
+                    "federation", "Federation.AccountAssociationDenied", "UpstreamProvider",
+                    provider.Id.Value.ToString(), "Independent account-control proof required.", cancellationToken);
+                return DomainError.Forbidden("Federation.AuthenticationFailed", "Unable to complete sign-in.");
             }
         }
 
@@ -109,7 +105,8 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
         }
 
         await this.userRepository.AddAsync(userResult.Value, cancellationToken);
-        await this.userRepository.SaveChangesAsync(cancellationToken);
+        Result created = await this.persistence.CommitAsync(userResult.Value.Id, command.ProviderId, isNewUser: true, cancellationToken);
+        if (created.IsFailure) { return created.Error; }
 
         return new JitProvisionUserResult(
             userResult.Value.Id,

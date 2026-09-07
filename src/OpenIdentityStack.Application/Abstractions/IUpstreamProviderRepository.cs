@@ -32,6 +32,9 @@ public interface IUpstreamProviderRepository
     /// </summary>
     Task AddAsync(UpstreamProvider provider, CancellationToken cancellationToken = default);
 
+    /// <summary>Requires a concurrency-checked write even when a requested provisioning policy equals the loaded value.</summary>
+    void RequireProvisioningPolicyWrite(UpstreamProvider provider);
+
     /// <summary>
     /// Saves changes to the repository.
     /// </summary>

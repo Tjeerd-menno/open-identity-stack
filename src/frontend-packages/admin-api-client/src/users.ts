@@ -70,13 +70,6 @@ export type ResetPasswordRequest = {
   newPassword: string;
 };
 
-export type LinkUpstreamIdentityRequest = {
-  providerId: string;
-  subject?: string;
-  subjectId?: string;
-  email?: string;
-};
-
 export type UserStatusChangeResponse = {
   userId: string;
   status?: UserStatus;
@@ -102,17 +95,8 @@ export type UsersContract = {
   unassignUserRole: (userId: string, roleId: string) => Promise<void>;
   getUserGroups: (userId: string) => Promise<UserGroup[]>;
   getUserUpstreamIdentities: (userId: string) => Promise<UpstreamIdentity[]>;
-  linkUserUpstreamIdentity: (userId: string, data: LinkUpstreamIdentityRequest) => Promise<UpstreamIdentity>;
   unlinkUserUpstreamIdentity: (userId: string, providerId: string) => Promise<void>;
 };
-
-function normalizeUpstreamIdentityLinkPayload(data: LinkUpstreamIdentityRequest): { providerId: string; subjectId: string; email?: string } {
-  return {
-    providerId: data.providerId,
-    subjectId: data.subjectId ?? data.subject ?? '',
-    ...(data.email !== undefined ? { email: data.email } : {}),
-  };
-}
 
 function normalizeUpstreamIdentityListResponse(response: { items?: UpstreamIdentity[] } | UpstreamIdentity[]): UpstreamIdentity[] {
   return Array.isArray(response) ? response : (response.items ?? []);
@@ -145,11 +129,6 @@ export function createUsersContract(client: AdminApiClient): UsersContract {
       const response = await client.get<{ items: UpstreamIdentity[] }>(`/api/admin/users/${userId}/upstream-identities`);
       return normalizeUpstreamIdentityListResponse(response);
     },
-    linkUserUpstreamIdentity: (userId, data) =>
-      client.post<UpstreamIdentity>(
-        `/api/admin/users/${userId}/upstream-identities`,
-        normalizeUpstreamIdentityLinkPayload(data)
-      ),
     unlinkUserUpstreamIdentity: (userId, providerId) =>
       client.delete<void>(`/api/admin/users/${userId}/upstream-identities/${providerId}`),
   };

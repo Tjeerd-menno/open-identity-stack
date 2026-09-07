@@ -2,13 +2,16 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
+using Microsoft.EntityFrameworkCore;
+using OpenIdentityStack.Domain.Federation;
+using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Api.Tests.Fixtures;
+using SharedKernel;
 
 namespace OpenIdentityStack.Api.Tests.Admin;
 /// <summary>
 /// Integration tests for Admin Upstream Identity Management.
-/// These tests verify linking and unlinking of upstream identities to users.
-/// Currently skipped pending authentication infrastructure fixes.
+/// These tests verify proof-required linking rejection and existing identity management.
 /// </summary>
 public sealed class UpstreamIdentityManagementTests
 {
@@ -60,7 +63,7 @@ public sealed class UpstreamIdentityManagementTests
     }
 
     [Fact]
-    public async Task LinkUpstreamIdentity_WithValidData_Returns201Created()
+    public async Task LinkUpstreamIdentity_WithRawIdentifiers_Returns403AndCreatesNoLink()
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
@@ -71,23 +74,22 @@ public sealed class UpstreamIdentityManagementTests
         // Act
         HttpResponseMessage response = await client.PostAsJsonAsync($"/api/admin/users/{userId}/upstream-identities", request);
 
-        // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        await AssertProofRequiredAsync(response);
+        HttpResponseMessage list = await client.GetAsync($"/api/admin/users/{userId}/upstream-identities");
+        JsonNode? identities = await list.Content.ReadFromJsonAsync<JsonNode>();
+        identities!["items"]!.AsArray().ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task LinkUpstreamIdentity_UserNotFound_Returns404()
+    public async Task LinkUpstreamIdentity_UserNotFound_ReturnsSame403()
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
         Guid providerId = await CreateProviderAsync(client);
         var request = new { ProviderId = providerId, SubjectId = "subject-123", Email = "upstream@example.com" };
 
-        // Act
         HttpResponseMessage response = await client.PostAsJsonAsync($"/api/admin/users/{Guid.NewGuid()}/upstream-identities", request);
-
-        // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        await AssertProofRequiredAsync(response);
     }
 
     [Fact]
@@ -97,9 +99,7 @@ public sealed class UpstreamIdentityManagementTests
         HttpClient client = await this.CreateAuthenticatedClientAsync();
         Guid userId = await CreateUserAsync(client);
         Guid providerId = await CreateProviderAsync(client);
-        var request = new { ProviderId = providerId, SubjectId = "subject-123", Email = "upstream@example.com" };
-        HttpResponseMessage link = await client.PostAsJsonAsync($"/api/admin/users/{userId}/upstream-identities", request);
-        link.StatusCode.ShouldBe(HttpStatusCode.Created);
+        await this.SeedExistingIdentityAsync(userId, providerId);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"/api/admin/users/{userId}/upstream-identities");
@@ -130,9 +130,7 @@ public sealed class UpstreamIdentityManagementTests
         HttpClient client = await this.CreateAuthenticatedClientAsync();
         Guid userId = await CreateUserAsync(client);
         Guid providerId = await CreateProviderAsync(client);
-        var request = new { ProviderId = providerId, SubjectId = "subject-123", Email = "upstream@example.com" };
-        HttpResponseMessage link = await client.PostAsJsonAsync($"/api/admin/users/{userId}/upstream-identities", request);
-        link.StatusCode.ShouldBe(HttpStatusCode.Created);
+        await this.SeedExistingIdentityAsync(userId, providerId);
 
         // Act
         HttpResponseMessage response = await client.DeleteAsync($"/api/admin/users/{userId}/upstream-identities/{providerId}");
@@ -157,25 +155,23 @@ public sealed class UpstreamIdentityManagementTests
     }
 
     [Fact]
-    public async Task LinkUpstreamIdentity_AlreadyLinked_Returns409Conflict()
+    public async Task LinkUpstreamIdentity_AlreadyLinked_ReturnsSame403()
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
         Guid userId = await CreateUserAsync(client);
         Guid providerId = await CreateProviderAsync(client);
+        await this.SeedExistingIdentityAsync(userId, providerId);
         var request = new { ProviderId = providerId, SubjectId = "subject-123", Email = "upstream@example.com" };
-        HttpResponseMessage link = await client.PostAsJsonAsync($"/api/admin/users/{userId}/upstream-identities", request);
-        link.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         // Act
         HttpResponseMessage response = await client.PostAsJsonAsync($"/api/admin/users/{userId}/upstream-identities", request);
 
-        // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        await AssertProofRequiredAsync(response);
     }
 
     [Fact]
-    public async Task LinkUpstreamIdentity_ThenUnlink_CanRelinkSuccessfully()
+    public async Task LinkUpstreamIdentity_AfterUnlink_StillRequiresProof()
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
@@ -183,8 +179,7 @@ public sealed class UpstreamIdentityManagementTests
         Guid providerId = await CreateProviderAsync(client);
         var request = new { ProviderId = providerId, SubjectId = "subject-123", Email = "upstream@example.com" };
 
-        HttpResponseMessage link = await client.PostAsJsonAsync($"/api/admin/users/{userId}/upstream-identities", request);
-        link.StatusCode.ShouldBe(HttpStatusCode.Created);
+        await this.SeedExistingIdentityAsync(userId, providerId);
 
         HttpResponseMessage unlink = await client.DeleteAsync($"/api/admin/users/{userId}/upstream-identities/{providerId}");
         unlink.StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -193,6 +188,24 @@ public sealed class UpstreamIdentityManagementTests
         HttpResponseMessage relink = await client.PostAsJsonAsync($"/api/admin/users/{userId}/upstream-identities", request);
 
         // Assert
-        relink.StatusCode.ShouldBe(HttpStatusCode.Created);
+        await AssertProofRequiredAsync(relink);
+    }
+
+    private Task SeedExistingIdentityAsync(Guid userId, Guid providerId) =>
+        this._fixture.ExecuteDbContextAsync(async dbContext =>
+        {
+            User user = await dbContext.Users.SingleAsync(user => user.Id == new UserId(userId));
+            UpstreamProvider provider = await dbContext.UpstreamProviders.SingleAsync(provider => provider.Id == new UpstreamProviderId(providerId));
+            user.LinkUpstreamIdentity(provider.Id, provider.Name, "subject-123", "upstream@example.com").IsSuccess.ShouldBeTrue();
+            await dbContext.SaveChangesAsync();
+        });
+
+    private static async Task AssertProofRequiredAsync(HttpResponseMessage response)
+    {
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
+        JsonNode? problem = await response.Content.ReadFromJsonAsync<JsonNode>();
+        problem!["status"]!.GetValue<int>().ShouldBe(403);
+        problem["code"]!.GetValue<string>().ShouldBe("Forbidden.UpstreamIdentity.ProofRequired");
     }
 }

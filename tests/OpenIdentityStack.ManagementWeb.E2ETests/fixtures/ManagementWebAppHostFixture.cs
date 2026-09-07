@@ -1,6 +1,7 @@
 extern alias AppHostProject;
 using Aspire.Hosting;
 using Aspire.Hosting.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
 using OpenIdentityStack.Testing;
@@ -249,6 +250,18 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
     public Task<Guid> SeedSessionAsync(Guid userId, string ipAddress, string userAgent) =>
         SeederOrThrow.CreateSessionAsync(userId, ipAddress, userAgent);
 
+    /// <summary>Creates legacy association evidence only in this isolated fixture database; never marks it trusted.</summary>
+    public async Task SeedLegacyIdentityAsync(Guid userId, Guid providerId, string providerName, string subject)
+    {
+        string connectionString = await GetRequiredConnectionStringAsync("openidentitystack");
+        Microsoft.EntityFrameworkCore.DbContextOptions<OpenIdentityStack.Infrastructure.Persistence.OpenIdentityStackDbContext> options =
+            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<OpenIdentityStack.Infrastructure.Persistence.OpenIdentityStackDbContext>()
+                .UseNpgsql(connectionString).UseOpenIddict().Options;
+        await using var db = new OpenIdentityStack.Infrastructure.Persistence.OpenIdentityStackDbContext(options);
+        OpenIdentityStack.Domain.Users.User user = await db.Users.SingleAsync(x => x.Id == new SharedKernel.UserId(userId));
+        user.LinkUpstreamIdentity(OpenIdentityStack.Domain.Federation.UpstreamProviderId.From(providerId), providerName, subject, user.Email).IsSuccess.ShouldBeTrue();
+        await db.SaveChangesAsync();
+    }
     public async ValueTask DisposeAsync()
     {
         if (Browser is not null)
