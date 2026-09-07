@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using OpenIddict.Validation.AspNetCore;
 using OpenIdentityStack.Application.Authorization;
@@ -21,63 +20,22 @@ public sealed class PermissionRequirement : IAuthorizationRequirement
 /// <summary>
 /// Authorization handler that evaluates permission requirements against OAuth2/OIDC-aligned claims.
 /// </summary>
-public sealed class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
+public sealed class PermissionAuthorizationHandler(AdministrativeRequestAuthorization administrativeAccess) : AuthorizationHandler<PermissionRequirement>
 {
-    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
     {
-        if (!context.User.Identity?.IsAuthenticated ?? true)
-        {
-            return Task.CompletedTask;
-        }
-
-        HashSet<string> granted = CollectGrantedPermissions(context.User);
-
-        if (granted.Any(value => Permissions.Matches(value, requirement.Permission)))
-        {
-            context.Succeed(requirement);
-        }
-
-        return Task.CompletedTask;
+        IReadOnlyList<string> permissions = await administrativeAccess.EvaluateAsync(context.User);
+        if (permissions.Any(permission => Permissions.Matches(permission, requirement.Permission))) { context.Succeed(requirement); }
     }
+}
 
-    private static HashSet<string> CollectGrantedPermissions(ClaimsPrincipal user)
+public sealed class AdministrativeAccessRequirement : IAuthorizationRequirement;
+
+public sealed class AdministrativeAccessAuthorizationHandler(AdministrativeRequestAuthorization administrativeAccess) : AuthorizationHandler<AdministrativeAccessRequirement>
+{
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, AdministrativeAccessRequirement requirement)
     {
-        var granted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        AddClaims(granted, user, "permission");      // legacy/custom permission claim
-        AddClaims(granted, user, "permissions");     // alternate naming
-        AddScopes(granted, user, "scope");           // OAuth2/OIDC standard scope claim
-        AddScopes(granted, user, "scp");             // Microsoft/JWT short scope claim
-
-        return granted;
-    }
-
-    private static void AddClaims(HashSet<string> granted, ClaimsPrincipal user, string claimType)
-    {
-        foreach (Claim claim in user.FindAll(claimType))
-        {
-            if (!string.IsNullOrWhiteSpace(claim.Value))
-            {
-                granted.Add(claim.Value);
-            }
-        }
-    }
-
-    private static void AddScopes(HashSet<string> granted, ClaimsPrincipal user, string claimType)
-    {
-        foreach (Claim claim in user.FindAll(claimType))
-        {
-            if (string.IsNullOrWhiteSpace(claim.Value))
-            {
-                continue;
-            }
-
-            string[] scopes = claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            foreach (string scope in scopes)
-            {
-                granted.Add(scope);
-            }
-        }
+        if ((await administrativeAccess.EvaluateAsync(context.User)).Count > 0) { context.Succeed(requirement); }
     }
 }
 
@@ -89,7 +47,7 @@ public static class AuthorizationOptionsExtensions
     public const string AdminPolicy = "AdminPolicy";
 
     /// <summary>
-    /// Adds an authenticated-only admin policy and per-permission policies using PermissionRequirement.
+    /// Adds the dedicated administrative audience/entitlement boundary and per-permission policies.
     /// All policies use OpenIddict bearer token validation to prevent cookie-based login redirects.
     /// </summary>
     public static void AddPermissionPolicies(this AuthorizationOptions options)
@@ -99,6 +57,7 @@ public static class AuthorizationOptionsExtensions
             policy.AddAuthenticationSchemes(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
             policy.RequireAuthenticatedUser();
             policy.AddRequirements(new AdministrativeGrantRevisionRequirement());
+            policy.AddRequirements(new AdministrativeAccessRequirement());
         });
 
         foreach (string permission in Permissions.GetAllPermissions())
@@ -108,6 +67,7 @@ public static class AuthorizationOptionsExtensions
                 policy.AddAuthenticationSchemes(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
                 policy.RequireAuthenticatedUser();
                 policy.AddRequirements(new AdministrativeGrantRevisionRequirement());
+                policy.AddRequirements(new AdministrativeAccessRequirement());
                 policy.AddRequirements(new PermissionRequirement(permission));
             });
         }

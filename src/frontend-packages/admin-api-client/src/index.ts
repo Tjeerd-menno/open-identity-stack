@@ -107,6 +107,7 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
 }
 
 export { createUsersContract } from './users';
+export * from './administrative-access';
 export type {
   UserStatus,
   UserListItem,

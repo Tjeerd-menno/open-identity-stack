@@ -79,7 +79,7 @@ paths:
     put:
       operationId: ConfigureClientResourceGrant
       x-required-permission: applications:write
-      description: Requires expectedRevision for an existing grant; omit it for a new grant. Empty lists grant zero permissions. Admin access is rejected by this route.
+      description: Requires expectedRevision for an existing grant; omit it for a new grant. An empty subject-specific list withdraws token approval for that flow. Admin access is rejected by this route.
       requestBody:
         required: true
         content:

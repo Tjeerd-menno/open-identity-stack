@@ -23,7 +23,7 @@ public sealed class CurrentUserApiTests
             new Claim("permission", "USERS:READ"),
             new Claim("scope", "applications:read"));
 
-        IResult result = CurrentUserApi.GetCurrentUser(principal, NullLoggerFactory.Instance);
+        IResult result = CurrentUserApi.CreateResponse(principal, ["users:read"], NullLoggerFactory.Instance);
 
         Ok<CurrentUserResponse> ok = result.ShouldBeOfType<Ok<CurrentUserResponse>>();
         ok.Value.ShouldNotBeNull();
@@ -31,7 +31,7 @@ public sealed class CurrentUserApiTests
         ok.Value.UserName.ShouldBe("ada");
         ok.Value.DisplayName.ShouldBe("Ada Lovelace");
         ok.Value.Email.ShouldBe("ada@example.com");
-        ok.Value.Permissions.ShouldBe(["users:read", "roles:read"]);
+        ok.Value.Permissions.ShouldBe(["users:read"]);
     }
 
     [Fact]
@@ -41,18 +41,18 @@ public sealed class CurrentUserApiTests
             new Claim(ClaimTypes.NameIdentifier, "user-456"),
             new Claim("permission", "*"));
 
-        IResult result = CurrentUserApi.GetCurrentUser(principal, NullLoggerFactory.Instance);
+        IResult result = CurrentUserApi.CreateResponse(principal, ["users:read"], NullLoggerFactory.Instance);
 
         CurrentUserResponse response = result.ShouldBeOfType<Ok<CurrentUserResponse>>().Value.ShouldNotBeNull();
         response.Subject.ShouldBe("user-456");
         response.UserName.ShouldBe("user-456");
         response.DisplayName.ShouldBe("user-456");
         response.Email.ShouldBeNull();
-        response.Permissions.ShouldBe(["*"]);
+        response.Permissions.ShouldBe(["users:read"]);
     }
 
     [Fact]
-    public void CreateResponse_PreservesFirstObservedPermissionClaimOrderAcrossClaimTypes()
+    public void CreateResponse_UsesEvaluatedPermissionsInsteadOfTokenClaims()
     {
         ClaimsPrincipal principal = CreatePrincipal(
             new Claim("sub", "user-789"),
@@ -60,24 +60,24 @@ public sealed class CurrentUserApiTests
             new Claim("permissions", "roles:read"),
             new Claim("permission", "groups:read"));
 
-        IResult result = CurrentUserApi.GetCurrentUser(principal, NullLoggerFactory.Instance);
+        IResult result = CurrentUserApi.CreateResponse(principal, ["users:read"], NullLoggerFactory.Instance);
 
         CurrentUserResponse response = result.ShouldBeOfType<Ok<CurrentUserResponse>>().Value.ShouldNotBeNull();
-        response.Permissions.ShouldBe(["users:read", "roles:read", "groups:read"]);
+        response.Permissions.ShouldBe(["users:read"]);
     }
 
     [Fact]
-    public void CreateResponse_PreservesFirstSpellingWhenDeduplicatingPermissions()
+    public void CreateResponse_UsesEvaluatedPermissionSpelling()
     {
         ClaimsPrincipal principal = CreatePrincipal(
             new Claim("sub", "user-790"),
             new Claim("permissions", "Users:Read"),
             new Claim("permission", "users:read"));
 
-        IResult result = CurrentUserApi.GetCurrentUser(principal, NullLoggerFactory.Instance);
+        IResult result = CurrentUserApi.CreateResponse(principal, ["users:read"], NullLoggerFactory.Instance);
 
         CurrentUserResponse response = result.ShouldBeOfType<Ok<CurrentUserResponse>>().Value.ShouldNotBeNull();
-        response.Permissions.ShouldBe(["Users:Read"]);
+        response.Permissions.ShouldBe(["users:read"]);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class CurrentUserApiTests
     {
         ClaimsPrincipal principal = CreatePrincipal(new Claim("permission", "users:read"));
 
-        IResult result = CurrentUserApi.GetCurrentUser(principal, NullLoggerFactory.Instance);
+        IResult result = CurrentUserApi.CreateResponse(principal, ["users:read"], NullLoggerFactory.Instance);
 
         result.ShouldBeOfType<UnauthorizedHttpResult>();
     }

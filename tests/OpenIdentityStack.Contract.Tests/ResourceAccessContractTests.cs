@@ -24,5 +24,6 @@ public sealed class ResourceAccessContractTests
         contract.ShouldContain("name: expectedRevision");
         contract.ShouldContain("'204':");
         contract.ShouldContain("'409':");
+        contract.ShouldContain("An empty subject-specific list withdraws token approval for that flow.");
     }
 }

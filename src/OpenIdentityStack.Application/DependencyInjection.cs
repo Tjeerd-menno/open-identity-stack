@@ -43,9 +43,12 @@ public static class DependencyInjection
         AddProviderUseCases(services);
         AddAuthorizationServices(services);
         services.AddScoped<IAdministrativeApproval, AdministrativeApproval>();
+        services.AddScoped<AdministrativeAccess.AdministrativeAccessWorkflow>();
+        services.AddScoped<AdministrativeAccess.ManagementWebPreparation>();
+        services.AddScoped<IAdministrativeClientGuard>(provider => provider.GetRequiredService<AdministrativeAccess.AdministrativeAccessWorkflow>());
+        services.AddScoped<IAdministrativeAccessEvaluator, AdministrativeAccess.AdministrativeAccessEvaluator>();
         services.TryAddSingleton<IAdministrativeActorContext, UnauthenticatedAdministrativeActorContext>();
         services.AddScoped<UnrestrictedGrantPolicy>();
-        services.AddScoped<AdministrativeAccess.ManagementWebPreparation>();
         services.AddScoped<Applications.SeededOAuthClientPreparation>();
 
         return services;

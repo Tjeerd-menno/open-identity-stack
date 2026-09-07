@@ -10,7 +10,7 @@ namespace OpenIdentityStack.Api.Tests.Authorization;
 /// </summary>
 public sealed class PermissionAuthorizationHandlerAllTests
 {
-    private readonly PermissionAuthorizationHandler handler = new();
+    private readonly PermissionAuthorizationHandler handler = new(new AdministrativeRequestAuthorization(new OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess()));
 
     [Fact]
     public async Task Succeeds_when_user_has_each_required_permission()
@@ -20,7 +20,7 @@ public sealed class PermissionAuthorizationHandlerAllTests
             new PermissionRequirement(Permissions.Users.Read),
             new PermissionRequirement(Permissions.Roles.Write)
         };
-        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        ClaimsPrincipal user = OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess.Principal(new ClaimsIdentity(new[]
         {
             new Claim("permission", Permissions.Users.Read),
             new Claim("permission", Permissions.Roles.Write)
@@ -41,7 +41,7 @@ public sealed class PermissionAuthorizationHandlerAllTests
             new PermissionRequirement(Permissions.Users.Read),
             new PermissionRequirement(Permissions.Roles.Write)
         };
-        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        ClaimsPrincipal user = OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess.Principal(new ClaimsIdentity(new[]
         {
             new Claim("permission", Permissions.Users.Read)
         }, "mock"));
@@ -54,7 +54,7 @@ public sealed class PermissionAuthorizationHandlerAllTests
     }
 
     [Fact]
-    public async Task Succeeds_when_scope_claim_covers_all_requirements()
+    public async Task Fails_when_only_scope_claim_covers_requirements()
     {
         var requirements = new PermissionRequirement[]
         {
@@ -62,7 +62,7 @@ public sealed class PermissionAuthorizationHandlerAllTests
             new PermissionRequirement(Permissions.Roles.Read)
         };
         string scopeValue = $"{Permissions.Users.Read} {Permissions.Roles.Read}";
-        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        ClaimsPrincipal user = OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess.Principal(new ClaimsIdentity(new[]
         {
             new Claim("scope", scopeValue)
         }, "mock"));
@@ -71,6 +71,6 @@ public sealed class PermissionAuthorizationHandlerAllTests
 
         await this.handler.HandleAsync(context);
 
-        context.HasSucceeded.ShouldBeTrue();
+        context.HasSucceeded.ShouldBeFalse();
     }
 }

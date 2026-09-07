@@ -27,6 +27,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
 import { EditOAuthModal } from './EditOAuthModal';
 import { ResourceAccessPanel } from './ResourceAccessPanel';
+import { AdministrativeAccessPanel } from './AdministrativeAccessPanel';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
@@ -192,6 +193,7 @@ export function ApplicationDetailPage() {
           <Tabs.Tab value="uris">Redirect URIs</Tabs.Tab>
           <Tabs.Tab value="credentials">Credentials ({credentials.length})</Tabs.Tab>
           <Tabs.Tab value="settings">Settings</Tabs.Tab>
+          <Tabs.Tab value="administrative-access">Administrative access</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="config">
@@ -307,6 +309,9 @@ export function ApplicationDetailPage() {
           <AppSettings app={app} canWrite={canWrite} canDelete={canDelete} onEdited={invalidateApp} onDelete={deleteControls.open} />
         </Tabs.Panel>
         <Tabs.Panel value="resources"><ResourceAccessPanel applicationId={applicationId} canWrite={canWrite} /></Tabs.Panel>
+        <Tabs.Panel value="administrative-access">
+          <AdministrativeAccessPanel applicationId={applicationId} canWrite={canWrite} />
+        </Tabs.Panel>
       </Tabs>
 
       {addSecretOpened && (

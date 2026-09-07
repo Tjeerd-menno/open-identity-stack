@@ -17,18 +17,23 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
     private const int placeholderSecretLengthBytes = 32;
     private static readonly DomainError projectionFailed =
         DomainError.Failure("Application.ProjectionFailed", "Failed to synchronize application protocol configuration.");
+    private static readonly DomainError projectionConflict =
+        DomainError.Conflict("Application.ProjectionConflict", "Administrative authority changed; reload before saving.");
 
     private readonly IOpenIddictApplicationManager applicationManager;
     private readonly IOpenIddictScopeManager scopeManager;
+    private readonly IApplicationProtocolProjectionTransaction transaction;
     private readonly ILogger<OpenIddictApplicationProjection> logger;
 
     public OpenIddictApplicationProjection(
         IOpenIddictApplicationManager applicationManager,
         IOpenIddictScopeManager scopeManager,
+        IApplicationProtocolProjectionTransaction transaction,
         ILogger<OpenIddictApplicationProjection> logger)
     {
         this.applicationManager = applicationManager;
         this.scopeManager = scopeManager;
+        this.transaction = transaction;
         this.logger = logger;
     }
 
@@ -42,37 +47,14 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
     {
         try
         {
-            object? existing = await this.applicationManager.FindByClientIdAsync(application.ClientId, cancellationToken);
-            if (application.Status == ApplicationStatus.Disabled)
-            {
-                if (existing is not null)
-                {
-                    await this.applicationManager.DeleteAsync(existing, cancellationToken);
-                }
-
-                return Result.Success();
-            }
-
-            await this.EnsureScopesAsync(application.AllowedScopes, cancellationToken);
-
-            var descriptor = new OpenIddictApplicationDescriptor();
-            if (existing is not null)
-            {
-                await this.applicationManager.PopulateAsync(descriptor, existing, cancellationToken);
-            }
-
-            ApplyApplication(descriptor, application, clientSecret);
-
-            if (existing is null)
-            {
-                await this.applicationManager.CreateAsync(descriptor, cancellationToken);
-            }
-            else
-            {
-                await this.applicationManager.UpdateAsync(existing, descriptor, cancellationToken);
-            }
-
-            return Result.Success();
+            return await this.transaction.ExecuteAsync(
+                ct => this.UpsertCoreAsync(application, clientSecret, ct),
+                cancellationToken);
+        }
+        catch (OpenIddictExceptions.ConcurrencyException ex)
+        {
+            Log.ApplicationProjectionFailed(this.logger, ex, application.ClientId);
+            return projectionConflict;
         }
         catch (Exception ex)
         {
@@ -85,34 +67,86 @@ public sealed class OpenIddictApplicationProjection : IApplicationProtocolProjec
     {
         try
         {
-            // Buffer the streamed results before issuing further commands: ListAsync keeps a
-            // data reader open for the lifetime of the enumeration, so calling GetSettingsAsync
-            // or DeleteAsync inside the await foreach reuses the same connection mid-stream and
-            // throws NpgsqlOperationInProgressException ("A command is already in progress").
-            var applications = new List<object>();
-            await foreach (object application in this.applicationManager.ListAsync(count: null, offset: null, cancellationToken))
-            {
-                applications.Add(application);
-            }
-
-            foreach (object application in applications)
-            {
-                System.Collections.Immutable.ImmutableDictionary<string, string> settings = await this.applicationManager.GetSettingsAsync(application, cancellationToken);
-                if (settings.TryGetValue(applicationIdSetting, out string? projectedApplicationId) &&
-                    string.Equals(projectedApplicationId, applicationId.Value.ToString(), StringComparison.OrdinalIgnoreCase))
-                {
-                    await this.applicationManager.DeleteAsync(application, cancellationToken);
-                    break;
-                }
-            }
-
-            return Result.Success();
+            return await this.transaction.ExecuteAsync(
+                ct => this.DeleteCoreAsync(applicationId, ct),
+                cancellationToken);
+        }
+        catch (OpenIddictExceptions.ConcurrencyException ex)
+        {
+            Log.ApplicationProjectionDeleteFailed(this.logger, ex, applicationId.Value);
+            return projectionConflict;
         }
         catch (Exception ex)
         {
             Log.ApplicationProjectionDeleteFailed(this.logger, ex, applicationId.Value);
             return projectionFailed;
         }
+    }
+
+    private async Task<Result> UpsertCoreAsync(
+        DomainApplication application,
+        string? clientSecret,
+        CancellationToken cancellationToken)
+    {
+        object? existing = await this.applicationManager.FindByClientIdAsync(application.ClientId, cancellationToken);
+        if (application.Status == ApplicationStatus.Disabled)
+        {
+            if (existing is not null)
+            {
+                await this.applicationManager.DeleteAsync(existing, cancellationToken);
+            }
+
+            return Result.Success();
+        }
+
+        await this.EnsureScopesAsync(application.AllowedScopes, cancellationToken);
+
+        var descriptor = new OpenIddictApplicationDescriptor();
+        if (existing is not null)
+        {
+            await this.applicationManager.PopulateAsync(descriptor, existing, cancellationToken);
+        }
+
+        ApplyApplication(descriptor, application, clientSecret);
+
+        if (existing is null)
+        {
+            await this.applicationManager.CreateAsync(descriptor, cancellationToken);
+        }
+        else
+        {
+            await this.applicationManager.UpdateAsync(existing, descriptor, cancellationToken);
+        }
+
+        return Result.Success();
+    }
+
+    private async Task<Result> DeleteCoreAsync(
+        DomainApplicationId applicationId,
+        CancellationToken cancellationToken)
+    {
+        // Buffer the streamed results before issuing further commands: ListAsync keeps a
+        // data reader open for the lifetime of the enumeration, so calling GetSettingsAsync
+        // or DeleteAsync inside the await foreach reuses the same connection mid-stream and
+        // throws NpgsqlOperationInProgressException ("A command is already in progress").
+        var applications = new List<object>();
+        await foreach (object application in this.applicationManager.ListAsync(count: null, offset: null, cancellationToken))
+        {
+            applications.Add(application);
+        }
+
+        foreach (object application in applications)
+        {
+            System.Collections.Immutable.ImmutableDictionary<string, string> settings = await this.applicationManager.GetSettingsAsync(application, cancellationToken);
+            if (settings.TryGetValue(applicationIdSetting, out string? projectedApplicationId) &&
+                string.Equals(projectedApplicationId, applicationId.Value.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                await this.applicationManager.DeleteAsync(application, cancellationToken);
+                break;
+            }
+        }
+
+        return Result.Success();
     }
 
     private async Task EnsureScopesAsync(

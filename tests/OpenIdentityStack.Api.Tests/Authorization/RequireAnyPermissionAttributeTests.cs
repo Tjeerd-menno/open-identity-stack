@@ -10,7 +10,7 @@ namespace OpenIdentityStack.Api.Tests.Authorization;
 /// </summary>
 public sealed class PermissionAuthorizationHandlerAnyTests
 {
-    private readonly PermissionAuthorizationHandler handler = new();
+    private readonly PermissionAuthorizationHandler handler = new(new AdministrativeRequestAuthorization(new OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess()));
 
     [Fact]
     public async Task Multiple_requirements_fail_when_any_requirement_is_unmet()
@@ -20,7 +20,7 @@ public sealed class PermissionAuthorizationHandlerAnyTests
             new PermissionRequirement(Permissions.Users.Read),
             new PermissionRequirement(Permissions.Roles.Read)
         };
-        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        ClaimsPrincipal user = OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess.Principal(new ClaimsIdentity(new[]
         {
             new Claim("permission", Permissions.Users.Read)
         }, "mock"));
@@ -40,7 +40,7 @@ public sealed class PermissionAuthorizationHandlerAnyTests
             new PermissionRequirement(Permissions.Users.Read),
             new PermissionRequirement(Permissions.Roles.Read)
         };
-        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        ClaimsPrincipal user = OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess.Principal(new ClaimsIdentity(new[]
         {
             new Claim("permission", Permissions.All)
         }, "mock"));

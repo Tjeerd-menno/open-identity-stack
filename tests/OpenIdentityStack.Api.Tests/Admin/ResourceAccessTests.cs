@@ -107,8 +107,10 @@ public sealed class ResourceAccessTests(AppHostFixture fixture)
             ["client_id"] = clientId, ["client_secret"] = "fixture-secret", ["token"] = token
         }));
         JsonObject currentBody = (await current.Content.ReadFromJsonAsync<JsonObject>())!;
-        currentBody["active"]!.GetValue<bool>().ShouldBeTrue();
-        (currentBody["permissions"]?.AsArray().Count ?? 0).ShouldBe(0);
+        currentBody["active"]!.GetValue<bool>().ShouldBeFalse();
+        using HttpResponseMessage emptyCeilingIssuance = await fixture.CreateClient()
+            .PostAsync("/connect/token", TokenRequest(clientId, resourceScope));
+        emptyCeilingIssuance.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         using HttpResponseMessage staleRevocation = await admin.DeleteAsync(
             $"/api/admin/applications/{applicationId}/resource-grants/{resource.Id}?expectedRevision={saved.Revision}");
         staleRevocation.StatusCode.ShouldBe(HttpStatusCode.Conflict);
