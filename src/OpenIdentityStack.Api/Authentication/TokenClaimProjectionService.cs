@@ -104,7 +104,7 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             identity.AddClaim(new Claim("permission", permission));
         }
 
-        foreach (string type in new[] { OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession, OpenIdentityStack.Application.Abstractions.CredentialBoundaryClaims.Epoch, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim })
+        foreach (string type in new[] { IndependentAuthenticationClaims.LocalPasswordSession, IndependentAuthenticationClaims.AuthenticatedCredentialRevision, OpenIdentityStack.Application.Abstractions.CredentialBoundaryClaims.Epoch, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim })
         {
             Claim[] sourceClaims = request.Principal.FindAll(type).ToArray();
             if (sourceClaims.Length == 1) { identity.AddClaim(sourceClaims[0]); }
@@ -209,7 +209,7 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
     public static IEnumerable<string> GetDestinations(Claim claim)
     {
-        if (claim.Type == IndependentAuthenticationClaims.LocalPasswordSession)
+        if (claim.Type is IndependentAuthenticationClaims.LocalPasswordSession or IndependentAuthenticationClaims.AuthenticatedCredentialRevision)
         {
             // Keep the proof in encrypted OP state, exposing it only to the dedicated administrative resource.
             if (claim.Subject?.HasScope(OpenIdentityStack.Domain.Resources.ProtectedResource.AdministrativeScope) == true

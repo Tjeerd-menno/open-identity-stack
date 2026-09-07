@@ -356,7 +356,8 @@ public class AccountController : Controller
             new(ClaimTypes.Name, result.Value.DisplayName),
             new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
             new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, result.Value.UserId.Value.ToString()),
-            new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64)
+            new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
+            new(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision, result.Value.CredentialRevision.ToString())
         };
 
         // Create user session

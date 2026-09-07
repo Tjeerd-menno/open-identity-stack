@@ -264,6 +264,25 @@ public sealed class CredentialCutoverReadinessStoreTests
     }
 
     [Fact]
+    public async Task PasswordChangeBeforeRecordingCannotUpgradeAuthenticatedCredentialRevision()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        AdministrativeActor actor = await database.SeedEmergencyAsync();
+        User user = await database.Db.Users.SingleAsync(candidate => candidate.Id == actor.UserId);
+        Guid authenticatedRevision = user.CredentialRevision;
+
+        user.SetPassword("replacement-hash", database.Clock).IsSuccess.ShouldBeTrue();
+        await database.Db.SaveChangesAsync();
+
+        Result<EmergencyAccessEvidence> result = await database.Store.RecordEmergencyAccessAsync(
+            actor with { AuthenticatedCredentialRevision = authenticatedRevision });
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Forbidden.CredentialCutover.EmergencyAccessUnavailable");
+        (await database.Db.EmergencyAccessEvidence.CountAsync()).ShouldBe(0);
+    }
+
+    [Fact]
     public async Task LegacyEmergencyProofWithoutCredentialRevisionFailsClosed()
     {
         await using TestDatabase database = await TestDatabase.CreateAsync();
@@ -426,7 +445,7 @@ public sealed class CredentialCutoverReadinessStoreTests
             UserSession session = UserSession.Create(user.Id, "127.0.0.1", "test", this.Clock).Value;
             this.Db.Add(session);
             await this.Db.SaveChangesAsync();
-            return new(user.Id, this.Clock.UtcNow, true, true, session.Id.Value, Guid.Empty);
+            return new(user.Id, this.Clock.UtcNow, true, true, session.Id.Value, Guid.Empty, user.CredentialRevision);
         }
 
         public async ValueTask DisposeAsync()

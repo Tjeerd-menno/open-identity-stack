@@ -27,7 +27,9 @@ public sealed class TokenClaimProjectionServiceTests
         User user = CreateUser();
         ClaimsPrincipal cookie = CreateCookiePrincipal(user.Id.Value);
         string proof = Guid.NewGuid().ToString();
+        string authenticatedRevision = Guid.NewGuid().ToString();
         cookie.SetClaim(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession, proof);
+        cookie.SetClaim(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision, authenticatedRevision);
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookie, user, [], [], [], [scope], [], null, null, null));
         projected.SetResources(audience);
@@ -36,6 +38,10 @@ public sealed class TokenClaimProjectionServiceTests
         claim.Value.ShouldBe(proof);
         claim.GetDestinations().Contains(OpenIddictConstants.Destinations.AccessToken).ShouldBe(exposed);
         claim.GetDestinations().ShouldNotContain(OpenIddictConstants.Destinations.IdentityToken);
+        Claim revisionClaim = projected.FindFirst(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision)!;
+        revisionClaim.Value.ShouldBe(authenticatedRevision);
+        revisionClaim.GetDestinations().Contains(OpenIddictConstants.Destinations.AccessToken).ShouldBe(exposed);
+        revisionClaim.GetDestinations().ShouldNotContain(OpenIddictConstants.Destinations.IdentityToken);
         ClaimsPrincipal refreshed = this.service.ProjectExistingPrincipal(projected);
         refreshed.FindFirst(claim.Type)!.GetDestinations().Contains(OpenIddictConstants.Destinations.AccessToken).ShouldBe(exposed);
         projected.SetResources(audience, "another-business-api");

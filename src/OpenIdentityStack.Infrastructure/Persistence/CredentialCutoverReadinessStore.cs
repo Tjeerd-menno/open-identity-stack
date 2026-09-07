@@ -107,12 +107,11 @@ public sealed class CredentialCutoverReadinessStore(OpenIdentityStackDbContext d
     {
         await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         Guid epoch = await this.GetEpochAsync(cancellationToken);
-        if (!actor.IsHuman || actor.LocalPasswordSessionId is not Guid session || actor.AuthenticatedAt is not DateTimeOffset authenticatedAt || actor.CredentialEpoch != epoch)
+        if (!actor.IsHuman || actor.LocalPasswordSessionId is not Guid session || actor.AuthenticatedAt is not DateTimeOffset authenticatedAt ||
+            actor.CredentialEpoch != epoch || actor.AuthenticatedCredentialRevision is not Guid credentialRevision)
         {
             return DomainError.Forbidden("CredentialCutover.IndependentLoginRequired", "A fresh local password login bound to the current credential boundary is required.");
         }
-        Guid? credentialRevision = await db.Users.AsNoTracking().Where(user => user.Id == actor.UserId)
-            .Select(user => (Guid?)user.CredentialRevision).SingleOrDefaultAsync(cancellationToken);
         var proof = new EmergencyAccessRecord { Id = Guid.NewGuid(), UserId = actor.UserId.Value, SessionId = session, Epoch = epoch,
             CredentialRevision = credentialRevision, AuthenticatedAt = authenticatedAt, RecordedAt = clock.UtcNow };
         if (!await this.IsEmergencyAccessCurrentAsync(proof, cancellationToken))

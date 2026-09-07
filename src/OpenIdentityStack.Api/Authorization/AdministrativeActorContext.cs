@@ -58,7 +58,11 @@ public sealed class AdministrativeActorContext(IHttpContextAccessor accessor) : 
             Guid? localSessionId = isHuman && localSessions.Length == 1 && Guid.TryParse(localSessions[0], out Guid sessionId) ? sessionId : null;
             string[] epochs = principal.FindAll(CredentialBoundaryClaims.Epoch).Select(claim => claim.Value).ToArray();
             Guid? epoch = epochs.Length == 1 && Guid.TryParse(epochs[0], out Guid capturedEpoch) ? capturedEpoch : null;
-            return new AdministrativeActor(new UserId(userId), authenticatedAt, isHuman, acknowledged, localSessionId, epoch);
+            string[] revisions = principal.FindAll(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision)
+                .Select(claim => claim.Value).ToArray();
+            Guid? authenticatedCredentialRevision = isHuman && revisions.Length == 1 && Guid.TryParse(revisions[0], out Guid capturedRevision)
+                ? capturedRevision : null;
+            return new AdministrativeActor(new UserId(userId), authenticatedAt, isHuman, acknowledged, localSessionId, epoch, authenticatedCredentialRevision);
         }
     }
 }

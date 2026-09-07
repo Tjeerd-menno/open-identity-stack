@@ -109,4 +109,23 @@ public sealed class AdministrativeActorContextTests
         AdministrativeActor actor = new AdministrativeActorContext(new HttpContextAccessor { HttpContext = http }).Current!;
         actor.LocalPasswordSessionId.HasValue.ShouldBe(accepted);
         actor.CredentialEpoch.ShouldBe(Guid.Empty);
-    }}
+    }
+
+    [Fact]
+    public void IndependentLoginCarriesTheAuthenticatedCredentialRevision()
+    {
+        var userId = Guid.NewGuid();
+        var credentialRevision = Guid.NewGuid();
+        Claim[] claims =
+        [
+            new("sub", userId.ToString()),
+            new(AdministrativeActorContext.HumanSubjectClaim, userId.ToString()),
+            new(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision, credentialRevision.ToString())
+        ];
+        var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Bearer")) };
+
+        AdministrativeActor actor = new AdministrativeActorContext(new HttpContextAccessor { HttpContext = http }).Current!;
+
+        actor.AuthenticatedCredentialRevision.ShouldBe(credentialRevision);
+    }
+}

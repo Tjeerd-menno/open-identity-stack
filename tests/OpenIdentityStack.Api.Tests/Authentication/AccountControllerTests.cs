@@ -694,6 +694,28 @@ public class AccountControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Login_Post_WithValidCredentials_BindsCookieToAuthenticatedCredentialRevision()
+    {
+        var model = new LoginViewModel { Email = "user@example.com", Password = "correct" };
+        var userId = UserId.Create();
+        var sessionId = SessionId.Create();
+        var credentialRevision = Guid.NewGuid();
+        ClaimsPrincipal? capturedPrincipal = null;
+        this._validateCredentialsUseCase.ExecuteAsync(Arg.Any<ValidateUserCredentialsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new ValidateUserCredentialsResult(userId, "user@example.com", "Test User", credentialRevision));
+        this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new CreateSessionResult(sessionId));
+        this._authService.SignInAsync(Arg.Any<HttpContext>(), Arg.Any<string>(), Arg.Do<ClaimsPrincipal>(principal => capturedPrincipal = principal), Arg.Any<AuthenticationProperties>())
+            .Returns(Task.CompletedTask);
+
+        await this._controller.Login(model);
+
+        capturedPrincipal.ShouldNotBeNull();
+        capturedPrincipal.FindFirst(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision)!
+            .Value.ShouldBe(credentialRevision.ToString());
+    }
+
+    [Fact]
     public async Task Login_Post_WhenSessionCreationFails_DoesNotSignIn()
     {
         // Arrange
