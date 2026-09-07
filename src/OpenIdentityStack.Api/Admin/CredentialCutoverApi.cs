@@ -23,7 +23,7 @@ public static class CredentialCutoverApi
             return result.IsSuccess ? Results.Ok(result.Value) : ErrorResultMapper.ToErrorResult(result.Error);
         }).RequireAuthorization(AuthorizationOptionsExtensions.AdminPolicy, Permissions.Sessions.Revoke)
             .WithTags("Security").WithName("RecordEmergencyAccessEvidence").Produces<EmergencyAccessEvidence>()
-            .ProducesProblem(401).ProducesProblem(403);
+            .ProducesProblem(401).ProducesProblem(403).ProducesProblem(409);
         endpoints.MapPut("/api/admin/security/business-resources/{resourceId:guid}/token-window-review", async (
             Guid resourceId, ResourceTokenWindowReviewRequest request, CredentialCutoverReadiness workflow, CancellationToken cancellationToken) =>
         {
@@ -31,7 +31,7 @@ public static class CredentialCutoverApi
             return result.IsSuccess ? Results.NoContent() : ErrorResultMapper.ToErrorResult(result.Error);
         }).RequireAuthorization(AuthorizationOptionsExtensions.AdminPolicy, Permissions.Sessions.Revoke)
             .WithTags("Security").WithName("ReviewResourceTokenWindow").Produces(204)
-            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         endpoints.MapPost("/api/admin/security/credential-cutovers", async (CredentialCutoverRequest request, IExecuteCredentialCutoverUseCase useCase, CancellationToken cancellationToken) =>
         {
             SharedKernel.Result<CredentialCutoverResult> result = await useCase.ExecuteAsync(request.OperationId, cancellationToken);

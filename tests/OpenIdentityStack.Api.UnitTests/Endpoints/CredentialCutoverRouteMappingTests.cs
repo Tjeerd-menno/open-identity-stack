@@ -16,7 +16,9 @@ public sealed class CredentialCutoverRouteMappingTests
     [InlineData("GetCredentialCutoverReadiness", 401)]
     [InlineData("GetCredentialCutoverReadiness", 403)]
     [InlineData("RecordEmergencyAccessEvidence", 401)]
+    [InlineData("RecordEmergencyAccessEvidence", 409)]
     [InlineData("ReviewResourceTokenWindow", 401)]
+    [InlineData("ReviewResourceTokenWindow", 409)]
     public void ReadinessRoutesAdvertiseAuthorizationProblems(string endpointName, int statusCode)
     {
         RouteEndpoint endpoint = MapEndpoints().Single(value =>

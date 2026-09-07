@@ -23,5 +23,10 @@ public sealed class CredentialCutoverContractTests
         contract.ShouldContain("No supplied user, subject, issuer or session identifier can establish proof.");
         contract.ShouldContain("Changing the emergency password or otherwise rotating its credential revision invalidates the evidence.");
         contract.ShouldNotContain("sessionId:");
+        int emergencyEvidence = contract.IndexOf("/api/admin/security/emergency-access-evidence:", StringComparison.Ordinal);
+        int resourceReview = contract.IndexOf("/api/admin/security/business-resources/{resourceId}/token-window-review:", StringComparison.Ordinal);
+        int execution = contract.IndexOf("/api/admin/security/credential-cutovers:", StringComparison.Ordinal);
+        contract[emergencyEvidence..resourceReview].ShouldContain("'409':");
+        contract[resourceReview..execution].ShouldContain("'409':");
     }
 }
