@@ -77,6 +77,6 @@ public sealed class CredentialCutoverResourceInventory(OpenIdentityStackDbContex
             && client.PostLogoutRedirectUris.Order(StringComparer.Ordinal).SequenceEqual(logout.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
 
         List<string> Configured(string key) => configuration.GetSection($"OpenIddict:Clients:ManagementWeb:{key}").Get<string[]>()?
-            .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.Ordinal).ToList() ?? [];
+            .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? [];
     }
 }
