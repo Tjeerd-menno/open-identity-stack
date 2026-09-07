@@ -654,20 +654,17 @@ public sealed class ApplicationCredentialValidationUseCases :
     private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
-    private readonly IAdministrativeActorContext actorContext;
 
     public ApplicationCredentialValidationUseCases(
         IApplicationRepository repository,
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,
-        IAuditLog auditLog,
-        IAdministrativeActorContext actorContext)
+        IAuditLog auditLog)
     {
         this.repository = repository;
         this.passwordHasher = passwordHasher;
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
-        this.actorContext = actorContext;
     }
 
     public async Task<Result<ValidateApplicationCredentialsResult>> ExecuteAsync(
@@ -772,7 +769,7 @@ public sealed class ApplicationCredentialValidationUseCases :
         ApplicationCredential credential,
         CancellationToken cancellationToken) =>
         this.auditLog.LogAsync(
-            this.actorContext.AuditActorId,
+            "client:" + application.ClientId,
             "ApplicationCredential.Used",
             "Application",
             application.Id.Value.ToString(),

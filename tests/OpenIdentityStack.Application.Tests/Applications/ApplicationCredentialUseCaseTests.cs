@@ -47,8 +47,7 @@ public sealed class ApplicationCredentialUseCaseTests
             this.repository,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog,
-            this.actorContext);
+            this.auditLog);
     }
 
     [Fact]
@@ -231,7 +230,7 @@ public sealed class ApplicationCredentialUseCaseTests
         credential.LastUsedAt.ShouldBe(this.now);
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "user:credential-admin",
+            "client:orders-api",
             "ApplicationCredential.Used",
             "Application",
             application.Id.Value.ToString(),
@@ -257,7 +256,7 @@ public sealed class ApplicationCredentialUseCaseTests
         credential.LastUsedAt.ShouldBe(this.now);
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "user:credential-admin",
+            "client:orders-api",
             "ApplicationCredential.Used",
             "Application",
             application.Id.Value.ToString(),
