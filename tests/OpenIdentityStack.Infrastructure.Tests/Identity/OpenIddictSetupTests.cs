@@ -125,6 +125,33 @@ public sealed class OpenIddictSetupTests
         services.ShouldNotContain(descriptor => descriptor.ServiceType.Name == "ServiceAccountValidationHandler");
     }
 
+    [Fact]
+    public void AddOpenIddictConfiguration_EnclosesTokenGenerationInTheIssuanceTransaction()
+    {
+        ServiceCollection services = BuildServices();
+        using ServiceProvider provider = services.BuildServiceProvider();
+        OpenIddictServerOptions options = provider.GetRequiredService<IOptions<OpenIddictServerOptions>>().Value;
+
+        services.ShouldContain(descriptor => descriptor.ServiceType == typeof(TokenIssuanceTransaction));
+        OpenIddictServerHandlerDescriptor begin = options.Handlers.Single(handler =>
+            handler.ServiceDescriptor?.ServiceType == typeof(BeginTokenIssuanceTransaction));
+        OpenIddictServerHandlerDescriptor revalidate = options.Handlers.Single(handler =>
+            handler.ServiceDescriptor?.ServiceType == typeof(UserCredentialRevisionValidation)
+            && handler.ContextType == typeof(OpenIddictServerEvents.ProcessSignInContext));
+        OpenIddictServerHandlerDescriptor commit = options.Handlers.Single(handler =>
+            handler.ServiceDescriptor?.ServiceType == typeof(CommitTokenIssuanceTransaction));
+
+        begin.Order.ShouldBeLessThan(revalidate.Order);
+        revalidate.Order.ShouldBeLessThan(commit.Order);
+        commit.Order.ShouldBeGreaterThan(OpenIddictServerHandlers.GenerateAccessToken.Descriptor.Order);
+        commit.Order.ShouldBeGreaterThan(OpenIddictServerHandlers.GenerateIdentityToken.Descriptor.Order);
+        int firstResponseDispatch = options.Handlers
+            .Where(handler => handler.ContextType == typeof(OpenIddictServerEvents.ProcessSignInContext))
+            .Where(handler => handler.ServiceDescriptor?.ServiceType.Name.StartsWith("Apply", StringComparison.Ordinal) == true)
+            .Min(handler => handler.Order);
+        commit.Order.ShouldBeLessThan(firstResponseDispatch);
+    }
+
     private static ServiceProvider BuildProvider(IReadOnlyDictionary<string, string?>? values = null)
     {
         return BuildServices(values).BuildServiceProvider();

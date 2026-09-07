@@ -16,6 +16,7 @@ public class GroupMappingTests
     [InlineData("requested_userinfo_claim")]
     [InlineData("ois_human_subject")]
     [InlineData("ois.example")]
+    [InlineData("ois.subject_kind")]
     [InlineData("OIS.example")]
     [InlineData("ois_human_authenticated_at")]
     [InlineData("oi_prst")]

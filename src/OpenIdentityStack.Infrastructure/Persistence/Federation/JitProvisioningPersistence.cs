@@ -17,7 +17,7 @@ public sealed class JitProvisioningPersistence(OpenIdentityStackDbContext db, IA
         try
         {
             await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-            if (isNewUser) { await db.LockAuthorityBeforeProviderAsync(cancellationToken); }
+            if (isNewUser) { await db.LockCredentialBoundaryAsync(cancellationToken); }
             bool recordsTrust = db.ChangeTracker.Entries<EmailVerificationEvidence>().Any(entry =>
                 entry.State == EntityState.Added && entry.Entity.ProviderId == providerId.Value);
             Guid expectedTrust = recordsTrust
@@ -110,6 +110,24 @@ public sealed class JitProvisioningPersistence(OpenIdentityStackDbContext db, IA
             Guid identityVersion = current.GetValue<Guid>(nameof(UpstreamProvider.IdentityVersion));
             providerEntry.Property(provider => provider.IdentityVersion).OriginalValue = identityVersion;
             providerEntry.Property(provider => provider.IdentityVersion).CurrentValue = identityVersion;
+        }
+
+        // A redundant proof does not require another evidence revision. Preserve any other pending evidence mutation.
+        if (db.ChangeTracker.Entries<EmailVerificationEvidence>().Any(entry =>
+            entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted
+            && entry.Property<UserId>("UserId").CurrentValue == userId)) { return; }
+        EntityEntry<User> userEntry = db.ChangeTracker.Entries<User>().Single(entry => entry.Entity.Id == userId);
+        PropertyValues? currentUser = await userEntry.GetDatabaseValuesAsync(cancellationToken);
+        if (currentUser is null) { return; }
+        foreach (PropertyEntry property in userEntry.Properties)
+        {
+            if (!property.IsModified || property.Metadata.Name == nameof(User.EmailEvidenceRevision))
+            {
+                // Refresh unchanged scalar state (including credential revision), retaining unrelated pending user edits.
+                property.CurrentValue = currentUser[property.Metadata.Name];
+                property.OriginalValue = currentUser[property.Metadata.Name];
+                property.IsModified = false;
+            }
         }
     }
 

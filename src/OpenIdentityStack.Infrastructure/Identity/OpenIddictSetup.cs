@@ -61,6 +61,16 @@ public static class OpenIddictSetup
             // Register the OpenIddict server components
             .AddServer(options =>
             {
+                options.AddTokenIssuanceTransaction();
+                options.AddEventHandler<OpenIddictServerEvents.GenerateTokenContext>(builder =>
+                    builder.UseScopedHandler<ApplicationTokenSubjectMetadata>()
+                        .SetOrder(OpenIddictServerHandlers.Protection.CreateTokenEntry.Descriptor.Order + 1_000));
+                options.AddEventHandler<OpenIddictServerEvents.ValidateTokenContext>(builder =>
+                    builder.UseScopedHandler<UserCredentialRevisionValidation>()
+                        .SetOrder(OpenIddictServerHandlers.Protection.ValidateAuthorizationEntry.Descriptor.Order + 1_000));
+                options.AddEventHandler<OpenIddictServerEvents.ProcessSignInContext>(builder =>
+                    builder.UseScopedHandler<UserCredentialRevisionValidation>()
+                        .SetOrder(int.MinValue + 75_000));
                 string? configuredIssuer = configuration["OpenIddict:Issuer"];
                 Uri? issuer = null;
                 if (!string.IsNullOrWhiteSpace(configuredIssuer))
@@ -204,6 +214,9 @@ public static class OpenIddictSetup
             // Register the OpenIddict validation components
             .AddValidation(options =>
             {
+                options.AddEventHandler<OpenIddict.Validation.OpenIddictValidationEvents.ValidateTokenContext>(builder =>
+                    builder.UseScopedHandler<UserCredentialRevisionValidation>()
+                        .SetOrder(OpenIddict.Validation.OpenIddictValidationHandlers.Protection.ValidateAuthorizationEntry.Descriptor.Order + 1_000));
                 // Import the configuration from the local OpenIddict server instance
                 options.UseLocalServer();
 

@@ -111,6 +111,26 @@ public sealed class SessionRepositoryTests : IClassFixture<SqliteTestFixture>, I
     }
 
     [Fact]
+    public async Task ActivityLoadedBeforeRevocationCannotRestoreTheSession()
+    {
+        UserSession session = await this.SeedAsync(UserId.Create());
+        await using OpenIdentityStackDbContext stale = this._fixture.CreateDbContext();
+        var activityRepository = new SessionRepository(stale);
+        UserSession loaded = (await activityRepository.GetByIdAsync(session.Id))!;
+
+        session.Revoke(this._dateTimeProvider);
+        await this._repository.UpdateAsync(session);
+        this._dateTimeProvider.UtcNow.Returns(this._now.AddMinutes(1));
+        loaded.UpdateLastActivity(this._dateTimeProvider);
+        await activityRepository.UpdateAsync(loaded);
+
+        await using OpenIdentityStackDbContext fresh = this._fixture.CreateDbContext();
+        UserSession persisted = (await new SessionRepository(fresh).GetByIdAsync(session.Id))!;
+        persisted.Status.ShouldBe(SessionStatus.Revoked);
+        persisted.RevokedAt.ShouldBe(this._now);
+    }
+
+    [Fact]
     public async Task ListAsync_ReturnsPagedSessions()
     {
         var userId = UserId.Create();
