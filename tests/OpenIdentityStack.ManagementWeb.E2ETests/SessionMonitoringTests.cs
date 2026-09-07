@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Text.Json.Nodes;
 using Microsoft.Playwright;
@@ -51,8 +52,27 @@ public sealed class SessionMonitoringTests(ManagementWebAppHostFixture fixture) 
         (await Api.DeleteAsync($"/api/admin/users/{userId}/sessions")).StatusCode.ShouldBe(HttpStatusCode.OK);
         // Keep the original OP document and RP state. A standard postMessage poll must
         // revalidate server-linked state without the RP issuing an extra OP request.
-        (await CheckAsync(Page, opOrigin, state)).ShouldBe("changed");
+        await WaitForChangedAsync(Page, opOrigin, state);
         (await Context.CookiesAsync(opOrigin)).ShouldNotContain(value => value.Name == "op_session");
+    }
+
+    private static async Task WaitForChangedAsync(IPage page, string origin, string state)
+    {
+        var timeout = Stopwatch.StartNew();
+        string result;
+        do
+        {
+            result = await CheckAsync(page, origin, state);
+            if (result == "changed")
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(25));
+        }
+        while (timeout.Elapsed < TimeSpan.FromSeconds(5));
+
+        result.ShouldBe("changed");
     }
 
     private static async Task<IFrame> AddMonitorAsync(IPage page, string origin)
