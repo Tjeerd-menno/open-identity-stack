@@ -32,11 +32,23 @@ startup and writes them into `runtime-config.js`.
 
 ## Validation
 
+Builds and type checks use TypeScript 7 through the `@typescript/native` npm alias.
+The `typescript` dependency aliases Microsoft's `@typescript/typescript6` compatibility
+package because typescript-eslint still needs the TypeScript 6 compiler API. This
+development-only package exposes `tsc6`, leaving `tsc` to TypeScript 7 without a binary
+name conflict. See Microsoft's [side-by-side migration guidance](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6.0).
+Keep this compatibility alias until typescript-eslint supports the native compiler API.
+
+Vitest and `@vitest/coverage-v8` must use the same exact version. Dependabot groups
+them together for both major and minor/patch updates. Run coverage after upgrading
+to verify the existing thresholds as well as the tests.
+
 ```powershell
 npm run build
 npm run lint
 npm run type-check
 npm test
+npm run test:coverage
 ```
 
 
