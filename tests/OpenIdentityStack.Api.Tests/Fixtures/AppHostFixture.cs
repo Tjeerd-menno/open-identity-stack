@@ -50,9 +50,9 @@ public class AppHostFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        // Quartz 3 retains a process-wide logger factory after an isolated host is disposed.
+        // Quartz retains a process-wide logger factory after an isolated host is disposed.
         // The suite runs hosts sequentially; clear that reference before constructing another.
-        Quartz.Logging.LogContext.SetCurrentLogProvider(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+        Quartz.Diagnostics.LogProvider.SetLogProvider(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         this.Connection = new SqliteConnection(ConnectionString);
         await this.Connection.OpenAsync();
 
@@ -353,7 +353,7 @@ public class AppHostFixture : IAsyncLifetime
         if (this.Factory is not null)
         {
             await this.Factory.DisposeAsync();
-            Quartz.Logging.LogContext.SetCurrentLogProvider(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+            Quartz.Diagnostics.LogProvider.SetLogProvider(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         }
         if (this.Connection is not null)
         {
