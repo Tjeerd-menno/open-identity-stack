@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OpenIddict.EntityFrameworkCore.Models;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Security.Commands;
 using OpenIdentityStack.Application.Users.Queries;
@@ -193,7 +194,7 @@ public sealed class CredentialCutoverAuthorityConcurrencyTests(AdministrativeAut
                 await writer.SaveChangesAsync();
             });
         var approval = new AdministrativeApproval(actor, new UserRepository(stale),
-            new GetUserEffectiveRolesQueryHandler(new RoleRepository(stale), new GroupRepository(stale)),
+            new GetUserEffectiveRolesQueryHandler(new RoleRepository(stale), new RequestScopedUserGroupsProvider(new GroupRepository(stale))),
             clock, audit, new AdministrativeAuthoritySnapshot(stale),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AdministrativeApproval>.Instance);
         IOpenIddictTokenManager tokens = Substitute.For<IOpenIddictTokenManager>();

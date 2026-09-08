@@ -46,36 +46,47 @@ public sealed class ApplicationPermissionRegistryRepository : IApplicationPermis
             ? null
             : applicationIdentifier.Trim().ToLowerInvariant();
 
-        IQueryable<RegisteredApplication> applicationsQuery = this.dbContext.RegisteredApplications
-            .AsNoTracking()
-            .Include(application => application.Permissions);
+        IQueryable<RegisteredApplication> applicationsQuery = this.dbContext.RegisteredApplications.AsNoTracking();
 
         if (!string.IsNullOrEmpty(normalizedIdentifier))
         {
             applicationsQuery = applicationsQuery.Where(application => application.ApplicationIdentifier == normalizedIdentifier);
         }
 
-        List<RegisteredApplication> applications = await applicationsQuery
-            .OrderBy(application => application.ApplicationIdentifier)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+        List<DeletedApplicationHistoryDto> deletedApplications = [];
+        if (includeApplications)
+        {
+            // Only deleted applications are needed; their full permission list feeds the active-permission count.
+            List<RegisteredApplication> deleted = await applicationsQuery
+                .Where(application => application.DeletedAt != null)
+                .Include(application => application.Permissions)
+                .OrderBy(application => application.ApplicationIdentifier)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
 
-        List<DeletedApplicationHistoryDto> deletedApplications = includeApplications
-            ? applications
-                .Where(application => application.IsDeleted)
+            deletedApplications = deleted
                 .Select(ApplicationPermissionMaintenanceUseCases.MapSummary)
-                .ToList()
-            : [];
+                .ToList();
+        }
 
-        List<RemovedPermissionDetailDto> removedPermissions = includePermissions
-            ? applications
+        List<RemovedPermissionDetailDto> removedPermissions = [];
+        if (includePermissions)
+        {
+            // Filtered include: load only applications with removed permissions, and only those permissions.
+            List<RegisteredApplication> withRemoved = await applicationsQuery
+                .Where(application => application.Permissions.Any(permission => permission.RemovedAt != null))
+                .Include(application => application.Permissions.Where(permission => permission.RemovedAt != null))
+                .OrderBy(application => application.ApplicationIdentifier)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            removedPermissions = withRemoved
                 .SelectMany(application => application.Permissions
-                    .Where(permission => permission.IsRemoved)
                     .Select(permission => ApplicationPermissionMaintenanceUseCases.MapRemovedPermission(application, permission)))
                 .OrderBy(permission => permission.ApplicationIdentifier, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(permission => permission.PermissionKey, StringComparer.OrdinalIgnoreCase)
-                .ToList()
-            : [];
+                .ToList();
+        }
 
         return new ApplicationPermissionHistoryDto(deletedApplications, removedPermissions);
     }

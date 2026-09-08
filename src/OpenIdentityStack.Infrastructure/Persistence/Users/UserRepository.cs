@@ -136,7 +136,9 @@ public sealed class UserRepository : IUserRepository
         int totalCount = await query.CountAsync(cancellationToken);
 
         List<User> items = await query
-            .OrderBy(u => u.Email)
+            // NormalizedEmail is the indexed column; Email itself is not indexed.
+            .OrderBy(u => u.NormalizedEmail)
+            .ThenBy(u => u.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);

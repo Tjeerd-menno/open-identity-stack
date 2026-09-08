@@ -1,4 +1,5 @@
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Roles;
@@ -12,14 +13,14 @@ namespace OpenIdentityStack.Application.Users.Queries;
 public sealed class GetUserEffectiveRolesQueryHandler : IGetUserEffectiveRolesQueryHandler
 {
     private readonly IRoleRepository roleRepository;
-    private readonly IGroupRepository groupRepository;
+    private readonly IUserGroupsProvider userGroups;
 
     public GetUserEffectiveRolesQueryHandler(
         IRoleRepository roleRepository,
-        IGroupRepository groupRepository)
+        IUserGroupsProvider userGroups)
     {
         this.roleRepository = roleRepository;
-        this.groupRepository = groupRepository;
+        this.userGroups = userGroups;
     }
 
     public async Task<Result<IReadOnlyList<RoleDto>>> HandleAsync(
@@ -32,7 +33,7 @@ public sealed class GetUserEffectiveRolesQueryHandler : IGetUserEffectiveRolesQu
         var directRoleNames = new HashSet<string>(directRoles.Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
 
         // 2. Get Groups
-        IReadOnlyList<Group> groups = await this.groupRepository.GetGroupsForUserAsync(userId, cancellationToken);
+        IReadOnlyList<Group> groups = await this.userGroups.GetGroupsForUserAsync(userId, cancellationToken);
 
         // 3. Collect group-mapped role names not already granted directly
         var roleNamesToResolve = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

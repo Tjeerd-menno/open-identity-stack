@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.AdministrativeAccess;
 using OpenIdentityStack.Application.Resources;
 using OpenIdentityStack.Application.Roles.Commands;
@@ -69,7 +70,7 @@ public sealed class AdministrativeAccessAuthorityRaceTests(AdministrativeAuthori
         var snapshot = new AdministrativeAuthoritySnapshot(requestDb);
         var projection = new ResourcePermissionService(new ResourceAccessRepository(requestDb, Substitute.For<IOpenIddictScopeManager>(), clock),
             new ApplicationRepository(requestDb), Substitute.For<IApplicationPermissionRegistryRepository>(), new UserRepository(requestDb),
-            new GetUserEffectiveRolesQueryHandler(new RoleRepository(requestDb), new GroupRepository(requestDb)));
+            new GetUserEffectiveRolesQueryHandler(new RoleRepository(requestDb), new RequestScopedUserGroupsProvider(new GroupRepository(requestDb))));
         var evaluator = new AdministrativeAccessEvaluator(projection, snapshot);
         Result<IReadOnlyList<string>> permissions = await evaluator.EvaluateAsync(new(client.ClientId, change == "machine" ? null : user.Id, ["roles:write"]));
         permissions.IsSuccess.ShouldBeTrue();

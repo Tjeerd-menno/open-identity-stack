@@ -1,4 +1,5 @@
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
@@ -99,7 +100,7 @@ public class GetUserEffectiveRolesQueryHandlerTests
     {
         this._roleRepository = Substitute.For<IRoleRepository>();
         this._groupRepository = Substitute.For<IGroupRepository>();
-        this._handler = new GetUserEffectiveRolesQueryHandler(this._roleRepository, this._groupRepository);
+        this._handler = new GetUserEffectiveRolesQueryHandler(this._roleRepository, new RequestScopedUserGroupsProvider(this._groupRepository));
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
     }
