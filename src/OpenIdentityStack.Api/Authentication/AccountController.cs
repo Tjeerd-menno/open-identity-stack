@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Claims;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using OpenIdentityStack.Application.Abstractions;
@@ -31,6 +32,9 @@ public class AccountController : Controller
     private readonly IUserRepository userRepository;
     private readonly IDynamicAuthenticationSchemeService schemeService;
     private readonly IJitProvisionUserUseCase jitProvisionUseCase;
+    private readonly IAuditLog audit;
+    private readonly ICredentialBoundaryStore credentialBoundary;
+    private readonly ISessionMonitoringCookieService sessionMonitoringCookies;
     private readonly ICredentialTerminationService credentialTerminationService;
 
     public AccountController(
@@ -42,6 +46,9 @@ public class AccountController : Controller
         IUserRepository userRepository,
         IDynamicAuthenticationSchemeService schemeService,
         IJitProvisionUserUseCase jitProvisionUseCase,
+        IAuditLog audit,
+        ICredentialBoundaryStore credentialBoundary,
+        ISessionMonitoringCookieService sessionMonitoringCookies,
         ICredentialTerminationService credentialTerminationService)
     {
         this.validateCredentialsUseCase = validateCredentialsUseCase;
@@ -52,6 +59,9 @@ public class AccountController : Controller
         this.userRepository = userRepository;
         this.schemeService = schemeService;
         this.jitProvisionUseCase = jitProvisionUseCase;
+        this.audit = audit;
+        this.credentialBoundary = credentialBoundary;
+        this.sessionMonitoringCookies = sessionMonitoringCookies;
         this.credentialTerminationService = credentialTerminationService;
     }
 
@@ -153,7 +163,7 @@ public class AccountController : Controller
             this.Request.Scheme) ?? "/";
 
         // Challenge the external authentication scheme
-        AuthenticationProperties properties = new()
+        OpenIdConnectChallengeProperties properties = new()
         {
             RedirectUri = callbackUrl,
             Items =
@@ -164,11 +174,14 @@ public class AccountController : Controller
             }
         };
 
+        properties.SetString(CredentialBoundaryClaims.Epoch, (await this.credentialBoundary.GetEpochAsync(this.HttpContext.RequestAborted)).ToString());
+
         // If fresh login is required, pass prompt=login to the upstream IdP
         // This forces the external IdP (like Authentik) to show its login page
         if (fresh)
         {
             properties.Items.Add("prompt", "login");
+            properties.MaxAge = TimeSpan.Zero;
         }
 
         return this.Challenge(properties, provider);
@@ -188,7 +201,16 @@ public class AccountController : Controller
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
+        // Consume the authenticated external ticket before any validation or JIT denial can return.
+        await this.HttpContext.SignOutAsync("ExternalCookie");
         ClaimsPrincipal externalUser = authenticateResult.Principal;
+        string? credentialEpoch = authenticateResult.Properties?.GetString(CredentialBoundaryClaims.Epoch);
+        if (!await this.credentialBoundary.IsCurrentAsync(credentialEpoch, this.HttpContext.RequestAborted))
+        {
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
+        }
+        string? verifiedEvidenceEmail = null;
+        authenticateResult.Properties?.Items.TryGetValue(ExternalIdentityProperties.VerifiedEmail, out verifiedEvidenceEmail);
 
         // Extract claims from the external identity
         string? subjectId = externalUser.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -204,54 +226,44 @@ public class AccountController : Controller
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "no_subject_claim" });
         }
 
-        // Get the provider ID from the authentication properties
-        string? providerIdString = authenticateResult.Properties?.Items["providerId"];
-        if (string.IsNullOrEmpty(providerIdString) || !Guid.TryParse(providerIdString, out Guid providerGuid))
+        string? providerIdString = authenticateResult.Properties?.GetString(ExternalIdentityProperties.ProviderId);
+        string? authenticatedProvider = authenticateResult.Properties?.GetString(ExternalIdentityProperties.ProviderName);
+        string? issuer = authenticateResult.Properties?.GetString(ExternalIdentityProperties.ValidatedIssuer);
+        string? authority = authenticateResult.Properties?.GetString(ExternalIdentityProperties.Authority);
+        bool providerIdIsValid = Guid.TryParse(providerIdString, out Guid providerGuid);
+        if (!providerIdIsValid || string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(authority) || string.IsNullOrWhiteSpace(authenticatedProvider))
         {
-            // Try to look up provider by name
-            UpstreamProvider? upstreamProvider = await this.providerRepository.GetByNameAsync(provider);
-            if (upstreamProvider is null)
-            {
-                return this.RedirectToAction(nameof(Login), new { returnUrl, error = "provider_not_found" });
-            }
-            providerGuid = upstreamProvider.Id.Value;
+            await this.audit.LogAsync(
+                "federation",
+                "Federation.IssuerBindingRejected",
+                "UpstreamProvider",
+                providerIdIsValid ? providerGuid.ToString() : "unknown",
+                "Protected external identity binding metadata is missing or invalid.",
+                this.HttpContext.RequestAborted);
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
-        var providerId = UpstreamProviderId.From(providerGuid);
+        // Existing and new identities pass the same issuer-bound authentication checks.
+        var jitCommand = new JitProvisionUserCommand(UpstreamProviderId.From(providerGuid), subjectId, email, name, issuer, authority,
+            !string.IsNullOrWhiteSpace(email) && string.Equals(verifiedEvidenceEmail?.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase));
+        Result<JitProvisionUserResult> jitResult = await this.jitProvisionUseCase.ExecuteAsync(jitCommand);
+        if (jitResult.IsFailure)
+        {
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
+        }
 
-        // Find or create user via upstream identity
-        Domain.Users.User? user = await this.userRepository.FindByUpstreamIdentityAsync(providerId, subjectId);
-
+        Domain.Users.User? user = await this.userRepository.GetByIdAsync(jitResult.Value.UserId);
         if (user is null)
         {
-            // JIT provision a new user
-            var jitCommand = new JitProvisionUserCommand(
-                providerId,
-                subjectId,
-                email,
-                name);
-
-            Result<JitProvisionUserResult> jitResult = await this.jitProvisionUseCase.ExecuteAsync(jitCommand);
-            if (jitResult.IsFailure)
-            {
-                return this.RedirectToAction(nameof(Login), new { returnUrl, error = "user_provisioning_failed" });
-            }
-
-            // Fetch the newly created user
-            user = await this.userRepository.GetByIdAsync(jitResult.Value.UserId);
-            if (user is null)
-            {
-                return this.RedirectToAction(nameof(Login), new { returnUrl, error = "user_not_found_after_provisioning" });
-            }
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
-        if (!user.CanAuthenticate())
+        if (user.Status != Domain.Users.UserStatus.Active)
         {
-            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "account_disabled" });
+            await this.audit.LogAsync("federation", "Federation.AccountAssociationDenied", "User", user.Id.Value.ToString(),
+                $"Local account is not active. Provider: {providerGuid}.");
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
-
-        // Sign out of the external cookie
-        await this.HttpContext.SignOutAsync("ExternalCookie");
 
         DateTimeOffset authenticationTime = DateTimeOffset.UtcNow;
 
@@ -263,8 +275,17 @@ public class AccountController : Controller
             new(ClaimTypes.Name, user.DisplayName),
             new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
             new("auth_method", "external"),
-            new("provider", provider)
+            new(CredentialBoundaryClaims.Epoch, credentialEpoch ?? Guid.Empty.ToString()),
+            new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, user.Id.Value.ToString()),
+            new("provider", authenticatedProvider)
         };
+
+        // Only the upstream's validated authentication event can establish freshness; receiving an SSO callback cannot.
+        string? upstreamAuthenticationTime = authenticateResult.Properties?.GetString(ExternalIdentityProperties.AuthenticationTime);
+        if (upstreamAuthenticationTime is not null)
+        {
+            claims.Add(new Claim(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim, upstreamAuthenticationTime));
+        }
 
         // Create user session
         string ipAddress = this.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
@@ -277,9 +298,8 @@ public class AccountController : Controller
         Result<CreateSessionResult> sessionResult = await this.createSessionUseCase.ExecuteAsync(createSessionCommand);
         if (sessionResult.IsFailure)
         {
-            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "session_creation_failed" });
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
-
         string sessionId = sessionResult.Value.SessionId.Value.ToString();
         claims.Add(new Claim("sid", sessionId));
         claims.Add(new Claim("session_id", sessionId));
@@ -295,11 +315,9 @@ public class AccountController : Controller
         };
 
         await this.HttpContext.SignInAsync("Cookies", claimsPrincipal, authProperties);
-        string sessionCookieValue = SessionManagementDefaults.GenerateSessionCookieValue();
-        this.HttpContext.Response.Cookies.Append(
-            SessionManagementDefaults.SessionCookieName,
-            sessionCookieValue,
-            SessionManagementDefaults.CreateSessionCookieOptions(authProperties.ExpiresUtc));
+        Guid capturedEpoch = Guid.TryParse(credentialEpoch, out Guid parsedEpoch) ? parsedEpoch : Guid.Empty;
+        this.AppendSessionMonitoringCookie(
+            user.Id, sessionResult.Value.SessionId, capturedEpoch, authProperties.ExpiresUtc!.Value);
 
         return this.RedirectToValidatedUrl(returnUrl);
     }
@@ -320,6 +338,7 @@ public class AccountController : Controller
             return this.View(model);
         }
 
+        Guid credentialEpoch = await this.credentialBoundary.GetEpochAsync(this.HttpContext.RequestAborted);
         var command = new ValidateUserCredentialsCommand(model.Email, model.Password);
         Result<ValidateUserCredentialsResult> result = await this.validateCredentialsUseCase.ExecuteAsync(command);
 
@@ -335,9 +354,13 @@ public class AccountController : Controller
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, result.Value.UserId.Value.ToString()),
+            new(CredentialBoundaryClaims.Epoch, credentialEpoch.ToString()),
             new(ClaimTypes.Email, result.Value.Email),
             new(ClaimTypes.Name, result.Value.DisplayName),
-            new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64)
+            new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
+            new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, result.Value.UserId.Value.ToString()),
+            new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
+            new(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision, result.Value.CredentialRevision.ToString())
         };
 
         // Create user session
@@ -352,13 +375,13 @@ public class AccountController : Controller
         Result<CreateSessionResult> sessionResult = await this.createSessionUseCase.ExecuteAsync(createSessionCommand);
         if (sessionResult.IsFailure)
         {
-            this.ModelState.AddModelError(string.Empty, "Unable to establish a secure session. Please try again.");
+            this.ModelState.AddModelError(string.Empty, "Unable to complete sign-in. Please try again.");
             return this.View(model);
         }
-
         string sessionId = sessionResult.Value.SessionId.Value.ToString();
         claims.Add(new Claim("sid", sessionId));
         claims.Add(new Claim("session_id", sessionId));
+        claims.Add(new Claim(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession, sessionId));
 
         var claimsIdentity = new ClaimsIdentity(claims, "Cookies");
         var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
@@ -371,11 +394,8 @@ public class AccountController : Controller
         };
 
         await this.HttpContext.SignInAsync("Cookies", claimsPrincipal, authProperties);
-        string sessionCookieValue = SessionManagementDefaults.GenerateSessionCookieValue();
-        this.HttpContext.Response.Cookies.Append(
-            SessionManagementDefaults.SessionCookieName,
-            sessionCookieValue,
-            SessionManagementDefaults.CreateSessionCookieOptions(authProperties.ExpiresUtc));
+        this.AppendSessionMonitoringCookie(
+            result.Value.UserId, sessionResult.Value.SessionId, credentialEpoch, authProperties.ExpiresUtc!.Value);
 
         return this.RedirectToValidatedUrl(returnUrl);
     }
@@ -411,6 +431,19 @@ public class AccountController : Controller
     public IActionResult AccessDenied()
     {
         return this.View();
+    }
+
+    private void AppendSessionMonitoringCookie(
+        UserId userId,
+        SessionId sessionId,
+        Guid credentialEpoch,
+        DateTimeOffset expiresUtc)
+    {
+        string value = this.sessionMonitoringCookies.Create(userId, sessionId, credentialEpoch, expiresUtc);
+        this.HttpContext.Response.Cookies.Append(
+            SessionManagementDefaults.SessionCookieName,
+            value,
+            SessionManagementDefaults.CreateSessionCookieOptions(expiresUtc));
     }
 
     /// <summary>
@@ -492,7 +525,7 @@ public class AccountController : Controller
         return errorCode switch
         {
             "Unauthorized.User.InvalidCredentials" => "Invalid email or password.",
-            "Forbidden.User.AccountDisabled" => "Your account has been disabled. Please contact support.",
+            "Forbidden.User.AccountDisabled" => "Invalid email or password.",
             "Forbidden.User.AccountNotVerified" => "Please verify your email address before logging in.",
             "Forbidden.AuthenticationSettings.LocalAuthNotPermitted" => "Authentication method not permitted.",
             _ => "An error occurred during login. Please try again."

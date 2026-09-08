@@ -81,6 +81,40 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
             SignInScheme = "ExternalCookie",
             Events = new OpenIdConnectEvents
             {
+                OnTokenValidated = context =>
+                {
+                    string? issuer = context.SecurityToken?.Issuer;
+                    if (context.SecurityToken is null || string.IsNullOrWhiteSpace(issuer) || context.Properties is null)
+                    {
+                        context.Fail("External authentication could not be completed.");
+                        return Task.CompletedTask;
+                    }
+
+                    // These values travel in the protected external cookie, never in callback query parameters.
+                    context.Properties.SetString(ExternalIdentityProperties.ValidatedIssuer, issuer);
+                    context.Properties.SetString(ExternalIdentityProperties.ProviderId, provider.Id.Value.ToString());
+                    context.Properties.SetString(ExternalIdentityProperties.ProviderName, context.Scheme.Name);
+                    context.Properties.SetString(ExternalIdentityProperties.Authority, context.Options.Authority);
+                    System.Security.Claims.Claim[] authenticationTimes = context.SecurityToken.Claims.Where(c => c.Type == "auth_time").ToArray();
+                    context.Properties.SetString(ExternalIdentityProperties.AuthenticationTime,
+                        authenticationTimes.Length == 1 ? authenticationTimes[0].Value : null);
+                    string? email = context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+                    System.Security.Claims.Claim? verifiedClaim = context.SecurityToken.Claims.FirstOrDefault(c => c.Type == "email_verified");
+                    bool verified = verifiedClaim?.ValueType == System.Security.Claims.ClaimValueTypes.Boolean
+                        && string.Equals(verifiedClaim.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    if (context.Properties is { } properties)
+                    {
+                        if (verified && !string.IsNullOrWhiteSpace(email))
+                        {
+                            properties.SetString(ExternalIdentityProperties.VerifiedEmail, email);
+                        }
+                        else
+                        {
+                            properties.Items.Remove(ExternalIdentityProperties.VerifiedEmail);
+                        }
+                    }
+                    return Task.CompletedTask;
+                },
                 // Pass prompt=login to upstream IdP when requested
                 OnRedirectToIdentityProvider = context =>
                 {
@@ -255,4 +289,15 @@ public static class ExternalAuthenticationExtensions
         services.AddHostedService<ExternalAuthenticationStartupService>();
         return services;
     }
+}
+
+/// <summary>Protected ticket metadata produced only after upstream token validation.</summary>
+public static class ExternalIdentityProperties
+{
+    public const string ValidatedIssuer = "ois.validated_issuer";
+    public const string ProviderId = "ois.provider_id";
+    public const string ProviderName = "ois.provider_name";
+    public const string Authority = "ois.authentication_authority";
+    public const string VerifiedEmail = "ois.verified_email";
+    public const string AuthenticationTime = "ois.validated_authentication_time";
 }

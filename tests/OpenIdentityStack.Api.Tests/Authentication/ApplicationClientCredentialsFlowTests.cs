@@ -20,8 +20,8 @@ public sealed class ApplicationClientCredentialsFlowTests(AppHostFixture fixture
         this.client = this.fixture.HttpClient!;
         string adminClientId = $"application-token-flow-admin-{Guid.NewGuid():N}";
         const string adminSecret = "test-secret-123";
-        await this.fixture.CreateServiceAccountAsync(adminClientId, adminSecret);
-        this.accessToken = await this.fixture.GetAccessTokenAsync(adminClientId, adminSecret);
+        using HttpClient admin = await this.fixture.CreateAuthenticatedClientAsync(adminClientId, adminSecret);
+        this.accessToken = admin.DefaultRequestHeaders.Authorization!.Parameter;
     }
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -121,6 +121,7 @@ public sealed class ApplicationClientCredentialsFlowTests(AppHostFixture fixture
             });
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         JsonNode json = await ReadJsonAsync(response);
+        await this.fixture.GrantBusinessResourceFixtureAccessAsync(clientId);
         return json["id"]?.GetValue<Guid>() ?? throw new InvalidOperationException("Application ID not returned.");
     }
 

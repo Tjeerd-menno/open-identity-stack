@@ -27,6 +27,13 @@ internal static class UsersApi
         RouteGroupBuilder group = app.MapGroup("api/admin/users")
             .WithTags(nameof(UsersApi));
 
+        group.MapGet("identity-migration-inventory", GetIdentityMigrationInventory)
+            .RequireAuthorization(Permissions.Users.Read)
+            .Produces<IdentityMigrationInventoryResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .WithName("GetIdentityMigrationInventory")
+            .WithSummary("Inventories retained federation links and migration blockers; candidate credentials do not prove ownership");
+
         // User CRUD
         group.MapPost(string.Empty, CreateUser)
             .RequireAuthorization(Permissions.Users.Write)
@@ -59,6 +66,7 @@ internal static class UsersApi
         group.MapDelete("{id:guid}", DeleteUser)
             .RequireAuthorization(Permissions.Users.Delete)
             .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("DeleteUser")
             .WithSummary("Deletes a user");
@@ -74,14 +82,18 @@ internal static class UsersApi
         group.MapPost("{id:guid}/enable", EnableUser)
             .RequireAuthorization(Permissions.Users.Write)
             .Produces<UserStatusChangeResponse>(StatusCodes.Status200OK)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("EnableUser")
             .WithSummary("Enables a disabled user account");
 
         group.MapPost("{id:guid}/reset-password", ResetPassword)
             .RequireAuthorization(Permissions.Users.ResetPassword)
             .Produces<PasswordResetResponse>(StatusCodes.Status200OK)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("ResetPassword")
             .WithSummary("Resets a user's password");
 
@@ -96,8 +108,9 @@ internal static class UsersApi
         group.MapPost("{userId:guid}/roles/{roleId:guid}", AssignRole)
             .RequireAuthorization(Permissions.Roles.Assign)
             .Produces(StatusCodes.Status200OK)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AssignRole")
             .WithSummary("Assigns a role to a user");
 
@@ -126,15 +139,14 @@ internal static class UsersApi
 
         group.MapPost("{userId:guid}/upstream-identities", LinkUpstreamIdentity)
             .RequireAuthorization(Permissions.Users.Write)
-            .Produces<LinkUpstreamIdentityResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithName("LinkUpstreamIdentity")
-            .WithSummary("Links an upstream identity to a user");
+            .WithSummary("Rejects identity linking without proof of account control");
 
         group.MapDelete("{userId:guid}/upstream-identities/{providerId:guid}", UnlinkUpstreamIdentity)
             .RequireAuthorization(Permissions.Users.Write)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("UnlinkUpstreamIdentity")
@@ -192,7 +204,13 @@ internal static class UsersApi
             result.Value.LastLoginAt,
             result.Value.CreatedAt,
             result.Value.ModifiedAt,
-            ToUserProfileResponse(result.Value.Profile));
+            ToUserProfileResponse(result.Value.Profile))
+        {
+            EmailVerified = result.Value.EmailVerified,
+            EmailVerificationEvidence = result.Value.EmailVerificationEvidence.Select(evidence =>
+                new EmailVerificationEvidenceResponse(evidence.Email, evidence.ProviderId, evidence.Issuer,
+                    evidence.VerifiedAt, evidence.WithdrawnAt)).ToList()
+        };
 
         return TypedResults.Ok(response);
     }
@@ -390,6 +408,16 @@ internal static class UsersApi
         return TypedResults.Ok(new { userId, roleId, unassignedAt = DateTimeOffset.UtcNow });
     }
 
+    private static async Task<IResult> GetIdentityMigrationInventory(
+        [FromServices] IIdentityMigrationInventoryQueryHandler handler,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] Guid? providerId = null,
+        CancellationToken cancellationToken = default)
+    {
+        Result<IdentityMigrationInventoryResult> result = await handler.ExecuteAsync(new IdentityMigrationInventoryQuery(page, pageSize, providerId), cancellationToken);
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : ErrorResultMapper.ToErrorResult(result.Error);
+    }
     private static async Task<IResult> GetUpstreamIdentities(
         [FromServices] IListUserUpstreamIdentitiesQueryHandler listUpstreamIdentitiesQueryHandler,
         Guid userId)
@@ -409,7 +437,7 @@ internal static class UsersApi
                 item.SubjectId,
                 item.Email,
                 item.LinkedAt,
-                item.LastLoginAt)).ToList());
+                item.LastLoginAt, item.Issuer, item.AssociationEvidence, item.IsQuarantined)).ToList());
 
         return TypedResults.Ok(response);
     }
@@ -432,6 +460,15 @@ internal static class UsersApi
 
         if (result.IsFailure)
         {
+            if (result.Error.Code == "Forbidden.UpstreamIdentity.ProofRequired")
+            {
+                return TypedResults.Problem(
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account-control proof required",
+                    detail: result.Error.Description,
+                    extensions: new Dictionary<string, object?> { ["code"] = result.Error.Code });
+            }
+
             return ErrorResultMapper.ToErrorResult(result.Error);
         }
 
@@ -517,7 +554,5 @@ internal static class UsersApi
 
     /// <summary>Resolves the acting admin's id from the authenticated principal for audit logging.</summary>
     private static string GetActorId(HttpContext context) =>
-        context.User.FindFirstValue("sub")
-            ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? "system";
+        Authorization.AdministrativeActorContext.ResolveAuditActorId(context.User);
 }

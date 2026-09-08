@@ -29,6 +29,20 @@ Advanced protocol capabilities such as `private_key_jwt`, mTLS, JWKS, DPoP, and 
 
 ## Common administrator flows
 
+### Resource access
+
+The **Resource access** tab separates three identities: the OAuth client (`client_id`), the protected API (an immutable HTTPS or URN audience and resource scope), and registered permission namespaces. Namespaces are mapped explicitly; a client identifier never determines the namespace of permissions in its token.
+
+Create the permission namespace in the permission registry, then add a protected resource and select its namespaces. Add the resource scope to each client’s OAuth scopes and configure that client’s **delegated permission ceiling** and **application permissions** separately. Each field accepts concrete registered permissions or terminal resource wildcards such as `orders:invoice:*`. Empty lists grant no permissions. A missing resource grant rejects resource access entirely.
+
+Delegated access tokens contain the user’s current effective permissions intersected with the client ceiling and requested resource namespaces. Machine tokens contain only explicit application permissions. Neither role names nor the generic `api` scope confer access. Role names may be included in an ID token requested with `roles`; they are not emitted as access-token authority.
+
+Clients request the configured resource scope. An optional RFC 8707 `resource` parameter must exactly match the audiences implied by all requested resource scopes. Unknown, disabled, inconsistent, or mixed administrative/business resources are rejected. Code redemption and refresh recompute current permissions and cap them by the original token permissions and audiences. Introspection also uses current mappings/grants, requires a resource grant for the caller, and never widens the token’s original authority.
+
+Audience and resource scope are immutable; create a new resource to change them. Edits require `applications:write`, include the observed `expectedRevision`, and produce resource/grant audit records. Stale writes return HTTP 409 and must be reloaded. The reserved Admin resource (`urn:openidentitystack:admin-api`, scope `ois.admin`, namespace `openidentitystack`) is read-only here and requires the dedicated administrative approval workflow.
+
+The resource API contract is recorded in `contracts/openapi/identity-resource-access.yaml`. See [the migration procedure](applications-migration.md#resource-access-boundary-migration) before deploying this breaking change.
+
 1. Create an Application with the appropriate application profile.
 2. Accept the fixed client profile and default grants applied by the selected type.
 3. Configure only the options the form keeps visible for that type, such as redirects, scopes, PKCE, consent, or optional refresh tokens.

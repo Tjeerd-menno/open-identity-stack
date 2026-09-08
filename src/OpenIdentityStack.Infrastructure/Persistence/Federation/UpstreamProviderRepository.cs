@@ -41,6 +41,7 @@ public sealed class UpstreamProviderRepository : IUpstreamProviderRepository
         CancellationToken cancellationToken = default)
     {
         return await this.dbContext.UpstreamProviders
+            .AsNoTracking()
             .Where(p => p.Status == ProviderStatus.Active)
             .OrderBy(p => p.DisplayName)
             .ToListAsync(cancellationToken);
@@ -51,6 +52,7 @@ public sealed class UpstreamProviderRepository : IUpstreamProviderRepository
         CancellationToken cancellationToken = default)
     {
         return await this.dbContext.UpstreamProviders
+            .AsNoTracking()
             .OrderBy(p => p.DisplayName)
             .ToListAsync(cancellationToken);
     }
@@ -62,6 +64,10 @@ public sealed class UpstreamProviderRepository : IUpstreamProviderRepository
     {
         await this.dbContext.UpstreamProviders.AddAsync(provider, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public void RequireProvisioningPolicyWrite(UpstreamProvider provider) =>
+        this.dbContext.Entry(provider).Property(value => value.JitProvisioningEnabled).IsModified = true;
 
     /// <inheritdoc />
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)

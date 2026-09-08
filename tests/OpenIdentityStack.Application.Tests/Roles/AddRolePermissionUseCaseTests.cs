@@ -20,7 +20,7 @@ public sealed class AddRolePermissionUseCaseTests
         this.permissionAssignmentValidator
             .ValidateAssignableAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success());
-        this.useCase = new AddRolePermissionUseCase(this.roleRepository, this.permissionAssignmentValidator);
+        this.useCase = new AddRolePermissionUseCase(this.roleRepository, this.permissionAssignmentValidator, Substitute.For<IAdministrativeApproval>());
     }
 
     [Fact]

@@ -15,6 +15,7 @@ public sealed class ApplicationCredentialUseCaseTests
     private readonly IPasswordHasher passwordHasher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeActorContext actorContext;
     private readonly ApplicationCredentialUseCases credentialUseCases;
     private readonly ApplicationCredentialValidationUseCases validationUseCases;
     private readonly DateTimeOffset now = new(2026, 5, 24, 12, 0, 0, TimeSpan.Zero);
@@ -26,6 +27,10 @@ public sealed class ApplicationCredentialUseCaseTests
         this.passwordHasher = Substitute.For<IPasswordHasher>();
         this.dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this.auditLog = Substitute.For<IAuditLog>();
+        this.actorContext = Substitute.For<IAdministrativeActorContext>();
+        this.actorContext.AuditActorId.Returns("user:credential-admin");
+        IAdministrativeClientGuard administrativeGuard = Substitute.For<IAdministrativeClientGuard>();
+        administrativeGuard.RequireAsync(Arg.Any<OpenIdentityStack.Domain.Applications.ApplicationId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
         this.dateTimeProvider.UtcNow.Returns(this.now);
         this.passwordHasher.HashPassword(Arg.Any<string>()).Returns("hashed-secret");
         this.projection.UpsertAsync(Arg.Any<DomainApplication>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
@@ -37,7 +42,7 @@ public sealed class ApplicationCredentialUseCaseTests
             this.projection,
             this.passwordHasher,
             this.dateTimeProvider,
-            this.auditLog);
+            this.auditLog, administrativeGuard, this.actorContext);
         this.validationUseCases = new ApplicationCredentialValidationUseCases(
             this.repository,
             this.passwordHasher,
@@ -63,12 +68,31 @@ public sealed class ApplicationCredentialUseCaseTests
         await this.projection.Received(1).UpsertAsync(application, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "system",
+            "user:credential-admin",
             "ApplicationCredential.SecretAdded",
             "Application",
             application.Id.Value.ToString(),
             Arg.Any<string>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AddSecretExecuteAsync_WhenAuthorityFenceConflicts_ReturnsCredentialConflict()
+    {
+        DomainApplication application = this.CreateMachineToMachineApplication();
+        application.Disable(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.repository.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new TestConcurrencyConflictException()));
+
+        Result<ApplicationCredentialCommandResult> result = await this.credentialUseCases.ExecuteAsync(
+            new AddApplicationSecretCommand(application.Id, null, null, RevokeExisting: false));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.CredentialConflict");
+        await this.auditLog.DidNotReceive().LogAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -95,6 +119,26 @@ public sealed class ApplicationCredentialUseCaseTests
     }
 
     [Fact]
+    public async Task RevokeCredentialExecuteAsync_WhenAuthorityFenceConflicts_ReturnsCredentialConflict()
+    {
+        DomainApplication application = this.CreateMachineToMachineApplication();
+        ApplicationCredential credential = application.AddSecret("hashed-secret", null, null, this.dateTimeProvider).Value;
+        application.Disable(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.repository.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new TestConcurrencyConflictException()));
+
+        Result result = await this.credentialUseCases.ExecuteAsync(
+            new RevokeApplicationCredentialCommand(application.Id, credential.Id));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.CredentialConflict");
+        await this.auditLog.DidNotReceive().LogAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task AddCertificateExecuteAsync_WhenApplicationExists_AddsCertificateCredential()
     {
         DomainApplication application = this.CreateMachineToMachineApplication();
@@ -113,6 +157,28 @@ public sealed class ApplicationCredentialUseCaseTests
         result.Value.Type.ShouldBe(ApplicationCredentialType.X509Certificate);
         application.Credentials.Single().Thumbprint.ShouldBe("ABC123");
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AddCertificateExecuteAsync_WhenAuthorityFenceConflicts_ReturnsCredentialConflict()
+    {
+        DomainApplication application = this.CreateMachineToMachineApplication();
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.repository.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new TestConcurrencyConflictException()));
+
+        Result<ApplicationCredentialCommandResult> result = await this.credentialUseCases.ExecuteAsync(
+            new AddApplicationCertificateCommand(application.Id, "ABC123", null, null, null));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Conflict.Application.CredentialConflict");
+        await this.auditLog.DidNotReceive().LogAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -164,7 +230,7 @@ public sealed class ApplicationCredentialUseCaseTests
         credential.LastUsedAt.ShouldBe(this.now);
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "system",
+            "client:orders-api",
             "ApplicationCredential.Used",
             "Application",
             application.Id.Value.ToString(),
@@ -190,7 +256,7 @@ public sealed class ApplicationCredentialUseCaseTests
         credential.LastUsedAt.ShouldBe(this.now);
         await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await this.auditLog.Received(1).LogAsync(
-            "system",
+            "client:orders-api",
             "ApplicationCredential.Used",
             "Application",
             application.Id.Value.ToString(),
@@ -211,4 +277,6 @@ public sealed class ApplicationCredentialUseCaseTests
     private static bool ContainsSecretMaterialName(string propertyName) =>
         propertyName.Contains("Secret", StringComparison.OrdinalIgnoreCase) ||
         propertyName.Contains("Hash", StringComparison.OrdinalIgnoreCase);
+
+    private sealed class TestConcurrencyConflictException : Exception, IConcurrencyConflict;
 }

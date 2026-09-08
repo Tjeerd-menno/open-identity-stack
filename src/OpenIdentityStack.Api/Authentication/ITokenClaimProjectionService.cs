@@ -8,7 +8,8 @@ public interface ITokenClaimProjectionService
 
     ClaimsPrincipal ProjectExistingPrincipal(
         ClaimsPrincipal principal,
-        DateTimeOffset? authenticationTime = null);
+        DateTimeOffset? authenticationTime = null,
+        OpenIdentityStack.Domain.Users.User? persistedUser = null);
 
     IReadOnlyDictionary<string, object> CreateUserInfoResponse(ClaimsPrincipal principal);
 }

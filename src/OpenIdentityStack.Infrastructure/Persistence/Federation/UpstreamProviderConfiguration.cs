@@ -45,10 +45,17 @@ public sealed class UpstreamProviderConfiguration : IEntityTypeConfiguration<Ups
             .HasMaxLength(500)
             .IsRequired();
 
+        builder.Property(p => p.IdentityConfigurationLocked).HasColumnName("identity_configuration_locked");
+        builder.Property(p => p.BoundIssuer).HasColumnName("bound_issuer").HasMaxLength(2048);
+        builder.Property(p => p.IdentityVersion).HasColumnName("identity_version").IsConcurrencyToken();
+
         builder.Property(p => p.ClientId)
             .HasColumnName("client_id")
             .HasMaxLength(256)
             .IsRequired();
+
+        builder.Property(p => p.TrustEmailVerification).HasColumnName("trust_email_verification").HasDefaultValue(false);
+        builder.Property(p => p.EmailTrustVersion).HasColumnName("email_trust_version").IsConcurrencyToken();
 
         builder.Property(p => p.ClientSecret)
             .HasColumnName("client_secret")
@@ -62,6 +69,12 @@ public sealed class UpstreamProviderConfiguration : IEntityTypeConfiguration<Ups
 
         builder.Property(p => p.CreatedAt)
             .HasColumnName("created_at")
+            .IsRequired();
+
+        builder.Property(p => p.JitProvisioningEnabled)
+            .IsConcurrencyToken()
+            .HasColumnName("jit_provisioning_enabled")
+            .HasDefaultValue(true)
             .IsRequired();
 
         builder.Property(p => p.UpdatedAt)

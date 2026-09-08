@@ -20,6 +20,7 @@ public sealed class SetDefaultProviderUseCaseTests
     private readonly IUpstreamProviderRepository _providerRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly IAuditLog _auditLog;
+    private readonly IAdministrativeActorContext _actorContext;
     private readonly SetDefaultProviderUseCase _useCase;
     private readonly DateTimeOffset _now = new(2026, 2, 3, 12, 0, 0, TimeSpan.Zero);
 
@@ -29,13 +30,16 @@ public sealed class SetDefaultProviderUseCaseTests
         this._providerRepository = Substitute.For<IUpstreamProviderRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._auditLog = Substitute.For<IAuditLog>();
+        this._actorContext = Substitute.For<IAdministrativeActorContext>();
+        this._actorContext.AuditActorId.Returns("user:settings-admin");
         this._dateTimeProvider.UtcNow.Returns(this._now);
 
         this._useCase = new SetDefaultProviderUseCase(
             this._settingsRepository,
             this._providerRepository,
             this._dateTimeProvider,
-            this._auditLog);
+            this._auditLog,
+            this._actorContext);
     }
 
     #region Success Cases
@@ -134,7 +138,7 @@ public sealed class SetDefaultProviderUseCaseTests
 
         // Assert
         await this._auditLog.Received(1).LogChangeAsync(
-            "system",
+            "user:settings-admin",
             "SetDefaultProvider",
             "AuthenticationSettings",
             Arg.Any<string>(),
@@ -236,28 +240,35 @@ public sealed class SetDefaultProviderUseCaseTests
     public void Constructor_ThrowsForNullSettingsRepository()
     {
         Should.Throw<ArgumentNullException>(() =>
-            new SetDefaultProviderUseCase(null!, this._providerRepository, this._dateTimeProvider, this._auditLog));
+            new SetDefaultProviderUseCase(null!, this._providerRepository, this._dateTimeProvider, this._auditLog, this._actorContext));
     }
 
     [Fact]
     public void Constructor_ThrowsForNullProviderRepository()
     {
         Should.Throw<ArgumentNullException>(() =>
-            new SetDefaultProviderUseCase(this._settingsRepository, null!, this._dateTimeProvider, this._auditLog));
+            new SetDefaultProviderUseCase(this._settingsRepository, null!, this._dateTimeProvider, this._auditLog, this._actorContext));
     }
 
     [Fact]
     public void Constructor_ThrowsForNullDateTimeProvider()
     {
         Should.Throw<ArgumentNullException>(() =>
-            new SetDefaultProviderUseCase(this._settingsRepository, this._providerRepository, null!, this._auditLog));
+            new SetDefaultProviderUseCase(this._settingsRepository, this._providerRepository, null!, this._auditLog, this._actorContext));
     }
 
     [Fact]
     public void Constructor_ThrowsForNullAuditLog()
     {
         Should.Throw<ArgumentNullException>(() =>
-            new SetDefaultProviderUseCase(this._settingsRepository, this._providerRepository, this._dateTimeProvider, null!));
+            new SetDefaultProviderUseCase(this._settingsRepository, this._providerRepository, this._dateTimeProvider, null!, this._actorContext));
+    }
+
+    [Fact]
+    public void Constructor_ThrowsForNullActorContext()
+    {
+        Should.Throw<ArgumentNullException>(() =>
+            new SetDefaultProviderUseCase(this._settingsRepository, this._providerRepository, this._dateTimeProvider, this._auditLog, null!));
     }
 
     #endregion

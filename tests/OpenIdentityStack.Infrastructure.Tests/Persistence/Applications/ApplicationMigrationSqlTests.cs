@@ -80,6 +80,19 @@ public sealed class ApplicationMigrationSqlTests
         guardedRename.Sql.ShouldContain("ApplicationType");
     }
 
+    [Fact]
+    public void AddExplicitResourceAccess_PreservesExistingMigrationProvenance()
+    {
+        string sql = GetUpOperations(typeof(AddExplicitResourceAccess))
+            .OfType<SqlOperation>()
+            .Single()
+            .Sql;
+
+        sql.ShouldContain("CASE");
+        sql.ShouldContain("WHEN \"RequiresMigrationReview\" THEN \"MigrationSource\"");
+        sql.ShouldContain("ELSE 'resource-access-boundary-v1'");
+    }
+
     private static IReadOnlyList<MigrationOperation> GetUpOperations(Type migrationType)
     {
         var migration = (Migration)Activator.CreateInstance(migrationType)!;

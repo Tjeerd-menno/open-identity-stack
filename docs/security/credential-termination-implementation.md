@@ -4,7 +4,7 @@ This implements recommendation 2 of the OIDC/IAM assessment. The [plan](credenti
 
 ## Enforcement
 
-The persisted user session is authoritative for interactive cookies, authorization codes, refresh tokens, local bearer authentication, UserInfo, and introspection. User credentials must identify an active, unexpired session owned by their subject. The session's captured security version must match the active user. Missing or invalid linkage fails closed. A server-issued token-kind claim distinguishes client-credentials tokens from user credentials; user-controlled group claims cannot supply that bypass.
+The persisted user session is authoritative for interactive cookies, authorization codes, refresh tokens, local bearer authentication, UserInfo, and introspection. User credentials must identify an active, unexpired session owned by their subject. The session's captured security version must match the active user. Missing or invalid linkage fails closed. A server-issued application-subject marker, matching subject and client ID, and absence of a user credential revision distinguish client-credentials tokens from user credentials; user-controlled group claims cannot supply that bypass.
 
 Revoke-one and logout terminate one session. Revoke-all, password reset, and disabling a user invalidate all affected sessions. Revoke-all can retain an explicitly excluded session at the new security version. Enabling a user does not restore terminated sessions. Terminal state, pending RP delivery state, and the operation's audit entry commit transactionally. Concurrency tokens prevent a stale session update from restoring an active status.
 
@@ -45,18 +45,20 @@ Integration review corrected missing access-token session linkage, late OpenIddi
 
 The review also corrected CSP replacement so unrelated directives and non-iframe pages retain their original policy. The implementation was divided among three GPT-5.6 Terra agents; integration review, corrections, and final verification were performed in the main session.
 
+The merge also preserves main's user credential revisions, global credential boundary, administrative approval and authority checks, email evidence, and explicit application identities. Current permissions are recalculated within the original token's resource and permission limits. Removing the last resource grant rejects refresh; stale session activity cannot overwrite revocation.
+
 ## Verification — 8 September 2026
 
-The solution build passed with zero errors and the existing `ASPIRE010` CLI-bundle warning. All 1,836 tests in the relevant suites passed, with none skipped:
+The solution build passed with zero errors and the existing `ASPIRE010` CLI-bundle warning. After merging main at `ed5f16a2`, 2,432 tests in the relevant suites passed. Nine PostgreSQL-specific infrastructure tests were skipped because this run used the local SQLite test environment:
 
 | Suite | Passed |
 | --- | ---: |
-| Domain | 449 |
-| Application | 466 |
-| Infrastructure | 407 |
-| API integration and controller tests | 371 |
-| API unit tests | 77 |
-| Public contracts | 60 |
+| Domain | 507 |
+| Application | 577 |
+| Infrastructure | 561 |
+| API integration and controller tests | 554 |
+| API unit tests | 123 |
+| Public contracts | 104 |
 | Architecture | 6 |
 
 The eight credential sequence tests obtain real codes, access tokens, refresh tokens, and cookies, terminate their session through the API, and exercise retained credentials. They cover revoke-one/all, reset, disable followed by enable, physical session deletion, local logout, OIDC confirmation and antiforgery, unaffected sessions, machine credentials, and privilege removal. Persistence tests cover audited idempotence, excluded-session epochs, rollback after a partial save, stale-context writes, and due-delivery selection. Notification tests cover cancellation followed by a new worker, backoff, completion persistence, and repeated logout.

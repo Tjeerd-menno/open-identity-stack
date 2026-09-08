@@ -15,6 +15,17 @@ public sealed class UpstreamProviderTests
     private const string ValidClientId = "client-id-123";
 
     [Fact]
+    public void BindIssuer_RejectsDifferentIssuerAndStaleDiscoveryAuthority()
+    {
+        UpstreamProvider provider = UpstreamProvider.Create(ValidName, ValidDisplayName, ValidAuthority, ValidClientId).Value;
+        provider.BindIssuer("https://issuer.example/tenant/", ValidAuthority).IsSuccess.ShouldBeTrue();
+        provider.BindIssuer("https://issuer.example/tenant", ValidAuthority).IsFailure.ShouldBeTrue();
+        provider.BindIssuer("https://issuer.example/tenant/", "https://other.example").IsFailure.ShouldBeTrue();
+        provider.UpdateAuthority(ValidAuthority).IsSuccess.ShouldBeTrue();
+        provider.UpdateAuthority("https://replacement.example").IsFailure.ShouldBeTrue();
+        provider.UpdateClientId("rotated-client").IsSuccess.ShouldBeTrue();
+    }
+    [Fact]
     public void Create_WithValidParameters_ReturnsProvider()
     {
         // Act
@@ -32,6 +43,18 @@ public sealed class UpstreamProviderTests
         result.Value.ClientId.ShouldBe(ValidClientId);
         result.Value.Status.ShouldBe(ProviderStatus.Active);
         result.Value.IsActive.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SetEmailVerificationTrust_WithCurrentValue_PreservesPolicyVersion()
+    {
+        UpstreamProvider provider = CreateValidProvider();
+        Guid version = provider.EmailTrustVersion;
+
+        provider.SetEmailVerificationTrust(false);
+
+        provider.TrustEmailVerification.ShouldBeFalse();
+        provider.EmailTrustVersion.ShouldBe(version);
     }
 
     [Fact]

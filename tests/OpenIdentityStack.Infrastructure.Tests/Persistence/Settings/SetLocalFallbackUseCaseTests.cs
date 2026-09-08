@@ -18,6 +18,7 @@ public sealed class SetLocalFallbackUseCaseTests
     private readonly IAuthenticationSettingsRepository _settingsRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly IAuditLog _auditLog;
+    private readonly IAdministrativeActorContext _actorContext;
     private readonly SetLocalFallbackUseCase _useCase;
     private readonly DateTimeOffset _now = new(2026, 2, 3, 12, 0, 0, TimeSpan.Zero);
 
@@ -26,12 +27,15 @@ public sealed class SetLocalFallbackUseCaseTests
         this._settingsRepository = Substitute.For<IAuthenticationSettingsRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._auditLog = Substitute.For<IAuditLog>();
+        this._actorContext = Substitute.For<IAdministrativeActorContext>();
+        this._actorContext.AuditActorId.Returns("user:settings-admin");
         this._dateTimeProvider.UtcNow.Returns(this._now);
 
         this._useCase = new SetLocalFallbackUseCase(
             this._settingsRepository,
             this._dateTimeProvider,
-            this._auditLog);
+            this._auditLog,
+            this._actorContext);
     }
 
     #region Success Cases
@@ -107,7 +111,7 @@ public sealed class SetLocalFallbackUseCaseTests
 
         // Assert
         await this._auditLog.Received(1).LogChangeAsync(
-            "system",
+            "user:settings-admin",
             "SetLocalFallback",
             "AuthenticationSettings",
             Arg.Any<string>(),
@@ -141,21 +145,28 @@ public sealed class SetLocalFallbackUseCaseTests
     public void Constructor_ThrowsForNullSettingsRepository()
     {
         Should.Throw<ArgumentNullException>(() =>
-            new SetLocalFallbackUseCase(null!, this._dateTimeProvider, this._auditLog));
+            new SetLocalFallbackUseCase(null!, this._dateTimeProvider, this._auditLog, this._actorContext));
     }
 
     [Fact]
     public void Constructor_ThrowsForNullDateTimeProvider()
     {
         Should.Throw<ArgumentNullException>(() =>
-            new SetLocalFallbackUseCase(this._settingsRepository, null!, this._auditLog));
+            new SetLocalFallbackUseCase(this._settingsRepository, null!, this._auditLog, this._actorContext));
     }
 
     [Fact]
     public void Constructor_ThrowsForNullAuditLog()
     {
         Should.Throw<ArgumentNullException>(() =>
-            new SetLocalFallbackUseCase(this._settingsRepository, this._dateTimeProvider, null!));
+            new SetLocalFallbackUseCase(this._settingsRepository, this._dateTimeProvider, null!, this._actorContext));
+    }
+
+    [Fact]
+    public void Constructor_ThrowsForNullActorContext()
+    {
+        Should.Throw<ArgumentNullException>(() =>
+            new SetLocalFallbackUseCase(this._settingsRepository, this._dateTimeProvider, this._auditLog, null!));
     }
 
     #endregion

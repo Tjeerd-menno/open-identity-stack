@@ -13,6 +13,63 @@ afterEach(() => {
 });
 
 describe('admin api client', () => {
+  it('offers reauthentication after acknowledgement expires without replaying again', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ errorCode: 'Forbidden.AdministrativeApproval.AcknowledgementRequired' }), { status: 403 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ errorCode: 'Forbidden.AdministrativeApproval.ReauthenticationRequired' }), { status: 403 }));
+    globalThis.fetch = fetchMock;
+    const approve = vi.fn().mockResolvedValue(true);
+    const client = createAdminApiClient({ baseUrl: 'https://admin.example', onAdministrativeApprovalRequired: approve });
+    await expect(client.post('/api/admin/users/user/roles/role')).rejects.toMatchObject({ errorCode: 'Forbidden.AdministrativeApproval.ReauthenticationRequired' });
+    expect(approve).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('never treats a reauthentication callback as permission to replay a mutation', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ errorCode: 'Forbidden.AdministrativeApproval.ReauthenticationRequired' }), { status: 403 }));
+    globalThis.fetch = fetchMock;
+    const approve = vi.fn().mockResolvedValue(true);
+    const client = createAdminApiClient({ baseUrl: 'https://admin.example', onAdministrativeApprovalRequired: approve });
+    await expect(client.post('/api/admin/users/user/roles/role')).rejects.toMatchObject({ status: 403 });
+    expect(approve).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('retries an unrestricted mutation only after explicit approval', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        errorCode: 'Forbidden.AdministrativeApproval.AcknowledgementRequired',
+      }), { status: 403 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    globalThis.fetch = fetchMock;
+    const approve = vi.fn().mockResolvedValue(true);
+    const onRetry = vi.fn();
+    const client = createAdminApiClient({ baseUrl: 'https://admin.example', onAdministrativeApprovalRequired: approve });
+
+    await client.post('/api/admin/users/user/roles/role', undefined, onRetry);
+
+    expect(approve).toHaveBeenCalledOnce();
+    expect(onRetry).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).has('X-OIS-Administrative-Approval')).toBe(false);
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get('X-OIS-Administrative-Approval')).toBe('acknowledge');
+  });
+
+  it('does not report an approval retry when the operator cancels', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      errorCode: 'Forbidden.AdministrativeApproval.AcknowledgementRequired',
+    }), { status: 403 }));
+    const onRetry = vi.fn();
+    const client = createAdminApiClient({
+      baseUrl: 'https://admin.example',
+      onAdministrativeApprovalRequired: vi.fn().mockResolvedValue(false),
+    });
+
+    await expect(client.post('/api/admin/security/credential-cutovers', {}, onRetry)).rejects.toMatchObject({ status: 403 });
+
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
   it('appends query parameters and omits undefined values', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
     globalThis.fetch = fetchMock;
@@ -119,6 +176,27 @@ describe('admin api client', () => {
       status: 422,
       detail: 'Check the request.',
       errors: { DisplayName: ['Required'] },
+    });
+  });
+
+  it('retains the Problem Details code extension as errorCode', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          type: 'https://example.test/problems/administrative-approval',
+          title: 'Administrative approval required',
+          status: 403,
+          detail: 'Acknowledge the operation before continuing.',
+          code: 'Forbidden.AdministrativeApproval.AcknowledgementRequired',
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/problem+json' } }
+      )
+    );
+    const client = createAdminApiClient({ baseUrl: 'https://admin.example' });
+
+    await expect(client.post('/api/admin/applications', {})).rejects.toMatchObject({
+      status: 403,
+      errorCode: 'Forbidden.AdministrativeApproval.AcknowledgementRequired',
     });
   });
 

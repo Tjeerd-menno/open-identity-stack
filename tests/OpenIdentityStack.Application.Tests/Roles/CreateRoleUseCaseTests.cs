@@ -25,7 +25,7 @@ public sealed class CreateRoleUseCaseTests
             .ValidateAssignableAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success());
         
-        this.useCase = new CreateRoleUseCase(this.roleRepository, this.permissionAssignmentValidator);
+        this.useCase = new CreateRoleUseCase(this.roleRepository, this.permissionAssignmentValidator, Substitute.For<IAdministrativeApproval>());
     }
 
     [Fact]

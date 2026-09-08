@@ -16,10 +16,12 @@ public sealed record ValidateUserCredentialsCommand(
 /// <param name="UserId">The authenticated user's ID.</param>
 /// <param name="Email">The user's email.</param>
 /// <param name="DisplayName">The user's display name.</param>
+/// <param name="CredentialRevision">The credential revision that was verified.</param>
 public sealed record ValidateUserCredentialsResult(
     UserId UserId,
     string Email,
     string DisplayName,
+    Guid CredentialRevision = default,
     long SecurityVersion = 0);
 
 /// <summary>

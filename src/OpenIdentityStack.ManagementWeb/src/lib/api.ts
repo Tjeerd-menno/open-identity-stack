@@ -1,5 +1,7 @@
 import {
   createAdminApiClient,
+  createAdministrativeAccessContract,
+  createCutoverContract,
   createApplicationPermissionsContract,
   createApplicationsContract,
   createAuditEntriesContract,
@@ -12,6 +14,7 @@ import {
   createUsersContract,
   formatApiError,
   isApiError,
+  type ApiError,
 } from '@openidentitystack/admin-api-client';
 import { getApiBaseUrl } from './runtime-config';
 
@@ -21,6 +24,11 @@ export const getApiErrorMessage = formatApiError;
 
 let accessTokenProvider: (() => Promise<string | null>) | null = null;
 let unauthorizedHandler: (() => void) | null = null;
+let administrativeApprovalHandler: ((error: ApiError) => Promise<boolean>) | null = null;
+
+export function setAdministrativeApprovalHandler(handler: ((error: ApiError) => Promise<boolean>) | null): void {
+  administrativeApprovalHandler = handler;
+}
 
 export function setAccessTokenProvider(provider: () => Promise<string | null>): void {
   accessTokenProvider = provider;
@@ -34,10 +42,13 @@ const client = createAdminApiClient({
   baseUrl: getApiBaseUrl,
   getAccessToken: () => (accessTokenProvider ? accessTokenProvider() : Promise.resolve(null)),
   onUnauthorized: () => unauthorizedHandler?.(),
+  onAdministrativeApprovalRequired: (error) => administrativeApprovalHandler?.(error) ?? Promise.resolve(false),
 });
 
 /** Typed access to every Admin API domain, backed by the shared client. */
 export const api = {
+  administrativeAccess: createAdministrativeAccessContract(client),
+  cutover: createCutoverContract(client),
   users: createUsersContract(client),
   groups: createGroupsContract(client),
   applications: createApplicationsContract(client),

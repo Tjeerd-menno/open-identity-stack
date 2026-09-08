@@ -25,11 +25,7 @@ public sealed class LinkUpstreamIdentityUseCaseTests
         this._auditLog = Substitute.For<IAuditLog>();
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
 
-        this._useCase = new LinkUpstreamIdentityUseCase(
-            this._userRepository,
-            this._providerRepository,
-            this._dateTimeProvider,
-            this._auditLog);
+        this._useCase = new LinkUpstreamIdentityUseCase(this._auditLog);
     }
 
     private static User CreateTestUser(string email = "test@example.com")
@@ -51,7 +47,7 @@ public sealed class LinkUpstreamIdentityUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithValidInput_LinkSucceeds()
+    public async Task ExecuteAsync_WithRawIdentifiers_RequiresProofOfAccountControl()
     {
         // Arrange
         User user = CreateTestUser();
@@ -76,11 +72,9 @@ public sealed class LinkUpstreamIdentityUseCaseTests
         Result<LinkUpstreamIdentityResult> result = await this._useCase.ExecuteAsync(command);
 
         // Assert
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.UserId.ShouldBe(user.Id);
-        result.Value.ProviderId.ShouldBe(provider.Id);
-        user.UpstreamIdentities.ShouldContain(i => i.SubjectId == "ext-user-123");
-        await this._userRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Forbidden.UpstreamIdentity.ProofRequired");
+        user.UpstreamIdentities.ShouldBeEmpty();
     }
 
     [Fact]
@@ -106,7 +100,7 @@ public sealed class LinkUpstreamIdentityUseCaseTests
 
         // Assert
         result.IsFailure.ShouldBeTrue();
-        result.Error.Code.ShouldBe("NotFound.User.NotFound");
+        result.Error.Code.ShouldBe("Forbidden.UpstreamIdentity.ProofRequired");
     }
 
     [Fact]
@@ -134,7 +128,7 @@ public sealed class LinkUpstreamIdentityUseCaseTests
 
         // Assert
         result.IsFailure.ShouldBeTrue();
-        result.Error.Code.ShouldBe("NotFound.UpstreamProvider.NotFound");
+        result.Error.Code.ShouldBe("Forbidden.UpstreamIdentity.ProofRequired");
     }
 
     [Fact]
@@ -165,7 +159,7 @@ public sealed class LinkUpstreamIdentityUseCaseTests
 
         // Assert
         result.IsFailure.ShouldBeTrue();
-        result.Error.Code.ShouldBe("Conflict.UpstreamIdentity.AlreadyLinked");
+        result.Error.Code.ShouldBe("Forbidden.UpstreamIdentity.ProofRequired");
     }
 
     [Fact]
@@ -198,11 +192,11 @@ public sealed class LinkUpstreamIdentityUseCaseTests
 
         // Assert - Domain prevents linking same provider twice, even for same user
         result.IsFailure.ShouldBeTrue();
-        result.Error.Code.ShouldBe("Conflict.UpstreamIdentity.AlreadyLinked");
+        result.Error.Code.ShouldBe("Forbidden.UpstreamIdentity.ProofRequired");
     }
 
     [Fact]
-    public async Task ExecuteAsync_LinkMultipleProviders_Succeeds()
+    public async Task ExecuteAsync_WithExistingLink_RejectsAdditionalUnprovedLink()
     {
         // Arrange
         User user = CreateTestUser();
@@ -231,7 +225,7 @@ public sealed class LinkUpstreamIdentityUseCaseTests
         Result<LinkUpstreamIdentityResult> result = await this._useCase.ExecuteAsync(command);
 
         // Assert
-        result.IsSuccess.ShouldBeTrue();
-        user.UpstreamIdentities.Count.ShouldBe(2);
+        result.IsFailure.ShouldBeTrue();
+        user.UpstreamIdentities.Count.ShouldBe(1);
     }
 }

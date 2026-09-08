@@ -39,14 +39,17 @@ internal static class RolesApi
             .RequireAuthorization(Permissions.Roles.Write)
             .Produces<RoleResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status409Conflict)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("CreateRole")
             .WithSummary("Creates a new role");
 
         group.MapPut("{id:guid}", UpdateRole)
             .RequireAuthorization(Permissions.Roles.Write)
             .Produces<RoleResponse>(StatusCodes.Status200OK)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("UpdateRole")
             .WithSummary("Updates a role");
 
@@ -71,7 +74,9 @@ internal static class RolesApi
             .RequireAuthorization(Permissions.Roles.Write)
             .Produces<RoleResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("EnableRole")
             .WithSummary("Enables a role");
 
@@ -87,7 +92,9 @@ internal static class RolesApi
             .RequireAuthorization(Permissions.Roles.Assign)
             .Produces<RoleResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("SetRolePermissions")
             .WithSummary("Sets the permissions for a role, replacing any existing permissions");
 
@@ -95,8 +102,9 @@ internal static class RolesApi
             .RequireAuthorization(Permissions.Roles.Assign)
             .Produces<RoleResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
+            .Produces<AdministrativeApprovalProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AddRolePermission")
             .WithSummary("Adds a permission to a role");
 

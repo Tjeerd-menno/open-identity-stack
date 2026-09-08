@@ -42,6 +42,53 @@ public sealed class UserRepositoryTests : IClassFixture<SqliteTestFixture>, IAsy
     #region AddAsync Tests
 
     [Fact]
+    public async Task UpdateAsync_StaleProfileCannotOverwriteCommittedDisablement()
+    {
+        User user = this.CreateUser("concurrent@example.com", "Before", "hashed_password");
+        user.VerifyEmail(this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        await this._repository.AddAsync(user);
+        await this._repository.SaveChangesAsync();
+
+        await using OpenIdentityStackDbContext administratorContext = this._fixture.CreateDbContext();
+        var administratorRepository = new UserRepository(administratorContext);
+        User administratorUser = (await administratorRepository.GetByIdAsync(user.Id))!;
+        administratorUser.Disable("Administrative disablement", this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        await administratorRepository.UpdateAsync(administratorUser);
+        await administratorRepository.SaveChangesAsync();
+
+        user.UpdateDisplayName("Stale upstream profile", this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        await this._repository.UpdateAsync(user);
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(() => this._repository.SaveChangesAsync());
+
+        await using OpenIdentityStackDbContext verificationContext = this._fixture.CreateDbContext();
+        User persisted = (await new UserRepository(verificationContext).GetByIdAsync(user.Id))!;
+        persisted.Status.ShouldBe(UserStatus.Disabled);
+        persisted.DisplayName.ShouldBe("Before");
+    }
+
+    [Fact]
+    public async Task IdentityInventory_RoundTripsEvidenceAndPaginatesWithoutLosingQuarantinedRecords()
+    {
+        var providerId = OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create();
+        User proven = User.ProvisionFederated("proven@example.com", "Proven", providerId, "provider", "proven", "https://issuer.example").Value;
+        User unproven = User.CreateFederated("unproven@example.com", "Unproven", providerId, "provider", "unproven", issuer: "https://issuer.example").Value;
+        await this._repository.AddAsync(proven);
+        await this._repository.AddAsync(unproven);
+        await this._repository.SaveChangesAsync();
+        this._dbContext.ChangeTracker.Clear();
+        User reloaded = (await this._repository.GetByIdAsync(proven.Id))!;
+        reloaded.UpstreamIdentities.Single().IsQuarantined.ShouldBeFalse();
+        User legacy = (await this._repository.GetByIdAsync(unproven.Id))!;
+        legacy.UpstreamIdentities.Single().IsQuarantined.ShouldBeTrue();
+        (IReadOnlyList<User> first, int count) = await this._repository.ListWithUpstreamIdentitiesAsync(1, 1, providerId);
+        (IReadOnlyList<User> second, _) = await this._repository.ListWithUpstreamIdentitiesAsync(2, 1, providerId);
+        (IReadOnlyList<User> repeated, _) = await this._repository.ListWithUpstreamIdentitiesAsync(1, 1, providerId);
+        count.ShouldBe(2);
+        first.Single().Id.ShouldNotBe(second.Single().Id);
+        repeated.Single().Id.ShouldBe(first.Single().Id);
+        (await this._repository.FindByUpstreamIdentityAsync(providerId, "unproven"))!.Id.ShouldBe(unproven.Id);
+    }
+    [Fact]
     public async Task AddAsync_AddsUserToDatabase()
     {
         // Arrange

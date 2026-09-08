@@ -1,0 +1,51 @@
+openapi: 3.1.0
+info:
+  title: Provider email-verification trust lifecycle
+  version: 1.0.0
+paths:
+  /api/admin/providers/{id}/email-verification-trust:
+    put:
+      operationId: SetProviderEmailVerificationTrust
+      summary: Set explicit trust in provider email-verification assertions
+      description: >-
+        Requires providers:write. Trust withdrawal atomically retains provenance,
+        withdraws evidence, and revokes affected user tokens, authorizations and
+        sessions. Independently sufficient evidence survives. Offline JWT consumers
+        need their own revocation policy. A retry does not restore withdrawn evidence.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trusted]
+              properties:
+                trusted:
+                  type: boolean
+      responses:
+        '204':
+          description: Policy, evidence, invalidation and audit committed
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Provider write permission required
+        '404':
+          description: Provider not found
+        '500':
+          description: Operation failed; verify current policy and retry with a fresh request
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

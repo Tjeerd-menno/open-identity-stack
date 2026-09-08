@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Playwright;
 using OpenIdentityStack.ManagementWeb.E2ETests.Fixtures;
@@ -120,22 +122,22 @@ public sealed class UserManagementTests : ManagementWebPageTest
     }
 
     [Fact]
-    public async Task OperatorCanLinkAnUpstreamIdentity()
+    public async Task OperatorCannotLinkAnExistingAccountUsingRawIdentifiers()
     {
         await GotoAsync($"/users/{_adaId}");
         await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Upstream identities", RegexOptions.IgnoreCase) }).ClickAsync();
-
-        await Page.GetByPlaceholder("Select a provider").ClickAsync();
-        await Page.GetByRole(AriaRole.Option, new() { Name = _providerName, Exact = true }).ClickAsync();
-        await Page.GetByLabel("Subject").FillAsync("google-subject-12345");
-        await Page.GetByRole(AriaRole.Button, new() { Name = "Link", Exact = true }).ClickAsync();
-
-        ILocator toast = Page.GetByText(new Regex("Identity linked", RegexOptions.IgnoreCase));
-        await toast.WaitForAsync();
-        (await toast.IsVisibleAsync()).ShouldBeTrue();
+        await Page.GetByText("Linking an existing account requires proof of account ownership. This workflow is not yet available.", new() { Exact = true }).WaitForAsync();
+        (await Page.GetByPlaceholder("Select a provider").CountAsync()).ShouldBe(0);
+        (await Page.GetByLabel("Subject", new() { Exact = true }).CountAsync()).ShouldBe(0);
+        (await Page.GetByRole(AriaRole.Button, new() { Name = "Link", Exact = true }).CountAsync()).ShouldBe(0);
+        HttpResponseMessage denied = await Api.PostAsJsonAsync($"/api/admin/users/{_adaId}/upstream-identities", new
+        {
+            providerId = _providerId, subjectId = "unproven-subject"
+        });
+        denied.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await denied.Content.ReadAsStringAsync()).ShouldContain("Forbidden.UpstreamIdentity.ProofRequired");
     }
-
     [Fact]
     public async Task OperatorCanEnableADisabledUser()
     {
@@ -203,26 +205,42 @@ public sealed class UserManagementTests : ManagementWebPageTest
     }
 
     [Fact]
-    public async Task OperatorCanUnlinkAnUpstreamIdentity()
+    public async Task OperatorCanInspectQuarantineButCannotEraseAssociationEvidence()
     {
-        // Link an identity through the real API so there is one to unlink through the UI.
-        await ApiPostAsync($"/api/admin/users/{_adaId}/upstream-identities", new
-        {
-            providerId = _providerId,
-            subjectId = "google-subject-to-unlink",
-        });
-
+        await Fixture.SeedLegacyIdentityAsync(_adaId, _providerId, $"google-{Unique}", "legacy-quarantined-subject");
         await GotoAsync($"/users/{_adaId}");
         await Page.GetByRole(AriaRole.Heading, new() { Name = _adaName, Exact = true }).WaitForAsync();
         await Page.GetByRole(AriaRole.Tab, new() { NameRegex = new Regex("Upstream identities", RegexOptions.IgnoreCase) }).ClickAsync();
+        await Page.GetByText("Quarantined — authentication and migration blocked", new() { Exact = true }).WaitForAsync();
+        (await Page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^Unlink ", RegexOptions.IgnoreCase) }).CountAsync()).ShouldBe(0);
+        JsonNode identities = await ApiGetAsync($"/api/admin/users/{_adaId}/upstream-identities");
+        identities.ToJsonString().ShouldContain("legacy-quarantined-subject");
+        identities.ToJsonString().ShouldContain("\"isQuarantined\":true");
 
-        // The unlink button is labelled with the provider's stored name; match the single
-        // identity row's button by its "Unlink …" prefix rather than the display name.
-        await Page.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^Unlink ", RegexOptions.IgnoreCase) }).First.ClickAsync();
-        ILocator toast = Page.GetByText(new Regex("Identity unlinked", RegexOptions.IgnoreCase));
-        await toast.WaitForAsync();
-        (await toast.IsVisibleAsync()).ShouldBeTrue();
+        await GotoAsync("/users");
+        await Page.GetByLabel("Search users").FillAsync(_adaName);
+        ILocator row = Page.Locator("tbody tr", new() { Has = Page.GetByText(_adaName) }).First;
+        await row.WaitForAsync();
+        int deletionRequests = 0;
+        Page.Request += (_, request) =>
+        {
+            if (request.Method is "DELETE" or "POST" && new Uri(request.Url).AbsolutePath == $"/api/admin/users/{_adaId}")
+            {
+                Interlocked.Increment(ref deletionRequests);
+            }
+        };
+        await row.GetByRole(AriaRole.Button, new() { Name = "Row actions" }).ClickAsync();
+        await Page.GetByRole(AriaRole.Menuitem, new() { Name = "Delete user", Exact = true }).ClickAsync();
+        ILocator dialog = Page.GetByRole(AriaRole.Dialog);
+        await dialog.GetByText(new Regex("Quarantined identity evidence must be retained", RegexOptions.IgnoreCase)).WaitForAsync();
+        await Assertions.Expect(dialog.GetByRole(AriaRole.Button, new() { Name = "Delete user", Exact = true })).ToBeDisabledAsync();
+        string screenshotDirectory = Path.Combine(Path.GetTempPath(), "ois-quarantine-retention-e2e");
+        Directory.CreateDirectory(screenshotDirectory);
+        await Page.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "quarantined-user-deletion-blocked.png"), FullPage = true, Animations = ScreenshotAnimations.Disabled });
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Cancel", Exact = true }).ClickAsync();
+        deletionRequests.ShouldBe(0);
+        JsonNode retainedIdentities = await ApiGetAsync($"/api/admin/users/{_adaId}/upstream-identities");
+        retainedIdentities.ToJsonString().ShouldBe(identities.ToJsonString());
     }
-
     private static readonly string[] OpenidScope = ["openid"];
 }

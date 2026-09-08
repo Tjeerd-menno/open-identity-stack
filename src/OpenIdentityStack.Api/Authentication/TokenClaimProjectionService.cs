@@ -6,6 +6,7 @@ using System.Text.Json;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 using OpenIdentityStack.Application.Groups.Queries;
+using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Users;
 using OpenIddict.Abstractions;
@@ -55,16 +56,17 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
         if (!string.IsNullOrWhiteSpace(request.PersistedUser?.Email))
         {
             identity.AddClaim(new Claim(Claims.Email, request.PersistedUser.Email));
-            identity.AddClaim(new Claim(Claims.EmailVerified, "true", ClaimValueTypes.Boolean));
+            identity.AddClaim(new Claim(Claims.EmailVerified, request.PersistedUser.EmailVerified ? "true" : "false", ClaimValueTypes.Boolean));
         }
         else if (request.Principal.FindFirstValue(ClaimTypes.Email) is { } email)
         {
             identity.AddClaim(new Claim(Claims.Email, email));
-            identity.AddClaim(new Claim(Claims.EmailVerified, "true", ClaimValueTypes.Boolean));
+            identity.AddClaim(new Claim(Claims.EmailVerified, "false", ClaimValueTypes.Boolean));
         }
 
         if (request.PersistedUser is not null)
         {
+            identity.AddClaim(new Claim(UserCredentialClaims.Revision, request.PersistedUser.CredentialRevision.ToString()));
             AddPersistedProfileClaims(identity, request.PersistedUser);
         }
         else
@@ -103,7 +105,13 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             identity.AddClaim(new Claim("permission", permission));
         }
 
-        foreach (GroupClaimDto groupClaim in request.GroupClaims)
+        foreach (string type in new[] { IndependentAuthenticationClaims.LocalPasswordSession, IndependentAuthenticationClaims.AuthenticatedCredentialRevision, OpenIdentityStack.Application.Abstractions.CredentialBoundaryClaims.Epoch, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim })
+        {
+            Claim[] sourceClaims = request.Principal.FindAll(type).ToArray();
+            if (sourceClaims.Length == 1) { identity.AddClaim(sourceClaims[0]); }
+        }
+
+        foreach (GroupClaimDto groupClaim in request.GroupClaims.Where(claim => !ReservedGroupClaimTypes.IsReserved(claim.Type)))
         {
             identity.AddClaim(CreateGroupClaim(groupClaim));
         }
@@ -124,12 +132,14 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
     public ClaimsPrincipal ProjectExistingPrincipal(
         ClaimsPrincipal principal,
-        DateTimeOffset? authenticationTime = null)
+        DateTimeOffset? authenticationTime = null,
+        User? persistedUser = null)
     {
         var identity = new ClaimsIdentity(
             principal.Claims.Where(claim =>
                 !string.Equals(claim.Type, LegacySessionIdClaim, StringComparison.Ordinal)
-                && !string.Equals(claim.Type, Claims.AuthenticationTime, StringComparison.Ordinal)),
+                && !string.Equals(claim.Type, Claims.AuthenticationTime, StringComparison.Ordinal)
+                && !string.Equals(claim.Type, Claims.EmailVerified, StringComparison.Ordinal)),
             authenticationType: OpenIddict.Server.AspNetCore.OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
             nameType: Claims.Name,
             roleType: Claims.Role);
@@ -137,6 +147,15 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
         ClaimsPrincipal projected = new(identity);
         projected.SetScopes(principal.GetScopes());
         projected.SetResources(principal.GetResources());
+
+        projected.SetClaim(Claims.Email, persistedUser?.Email ?? principal.GetClaim(Claims.Email));
+        identity.AddClaim(new Claim(Claims.EmailVerified, persistedUser?.EmailVerified == true ? "true" : "false", ClaimValueTypes.Boolean));
+
+        if (principal.GetClaim(UserCredentialClaims.Revision) is null
+            && persistedUser?.CredentialRevision == Guid.Empty)
+        {
+            identity.AddClaim(new Claim(UserCredentialClaims.Revision, Guid.Empty.ToString()));
+        }
 
         if (authenticationTime is { } authTime)
         {
@@ -199,6 +218,17 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
     public static IEnumerable<string> GetDestinations(Claim claim)
     {
+        if (claim.Type is IndependentAuthenticationClaims.LocalPasswordSession or IndependentAuthenticationClaims.AuthenticatedCredentialRevision)
+        {
+            // Keep the proof in encrypted OP state, exposing it only to the dedicated administrative resource.
+            if (claim.Subject?.HasScope(OpenIdentityStack.Domain.Resources.ProtectedResource.AdministrativeScope) == true
+                && claim.Subject.GetResources() is { Length: 1 } resources
+                && resources[0] == OpenIdentityStack.Domain.Resources.ProtectedResource.AdministrativeAudience)
+            {
+                yield return Destinations.AccessToken;
+            }
+            yield break;
+        }
         if (IsInternalTokenStateClaim(claim.Type))
         {
             yield break;
@@ -295,8 +325,6 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
                 yield break;
 
             case Claims.Role:
-                yield return Destinations.AccessToken;
-
                 if (claim.Subject?.HasScope(Scopes.Roles) == true)
                 {
                     yield return Destinations.IdentityToken;

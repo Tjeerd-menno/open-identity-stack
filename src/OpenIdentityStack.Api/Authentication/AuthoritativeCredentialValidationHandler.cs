@@ -3,6 +3,7 @@ using System.Security.Claims;
 using OpenIddict.Validation;
 using OpenIddict.Server;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Domain.Common;
 using SharedKernel;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -30,7 +31,7 @@ public sealed class AuthoritativeCredentialValidationHandler
     public async ValueTask HandleAsync(OpenIddictValidationEvents.ProcessAuthenticationContext context)
     {
         ClaimsPrincipal? principal = context.AccessTokenPrincipal;
-        if (principal is null || principal.HasClaim("token_kind", "client_credentials"))
+        if (principal is null || CredentialSubjectClassification.IsApplication(principal))
         {
             return;
         }
@@ -71,7 +72,7 @@ public sealed class AuthoritativeIntrospectionHandler
     public async ValueTask HandleAsync(OpenIddictServerEvents.HandleIntrospectionRequestContext context)
     {
         ClaimsPrincipal principal = context.GenericTokenPrincipal;
-        if (principal.HasClaim("token_kind", "client_credentials"))
+        if (CredentialSubjectClassification.IsApplication(principal))
         {
             return;
         }
@@ -87,4 +88,15 @@ public sealed class AuthoritativeIntrospectionHandler
                 description: "The access token is no longer valid.");
         }
     }
+}
+
+internal static class CredentialSubjectClassification
+{
+    public static bool IsApplication(ClaimsPrincipal principal) =>
+        principal.FindAll(TokenSubjectClaims.Kind).ToArray() is [{ Value: TokenSubjectClaims.Application }]
+        && !principal.HasClaim(claim => claim.Type == UserCredentialClaims.Revision)
+        && principal.FindAll(Claims.Subject).ToArray() is [{ Value: var subject }]
+        && !string.IsNullOrWhiteSpace(subject)
+        && principal.FindAll(Claims.ClientId).ToArray() is [{ Value: var clientId }]
+        && string.Equals(subject, clientId, StringComparison.Ordinal);
 }

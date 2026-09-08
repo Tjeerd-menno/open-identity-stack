@@ -16,6 +16,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasKey(u => u.Id);
 
+        builder.Property(u => u.CredentialRevision).IsConcurrencyToken();
+        builder.Property(u => u.EmailEvidenceRevision).IsConcurrencyToken();
+
         builder.Property(u => u.Id)
             .HasColumnName("Id")
             .IsRequired();
@@ -112,6 +115,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.Status)
             .IsRequired()
+            .IsConcurrencyToken()
             .HasConversion<int>();
 
         builder.Property(u => u.MfaEnabled)
@@ -142,6 +146,22 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsUnique()
             .HasDatabaseName("IX_Users_NormalizedPreferredUsername");
 
+        builder.Ignore(u => u.EmailVerified);
+        builder.Navigation(u => u.EmailVerificationEvidence).UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.OwnsMany(u => u.EmailVerificationEvidence, evidence =>
+        {
+            evidence.ToTable("UserEmailVerificationEvidence");
+            evidence.WithOwner().HasForeignKey("UserId");
+            evidence.HasKey(e => e.Id);
+            evidence.Property(e => e.Id).ValueGeneratedNever();
+            evidence.Property(e => e.NormalizedEmail).HasMaxLength(256).IsRequired();
+            evidence.Property(e => e.Issuer).HasMaxLength(2048);
+            evidence.HasIndex("UserId", nameof(EmailVerificationEvidence.ProviderId));
+            evidence.HasIndex(nameof(EmailVerificationEvidence.ProviderId), "UserId")
+                .HasDatabaseName("IX_EmailEvidence_ActiveProviderUser")
+                .HasFilter("\"WithdrawnAt\" IS NULL");
+        });
+
         // Configure owned UpstreamIdentities collection using navigation property and backing field
         builder.Navigation(u => u.UpstreamIdentities)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
@@ -171,6 +191,11 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
                 .HasColumnName("SubjectId")
                 .HasMaxLength(512)
                 .IsRequired();
+
+            identityBuilder.Property(i => i.AssociationEvidence).HasConversion<string>().HasMaxLength(64);
+            identityBuilder.Ignore(i => i.IsQuarantined);
+
+            identityBuilder.Property(i => i.Issuer).HasMaxLength(2048);
 
             identityBuilder.Property(i => i.Email)
                 .HasColumnName("Email")

@@ -16,17 +16,20 @@ public sealed class SetDefaultProviderUseCase : ISetDefaultProviderUseCase
     private readonly IUpstreamProviderRepository providerRepository;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeActorContext actorContext;
 
     public SetDefaultProviderUseCase(
         IAuthenticationSettingsRepository settingsRepository,
         IUpstreamProviderRepository providerRepository,
         IDateTimeProvider dateTimeProvider,
-        IAuditLog auditLog)
+        IAuditLog auditLog,
+        IAdministrativeActorContext actorContext)
     {
         this.settingsRepository = settingsRepository ?? throw new ArgumentNullException(nameof(settingsRepository));
         this.providerRepository = providerRepository ?? throw new ArgumentNullException(nameof(providerRepository));
         this.dateTimeProvider = dateTimeProvider ?? throw new ArgumentNullException(nameof(dateTimeProvider));
         this.auditLog = auditLog ?? throw new ArgumentNullException(nameof(auditLog));
+        this.actorContext = actorContext ?? throw new ArgumentNullException(nameof(actorContext));
     }
 
     /// <inheritdoc />
@@ -80,7 +83,7 @@ public sealed class SetDefaultProviderUseCase : ISetDefaultProviderUseCase
 
         // Audit the change
         await this.auditLog.LogChangeAsync(
-            "system",
+            this.actorContext.AuditActorId,
             "SetDefaultProvider",
             "AuthenticationSettings",
             settings.Id.Value.ToString(),

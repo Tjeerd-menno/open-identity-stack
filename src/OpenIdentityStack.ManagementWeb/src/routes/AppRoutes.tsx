@@ -1,28 +1,31 @@
 import { Box, Button, Card, Center, Loader, Stack, Text, ThemeIcon, Title } from '@mantine/core';
-import { type ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { lazy, Suspense, type ReactNode } from 'react';
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { AppShell } from '@/components/AppShell';
 import { Icon } from '@/components/Icon';
 import { CenteredState } from '@/components/primitives';
 import { useAuth } from '@/lib/auth-context';
-import { hasAnyPermission } from '@/lib/permissions';
-import { OverviewPage } from '@/features/overview/OverviewPage';
-import { UsersPage } from '@/features/users/UsersPage';
-import { UserDetailPage } from '@/features/users/UserDetailPage';
-import { ApplicationsPage } from '@/features/applications/ApplicationsPage';
-import { ApplicationDetailPage } from '@/features/applications/ApplicationDetailPage';
-import { RolesPage } from '@/features/roles/RolesPage';
-import { RoleDetailPage } from '@/features/roles/RoleDetailPage';
-import { GroupsPage } from '@/features/groups/GroupsPage';
-import { GroupDetailPage } from '@/features/groups/GroupDetailPage';
-import { PermissionsPage } from '@/features/permissions/PermissionsPage';
-import { PermissionsDetailPage } from '@/features/permissions/PermissionsDetailPage';
-import { SessionsPage } from '@/features/sessions/SessionsPage';
-import { SessionDetailPage } from '@/features/sessions/SessionDetailPage';
-import { ProvidersPage } from '@/features/providers/ProvidersPage';
-import { ProviderDetailPage } from '@/features/providers/ProviderDetailPage';
-import { AuthenticationSettingsPage } from '@/features/providers/AuthenticationSettingsPage';
-import { AuditPage } from '@/features/audit/AuditPage';
+import { credentialCutoverPermissions, hasAnyPermission, hasEveryPermission } from '@/lib/permissions';
+
+// Feature pages are lazily loaded so each route ships as its own chunk instead of in the initial bundle.
+const OverviewPage = lazy(() => import('@/features/overview/OverviewPage').then((m) => ({ default: m.OverviewPage })));
+const CutoverReadinessPage = lazy(() => import('@/features/security/CutoverReadinessPage').then((m) => ({ default: m.CutoverReadinessPage })));
+const UsersPage = lazy(() => import('@/features/users/UsersPage').then((m) => ({ default: m.UsersPage })));
+const UserDetailPage = lazy(() => import('@/features/users/UserDetailPage').then((m) => ({ default: m.UserDetailPage })));
+const ApplicationsPage = lazy(() => import('@/features/applications/ApplicationsPage').then((m) => ({ default: m.ApplicationsPage })));
+const ApplicationDetailPage = lazy(() => import('@/features/applications/ApplicationDetailPage').then((m) => ({ default: m.ApplicationDetailPage })));
+const RolesPage = lazy(() => import('@/features/roles/RolesPage').then((m) => ({ default: m.RolesPage })));
+const RoleDetailPage = lazy(() => import('@/features/roles/RoleDetailPage').then((m) => ({ default: m.RoleDetailPage })));
+const GroupsPage = lazy(() => import('@/features/groups/GroupsPage').then((m) => ({ default: m.GroupsPage })));
+const GroupDetailPage = lazy(() => import('@/features/groups/GroupDetailPage').then((m) => ({ default: m.GroupDetailPage })));
+const PermissionsPage = lazy(() => import('@/features/permissions/PermissionsPage').then((m) => ({ default: m.PermissionsPage })));
+const PermissionsDetailPage = lazy(() => import('@/features/permissions/PermissionsDetailPage').then((m) => ({ default: m.PermissionsDetailPage })));
+const SessionsPage = lazy(() => import('@/features/sessions/SessionsPage').then((m) => ({ default: m.SessionsPage })));
+const SessionDetailPage = lazy(() => import('@/features/sessions/SessionDetailPage').then((m) => ({ default: m.SessionDetailPage })));
+const ProvidersPage = lazy(() => import('@/features/providers/ProvidersPage').then((m) => ({ default: m.ProvidersPage })));
+const ProviderDetailPage = lazy(() => import('@/features/providers/ProviderDetailPage').then((m) => ({ default: m.ProviderDetailPage })));
+const AuthenticationSettingsPage = lazy(() => import('@/features/providers/AuthenticationSettingsPage').then((m) => ({ default: m.AuthenticationSettingsPage })));
+const AuditPage = lazy(() => import('@/features/audit/AuditPage').then((m) => ({ default: m.AuditPage })));
 
 function BrandLockup({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
   const dim = size === 'lg' ? 36 : 30;
@@ -77,15 +80,32 @@ function FullScreenLoader({ label }: { label: string }) {
   );
 }
 
-function RequirePermissions({ permissions, children }: { permissions: string[]; children: ReactNode }) {
+function PageLoader() {
+  return (
+    <Center py="xl">
+      <Loader color="blue" />
+    </Center>
+  );
+}
+
+// Pathless layout route: keeps the AppShell rendered while a lazily loaded page chunk is fetched.
+function LazyPageOutlet() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <Outlet />
+    </Suspense>
+  );
+}
+
+function RequirePermissions({ permissions, children, requireAll = false }: { permissions: string[]; children: ReactNode; requireAll?: boolean }) {
   const auth = useAuth();
-  if (!hasAnyPermission(auth.permissions, permissions)) {
+  if (!(requireAll ? hasEveryPermission(auth.permissions, permissions) : hasAnyPermission(auth.permissions, permissions))) {
     return (
       <CenteredState
         icon="shield-off"
         iconColor="orange"
         title="Access denied"
-        text={`You need one of: ${permissions.join(', ')} to view this area.`}
+        text={`You need ${requireAll ? 'all of' : 'one of'}: ${permissions.join(', ')} to view this area.`}
       />
     );
   }
@@ -111,141 +131,142 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route index element={<OverviewPage />} />
-        <Route
-          path="users"
-          element={
-            <RequirePermissions permissions={['users:read']}>
-              <UsersPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="users/:userId"
-          element={
-            <RequirePermissions permissions={['users:read']}>
-              <UserDetailPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="groups"
-          element={
-            <RequirePermissions permissions={['groups:read']}>
-              <GroupsPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="groups/:groupId"
-          element={
-            <RequirePermissions permissions={['groups:read']}>
-              <GroupDetailPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="roles"
-          element={
-            <RequirePermissions permissions={['roles:read']}>
-              <RolesPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="roles/:roleId"
-          element={
-            <RequirePermissions permissions={['roles:read']}>
-              <RoleDetailPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="application-permissions"
-          element={
-            <RequirePermissions permissions={['application-permissions:read']}>
-              <PermissionsPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="application-permissions/:registrationId"
-          element={
-            <RequirePermissions permissions={['application-permissions:read']}>
-              <PermissionsDetailPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="applications"
-          element={
-            <RequirePermissions permissions={['applications:read']}>
-              <ApplicationsPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="applications/:applicationId"
-          element={
-            <RequirePermissions permissions={['applications:read']}>
-              <ApplicationDetailPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="sessions"
-          element={
-            <RequirePermissions permissions={['sessions:read']}>
-              <SessionsPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="sessions/:sessionId"
-          element={
-            <RequirePermissions permissions={['sessions:read']}>
-              <SessionDetailPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="providers"
-          element={
-            <RequirePermissions permissions={['providers:read']}>
-              <ProvidersPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="providers/settings"
-          element={
-            <RequirePermissions permissions={['system:settings']}>
-              <AuthenticationSettingsPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="providers/:providerId"
-          element={
-            <RequirePermissions permissions={['providers:read']}>
-              <ProviderDetailPage />
-            </RequirePermissions>
-          }
-        />
-        <Route
-          path="audit-entries"
-          element={
-            <RequirePermissions permissions={['audit-logs:read']}>
-              <AuditPage />
-            </RequirePermissions>
-          }
-        />
-        {/* Preserve the /settings entry point; authentication settings live under providers. */}
-        <Route path="settings" element={<Navigate replace to="/providers/settings" />} />
-        <Route path="*" element={<Navigate replace to="/" />} />
+        <Route element={<LazyPageOutlet />}>
+          <Route index element={<OverviewPage />} />
+          <Route path="security/cutover" element={<RequirePermissions requireAll permissions={credentialCutoverPermissions}><CutoverReadinessPage /></RequirePermissions>} />
+          <Route
+            path="users"
+            element={
+              <RequirePermissions permissions={['users:read']}>
+                <UsersPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="users/:userId"
+            element={
+              <RequirePermissions permissions={['users:read']}>
+                <UserDetailPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="groups"
+            element={
+              <RequirePermissions permissions={['groups:read']}>
+                <GroupsPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="groups/:groupId"
+            element={
+              <RequirePermissions permissions={['groups:read']}>
+                <GroupDetailPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="roles"
+            element={
+              <RequirePermissions permissions={['roles:read']}>
+                <RolesPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="roles/:roleId"
+            element={
+              <RequirePermissions permissions={['roles:read']}>
+                <RoleDetailPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="application-permissions"
+            element={
+              <RequirePermissions permissions={['application-permissions:read']}>
+                <PermissionsPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="application-permissions/:registrationId"
+            element={
+              <RequirePermissions permissions={['application-permissions:read']}>
+                <PermissionsDetailPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="applications"
+            element={
+              <RequirePermissions permissions={['applications:read']}>
+                <ApplicationsPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="applications/:applicationId"
+            element={
+              <RequirePermissions permissions={['applications:read']}>
+                <ApplicationDetailPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="sessions"
+            element={
+              <RequirePermissions permissions={['sessions:read']}>
+                <SessionsPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="sessions/:sessionId"
+            element={
+              <RequirePermissions permissions={['sessions:read']}>
+                <SessionDetailPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="providers"
+            element={
+              <RequirePermissions permissions={['providers:read']}>
+                <ProvidersPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="providers/settings"
+            element={
+              <RequirePermissions permissions={['system:settings']}>
+                <AuthenticationSettingsPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="providers/:providerId"
+            element={
+              <RequirePermissions permissions={['providers:read']}>
+                <ProviderDetailPage />
+              </RequirePermissions>
+            }
+          />
+          <Route
+            path="audit-entries"
+            element={
+              <RequirePermissions permissions={['audit-logs:read']}>
+                <AuditPage />
+              </RequirePermissions>
+            }
+          />
+          {/* Preserve the /settings entry point; authentication settings live under providers. */}
+          <Route path="settings" element={<Navigate replace to="/providers/settings" />} />
+          <Route path="*" element={<Navigate replace to="/" />} />
+        </Route>
       </Route>
     </Routes>
   );
 }
-
-

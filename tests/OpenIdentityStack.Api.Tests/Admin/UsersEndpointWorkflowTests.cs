@@ -36,8 +36,8 @@ public sealed class UsersEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
         string clientId = $"users-contract-{Guid.NewGuid():N}";
         const string clientSecret = "test-secret-123";
 
-        await this._fixture.CreateServiceAccountAsync(clientId, clientSecret);
-        this._accessToken = await this._fixture.GetAccessTokenAsync(clientId, clientSecret);
+        using HttpClient authenticated = await this._fixture.CreateAuthenticatedClientAsync(clientId, clientSecret);
+        this._accessToken = authenticated.DefaultRequestHeaders.Authorization!.Parameter;
     }
 
     private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string url, object? content = null)

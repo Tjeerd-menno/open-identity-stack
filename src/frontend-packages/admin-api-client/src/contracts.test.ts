@@ -37,6 +37,22 @@ function expectCalls(mock: ReturnType<typeof vi.fn>, calls: readonly unknown[][]
 }
 
 describe('Admin API domain contracts', () => {
+  it('maps explicit resource identities and separate client ceilings to the application workflow', async () => {
+    const client = createMockClient();
+    const contract = createApplicationsContract(asAdminApiClient(client));
+    const resource = { audience: 'https://orders.example.com', scope: 'orders', displayName: 'Orders', permissionNamespaces: ['orders'], enabled: true };
+    const grant = { delegatedPermissions: ['orders:invoice:read'], applicationPermissions: [], expectedRevision: 2 };
+    await contract.listProtectedResources();
+    await contract.createProtectedResource(resource);
+    await contract.configureProtectedResource('resource', { ...resource, expectedRevision: 3 });
+    await contract.listClientResourceGrants('client');
+    await contract.configureClientResourceGrant('client', 'resource', grant);
+    await contract.revokeClientResourceGrant('client', 'resource', 2);
+    expectCalls(client.get, [['/api/admin/applications/resources'], ['/api/admin/applications/client/resource-grants']]);
+    expectCalls(client.post, [['/api/admin/applications/resources', resource]]);
+    expectCalls(client.put, [['/api/admin/applications/resources/resource', { ...resource, expectedRevision: 3 }], ['/api/admin/applications/client/resource-grants/resource', grant]]);
+    expectCalls(client.delete, [['/api/admin/applications/client/resource-grants/resource?expectedRevision=2']]);
+  });
   it('maps application lifecycle and credential operations to their routes', async () => {
     const client = createMockClient();
     const contract = createApplicationsContract(asAdminApiClient(client));
@@ -249,7 +265,7 @@ describe('Admin API domain contracts', () => {
     await contract.getUserGroups('user-1');
     await expect(contract.getUserUpstreamIdentities('user-1')).resolves.toEqual([{ providerId: 'provider-1', subject: 'sub-1' }]);
     await expect(contract.getUserUpstreamIdentities('user-1')).resolves.toEqual([{ providerId: 'provider-2', subject: 'sub-2' }]);
-    await contract.linkUserUpstreamIdentity('user-1', { providerId: 'provider-1', subject: 'subject-1', email: 'ada@example.com' });
+    expect(contract).not.toHaveProperty('linkUserUpstreamIdentity');
     await contract.unlinkUserUpstreamIdentity('user-1', 'provider-1');
 
     expectCalls(client.get, [
@@ -267,11 +283,6 @@ describe('Admin API domain contracts', () => {
       ['/api/admin/users/user-1/enable'],
       ['/api/admin/users/user-1/reset-password', { newPassword: 'NewPassword123!' }],
       ['/api/admin/users/user-1/roles/role-1'],
-      ['/api/admin/users/user-1/upstream-identities', {
-        providerId: 'provider-1',
-        subjectId: 'subject-1',
-        email: 'ada@example.com',
-      }],
     ]);
     expectCalls(client.put, [['/api/admin/users/user-1', { displayName: 'Ada Lovelace' }]]);
     expectCalls(client.delete, [

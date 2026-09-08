@@ -22,7 +22,13 @@ public sealed record UserResponse(
     DateTimeOffset? LastLoginAt,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ModifiedAt,
-    UserProfileResponse Profile);
+    UserProfileResponse Profile)
+{
+    public bool EmailVerified { get; init; }
+    public IReadOnlyList<EmailVerificationEvidenceResponse> EmailVerificationEvidence { get; init; } = [];
+}
+
+public sealed record EmailVerificationEvidenceResponse(string Email, Guid? ProviderId, string? Issuer, DateTimeOffset VerifiedAt, DateTimeOffset? WithdrawnAt);
 
 /// <summary>
 /// Response for a user in a list.
@@ -102,7 +108,10 @@ public sealed record UpstreamIdentityResponse(
     string SubjectId,
     string? Email,
     DateTimeOffset LinkedAt,
-    DateTimeOffset? LastLoginAt);
+    DateTimeOffset? LastLoginAt,
+    string? Issuer = null,
+    string AssociationEvidence = "Unknown",
+    bool IsQuarantined = true);
 
 /// <summary>
 /// Response for listing user upstream identities.

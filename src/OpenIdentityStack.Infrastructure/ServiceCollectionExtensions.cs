@@ -1,6 +1,8 @@
+using OpenIdentityStack.Application.Security.Commands;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using OpenIdentityStack.Application;
 using OpenIdentityStack.Application.Abstractions;
@@ -88,8 +90,12 @@ public static class ServiceCollectionExtensions
             string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase)
             && IsSqliteConnectionString(connectionString);
 
-        services.AddDbContext<OpenIdentityStackDbContext>(options =>
-            ConfigureDbContext(options, connectionString, useSqliteForTesting));
+        services.AddScoped<AdministrativeAuthorityAuditInterceptor>();
+        services.AddDbContext<OpenIdentityStackDbContext>((provider, options) =>
+        {
+            ConfigureDbContext(options, connectionString, useSqliteForTesting);
+            options.AddInterceptors(provider.GetRequiredService<AdministrativeAuthorityAuditInterceptor>());
+        });
 
         AddCommonServices(services, configuration, environmentName);
 
@@ -120,8 +126,12 @@ public static class ServiceCollectionExtensions
             environment.IsEnvironment("Testing")
             && IsSqliteConnectionString(connectionString);
 
-        services.AddDbContext<OpenIdentityStackDbContext>(options =>
-            ConfigureDbContext(options, connectionString, useSqliteForTesting));
+        services.AddScoped<AdministrativeAuthorityAuditInterceptor>();
+        services.AddDbContext<OpenIdentityStackDbContext>((provider, options) =>
+        {
+            ConfigureDbContext(options, connectionString, useSqliteForTesting);
+            options.AddInterceptors(provider.GetRequiredService<AdministrativeAuthorityAuditInterceptor>());
+        });
 
         AddCommonServices(services, configuration, environment.EnvironmentName);
 
@@ -171,9 +181,12 @@ public static class ServiceCollectionExtensions
 
     private static void AddPlatformServices(IServiceCollection services)
     {
+        services.TryAddSingleton<IAdministrativeActorContext, UnauthenticatedAdministrativeActorContext>();
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddSingleton<IEnvironmentProvider, EnvironmentProvider>();
         services.AddScoped<IAuditLog, AuditLogService>();
+        services.AddScoped<IAdministrativeApprovalAudit, AdministrativeApprovalAudit>();
+        services.AddScoped<IAdministrativeAuthoritySnapshot, AdministrativeAuthoritySnapshot>();
         services.AddSingleton<ISecretProtector, AesSecretProtector>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IPasswordPolicyValidator, PasswordPolicyValidator>();
@@ -182,7 +195,11 @@ public static class ServiceCollectionExtensions
     private static void AddRepositories(IServiceCollection services)
     {
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IJitProvisioningPersistence, JitProvisioningPersistence>();
+        services.AddScoped<LocalUserBootstrapper>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
+        services.AddScoped<OpenIdentityStack.Application.Resources.IResourceAccessRepository, Resources.ResourceAccessRepository>();
+        services.AddScoped<Resources.ResourceAccessBootstrapper>();
         services.AddScoped<IApplicationPermissionRegistryRepository, ApplicationPermissionRegistryRepository>();
         services.AddScoped<IPermissionAssignmentStore, RolePermissionAssignmentStore>();
         services.AddScoped<IApplicationPermissionTransactionRunner, ApplicationPermissionTransactionRunner>();
@@ -190,6 +207,14 @@ public static class ServiceCollectionExtensions
             .ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddScoped<IPermissionDiagnosticsReader, PermissionDiagnosticsReader>();
         services.AddScoped<IUpstreamProviderRepository, UpstreamProviderRepository>();
+        services.AddScoped<IProviderEmailTrustStore, ProviderEmailTrustStore>();
+        services.AddScoped<IEmailTrustCredentialInvalidator, EmailTrustCredentialInvalidator>();
+        services.AddScoped<ICredentialBoundaryStore, CredentialBoundaryStore>();
+        services.AddScoped<IExecuteCredentialCutoverUseCase, ExecuteCredentialCutoverUseCase>();
+        services.AddScoped<CredentialCutoverReadiness>();
+        services.AddScoped<ICredentialCutoverResourceInventory, CredentialCutoverResourceInventory>();
+        services.AddScoped<ICredentialCutoverReadinessStore, CredentialCutoverReadinessStore>();
+        services.AddScoped<ICredentialCutoverGate>(provider => provider.GetRequiredService<ICredentialCutoverReadinessStore>());
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();
@@ -201,6 +226,7 @@ public static class ServiceCollectionExtensions
 
     private static void AddInfrastructureDomainServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<IApplicationProtocolProjectionTransaction, ApplicationProtocolProjectionTransaction>();
         services.AddScoped<IApplicationProtocolProjection, OpenIddictApplicationProjection>();
         services.AddScoped<IRolePermissionDependencyReader, RolePermissionDependencyReader>();
 

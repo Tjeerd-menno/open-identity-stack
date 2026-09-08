@@ -1,8 +1,12 @@
 using System.Security.Claims;
+using System.Text.Json;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Domain.Common;
+using OpenIdentityStack.Domain.Federation;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Users;
 using OpenIddict.Abstractions;
@@ -13,6 +17,94 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 
 public sealed class TokenClaimProjectionServiceTests
 {
+    [Theory]
+    [InlineData("api", "business-api", false)]
+    [InlineData("ois.admin", "urn:openidentitystack:admin-api", true)]
+    [InlineData("ois.admin", "business-api", false)]
+    [InlineData("api", "urn:openidentitystack:admin-api", false)]
+    public void LocalSessionProofIsExposedOnlyToTheAdministrativeResource(string scope, string audience, bool exposed)
+    {
+        User user = CreateUser();
+        ClaimsPrincipal cookie = CreateCookiePrincipal(user.Id.Value);
+        string proof = Guid.NewGuid().ToString();
+        string authenticatedRevision = Guid.NewGuid().ToString();
+        cookie.SetClaim(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession, proof);
+        cookie.SetClaim(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision, authenticatedRevision);
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            cookie, user, [], [], [], [scope], [], null, null, null));
+        projected.SetResources(audience);
+        projected.SetDestinations(TokenClaimProjectionService.GetDestinations);
+        Claim claim = projected.FindFirst(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession)!;
+        claim.Value.ShouldBe(proof);
+        claim.GetDestinations().Contains(OpenIddictConstants.Destinations.AccessToken).ShouldBe(exposed);
+        claim.GetDestinations().ShouldNotContain(OpenIddictConstants.Destinations.IdentityToken);
+        Claim revisionClaim = projected.FindFirst(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision)!;
+        revisionClaim.Value.ShouldBe(authenticatedRevision);
+        revisionClaim.GetDestinations().Contains(OpenIddictConstants.Destinations.AccessToken).ShouldBe(exposed);
+        revisionClaim.GetDestinations().ShouldNotContain(OpenIddictConstants.Destinations.IdentityToken);
+        ClaimsPrincipal refreshed = this.service.ProjectExistingPrincipal(projected);
+        refreshed.FindFirst(claim.Type)!.GetDestinations().Contains(OpenIddictConstants.Destinations.AccessToken).ShouldBe(exposed);
+        projected.SetResources(audience, "another-business-api");
+        projected.SetDestinations(TokenClaimProjectionService.GetDestinations);
+        projected.FindFirst(claim.Type)!.GetDestinations().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void GroupClaimsCannotReplacePersistedVerifiedPhoneOrStandardProfile()
+    {
+        User user = User.CreateFederated("profile@example.test", "Persisted name", this.dateTimeProvider,
+            new UserProfileData(GivenName: "Persisted", PhoneNumber: "+31205550100", PhoneNumberVerified: true)).Value;
+        string[] profileTypes = ["phone_number", "phone_number_verified", "name", "given_name", "family_name", "middle_name",
+            "nickname", "preferred_username", "profile", "picture", "website", "gender", "birthdate", "zoneinfo", "locale", "address", "updated_at"];
+        var request = new TokenClaimProjectionRequest(CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            ["openid", "profile", "phone"], [], null, null, null);
+        ClaimsPrincipal expected = this.service.ProjectSubjectClaims(request);
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(request with
+        {
+            GroupClaims = profileTypes.Select(type => new GroupClaimDto(type, "forged", TokenTarget.Both)).ToArray()
+        });
+
+        foreach (string type in profileTypes)
+        {
+            projected.FindAll(type).Select(claim => claim.Value).ShouldBe(expected.FindAll(type).Select(claim => claim.Value));
+        }
+        projected.GetClaim("phone_number").ShouldBe("+31205550100");
+        projected.GetClaim("phone_number_verified").ShouldBe("true");
+        IReadOnlyDictionary<string, object> userInfo = this.service.CreateUserInfoResponse(projected);
+        userInfo["phone_number"].ShouldBe("+31205550100");
+        userInfo["phone_number_verified"].ShouldBe(true);
+    }
+
+    [Fact]
+    public void GroupMappingsCannotForgeHumanProofOrPrivilegeClaims()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [],
+            [new GroupClaimDto("permission", "*", TokenTarget.Both),
+             new GroupClaimDto("ois_human_subject", user.Id.Value.ToString(), TokenTarget.Both),
+             new GroupClaimDto("ois.example", "forged", TokenTarget.Both),
+             new GroupClaimDto("OIS.example", "forged", TokenTarget.Both),
+             new GroupClaimDto("nonce", "forged", TokenTarget.Both),
+             new GroupClaimDto(RequestedUserInfoClaim, OpenIddictConstants.Claims.Email, TokenTarget.Both),
+             new GroupClaimDto("ois_human_authenticated_at", "9999999999", TokenTarget.Both)],
+            ["openid", "api"], [], null, null, null));
+        principal.HasClaim(claim => claim.Type == "permission" || claim.Type.StartsWith("ois_human_", StringComparison.Ordinal)).ShouldBeFalse();
+        principal.HasClaim(claim => claim.Type.StartsWith("ois.", StringComparison.OrdinalIgnoreCase)).ShouldBeFalse();
+        principal.HasClaim("nonce", "forged").ShouldBeFalse();
+        principal.HasClaim(RequestedUserInfoClaim, OpenIddictConstants.Claims.Email).ShouldBeFalse();
+        this.service.CreateUserInfoResponse(principal).ShouldNotContainKey(OpenIddictConstants.Claims.Email);
+    }
+
+    [Fact]
+    public void TokenRenewalPreservesOriginalHumanAuthenticationProof()
+    {
+        Claim[] claims = [new("sub", Guid.NewGuid().ToString()), new("ois_human_authenticated_at", "100")];
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "token"));
+        ClaimsPrincipal renewed = this.service.ProjectExistingPrincipal(principal, DateTimeOffset.UtcNow);
+        renewed.FindFirst("ois_human_authenticated_at")!.Value.ShouldBe("100");
+    }
+
     private const string RequestedUserInfoClaim = "requested_userinfo_claim";
 
     private readonly IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
@@ -21,6 +113,131 @@ public sealed class TokenClaimProjectionServiceTests
     public TokenClaimProjectionServiceTests()
     {
         this.dateTimeProvider.UtcNow.Returns(new DateTimeOffset(2026, 1, 18, 12, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void ActiveBootstrapAccountWithoutEvidenceDoesNotAssertVerifiedEmail()
+    {
+        User user = User.CreateBootstrap("bootstrap@example.test", "Bootstrap", "fixture-hash", this.dateTimeProvider).Value;
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            [OpenIddictConstants.Scopes.Email], [], null, null, null));
+
+        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
+    }
+
+    [Fact]
+    public void VerifiedLocalAccountAssertsVerifiedEmail()
+    {
+        User user = User.CreateLocal("verified@example.test", "Verified", "fixture-hash", this.dateTimeProvider).Value;
+        user.VerifyEmail(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            [OpenIddictConstants.Scopes.Email], [], null, null, null));
+
+        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("true");
+    }
+
+    [Fact]
+    public void UserProjectionCapturesCredentialRevisionForLocalValidation()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [], [], [], [], null, null, null));
+
+        projected.GetClaim("ois_credential_revision").ShouldBe(Guid.Empty.ToString());
+        projected.FindFirst("ois_credential_revision")!.GetDestinations().ShouldContain(OpenIddictConstants.Destinations.AccessToken);
+        projected.FindFirst("ois_credential_revision")!.GetDestinations().ShouldNotContain(OpenIddictConstants.Destinations.IdentityToken);
+    }
+
+    [Fact]
+    public void RefreshPreservesCapturedRevisionToPreventConcurrentWithdrawalFromLaunderingCredentials()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
+        string captured = Guid.NewGuid().ToString();
+        principal.SetClaim("ois_credential_revision", captured);
+
+        this.service.ProjectExistingPrincipal(principal, persistedUser: user)
+            .GetClaim("ois_credential_revision").ShouldBe(captured);
+    }
+
+    [Fact]
+    public void RefreshUpgradesValidatedRevisionlessLegacyCredentialToEmptyRevision()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
+
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: user);
+
+        projected.GetClaim("ois_credential_revision").ShouldBe(Guid.Empty.ToString());
+        projected.FindFirst("ois_credential_revision")!.GetDestinations()
+            .ShouldBe([OpenIddictConstants.Destinations.AccessToken]);
+    }
+
+    [Fact]
+    public void RefreshDoesNotLaunderRevisionlessCredentialAfterWithdrawal()
+    {
+        User user = CreateUser();
+        UpstreamProvider provider = UpstreamProvider.Create(
+            "provider", "Provider", "https://issuer.example", "client").Value;
+        provider.SetEmailVerificationTrust(true);
+        user.RecordProviderEmailVerification(provider, "https://issuer.example", user.Email, true, this.dateTimeProvider.UtcNow);
+        user.WithdrawProviderEmailVerification(provider.Id.Value, this.dateTimeProvider.UtcNow).ShouldBeTrue();
+        user.CredentialRevision.ShouldNotBe(Guid.Empty);
+
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(
+            CreateCookiePrincipal(user.Id.Value), persistedUser: user);
+
+        projected.GetClaim("ois_credential_revision").ShouldBeNull();
+    }
+
+    [Fact]
+    public void ActiveFederatedAccount_WithoutEvidence_DoesNotAssertVerifiedEmail()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            [OpenIddictConstants.Scopes.Email], [], null, null, null));
+
+        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RefreshRecomputesVerificationInsteadOfCopyingOldAssertion(bool hasPersistedUser)
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
+        principal.SetClaim(OpenIddictConstants.Claims.EmailVerified, "true");
+        principal.SetClaim(OpenIddictConstants.Claims.Email, user.Email);
+
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: hasPersistedUser ? user : null);
+
+        projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExistingPrincipalSerializesVerifiedEmailAsJsonBoolean(bool verified)
+    {
+        User user = User.CreateLocal("serialized@example.com", "User", "fixture-hash", this.dateTimeProvider).Value;
+        if (verified) { user.VerifyEmail(this.dateTimeProvider).IsSuccess.ShouldBeTrue(); }
+        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
+        principal.SetScopes(OpenIddictConstants.Scopes.Email);
+        principal.SetClaim(OpenIddictConstants.Claims.EmailVerified, !verified);
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: user);
+        var handler = new JsonWebTokenHandler();
+        string token = handler.CreateToken(new SecurityTokenDescriptor { Subject = (ClaimsIdentity)projected.Identity! });
+        using var payload = JsonDocument.Parse(Base64UrlEncoder.Decode(handler.ReadJsonWebToken(token).EncodedPayload));
+
+        JsonElement claim = payload.RootElement.GetProperty(OpenIddictConstants.Claims.EmailVerified);
+        claim.ValueKind.ShouldBe(verified ? JsonValueKind.True : JsonValueKind.False);
+        claim.GetBoolean().ShouldBe(verified);
     }
 
     [Fact]

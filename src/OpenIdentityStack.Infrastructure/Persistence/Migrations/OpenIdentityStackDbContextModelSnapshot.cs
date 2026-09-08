@@ -623,6 +623,11 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("authority");
 
+                    b.Property<string>("BoundIssuer")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("bound_issuer");
+
                     b.Property<string>("ClientId")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -644,6 +649,27 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(256)")
                         .HasColumnName("display_name");
 
+                    b.Property<Guid>("EmailTrustVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("email_trust_version");
+
+                    b.Property<bool>("IdentityConfigurationLocked")
+                        .HasColumnType("boolean")
+                        .HasColumnName("identity_configuration_locked");
+
+                    b.Property<Guid>("IdentityVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("identity_version");
+
+                    b.Property<bool>("JitProvisioningEnabled")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("jit_provisioning_enabled");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -655,6 +681,12 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("status");
+
+                    b.Property<bool>("TrustEmailVerification")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("trust_email_verification");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -733,6 +765,98 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("IX_GroupMemberships_UserId");
 
                     b.ToTable("GroupMemberships", (string)null);
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Domain.Resources.ClientResourceGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientApplicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.PrimitiveCollection<string>("applicationPermissions")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("ApplicationPermissions");
+
+                    b.PrimitiveCollection<string>("delegatedPermissions")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("DelegatedPermissions");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResourceId");
+
+                    b.HasIndex("ClientApplicationId", "ResourceId")
+                        .IsUnique();
+
+                    b.ToTable("ClientResourceGrants", (string)null);
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Domain.Resources.ProtectedResource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.PrimitiveCollection<string>("permissionNamespaces")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("PermissionNamespaces");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Audience")
+                        .IsUnique();
+
+                    b.HasIndex("Scope")
+                        .IsUnique();
+
+                    b.ToTable("ProtectedResources", (string)null);
                 });
 
             modelBuilder.Entity("OpenIdentityStack.Domain.Roles.Role", b =>
@@ -907,6 +1031,10 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid>("CredentialRevision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -916,6 +1044,10 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("EmailEvidenceRevision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
 
                     b.Property<string>("FamilyName")
                         .HasMaxLength(256)
@@ -995,6 +1127,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<int>("Status")
+                        .IsConcurrencyToken()
                         .HasColumnType("integer");
 
                     b.Property<string>("Website")
@@ -1069,6 +1202,140 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.HasIndex("EntityType", "EntityId");
 
                     b.ToTable("AuditLogEntries", (string)null);
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Infrastructure.Persistence.AdministrativeAuthorityRevision", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AdministrativeAuthorityRevision", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Revision = 0L
+                        });
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Infrastructure.Persistence.CredentialBoundaryState", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("Epoch")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CredentialBoundary", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Epoch = new Guid("00000000-0000-0000-0000-000000000000")
+                        });
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Infrastructure.Persistence.CredentialCutoverRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Grants")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Sessions")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Tokens")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CredentialCutovers", (string)null);
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Infrastructure.Persistence.EmergencyAccessRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AuthenticatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CredentialRevision")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Epoch")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Epoch", "RecordedAt");
+
+                    b.ToTable("EmergencyAccessEvidence", (string)null);
+                });
+
+            modelBuilder.Entity("OpenIdentityStack.Infrastructure.Persistence.ResourceWindowReviewRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Epoch")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EvidenceReference")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Mechanism")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("ResidualSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("ResourceRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResourceId", "Epoch", "ReviewedAt");
+
+                    b.ToTable("ResourceTokenWindowReviews", (string)null);
                 });
 
             modelBuilder.Entity("OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreAuthorization", b =>
@@ -1228,6 +1495,21 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OpenIdentityStack.Domain.Resources.ClientResourceGrant", b =>
+                {
+                    b.HasOne("OpenIdentityStack.Domain.Applications.Application", null)
+                        .WithMany()
+                        .HasForeignKey("ClientApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpenIdentityStack.Domain.Resources.ProtectedResource", null)
+                        .WithMany()
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("OpenIdentityStack.Domain.Sessions.UserSession", b =>
                 {
                     b.OwnsMany("OpenIdentityStack.Domain.Sessions.ClientSession", "ClientSessions", b1 =>
@@ -1331,6 +1613,46 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("UserId");
                         });
 
+                    b.OwnsMany("OpenIdentityStack.Domain.Users.EmailVerificationEvidence", "EmailVerificationEvidence", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Issuer")
+                                .HasMaxLength(2048)
+                                .HasColumnType("character varying(2048)");
+
+                            b1.Property<string>("NormalizedEmail")
+                                .IsRequired()
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)");
+
+                            b1.Property<Guid?>("ProviderId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<DateTimeOffset>("VerifiedAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<DateTimeOffset?>("WithdrawnAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("ProviderId", "UserId")
+                                .HasDatabaseName("IX_EmailEvidence_ActiveProviderUser")
+                                .HasFilter("\"WithdrawnAt\" IS NULL");
+
+                            b1.HasIndex("UserId", "ProviderId");
+
+                            b1.ToTable("UserEmailVerificationEvidence", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
                     b.OwnsMany("OpenIdentityStack.Domain.Users.UpstreamIdentity", "UpstreamIdentities", b1 =>
                         {
                             b1.Property<int>("Id")
@@ -1339,10 +1661,19 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 
                             NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
 
+                            b1.Property<string>("AssociationEvidence")
+                                .IsRequired()
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)");
+
                             b1.Property<string>("Email")
                                 .HasMaxLength(256)
                                 .HasColumnType("character varying(256)")
                                 .HasColumnName("Email");
+
+                            b1.Property<string>("Issuer")
+                                .HasMaxLength(2048)
+                                .HasColumnType("character varying(2048)");
 
                             b1.Property<DateTimeOffset?>("LastLoginAt")
                                 .HasColumnType("timestamp with time zone");
@@ -1385,6 +1716,8 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Address");
+
+                    b.Navigation("EmailVerificationEvidence");
 
                     b.Navigation("UpstreamIdentities");
                 });

@@ -28,6 +28,7 @@ public sealed class ClientCredentialsFlowTests
         string clientId = $"test-client-{Guid.NewGuid():N}";
         string clientSecret = "test-secret-123!";
         await this._fixture.CreateServiceAccountAsync(clientId, clientSecret);
+        await this._fixture.GrantBusinessResourceFixtureAccessAsync(clientId);
 
         // Act
         string token = await this._fixture.GetAccessTokenAsync(clientId, clientSecret);
@@ -114,6 +115,8 @@ public sealed class ClientCredentialsFlowTests
         string clientSecret = "test-secret-123!";
         var allowedScopes = new List<string> { "api", "read", "write" };
         await this._fixture.CreateServiceAccountAsync(clientId, clientSecret, allowedScopes);
+        await this._fixture.GrantBusinessResourceFixtureAccessAsync(clientId);
+        await this._fixture.GrantBusinessResourceFixtureAccessAsync(clientId, "read");
 
         // Act
         string token = await this._fixture.GetAccessTokenAsync(clientId, clientSecret, "api read");
@@ -126,6 +129,8 @@ public sealed class ClientCredentialsFlowTests
         Claim? scopeClaim = jwt.Claims.FirstOrDefault(c => c.Type == "scope");
         scopeClaim.ShouldNotBeNull();
         scopeClaim.Value.ShouldContain("api");
+        scopeClaim.Value.ShouldContain("read");
+        scopeClaim.Value.ShouldNotContain("write");
     }
 
     [Fact]
@@ -239,6 +244,7 @@ public sealed class ClientCredentialsFlowTests
         string clientId = $"test-client-{Guid.NewGuid():N}";
         string clientSecret = "test-secret-123!";
         await this._fixture.CreateServiceAccountAsync(clientId, clientSecret);
+        await this._fixture.GrantBusinessResourceFixtureAccessAsync(clientId);
 
         // Act
         string token = await this._fixture.GetAccessTokenAsync(clientId, clientSecret);

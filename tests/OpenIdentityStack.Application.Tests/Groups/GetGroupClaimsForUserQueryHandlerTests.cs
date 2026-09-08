@@ -1,4 +1,5 @@
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Groups;
@@ -20,7 +21,7 @@ public sealed class GetGroupClaimsForUserQueryHandlerTests
         this._groupRepository = Substitute.For<IGroupRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._dateTimeProvider.UtcNow.Returns(TestTime);
-        this._handler = new GetGroupClaimsForUserQueryHandler(this._groupRepository);
+        this._handler = new GetGroupClaimsForUserQueryHandler(new RequestScopedUserGroupsProvider(this._groupRepository));
     }
 
     private Group CreateGroup(string name, string? description = null)

@@ -15,7 +15,7 @@ public sealed class EnableRoleUseCaseTests
     public EnableRoleUseCaseTests()
     {
         this.roleRepository = Substitute.For<IRoleRepository>();
-        this.useCase = new EnableRoleUseCase(this.roleRepository);
+        this.useCase = new EnableRoleUseCase(this.roleRepository, Substitute.For<IAdministrativeApproval>());
     }
 
     [Fact]

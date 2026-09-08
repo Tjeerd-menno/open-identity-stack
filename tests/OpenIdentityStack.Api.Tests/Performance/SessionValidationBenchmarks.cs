@@ -41,6 +41,7 @@ public class SessionValidationBenchmarks
             addClientSessionUseCase,
             validateSessionQueryHandler,
             openIddictRequestService,
+            Substitute.For<IAuditLog>(),
             credentialSessionValidator
         );
 

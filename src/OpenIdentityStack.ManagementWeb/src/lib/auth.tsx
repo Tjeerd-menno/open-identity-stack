@@ -1,11 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { UserManager, WebStorageStateStore, type User, type UserManagerSettings } from 'oidc-client-ts';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import type { CurrentUserResponse } from '@openidentitystack/admin-api-client';
 import { api, setAccessTokenProvider, setUnauthorizedHandler } from './api';
 import { AuthContextProvider, type AuthContextValue } from './auth-context';
 import { getOidcAuthority, getOidcClientId } from './runtime-config';
+import { AdministrativeApprovalDialog } from '@/components/AdministrativeApprovalDialog';
 
 type CurrentUserLoadState =
   | { token: string; status: 'success'; user: CurrentUserResponse }
@@ -23,7 +24,7 @@ function createUserManager(): UserManager {
     post_logout_redirect_uri: `${baseUrl}/`,
     silent_redirect_uri: `${baseUrl}/auth/silent-callback`,
     response_type: 'code',
-    scope: 'openid profile email api',
+    scope: 'openid profile email ois.admin',
     automaticSilentRenew: true,
     userStore: new WebStorageStateStore({ store: globalThis.sessionStorage }),
   };
@@ -46,6 +47,7 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
   const [currentUserLoad, setCurrentUserLoad] = useState<CurrentUserLoadState>(null);
   const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
+  const recoveryStarted = useRef(false);
 
   const getAccessToken = useCallback(async () => {
     const user = await userManager.getUser();
@@ -54,6 +56,22 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async () => userManager.signinRedirect(), [userManager]);
   const logout = useCallback(async () => userManager.signoutRedirect(), [userManager]);
+  const reauthenticate = useCallback(async () => {
+    sessionStorage.setItem('administrative-approval-return', location.pathname + location.search);
+    await userManager.signinRedirect({ prompt: 'login', max_age: 0 });
+  }, [location.pathname, location.search, userManager]);
+  const recoverRejectedSession = useCallback(async () => {
+    if (recoveryStarted.current) return;
+    recoveryStarted.current = true;
+    try {
+      await userManager.removeUser();
+      setOidcUser(null);
+      await reauthenticate();
+    } catch (error) {
+      recoveryStarted.current = false;
+      console.error('Unable to restart authentication:', error);
+    }
+  }, [reauthenticate, userManager]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +89,9 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
         } finally {
           // Redeemed (or failed) — reload at the app root; init below reads the
           // stored user from sessionStorage and resolves the authenticated state.
-          window.location.replace('/');
+          const returnPath = sessionStorage.getItem('administrative-approval-return');
+          sessionStorage.removeItem('administrative-approval-return');
+          window.location.replace(returnPath?.startsWith('/') && !returnPath.startsWith('//') && !returnPath.includes('\\') ? returnPath : '/');
         }
       } else {
         try {
@@ -133,7 +153,7 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (getApiStatus(error) === 401) {
-          void logout();
+          void recoverRejectedSession();
         } else {
           console.error('Failed to load current user:', error);
           setCurrentUserLoad({ token: accessToken, status: 'error', error });
@@ -143,7 +163,7 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, logout]);
+  }, [accessToken, recoverRejectedSession]);
 
   const effectiveCurrentUser =
     currentUserLoad?.token === accessToken && currentUserLoad.status === 'success'
@@ -170,8 +190,8 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    setUnauthorizedHandler(value.logout);
-  }, [value.logout]);
+    setUnauthorizedHandler(recoverRejectedSession);
+  }, [recoverRejectedSession]);
 
   if (effectiveCurrentUserError) {
     return (
@@ -181,7 +201,7 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
+  return <AuthContextProvider value={value}>{children}<AdministrativeApprovalDialog onReauthenticate={reauthenticate} /></AuthContextProvider>;
 }
 
 function getFallbackDisplayName(user: User | null): string {

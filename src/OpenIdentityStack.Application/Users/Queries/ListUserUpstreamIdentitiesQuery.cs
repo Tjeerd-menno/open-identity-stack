@@ -26,7 +26,10 @@ public sealed record UpstreamIdentityListItem(
     string SubjectId,
     string? Email,
     DateTimeOffset LinkedAt,
-    DateTimeOffset? LastLoginAt);
+    DateTimeOffset? LastLoginAt,
+    string? Issuer = null,
+    string AssociationEvidence = "Unknown",
+    bool IsQuarantined = true);
 
 /// <summary>
 /// Result of listing user upstream identities.
@@ -81,7 +84,10 @@ public sealed class ListUserUpstreamIdentitiesQueryHandler : IListUserUpstreamId
                 SubjectId: identity.SubjectId,
                 Email: identity.Email,
                 LinkedAt: identity.LinkedAt,
-                LastLoginAt: identity.LastLoginAt))
+                LastLoginAt: identity.LastLoginAt,
+                Issuer: identity.Issuer,
+                AssociationEvidence: identity.AssociationEvidence.ToString(),
+                IsQuarantined: identity.IsQuarantined))
             .ToList();
 
         return new ListUserUpstreamIdentitiesResult(items);

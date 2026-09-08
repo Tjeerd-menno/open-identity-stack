@@ -4,6 +4,7 @@ export type AdminApiClientOptions = {
   baseUrl: string | (() => string);
   getAccessToken?: () => Promise<string | null>;
   onUnauthorized?: () => void;
+  onAdministrativeApprovalRequired?: (error: ApiError) => Promise<boolean>;
 };
 
 export type ApiError = Error & {
@@ -26,7 +27,7 @@ export type PaginatedResponse<T> = {
 export type AdminApiClient = {
   request<T>(path: string, options?: RequestInit, params?: RequestParams): Promise<T>;
   get<T>(path: string, params?: RequestParams): Promise<T>;
-  post<T, TBody = unknown>(path: string, body?: TBody): Promise<T>;
+  post<T, TBody = unknown>(path: string, body?: TBody, onAdministrativeApprovalRetry?: () => void): Promise<T>;
   put<T, TBody = unknown>(path: string, body?: TBody): Promise<T>;
   patch<T, TBody = unknown>(path: string, body?: TBody): Promise<T>;
   delete<T>(path: string, params?: RequestParams): Promise<T>;
@@ -36,7 +37,9 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
   async function request<T>(
     path: string,
     requestOptions: RequestInit = {},
-    params?: RequestParams
+    params?: RequestParams,
+    approvalAttempted = false,
+    onAdministrativeApprovalRetry?: () => void
   ): Promise<T> {
     const headers = new Headers(requestOptions.headers);
     headers.set('Content-Type', 'application/json');
@@ -61,7 +64,23 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
         options.onUnauthorized?.();
       }
 
-      throw createApiError(response.status, await readErrorPayload(response));
+      const error = createApiError(response.status, await readErrorPayload(response));
+      const protectedMutationDenied = requestOptions.method && requestOptions.method !== 'GET' && response.status === 403;
+      if (protectedMutationDenied && error.errorCode === 'Forbidden.AdministrativeApproval.ReauthenticationRequired') {
+        // Authentication may expire while acknowledgement is pending. Offer sign-in even
+        // after that retry, but let the operator start a new mutation after authenticating.
+        await options.onAdministrativeApprovalRequired?.(error);
+        throw error;
+      }
+      if (!approvalAttempted && protectedMutationDenied
+        && error.errorCode === 'Forbidden.AdministrativeApproval.AcknowledgementRequired'
+        && await options.onAdministrativeApprovalRequired?.(error)) {
+        const approvedHeaders = new Headers(requestOptions.headers);
+        approvedHeaders.set('X-OIS-Administrative-Approval', 'acknowledge');
+        onAdministrativeApprovalRetry?.();
+        return request<T>(path, { ...requestOptions, headers: approvedHeaders }, params, true, onAdministrativeApprovalRetry);
+      }
+      throw error;
     }
 
     if (response.status === 204) {
@@ -79,8 +98,8 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
   return {
     request,
     get: <T>(path: string, params?: RequestParams) => request<T>(path, {}, params),
-    post: <T, TBody = unknown>(path: string, body?: TBody) =>
-      request<T>(path, jsonRequest('POST', body)),
+    post: <T, TBody = unknown>(path: string, body?: TBody, onAdministrativeApprovalRetry?: () => void) =>
+      request<T>(path, jsonRequest('POST', body), undefined, false, onAdministrativeApprovalRetry),
     put: <T, TBody = unknown>(path: string, body?: TBody) =>
       request<T>(path, jsonRequest('PUT', body)),
     patch: <T, TBody = unknown>(path: string, body?: TBody) =>
@@ -90,6 +109,7 @@ export function createAdminApiClient(options: AdminApiClientOptions): AdminApiCl
 }
 
 export { createUsersContract } from './users';
+export * from './administrative-access';
 export type {
   UserStatus,
   UserListItem,
@@ -103,7 +123,6 @@ export type {
   UpdateUserRequest,
   DisableUserRequest,
   ResetPasswordRequest,
-  LinkUpstreamIdentityRequest,
   UserStatusChangeResponse,
   PasswordResetResponse,
   UsersContract,
@@ -120,6 +139,7 @@ export { createProvidersContract } from './providers';
 export * from './providers';
 export { createSettingsContract } from './settings';
 export * from './settings';
+export * from './cutover';
 export { createAuditEntriesContract } from './audit-entries';
 export * from './audit-entries';
 export { createApplicationPermissionsContract } from './application-permissions';
@@ -148,9 +168,11 @@ export function createApiError(status: number, payload: unknown): ApiError {
     errorCode:
       typeof problem.errorCode === 'string'
         ? problem.errorCode
-        : typeof problem.error === 'string'
-          ? problem.error
-          : undefined,
+        : typeof problem.code === 'string'
+          ? problem.code
+          : typeof problem.error === 'string'
+            ? problem.error
+            : undefined,
   });
 }
 

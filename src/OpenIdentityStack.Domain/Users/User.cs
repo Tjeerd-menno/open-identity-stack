@@ -13,6 +13,59 @@ public sealed partial class User : AggregateRoot<UserId>
     private static readonly Regex emailRegex = GenerateEmailRegex();
     private readonly List<UpstreamIdentity> upstreamIdentities = [];
     private readonly List<RoleId> roleIds = [];
+    private readonly List<EmailVerificationEvidence> emailVerificationEvidence = [];
+
+    public IReadOnlyList<EmailVerificationEvidence> EmailVerificationEvidence => this.emailVerificationEvidence.AsReadOnly();
+
+    public bool EmailVerified => !string.IsNullOrWhiteSpace(this.Email) &&
+        this.emailVerificationEvidence.Any(e => e.WithdrawnAt is null && e.NormalizedEmail == this.NormalizedEmail);
+    public void RecordProviderEmailVerification(
+        UpstreamProvider provider, string? issuer, string? email, bool verified, DateTimeOffset verifiedAt)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        if (!provider.TrustEmailVerification || !verified || string.IsNullOrWhiteSpace(issuer) ||
+            string.IsNullOrWhiteSpace(email) || !string.Equals(email.Trim(), this.NormalizedEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (!this.emailVerificationEvidence.Any(e => e.ProviderId == provider.Id.Value &&
+            e.Issuer == issuer && e.NormalizedEmail == this.NormalizedEmail && e.WithdrawnAt is null))
+        {
+            this.emailVerificationEvidence.Add(new EmailVerificationEvidence(this.Email, provider.Id.Value, issuer, verifiedAt));
+            this.EmailEvidenceRevision = Guid.NewGuid();
+        }
+    }
+
+    public Guid CredentialRevision { get; private set; }
+
+    public Guid EmailEvidenceRevision { get; private set; }
+
+    public bool WithdrawProviderEmailVerification(Guid providerId, DateTimeOffset withdrawnAt)
+    {
+        string[] affectedAddresses = this.emailVerificationEvidence
+            .Where(e => e.ProviderId == providerId && e.WithdrawnAt is null)
+            .Select(e => e.NormalizedEmail).Distinct(StringComparer.Ordinal).ToArray();
+        foreach (EmailVerificationEvidence evidence in this.emailVerificationEvidence.Where(e => e.ProviderId == providerId))
+        {
+            evidence.Withdraw(withdrawnAt);
+        }
+
+        if (affectedAddresses.Length > 0)
+        {
+            this.EmailEvidenceRevision = Guid.NewGuid();
+        }
+
+        // Old-address credentials also lose their assertion when their last source is withdrawn.
+        bool invalidated = affectedAddresses.Any(address => !this.emailVerificationEvidence
+            .Any(e => e.NormalizedEmail == address && e.WithdrawnAt is null));
+        if (invalidated)
+        {
+            this.CredentialRevision = Guid.NewGuid();
+        }
+
+        return invalidated;
+    }
 
     /// <summary>
     /// Gets the user's email address.
@@ -214,6 +267,26 @@ public sealed partial class User : AggregateRoot<UserId>
     }
 
     /// <summary>
+    /// Creates a new active local account for controlled installation bootstrap.
+    /// Activation is independent of email verification and cannot reactivate an existing account.
+    /// </summary>
+    public static Result<User> CreateBootstrap(
+        string email,
+        string displayName,
+        string passwordHash,
+        IDateTimeProvider dateTimeProvider,
+        UserProfileData? profile = null)
+    {
+        Result<User> result = CreateLocal(email, displayName, passwordHash, dateTimeProvider, profile);
+        if (result.IsSuccess)
+        {
+            result.Value.Status = UserStatus.Active;
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Creates a new federated user (no password).
     /// </summary>
     public static Result<User> CreateFederated(
@@ -254,7 +327,19 @@ public sealed partial class User : AggregateRoot<UserId>
         UpstreamProviderId providerId,
         string providerName,
         string subjectId,
-        UserProfileData? profile = null)
+        UserProfileData? profile = null,
+        string? issuer = null)
+    {
+        return CreateFederatedWithIdentity(email, displayName, providerId, providerName, subjectId, profile, issuer, false);
+    }
+
+    /// <summary>Provisions a new account from a validated identity after excluding existing account collisions.</summary>
+    public static Result<User> ProvisionFederated(string email, string displayName, UpstreamProviderId providerId, string providerName, string subjectId, string issuer, UserProfileData? profile = null)
+    {
+        return CreateFederatedWithIdentity(email, displayName, providerId, providerName, subjectId, profile, issuer, true);
+    }
+
+    private static Result<User> CreateFederatedWithIdentity(string email, string displayName, UpstreamProviderId providerId, string providerName, string subjectId, UserProfileData? profile, string? issuer, bool newAccount)
     {
         Result validationResult = ValidateFederatedUserInput(email, displayName, profile);
         if (validationResult.IsFailure)
@@ -262,7 +347,9 @@ public sealed partial class User : AggregateRoot<UserId>
             return validationResult.Error;
         }
 
-        Result<UpstreamIdentity> identityResult = UpstreamIdentity.Create(providerId, providerName, subjectId, email);
+        Result<UpstreamIdentity> identityResult = newAccount && issuer is not null
+            ? UpstreamIdentity.CreateForNewAccount(providerId, providerName, subjectId, email, issuer)
+            : UpstreamIdentity.Create(providerId, providerName, subjectId, email, issuer);
         if (identityResult.IsFailure)
         {
             return identityResult.Error;
@@ -291,6 +378,8 @@ public sealed partial class User : AggregateRoot<UserId>
             return UserErrors.InvalidStatusTransition(this.Status, UserStatus.Active);
         }
 
+        this.emailVerificationEvidence.Add(new EmailVerificationEvidence(this.Email, null, null, dateTimeProvider.UtcNow));
+        this.EmailEvidenceRevision = Guid.NewGuid();
         this.Status = UserStatus.Active;
         this.SetModified(dateTimeProvider.UtcNow);
 
@@ -364,6 +453,7 @@ public sealed partial class User : AggregateRoot<UserId>
 
         this.PasswordHash = newPasswordHash;
         this.SecurityVersion++;
+        this.CredentialRevision = Guid.NewGuid();
         this.SetModified(dateTimeProvider.UtcNow);
 
         this.RaiseDomainEvent(new UserDomainEvents.UserPasswordChanged(this.Id, dateTimeProvider.UtcNow));
@@ -451,14 +541,14 @@ public sealed partial class User : AggregateRoot<UserId>
         UpstreamProviderId providerId,
         string providerName,
         string subjectId,
-        string? email)
+        string? email, string? issuer = null)
     {
         if (this.upstreamIdentities.Any(i => i.ProviderId == providerId))
         {
             return UpstreamIdentityErrors.AlreadyLinked;
         }
 
-        Result<UpstreamIdentity> identityResult = UpstreamIdentity.Create(providerId, providerName, subjectId, email);
+        Result<UpstreamIdentity> identityResult = UpstreamIdentity.Create(providerId, providerName, subjectId, email, issuer);
         if (identityResult.IsFailure)
         {
             return identityResult.Error;
@@ -489,6 +579,11 @@ public sealed partial class User : AggregateRoot<UserId>
         if (identity is null)
         {
             return UpstreamIdentityErrors.NotLinked;
+        }
+
+        if (identity.IsQuarantined)
+        {
+            return UpstreamIdentityErrors.QuarantineRetentionRequired;
         }
 
         this.upstreamIdentities.Remove(identity);

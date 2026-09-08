@@ -121,7 +121,7 @@ public sealed class UserRepository : IUserRepository
         string? search = null,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<User> query = this.dbContext.Users.AsQueryable();
+        IQueryable<User> query = this.dbContext.Users.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -136,11 +136,26 @@ public sealed class UserRepository : IUserRepository
         int totalCount = await query.CountAsync(cancellationToken);
 
         List<User> items = await query
-            .OrderBy(u => u.Email)
+            // NormalizedEmail is the indexed column; Email itself is not indexed.
+            .OrderBy(u => u.NormalizedEmail)
+            .ThenBy(u => u.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
+        return (items, totalCount);
+    }
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<User> Items, int TotalCount)> ListWithUpstreamIdentitiesAsync(int page, int pageSize, UpstreamProviderId? providerId = null, CancellationToken cancellationToken = default)
+    {
+        IQueryable<User> query = this.dbContext.Users.AsNoTracking().Where(user => user.UpstreamIdentities.Any());
+        if (providerId is UpstreamProviderId id)
+        {
+            query = query.Where(user => user.UpstreamIdentities.Any(identity => identity.ProviderId == id));
+        }
+        int totalCount = await query.CountAsync(cancellationToken);
+        List<User> items = await query.OrderBy(user => user.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
         return (items, totalCount);
     }
 

@@ -138,6 +138,35 @@ public sealed class ApplicationOAuthConfigurationTests
         application.GetDomainEvents().ShouldContain(e => e is ApplicationDomainEvents.ApplicationOAuthConfigured);
     }
 
+    [Fact]
+    public void ConfigureOAuth_PreservesTheOriginalScopeCollection()
+    {
+        Application application = this.Create(
+            ApplicationProfile.Web,
+            OAuthClientType.Confidential,
+            ["authorization_code"],
+            ["openid", "ois.admin"],
+            ["https://web.example.com/callback"],
+            [],
+            requirePkce: false,
+            requireConsent: true).Value;
+        IReadOnlyList<string> originalScopes = application.AllowedScopes;
+
+        application.ConfigureOAuth(
+            application.Profile,
+            application.ClientType,
+            application.AllowedGrantTypes,
+            ["openid"],
+            application.RedirectUris,
+            application.PostLogoutRedirectUris,
+            application.RequirePkce,
+            application.RequireConsent,
+            this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+
+        originalScopes.ShouldBe(["openid", "ois.admin"]);
+        application.AllowedScopes.ShouldBe(["openid"]);
+    }
+
     private Result<Application> Create(
         ApplicationProfile profile,
         OAuthClientType clientType,

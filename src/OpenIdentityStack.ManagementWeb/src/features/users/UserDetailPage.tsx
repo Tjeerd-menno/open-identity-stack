@@ -73,35 +73,7 @@ export function UserDetailPage() {
     onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
 
-  const canReadProviders = hasPermission(auth.permissions, 'providers:read');
-  const canManageProviders = canWrite && canReadProviders;
-  const [linkProviderId, setLinkProviderId] = useState<string | null>(null);
-  const [linkProviderIdText, setLinkProviderIdText] = useState('');
-  const [linkSubject, setLinkSubject] = useState('');
-
-  const providersQuery = useQuery({
-    queryKey: ['providers', 'all'],
-    queryFn: () => api.providers.getProviders(true),
-    enabled: canManageProviders,
-  });
-
   const invalidateIdentities = () => void queryClient.invalidateQueries({ queryKey: ['user', userId, 'identities'] });
-
-  const linkIdentity = useMutation({
-    mutationFn: () =>
-      api.users.linkUserUpstreamIdentity(userId, {
-        providerId: canReadProviders ? (linkProviderId ?? '') : linkProviderIdText.trim(),
-        subject: linkSubject.trim(),
-      }),
-    onSuccess: () => {
-      notifications.show({ message: 'Identity linked', color: 'green' });
-      setLinkProviderId(null);
-      setLinkProviderIdText('');
-      setLinkSubject('');
-      invalidateIdentities();
-    },
-    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
-  });
 
   const unlinkIdentity = useMutation({
     mutationFn: (providerId: string) => api.users.unlinkUserUpstreamIdentity(userId, providerId),
@@ -283,48 +255,9 @@ export function UserDetailPage() {
 
         <Tabs.Panel value="identities">
           <SectionCard title="Upstream identities" description="Federated accounts linked to this user.">
-            {canWrite && (
-              <Group align="flex-end" gap="sm" mb="md" wrap="nowrap">
-                {canReadProviders ? (
-                  <Select
-                    label="Provider"
-                    placeholder="Select a provider"
-                    w={200}
-                    data={(providersQuery.data ?? []).map((provider) => ({
-                      value: provider.id,
-                      label: provider.displayName || provider.name,
-                    }))}
-                    value={linkProviderId}
-                    onChange={setLinkProviderId}
-                  />
-                ) : (
-                  <TextInput
-                    label="Provider ID"
-                    placeholder="provider-id"
-                    w={200}
-                    styles={{ input: { fontFamily: 'var(--mw-mono)' } }}
-                    value={linkProviderIdText}
-                    onChange={(event) => setLinkProviderIdText(event.currentTarget.value)}
-                  />
-                )}
-                <TextInput
-                  label="Subject"
-                  placeholder="upstream-subject-id"
-                  style={{ flex: 1 }}
-                  styles={{ input: { fontFamily: 'var(--mw-mono)' } }}
-                  value={linkSubject}
-                  onChange={(event) => setLinkSubject(event.currentTarget.value)}
-                />
-                <Button
-                  leftSection={<Icon name="link" size={15} />}
-                  disabled={!(canReadProviders ? linkProviderId : linkProviderIdText.trim()) || !linkSubject.trim()}
-                  loading={linkIdentity.isPending}
-                  onClick={() => linkIdentity.mutate()}
-                >
-                  Link
-                </Button>
-              </Group>
-            )}
+            <Text c="dimmed" size="sm" mb="md">
+              Linking an existing account requires proof of account ownership. This workflow is not yet available.
+            </Text>
             {identities.length === 0 ? (
               <Text c="dimmed" size="sm">
                 No linked upstream identities.
@@ -346,8 +279,12 @@ export function UserDetailPage() {
                       <Text c="dimmed" className="mw-mono" size="xs" truncate>
                         {identity.subjectId ?? identity.subject}
                       </Text>
+                      <Text size="xs" c={identity.isQuarantined !== false ? 'red' : 'dimmed'}>
+                        {identity.isQuarantined !== false ? 'Quarantined — authentication and migration blocked' : 'Association evidence recorded'}
+                      </Text>
+                      <Text size="xs" c="dimmed">Evidence: {identity.associationEvidence ?? 'Unknown'}</Text>
                     </Box>
-                    {canWrite && (
+                    {canWrite && identity.isQuarantined === false && (
                       <ActionIcon
                         aria-label={`Unlink ${identity.providerName ?? identity.providerId}`}
                         color="red"
@@ -407,6 +344,12 @@ function ProfileCard({ user, canWrite }: { user: User; canWrite: boolean }) {
       <Stack gap={0} mt="md">
         <FieldRow label="User ID" value={user.id} mono />
         <FieldRow label="Email" value={user.email} />
+        <FieldRow label="Email verification" value={user.emailVerified ? 'Verified' : 'No current verification evidence'} />
+        {(user.emailVerificationEvidence ?? []).map((evidence, index) => (
+          <FieldRow key={`${evidence.providerId ?? 'local'}-${evidence.verifiedAt}-${index}`}
+            label={evidence.providerId ? 'Provider evidence' : 'Independent evidence'}
+            value={`${evidence.providerId ? `Provider ${evidence.providerId} · ` : ''}${evidence.issuer ?? 'Local email verification'} · ${formatDateTime(evidence.verifiedAt)}${evidence.withdrawnAt ? ' · Withdrawn' : ''}`} />
+        ))}
         <FieldRow label="MFA" value={user.mfaEnabled ? 'Enabled' : 'Not enabled'} />
         <FieldRow label="Last sign-in" value={formatRelativeTime(user.lastLoginAt)} />
         <FieldRow label="Created" value={formatDateTime(user.createdAt)} last />

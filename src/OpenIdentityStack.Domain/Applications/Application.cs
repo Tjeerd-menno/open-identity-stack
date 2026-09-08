@@ -16,7 +16,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
     };
 
     private readonly List<string> allowedGrantTypes = [];
-    private readonly List<string> allowedScopes = [];
+    private List<string> allowedScopes = [];
     private readonly List<string> redirectUris = [];
     private readonly List<string> postLogoutRedirectUris = [];
     private readonly List<ApplicationCredential> credentials = [];
@@ -226,8 +226,7 @@ public sealed class Application : AggregateRoot<ApplicationId>
         this.ClientType = clientType;
         this.allowedGrantTypes.Clear();
         this.allowedGrantTypes.AddRange(values.AllowedGrantTypes);
-        this.allowedScopes.Clear();
-        this.allowedScopes.AddRange(values.AllowedScopes);
+        this.allowedScopes = [.. values.AllowedScopes];
         this.redirectUris.Clear();
         this.redirectUris.AddRange(values.RedirectUris);
         this.postLogoutRedirectUris.Clear();

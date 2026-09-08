@@ -41,6 +41,21 @@ public sealed class DeleteUserUseCaseTests
     }
 
     [Fact]
+    public async Task QuarantinedIdentityBlocksDeletionAndRecordsGenericDenial()
+    {
+        var providerId = OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create();
+        User user = User.CreateFederated("retained@example.com", "Retained", providerId, "Provider", "legacy-subject", issuer: "https://issuer.example").Value;
+        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+
+        Result result = await this._sut.ExecuteAsync(new DeleteUserCommand(user.Id, "operator"));
+
+        result.Error.ShouldBe(UpstreamIdentityErrors.QuarantineRetentionRequired);
+        await this._userRepository.DidNotReceive().DeleteAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+        await this._auditLog.Received(1).LogAsync("operator", "User.QuarantinedIdentityDeletionDenied", "User", user.Id.Value.ToString(),
+            Arg.Is<string>(details => !details.Contains(user.Email) && !details.Contains("legacy-subject")), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithExistingUser_CallsDeleteAsync()
     {
         // Arrange

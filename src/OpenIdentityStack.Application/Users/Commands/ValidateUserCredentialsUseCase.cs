@@ -128,6 +128,7 @@ public sealed class ValidateUserCredentialsUseCase : IValidateUserCredentialsUse
             user.Id,
             user.Email,
             user.DisplayName,
+            user.CredentialRevision,
             user.SecurityVersion);
     }
 

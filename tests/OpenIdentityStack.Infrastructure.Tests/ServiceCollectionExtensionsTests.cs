@@ -18,6 +18,26 @@ namespace OpenIdentityStack.Infrastructure.Tests;
 
 public sealed class ServiceCollectionExtensionsTests
 {
+    [Fact]
+    public void AddInfrastructure_WithoutAnActor_UsesAnUnauthenticatedContext()
+    {
+        var services = new ServiceCollection();
+        services.AddInfrastructure("Host=localhost;Database=test;Username=test;Password=test", BuildTestConfiguration(), "Testing");
+        using ServiceProvider provider = services.BuildServiceProvider();
+        provider.GetRequiredService<IAdministrativeActorContext>().Current.ShouldBeNull();
+    }
+
+    [Fact]
+    public void AddInfrastructure_PreservesTheHostActorContext()
+    {
+        var services = new ServiceCollection();
+        IAdministrativeActorContext actor = Substitute.For<IAdministrativeActorContext>();
+        services.AddSingleton(actor);
+        services.AddInfrastructure("Host=localhost;Database=test;Username=test;Password=test", BuildTestConfiguration(), "Testing");
+        using ServiceProvider provider = services.BuildServiceProvider();
+        provider.GetRequiredService<IAdministrativeActorContext>().ShouldBeSameAs(actor);
+    }
+
     private static IConfiguration BuildTestConfiguration() =>
         new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>

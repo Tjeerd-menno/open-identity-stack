@@ -21,6 +21,33 @@ public sealed class UserTests
     #region CreateLocal Tests
 
     [Fact]
+    public void CreateBootstrap_ActivatesNewAccountWithoutEmailVerificationEvidence()
+    {
+        Result<User> result = User.CreateBootstrap("bootstrap@example.com", "Bootstrap", "hashed_password", this._dateTimeProvider);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Status.ShouldBe(UserStatus.Active);
+        result.Value.EmailVerified.ShouldBeFalse();
+        result.Value.EmailVerificationEvidence.ShouldBeEmpty();
+        result.Value.DomainEvents.OfType<UserDomainEvents.UserEmailVerified>().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void VerifyEmail_RecordsIndependentEvidenceForTheCurrentAddress()
+    {
+        User user = User.CreateLocal("verified@example.com", "Verified", "hashed_password", this._dateTimeProvider).Value;
+
+        user.VerifyEmail(this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+
+        user.EmailVerified.ShouldBeTrue();
+        EmailVerificationEvidence evidence = user.EmailVerificationEvidence.ShouldHaveSingleItem();
+        evidence.NormalizedEmail.ShouldBe(user.NormalizedEmail);
+        evidence.ProviderId.ShouldBeNull();
+        evidence.Issuer.ShouldBeNull();
+        evidence.VerifiedAt.ShouldBe(this._now);
+    }
+
+    [Fact]
     public void CreateLocal_WithValidData_ReturnsSuccessWithUser()
     {
         // Arrange
@@ -375,6 +402,7 @@ public sealed class UserTests
     {
         // Arrange
         User user = User.CreateLocal("test@example.com", "Test", "old_hash", this._dateTimeProvider).Value;
+        Guid originalCredentialRevision = user.CredentialRevision;
 
         // Act
         Result result = user.SetPassword("new_hash", this._dateTimeProvider);
@@ -382,6 +410,7 @@ public sealed class UserTests
         // Assert
         result.IsSuccess.ShouldBeTrue();
         user.PasswordHash.ShouldBe("new_hash");
+        user.CredentialRevision.ShouldNotBe(originalCredentialRevision);
     }
 
     [Fact]

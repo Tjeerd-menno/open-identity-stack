@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using OpenIdentityStack.Infrastructure;
@@ -36,6 +37,8 @@ builder.AddPostgreSqlHealthCheck("openidentitystack");
 
 // Add Application services
 builder.Services.AddApplication();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<OpenIdentityStack.Application.Abstractions.IAdministrativeActorContext, AdministrativeActorContext>();
 
 // Add Infrastructure services (DbContext, OpenIddict, etc.)
 builder.Services.AddInfrastructureWithAspire(builder.Configuration, builder.Environment);
@@ -50,7 +53,7 @@ builder.Services.AddControllersWithViews()
     .AddDefaultJsonOptions();
 builder.Services.AddDefaultHttpJsonOptions(); // Also configure Minimal API JSON serialization
 builder.Services.AddRazorPages();
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options => options.AddOperationTransformer<AdministrativeApprovalOpenApiTransformer>());
 builder.Services.AddConfiguredRateLimiting(builder.Environment);
 builder.Services.AddConfiguredProblemDetails();
 
@@ -60,6 +63,7 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddScoped<IOpenIddictRequestService, OpenIddictRequestService>();
 builder.Services.AddScoped<ITokenClaimProjectionService, TokenClaimProjectionService>();
+builder.Services.AddScoped<ISessionMonitoringCookieService, SessionMonitoringCookieService>();
 
 // Add authentication and authorization
 builder.Services.AddAuthentication(options =>
@@ -73,6 +77,7 @@ builder.Services.AddAuthentication(options =>
     options.LogoutPath = "/Account/Logout";
     options.ExpireTimeSpan = TimeSpan.FromHours(1);
     options.SlidingExpiration = true;
+    options.Events.OnValidatePrincipal = CredentialBoundaryCookieValidation.ValidateAsync;
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")
@@ -97,7 +102,10 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPermissionPolicies();
 });
-builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<AdministrativeRequestAuthorization>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, AdministrativeAccessAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, AdministrativeGrantRevisionHandler>();
 
 // T043: Configure CORS for Management Web
 // In development/testing, allow dynamic origins (Aspire assigns random ports)
@@ -140,6 +148,10 @@ if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
 
 // ProblemDetails middleware for consistent error responses
 app.UseExceptionHandler();
+app.UseStatusCodePages(static context =>
+    context.HttpContext.Response.StatusCode == StatusCodes.Status403Forbidden
+        ? Results.Problem(statusCode: StatusCodes.Status403Forbidden).ExecuteAsync(context.HttpContext)
+        : Task.CompletedTask);
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
@@ -200,6 +212,8 @@ if (app.Environment.IsDevelopment())
 // Authentication and Authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapCredentialCutoverApi();
+app.UseMiddleware<AdministrativeApprovalOutcomeMiddleware>();
 
 // Map MVC Controllers for authentication endpoints (/connect/*, /Account/*)
 // These handle OpenIddict OAuth2/OIDC flows and login UI
@@ -208,6 +222,7 @@ app.MapControllers();
 // Map Minimal API endpoints
 app.MapCurrentUserApi();
 app.MapApplicationsApi();
+app.MapAdministrativeAccessApi();
 app.MapUsersApi();
 app.MapPublicProfilesApi();
 app.MapRolesApi();

@@ -2,7 +2,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
+using Microsoft.EntityFrameworkCore;
+using OpenIdentityStack.Domain.Federation;
+using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Api.Tests.Fixtures;
+using SharedKernel;
 
 namespace OpenIdentityStack.Api.Tests.Authentication;
 /// <summary>
@@ -20,6 +24,22 @@ public sealed class FederatedLoginTests
         this._fixture = fixture;
     }
 
+    [Fact]
+    public async Task ProviderManagement_RejectsAuthorityReplacementAndPreservesNonIdentityEdits()
+    {
+        HttpClient client = await this._fixture.CreateAuthenticatedClientAsync($"issuer-admin-{Guid.NewGuid():N}", "admin-secret-123!");
+        HttpResponseMessage created = await client.PostAsJsonAsync("/api/admin/providers", new { name = $"immutable-{Guid.NewGuid():N}", authority = "https://original.example", clientId = "client" });
+        created.EnsureSuccessStatusCode();
+        JsonNode provider = (await created.Content.ReadFromJsonAsync<JsonNode>())!;
+        string path = $"/api/admin/providers/{provider["id"]!.GetValue<Guid>()}";
+        HttpResponseMessage replacement = await client.PatchAsJsonAsync(path, new { authority = "https://replacement.example" });
+        replacement.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        HttpResponseMessage renamed = await client.PatchAsJsonAsync(path, new { displayName = "Renamed provider" });
+        renamed.EnsureSuccessStatusCode();
+        JsonNode after = (await renamed.Content.ReadFromJsonAsync<JsonNode>())!;
+        after["authority"]!.GetValue<string>().ShouldBe("https://original.example");
+        after["displayName"]!.GetValue<string>().ShouldBe("Renamed provider");
+    }
     [Fact]
     public async Task UpstreamProvider_CanBeCreatedViaAdminApi()
     {
@@ -61,7 +81,7 @@ public sealed class FederatedLoginTests
     }
 
     [Fact]
-    public async Task UpstreamIdentity_CanBeLinkedToUser()
+    public async Task UpstreamIdentity_RawLinkToUser_RequiresProof()
     {
         // Arrange
         string clientId = $"admin-client-{Guid.NewGuid():N}";
@@ -69,7 +89,7 @@ public sealed class FederatedLoginTests
         HttpClient client = await this._fixture.CreateAuthenticatedClientAsync(clientId, clientSecret);
 
         // Create a user
-        string email = $"federated-user-{Guid.NewGuid():N}@test.com";;
+        string email = $"federated-user-{Guid.NewGuid():N}@test.com";
         Guid userId = await this._fixture.CreateTestUserAsync(email, "Federated User", "Password123!");
 
         // Create an upstream provider first
@@ -97,7 +117,7 @@ public sealed class FederatedLoginTests
         HttpResponseMessage linkResponse = await client.PostAsJsonAsync($"/api/admin/users/{userId}/upstream-identities", linkRequest);
 
         // Assert
-        linkResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        linkResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -206,7 +226,7 @@ public sealed class FederatedLoginTests
     }
 
     [Fact]
-    public async Task UpstreamIdentity_WithNonExistentProvider_ReturnsNotFound()
+    public async Task UpstreamIdentity_WithNonExistentProvider_StillRequiresProof()
     {
         // Arrange
         string clientId = $"admin-client-{Guid.NewGuid():N}";
@@ -227,11 +247,11 @@ public sealed class FederatedLoginTests
         HttpResponseMessage response = await client.PostAsJsonAsync($"/api/admin/users/{userId}/upstream-identities", linkRequest);
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
     [Fact]
-    public async Task UpstreamIdentity_CanBeUnlinked()
+    public async Task QuarantinedUpstreamIdentity_CannotBeUnlinkedThroughOrdinaryEndpoint()
     {
         // Arrange
         string clientId = $"admin-client-{Guid.NewGuid():N}";
@@ -256,19 +276,24 @@ public sealed class FederatedLoginTests
         JsonNode? providerJson = await providerResponse.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonNode>();
         Guid providerId = providerJson!["id"]!.GetValue<Guid>();
 
-        // Link identity
-        var linkRequest = new
+        // Seed a preexisting identity independently of the disabled raw-link endpoint.
+        await this._fixture.ExecuteDbContextAsync(async dbContext =>
         {
-            providerId = providerId,
-            subjectId = "unlink-subject-123",
-            email = email
-        };
-        await client.PostAsJsonAsync($"/api/admin/users/{userId}/upstream-identities", linkRequest);
+            User user = await dbContext.Users.SingleAsync(user => user.Id == new UserId(userId));
+            UpstreamProvider provider = await dbContext.UpstreamProviders.SingleAsync(provider => provider.Id == new UpstreamProviderId(providerId));
+            user.LinkUpstreamIdentity(provider.Id, provider.Name, "unlink-subject-123", email).IsSuccess.ShouldBeTrue();
+            await dbContext.SaveChangesAsync();
+        });
 
         // Act - Unlink
         HttpResponseMessage unlinkResponse = await client.DeleteAsync($"/api/admin/users/{userId}/upstream-identities/{providerId}");
 
         // Assert
-        unlinkResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        unlinkResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        await this._fixture.ExecuteDbContextAsync(async dbContext =>
+        {
+            User user = await dbContext.Users.SingleAsync(user => user.Id == new UserId(userId));
+            user.UpstreamIdentities.ShouldContain(identity => identity.ProviderId == new UpstreamProviderId(providerId) && identity.IsQuarantined);
+        });
     }
 }

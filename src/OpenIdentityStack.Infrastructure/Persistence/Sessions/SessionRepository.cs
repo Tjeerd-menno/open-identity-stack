@@ -63,7 +63,12 @@ public sealed class SessionRepository : ISessionRepository
     /// <inheritdoc/>
     public async Task UpdateAsync(UserSession session, CancellationToken cancellationToken = default)
     {
-        this.context.UserSessions.Update(session);
+        if (this.context.Entry(session).State == EntityState.Detached)
+        {
+            throw new InvalidOperationException("Load the session through this repository before updating it.");
+        }
+        // All mutation use cases load tracked sessions. Save only their changed properties so
+        // an activity request cannot overwrite a revocation committed by another context.
         await this.context.SaveChangesAsync(cancellationToken);
     }
 
@@ -89,11 +94,12 @@ public sealed class SessionRepository : ISessionRepository
         int pageSize,
         UserId? userIdFilter = null,
         SessionStatus? statusFilter = null,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
         IQueryable<UserSession> query = this.context.UserSessions
-            .Include(s => s.ClientSessions)
-            .AsQueryable();
+            .AsNoTracking()
+            .Include(s => s.ClientSessions);
 
         if (userIdFilter.HasValue)
         {
@@ -103,6 +109,14 @@ public sealed class SessionRepository : ISessionRepository
         if (statusFilter.HasValue)
         {
             query = query.Where(s => s.Status == statusFilter.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            string term = search.Trim().ToLowerInvariant();
+#pragma warning disable CA1304, CA1311, CA1862 // Parameterless ToLower translates to SQL for both PostgreSQL and SQLite.
+            query = query.Where(s => s.IpAddress.ToLower().Contains(term) || s.UserAgent.ToLower().Contains(term));
+#pragma warning restore CA1304, CA1311, CA1862
         }
 
         int totalCount = await query.CountAsync(cancellationToken);

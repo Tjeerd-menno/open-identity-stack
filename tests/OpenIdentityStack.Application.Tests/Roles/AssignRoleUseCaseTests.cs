@@ -35,7 +35,7 @@ public sealed class AssignRoleUseCaseTests
             this._roleRepository,
             this._dateTimeProvider,
             this._auditLog,
-            this._logger);
+            this._logger, Substitute.For<IAdministrativeApproval>());
     }
 
     [Fact]

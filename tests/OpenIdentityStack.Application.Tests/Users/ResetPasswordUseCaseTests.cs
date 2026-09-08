@@ -42,7 +42,17 @@ public sealed class ResetPasswordUseCaseTests
             return Result.Success();
         });
 
-        this._sut = new ResetPasswordUseCase(this._userRepository, this._passwordHasher, this._passwordPolicyValidator, this._dateTimeProvider, this._auditLog, new PassthroughTransactionRunner(), this._sessionRepository);
+        IAdministrativeApproval approval = Substitute.For<IAdministrativeApproval>();
+        approval.RequireForUserAccessAsync(Arg.Any<UserId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
+        this._sut = new ResetPasswordUseCase(
+            this._userRepository,
+            this._passwordHasher,
+            this._passwordPolicyValidator,
+            this._dateTimeProvider,
+            this._auditLog,
+            approval,
+            new PassthroughTransactionRunner(),
+            this._sessionRepository);
     }
 
     [Fact]

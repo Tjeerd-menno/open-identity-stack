@@ -25,8 +25,8 @@ public sealed class ApplicationPermissionsApiTests(AppHostFixture fixture) : IAs
         const string clientSecret = "test-secret-123";
 
         await this.SeedRegistryAdminRoleAsync(this.actorId);
-        await this.fixture.CreateServiceAccountAsync(clientId, clientSecret);
-        this.accessToken = await this.fixture.GetAccessTokenAsync(clientId, clientSecret);
+        using HttpClient authenticated = await this.fixture.CreateAuthenticatedClientAsync(clientId, clientSecret);
+        this.accessToken = authenticated.DefaultRequestHeaders.Authorization!.Parameter;
     }
 
     public ValueTask DisposeAsync()

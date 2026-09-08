@@ -310,6 +310,7 @@ public sealed class AuthEndpointLatencyTests
             addClientSessionUseCase,
             validateSessionQueryHandler,
             openIddictRequestService,
+            Substitute.For<IAuditLog>(),
             credentialSessionValidator
         );
 

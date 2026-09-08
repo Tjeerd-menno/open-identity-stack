@@ -160,6 +160,12 @@ export type AddApplicationCertificateResponse = {
 };
 
 export type ApplicationsContract = {
+  listProtectedResources: () => Promise<ProtectedResource[]>;
+  createProtectedResource: (data: ResourceConfiguration) => Promise<ProtectedResource>;
+  configureProtectedResource: (resourceId: string, data: ResourceConfiguration) => Promise<ProtectedResource>;
+  listClientResourceGrants: (applicationId: string) => Promise<ClientResourceGrant[]>;
+  configureClientResourceGrant: (applicationId: string, resourceId: string, data: ClientResourceGrantConfiguration) => Promise<ClientResourceGrant>;
+  revokeClientResourceGrant: (applicationId: string, resourceId: string, expectedRevision: number) => Promise<void>;
   getApplications: (params?: ApplicationListParams) => Promise<ApplicationListResponse>;
   getApplication: (applicationId: string) => Promise<Application>;
   getApplicationProfilePolicies: () => Promise<ApplicationProfilePolicy[]>;
@@ -177,6 +183,12 @@ export type ApplicationsContract = {
 
 export function createApplicationsContract(client: AdminApiClient): ApplicationsContract {
   return {
+    listProtectedResources: () => client.get<ProtectedResource[]>('/api/admin/applications/resources'),
+    createProtectedResource: (data) => client.post<ProtectedResource>('/api/admin/applications/resources', data),
+    configureProtectedResource: (resourceId, data) => client.put<ProtectedResource>(`/api/admin/applications/resources/${resourceId}`, data),
+    listClientResourceGrants: (applicationId) => client.get<ClientResourceGrant[]>(`/api/admin/applications/${applicationId}/resource-grants`),
+    configureClientResourceGrant: (applicationId, resourceId, data) => client.put<ClientResourceGrant>(`/api/admin/applications/${applicationId}/resource-grants/${resourceId}`, data),
+    revokeClientResourceGrant: (applicationId, resourceId, expectedRevision) => client.delete<void>(`/api/admin/applications/${applicationId}/resource-grants/${resourceId}?expectedRevision=${expectedRevision}`),
     getApplications: (params) =>
       client.get<ApplicationListResponse>('/api/admin/applications', params),
     getApplication: (applicationId) => client.get<Application>(`/api/admin/applications/${applicationId}`),
@@ -203,3 +215,22 @@ export function createApplicationsContract(client: AdminApiClient): Applications
       client.delete<void>(`/api/admin/applications/${applicationId}/credentials/${credentialId}`),
   };
 }
+
+export type ProtectedResource = {
+  id: string;
+  audience: string;
+  scope: string;
+  displayName: string;
+  permissionNamespaces: string[];
+  enabled: boolean;
+  revision: number;
+  isAdministrative: boolean;
+};
+export type ResourceConfiguration = Omit<ProtectedResource, 'id' | 'revision' | 'isAdministrative'> & { expectedRevision?: number };
+export type ClientResourceGrant = {
+  resourceId: string;
+  delegatedPermissions: string[];
+  applicationPermissions: string[];
+  revision: number;
+};
+export type ClientResourceGrantConfiguration = Omit<ClientResourceGrant, 'resourceId' | 'revision'> & { expectedRevision?: number };

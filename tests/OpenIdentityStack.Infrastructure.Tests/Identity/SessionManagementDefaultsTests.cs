@@ -13,40 +13,6 @@ public sealed class SessionManagementDefaultsTests
     }
 
     [Fact]
-    public void GenerateSessionCookieValue_ReturnsNonEmptyValue()
-    {
-        // Act
-        string value = SessionManagementDefaults.GenerateSessionCookieValue();
-
-        // Assert
-        value.ShouldNotBeNullOrWhiteSpace();
-    }
-
-    [Fact]
-    public void GenerateSessionCookieValue_ReturnsBase64UrlEncodedValue()
-    {
-        // Act
-        string value = SessionManagementDefaults.GenerateSessionCookieValue();
-
-        // Assert
-        // Base64URL should not contain +, /, or = characters
-        value.ShouldNotContain("+");
-        value.ShouldNotContain("/");
-        value.ShouldNotContain("=");
-    }
-
-    [Fact]
-    public void GenerateSessionCookieValue_ReturnsDifferentValuesOnEachCall()
-    {
-        // Act
-        string value1 = SessionManagementDefaults.GenerateSessionCookieValue();
-        string value2 = SessionManagementDefaults.GenerateSessionCookieValue();
-
-        // Assert
-        value1.ShouldNotBe(value2);
-    }
-
-    [Fact]
     public void CreateSessionCookieOptions_SetsCorrectDefaults()
     {
         // Act

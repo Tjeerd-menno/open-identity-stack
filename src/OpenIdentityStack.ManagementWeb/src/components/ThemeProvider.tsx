@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { MantineProvider } from '@mantine/core';
+import { MantineProvider, type MantineProviderProps } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { managementTheme } from '@/theme';
@@ -42,7 +42,7 @@ export function useThemePreference(): ThemePreferenceContextValue {
   return context;
 }
 
-export function ManagementThemeProvider({ children }: { children: ReactNode }) {
+export function ManagementThemeProvider({ children, env }: { children: ReactNode; env?: MantineProviderProps['env'] }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() => readStoredPreference());
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => getSystemTheme());
   const resolvedTheme: ResolvedTheme = preference === 'system' ? systemTheme : preference;
@@ -78,7 +78,7 @@ export function ManagementThemeProvider({ children }: { children: ReactNode }) {
 
   return (
     <ThemePreferenceContext.Provider value={value}>
-      <MantineProvider defaultColorScheme="auto" forceColorScheme={resolvedTheme} theme={managementTheme}>
+      <MantineProvider defaultColorScheme="auto" forceColorScheme={resolvedTheme} theme={managementTheme} env={env}>
         <Notifications position="top-right" />
         {children}
       </MantineProvider>

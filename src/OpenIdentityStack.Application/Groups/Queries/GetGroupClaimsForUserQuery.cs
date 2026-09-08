@@ -8,11 +8,11 @@ public sealed record GroupClaimDto(string Type, string Value, TokenTarget TokenT
 
 public sealed class GetGroupClaimsForUserQueryHandler : IGetGroupClaimsForUserQueryHandler
 {
-    private readonly IGroupRepository groupRepository;
+    private readonly IUserGroupsProvider userGroups;
 
-    public GetGroupClaimsForUserQueryHandler(IGroupRepository groupRepository)
+    public GetGroupClaimsForUserQueryHandler(IUserGroupsProvider userGroups)
     {
-        this.groupRepository = groupRepository;
+        this.userGroups = userGroups;
     }
 
     /// <summary>
@@ -39,7 +39,7 @@ public sealed class GetGroupClaimsForUserQueryHandler : IGetGroupClaimsForUserQu
         UserId userId,
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<Group> groups = await this.groupRepository.GetGroupsForUserAsync(userId, cancellationToken);
+        IReadOnlyList<Group> groups = await this.userGroups.GetGroupsForUserAsync(userId, cancellationToken);
 
         var claims = new List<GroupClaimDto>();
 
@@ -47,7 +47,7 @@ public sealed class GetGroupClaimsForUserQueryHandler : IGetGroupClaimsForUserQu
         {
             foreach (GroupMapping mapping in group.Mappings)
             {
-                if (mapping.Type == MappingType.Claim && mapping.Value != null)
+                if (mapping.Type == MappingType.Claim && mapping.Value != null && !ReservedGroupClaimTypes.IsReserved(mapping.Target))
                 {
                     claims.Add(new GroupClaimDto(mapping.Target, mapping.Value, mapping.TokenTarget));
                 }

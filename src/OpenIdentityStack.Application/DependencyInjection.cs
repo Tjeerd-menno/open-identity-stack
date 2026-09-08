@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.ApplicationPermissions;
@@ -11,6 +12,7 @@ using OpenIdentityStack.Application.Audit.Queries;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Federation.Commands;
 using OpenIdentityStack.Application.Federation.Queries;
+using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.Groups.Commands;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Roles.Commands;
@@ -41,6 +43,14 @@ public static class DependencyInjection
         AddAuditUseCases(services);
         AddProviderUseCases(services);
         AddAuthorizationServices(services);
+        services.AddScoped<IAdministrativeApproval, AdministrativeApproval>();
+        services.AddScoped<AdministrativeAccess.AdministrativeAccessWorkflow>();
+        services.AddScoped<AdministrativeAccess.ManagementWebPreparation>();
+        services.AddScoped<IAdministrativeClientGuard>(provider => provider.GetRequiredService<AdministrativeAccess.AdministrativeAccessWorkflow>());
+        services.AddScoped<IAdministrativeAccessEvaluator, AdministrativeAccess.AdministrativeAccessEvaluator>();
+        services.TryAddSingleton<IAdministrativeActorContext, UnauthenticatedAdministrativeActorContext>();
+        services.AddScoped<UnrestrictedGrantPolicy>();
+        services.AddScoped<Applications.SeededOAuthClientPreparation>();
 
         return services;
     }
@@ -62,10 +72,12 @@ public static class DependencyInjection
     private static void AddFederationUseCases(IServiceCollection services)
     {
         services.AddScoped<IJitProvisionUserUseCase, JitProvisionUserUseCase>();
+        services.AddScoped<SetProviderEmailVerificationTrust>();
         services.AddScoped<ILinkUpstreamIdentityUseCase, LinkUpstreamIdentityUseCase>();
         services.AddScoped<IUnlinkUpstreamIdentityUseCase, UnlinkUpstreamIdentityUseCase>();
         services.AddScoped<IFindUserByUpstreamIdentityQueryHandler, FindUserByUpstreamIdentityQueryHandler>();
         services.AddScoped<IListUserUpstreamIdentitiesQueryHandler, ListUserUpstreamIdentitiesQueryHandler>();
+        services.AddScoped<IIdentityMigrationInventoryQueryHandler, IdentityMigrationInventoryQueryHandler>();
     }
 
     private static void AddRoleUseCases(IServiceCollection services)
@@ -100,6 +112,7 @@ public static class DependencyInjection
         services.AddScoped<IListGroupMembersQueryHandler, ListGroupMembersQueryHandler>();
         services.AddScoped<IListGroupMappingsQueryHandler, ListGroupMappingsQueryHandler>();
         services.AddScoped<IGetUserGroupsQueryHandler, GetUserGroupsQueryHandler>();
+        services.AddScoped<IUserGroupsProvider, RequestScopedUserGroupsProvider>();
         services.AddScoped<IGetGroupClaimsForUserQueryHandler, GetGroupClaimsForUserQueryHandler>();
     }
 
@@ -122,6 +135,8 @@ public static class DependencyInjection
         services.AddScoped<ListApplicationProfilePoliciesQueryHandler>();
         services.AddScoped<IListApplicationProfilePoliciesQueryHandler>(provider => provider.GetRequiredService<ListApplicationProfilePoliciesQueryHandler>());
         services.AddScoped<IApplicationsAdminWorkflow, ApplicationsAdminWorkflow>();
+        services.AddScoped<Resources.IResourcePermissionService, Resources.ResourcePermissionService>();
+        services.AddScoped<Resources.ResourceAccessWorkflow>();
     }
 
     private static void AddApplicationPermissionUseCases(IServiceCollection services)

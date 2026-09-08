@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using OpenIddict.Validation.AspNetCore;
 using OpenIdentityStack.Application.Abstractions;
@@ -21,6 +22,15 @@ internal static class ProvidersApi
             .WithTags(nameof(ProvidersApi));
 
         // Provider CRUD
+        group.MapPut("{id:guid}/email-verification-trust", SetEmailVerificationTrust)
+            .RequireAuthorization(Permissions.Providers.Write)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .WithName("SetProviderEmailVerificationTrust")
+            .WithSummary("Sets explicit trust in a provider's verified-email assertions")
+            .WithDescription("Withdrawing trust retains evidence provenance and atomically revokes affected user tokens, authorizations, and sessions. Independent evidence is preserved. Offline JWT consumers require their own revocation policy; see the provider email-trust withdrawal runbook.");
         group.MapGet(string.Empty, ListProviders)
             .RequireAuthorization(Permissions.Providers.Read)
             .Produces<IReadOnlyList<ProviderResponse>>(StatusCodes.Status200OK)
@@ -39,6 +49,7 @@ internal static class ProvidersApi
             .Produces<ProviderResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithName("CreateProvider")
             .WithSummary("Creates a new upstream provider");
 
@@ -47,6 +58,8 @@ internal static class ProvidersApi
             .Produces<ProviderResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithName("UpdateProvider")
             .WithSummary("Updates an existing provider");
 
@@ -92,6 +105,15 @@ internal static class ProvidersApi
         return TypedResults.Ok(responses);
     }
 
+    private static async Task<IResult> SetEmailVerificationTrust(
+        Guid id, ProviderEmailVerificationTrustRequest request, HttpContext context,
+        [FromServices] SetProviderEmailVerificationTrust useCase, CancellationToken cancellationToken)
+    {
+        string actorId = Authorization.AdministrativeActorContext.ResolveAuditActorId(context.User);
+        Result result = await useCase.ExecuteAsync(id, request.Trusted, actorId, cancellationToken);
+        return result.IsSuccess ? TypedResults.NoContent() : Common.ErrorResultMapper.ToErrorResult(result.Error);
+    }
+
     private static async Task<IResult> GetProvider(
         [FromServices] IUpstreamProviderRepository providerRepository,
         Guid id,
@@ -110,6 +132,7 @@ internal static class ProvidersApi
 
     private static async Task<IResult> CreateProvider(
         [FromServices] ICreateProviderUseCase createProviderUseCase,
+        HttpContext context,
         [FromBody] CreateProviderRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -120,12 +143,17 @@ internal static class ProvidersApi
             request.ClientId,
             request.ClientSecret,
             request.Scopes,
-            request.JitProvisioningEnabled);
+            request.JitProvisioningEnabled,
+            Authorization.AdministrativeActorContext.ResolveAuditActorId(context.User));
 
         Result<CreateProviderResult> result = await createProviderUseCase.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
+            if (result.Error.Code.StartsWith("Forbidden.", StringComparison.Ordinal))
+            {
+                return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, detail: result.Error.Description);
+            }
             if (result.Error.Code.Contains("Conflict", StringComparison.Ordinal) || result.Error.Code.Contains("Exists", StringComparison.Ordinal))
             {
                 return TypedResults.Conflict(new { error = result.Error.Description });
@@ -152,10 +180,18 @@ internal static class ProvidersApi
 
     private static async Task<IResult> UpdateProvider(
         [FromServices] IUpdateProviderUseCase updateProviderUseCase,
+        [FromServices] IAuditLog auditLog,
+        HttpContext httpContext,
         Guid id,
         [FromBody] UpdateProviderRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (request.Authority is not null)
+        {
+            await auditLog.LogAsync(Authorization.AdministrativeActorContext.ResolveAuditActorId(httpContext.User), "Federation.AuthorityReplacementRejected", "UpstreamProvider", id.ToString(), "Provider replacement requires a new registration and explicit identity migration.", cancellationToken);
+            return TypedResults.BadRequest(new { error = "Provider authority cannot be replaced. Register a new provider and migrate identities explicitly." });
+        }
+
         var command = new UpdateProviderCommand(
             id,
             request.DisplayName,
@@ -163,12 +199,17 @@ internal static class ProvidersApi
             request.ClientSecret,
             request.Scopes,
             request.JitProvisioningEnabled,
-            request.Status);
+            request.Status,
+            Authorization.AdministrativeActorContext.ResolveAuditActorId(httpContext.User));
 
         Result<UpdateProviderResult> result = await updateProviderUseCase.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
+            if (result.Error.Code.StartsWith("Forbidden.", StringComparison.Ordinal))
+            {
+                return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, detail: result.Error.Description);
+            }
             if (result.Error.Code.Contains("NotFound", StringComparison.Ordinal))
             {
                 return TypedResults.NotFound(new { error = result.Error.Description });
@@ -186,6 +227,7 @@ internal static class ProvidersApi
             ClientId = result.Value.ClientId,
             Scopes = result.Value.Scopes,
             JitProvisioningEnabled = result.Value.JitProvisioningEnabled,
+            TrustEmailVerification = result.Value.TrustEmailVerification,
             Status = result.Value.Status,
             CreatedAt = result.Value.CreatedAt
         };
@@ -279,6 +321,7 @@ internal static class ProvidersApi
             ClientId = dto.ClientId,
             Scopes = dto.Scopes,
             JitProvisioningEnabled = dto.JitProvisioningEnabled,
+            TrustEmailVerification = dto.TrustEmailVerification,
             Status = dto.Status,
             CreatedAt = dto.CreatedAt
         };
@@ -294,7 +337,8 @@ internal static class ProvidersApi
             Authority = provider.Authority,
             ClientId = provider.ClientId,
             Scopes = [],
-            JitProvisioningEnabled = true,
+            JitProvisioningEnabled = provider.JitProvisioningEnabled,
+            TrustEmailVerification = provider.TrustEmailVerification,
             Status = provider.Status.ToString(),
             CreatedAt = provider.CreatedAt
         };

@@ -24,8 +24,10 @@ namespace OpenIdentityStack.Infrastructure.Persistence;
 /// Main database context for the OpenIdentityStack.
 /// Configured to use OpenIddict entity stores for OIDC/OAuth2 entities.
 /// </summary>
-public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
+public partial class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
 {
+    public DbSet<Domain.Resources.ProtectedResource> ProtectedResources => this.Set<Domain.Resources.ProtectedResource>();
+    public DbSet<Domain.Resources.ClientResourceGrant> ClientResourceGrants => this.Set<Domain.Resources.ClientResourceGrant>();
     public OpenIdentityStackDbContext(DbContextOptions<OpenIdentityStackDbContext> options)
         : base(options)
     {
@@ -40,6 +42,9 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
     /// Gets or sets the Users DbSet.
     /// </summary>
     public DbSet<User> Users => this.Set<User>();
+
+    public DbSet<EmergencyAccessRecord> EmergencyAccessEvidence => this.Set<EmergencyAccessRecord>();
+    public DbSet<ResourceWindowReviewRecord> ResourceTokenWindowReviews => this.Set<ResourceWindowReviewRecord>();
 
     /// <summary>
     /// Gets or sets the UpstreamProviders DbSet.
@@ -98,6 +103,38 @@ public class OpenIdentityStackDbContext : DbContext, IDataProtectionKeyContext
     /// Gets or sets the DelegatedMaintainers DbSet.
     /// </summary>
     public DbSet<DelegatedMaintainer> DelegatedMaintainers => this.Set<DelegatedMaintainer>();
+
+    /// <inheritdoc />
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        foreach (UpstreamProviderId providerId in this.GetAddedIdentityProviderIds())
+        {
+            this.UpstreamProviders.Find(providerId)?.LockIdentityConfiguration();
+        }
+        return this.SaveWithAuthorityFence(acceptAllChangesOnSuccess);
+    }
+
+    /// <inheritdoc />
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        await this.LockLinkedProvidersAsync(cancellationToken);
+        return await this.SaveWithAuthorityFenceAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private async Task LockLinkedProvidersAsync(CancellationToken cancellationToken)
+    {
+        // Every insertion, including legacy/raw domain links, locks the provider in the same save.
+        // Updating the concurrency token prevents a stale authority edit from racing the first link.
+        foreach (UpstreamProviderId providerId in this.GetAddedIdentityProviderIds())
+        {
+            UpstreamProvider? provider = await this.UpstreamProviders.FindAsync([providerId], cancellationToken);
+            provider?.LockIdentityConfiguration();
+        }
+    }
+
+    private UpstreamProviderId[] GetAddedIdentityProviderIds() => this.ChangeTracker.Entries<UpstreamIdentity>()
+        .Where(entry => entry.State == EntityState.Added)
+        .Select(entry => entry.Entity.ProviderId).Distinct().ToArray();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -6,7 +6,10 @@ using Microsoft.Extensions.Logging;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.Application;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Applications;
+using OpenIdentityStack.DbMigrator;
 using OpenIdentityStack.Domain.Common;
+using OpenIdentityStack.Domain.Resources;
 using OpenIdentityStack.Domain.Roles;
 using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure;
@@ -42,6 +45,7 @@ OpenIdentityStackDbContext dbContext = services.GetRequiredService<OpenIdentityS
 
 logger.LogInformation("Applying OpenIdentityStack database migrations...");
 await dbContext.Database.MigrateAsync();
+await scope.ServiceProvider.GetRequiredService<OpenIdentityStack.Infrastructure.Resources.ResourceAccessBootstrapper>().InitializeAsync();
 logger.LogInformation("Database migrations applied successfully.");
 
 await SeedData.SeedAsync(dbContext, logger);
@@ -53,14 +57,10 @@ bool seedDevData = builder.Environment.IsDevelopment()
     || builder.Configuration.GetValue<bool>("Seed:DevelopmentData");
 
 await SeedManagementWebClientAsync(services);
-if (seedCertificationProfile)
-{
-    await SeedCertificationDataAsync(services);
-}
 
 if (ShouldSeedDemoClients(builder.Configuration, builder.Environment, seedDevData, seedCertificationProfile))
 {
-    await SeedTraceableIsotopesWebClientAsync(services);
+    await PrepareTraceableIsotopesWebClientAsync(services);
     await SeedIsotopesApiResourceClientAsync(services);
 }
 
@@ -71,6 +71,11 @@ if (seedDevData)
     logger.LogInformation("Seeding development/test data...");
     await SeedDefaultAdminUserAsync(services);
     logger.LogInformation("Development/test data seeding complete.");
+}
+
+if (seedCertificationProfile)
+{
+    await SeedCertificationDataAsync(services);
 }
 
 
@@ -115,113 +120,24 @@ static bool ShouldSeedDemoClients(
 
 static async Task SeedManagementWebClientAsync(IServiceProvider serviceProvider)
 {
-    ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-    IOpenIddictApplicationManager applicationManager = serviceProvider.GetRequiredService<IOpenIddictApplicationManager>();
-    IOpenIddictScopeManager scopeManager = serviceProvider.GetRequiredService<IOpenIddictScopeManager>();
     IConfiguration configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    IHostEnvironment hostEnvironment = serviceProvider.GetRequiredService<IHostEnvironment>();
-
-    const string clientId = "management-web-client";
-
-    string[] requiredScopes = ["openid", "profile", "email", "api"];
-    foreach (string scopeName in requiredScopes)
+    IHostEnvironment environment = serviceProvider.GetRequiredService<IHostEnvironment>();
+    List<string> redirectUris = GetConfiguredUris(configuration, "OpenIddict:Clients:ManagementWeb:RedirectUris").ToList();
+    List<string> postLogoutUris = GetConfiguredUris(configuration, "OpenIddict:Clients:ManagementWeb:PostLogoutRedirectUris").ToList();
+    if (environment.IsDevelopment() || environment.IsEnvironment("Testing"))
     {
-        if (await scopeManager.FindByNameAsync(scopeName) is null)
+        foreach (int port in new[] { 5175, 5173, 5174, 3000 })
         {
-            await scopeManager.CreateAsync(new OpenIddictScopeDescriptor
-            {
-                Name = scopeName,
-                DisplayName = $"{scopeName} Scope"
-            });
-            logger.LogDebug("Created OpenIddict scope '{ScopeName}'", scopeName);
+            redirectUris.Add($"http://localhost:{port}/auth/callback");
+            redirectUris.Add($"http://localhost:{port}/auth/silent-callback");
+            postLogoutUris.Add($"http://localhost:{port}/");
         }
     }
-
-    var descriptor = new OpenIddictApplicationDescriptor
-    {
-        ClientId = clientId,
-        DisplayName = "Management Web Application",
-        ClientType = OpenIddictConstants.ClientTypes.Public,
-        ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
-        Permissions =
-        {
-            OpenIddictConstants.Permissions.Endpoints.Authorization,
-            OpenIddictConstants.Permissions.Endpoints.Token,
-            OpenIddictConstants.Permissions.Endpoints.EndSession,
-            OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
-            OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
-            OpenIddictConstants.Permissions.ResponseTypes.Code,
-            OpenIddictConstants.Permissions.Prefixes.Scope + "openid",
-            OpenIddictConstants.Permissions.Prefixes.Scope + "profile",
-            OpenIddictConstants.Permissions.Prefixes.Scope + "email",
-            OpenIddictConstants.Permissions.Prefixes.Scope + "api",
-        },
-        Requirements =
-        {
-            OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange
-        }
-    };
-
-    string[] configuredRedirectUris = GetConfiguredUris(configuration, "OpenIddict:Clients:ManagementWeb:RedirectUris");
-    string[] configuredPostLogoutUris = GetConfiguredUris(configuration, "OpenIddict:Clients:ManagementWeb:PostLogoutRedirectUris");
-
-    // Only register localhost redirect URIs in Development/Testing to avoid exposing them in production.
-    bool isDevOrTesting = hostEnvironment.IsDevelopment() || hostEnvironment.IsEnvironment("Testing");
-    if (isDevOrTesting)
-    {
-        string[] devRedirectUris =
-        [
-            "http://localhost:5175/auth/callback",
-            "http://localhost:5175/auth/silent-callback",
-            "http://localhost:5173/auth/callback",
-            "http://localhost:5173/auth/silent-callback",
-            "http://localhost:5174/auth/callback",
-            "http://localhost:5174/auth/silent-callback",
-            "http://localhost:3000/auth/callback",
-            "http://localhost:3000/auth/silent-callback",
-        ];
-
-        string[] devPostLogoutUris =
-        [
-            "http://localhost:5175/",
-            "http://localhost:5173/",
-            "http://localhost:5174/",
-            "http://localhost:3000/",
-        ];
-
-        foreach (string uri in devRedirectUris)
-        {
-            descriptor.RedirectUris.Add(new Uri(uri));
-        }
-
-        foreach (string uri in devPostLogoutUris)
-        {
-            descriptor.PostLogoutRedirectUris.Add(new Uri(uri));
-        }
-    }
-
-    foreach (string uri in configuredRedirectUris)
-    {
-        descriptor.RedirectUris.Add(new Uri(uri));
-    }
-
-    foreach (string uri in configuredPostLogoutUris)
-    {
-        descriptor.PostLogoutRedirectUris.Add(new Uri(uri));
-    }
-
-    object? existingApp = await applicationManager.FindByClientIdAsync(clientId);
-    if (existingApp is not null)
-    {
-        await applicationManager.UpdateAsync(existingApp, descriptor);
-        logger.LogInformation("Updated OpenIddict public client '{ClientId}' for ManagementWeb", clientId);
-        return;
-    }
-
-    await applicationManager.CreateAsync(descriptor);
-    logger.LogInformation("Created OpenIddict public client '{ClientId}' for ManagementWeb", clientId);
+    Result prepared = await serviceProvider.GetRequiredService<OpenIdentityStack.Application.AdministrativeAccess.ManagementWebPreparation>()
+        .PrepareAsync(redirectUris.Distinct(StringComparer.Ordinal).ToArray(), postLogoutUris.Distinct(StringComparer.Ordinal).ToArray(),
+            configuration.GetValue<bool>("Seed:AdministrativeAccess:BootstrapManagementWeb"));
+    if (prepared.IsFailure) { throw new InvalidOperationException(prepared.Error.Description); }
 }
-
 static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
 {
     ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
@@ -230,7 +146,7 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
 
     logger.LogInformation("Seeding OpenID Foundation certification users and clients...");
 
-    await UpsertCertificationUserAsync(
+    await SeedCertificationUserAsync(
         serviceProvider,
         "alice@example.test",
         "Alice Certification",
@@ -253,10 +169,9 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
                 PostalCode: "1015 CJ",
                 Country: "Netherlands"),
             phoneNumber: "+31 20 555 0100"),
-        GetRequiredConfiguration(configuration, "Seed:Certification:Users:Alice:Password"),
-        resetPassword: configuration.GetValue("Seed:Certification:ResetExistingUsers", defaultValue: true));
+        GetRequiredConfiguration(configuration, "Seed:Certification:Users:Alice:Password"));
 
-    await UpsertCertificationUserAsync(
+    await SeedCertificationUserAsync(
         serviceProvider,
         "bob@example.test",
         "Bob Certification",
@@ -279,8 +194,7 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
                 PostalCode: "1015 BS",
                 Country: "Netherlands"),
             phoneNumber: "+31 20 555 0101"),
-        GetRequiredConfiguration(configuration, "Seed:Certification:Users:Bob:Password"),
-        resetPassword: configuration.GetValue("Seed:Certification:ResetExistingUsers", defaultValue: true));
+        GetRequiredConfiguration(configuration, "Seed:Certification:Users:Bob:Password"));
 
     string[] redirectUris = GetCertificationRedirectUris(configuration);
     IReadOnlyList<string> scopes =
@@ -293,7 +207,7 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
         OpenIddictConstants.Scopes.OfflineAccess
     ];
 
-    await SeedCertificationClientAsync(
+    await PrepareCertificationClientAsync(
         serviceProvider,
         "oidf-code-client",
         "OIDF Code Client",
@@ -301,7 +215,7 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
         redirectUris,
         scopes);
 
-    await SeedCertificationClientAsync(
+    await PrepareCertificationClientAsync(
         serviceProvider,
         "oidf-code-client-post",
         "OIDF Code Client Post",
@@ -309,7 +223,7 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
         redirectUris,
         scopes);
 
-    await SeedCertificationClientAsync(
+    await PrepareCertificationClientAsync(
         serviceProvider,
         "oidf-code-client-takeover",
         "OIDF Code Client Takeover",
@@ -320,118 +234,18 @@ static async Task SeedCertificationDataAsync(IServiceProvider serviceProvider)
     logger.LogInformation("OpenID Foundation certification seed profile completed.");
 }
 
-static async Task UpsertCertificationUserAsync(
+static async Task SeedCertificationUserAsync(
     IServiceProvider serviceProvider,
     string email,
     string displayName,
     UserProfileData profile,
-    string password,
-    bool resetPassword)
+    string password)
 {
-    OpenIdentityStackDbContext db = serviceProvider.GetRequiredService<OpenIdentityStackDbContext>();
-    ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-    IPasswordHasher passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
-    IPasswordPolicyValidator passwordPolicyValidator = serviceProvider.GetRequiredService<IPasswordPolicyValidator>();
-    IDateTimeProvider dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
-
-    Result passwordValidation = passwordPolicyValidator.ValidatePassword(password);
-    if (passwordValidation.IsFailure)
-    {
-        throw new InvalidOperationException($"Certification user password for '{email}' does not satisfy the password policy: {passwordValidation.Error.Description}");
-    }
-
-    string normalizedEmail = email.ToUpperInvariant();
-    User? existingUser = await db.Users.FirstOrDefaultAsync(user => user.NormalizedEmail == normalizedEmail);
-    if (existingUser is not null)
-    {
-        bool needsSave = false;
-
-        if (existingUser.Status == UserStatus.PendingVerification)
-        {
-            Result verifyResult = existingUser.VerifyEmail(dateTimeProvider);
-            if (verifyResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to verify certification user '{email}': {verifyResult.Error.Description}");
-            }
-
-            needsSave = true;
-        }
-        else if (existingUser.Status == UserStatus.Disabled)
-        {
-            Result enableResult = existingUser.Enable(dateTimeProvider);
-            if (enableResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to enable certification user '{email}': {enableResult.Error.Description}");
-            }
-
-            needsSave = true;
-        }
-
-        if (!string.Equals(existingUser.DisplayName, displayName, StringComparison.Ordinal))
-        {
-            Result updateNameResult = existingUser.UpdateDisplayName(displayName, dateTimeProvider);
-            if (updateNameResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to update certification user '{email}': {updateNameResult.Error.Description}");
-            }
-
-            needsSave = true;
-        }
-
-        if (existingUser.GetProfileData() != profile)
-        {
-            Result updateProfileResult = existingUser.UpdateProfile(profile, dateTimeProvider);
-            if (updateProfileResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to update certification user profile for '{email}': {updateProfileResult.Error.Description}");
-            }
-
-            needsSave = true;
-        }
-
-        if (resetPassword || !existingUser.HasPassword())
-        {
-            Result setPasswordResult = existingUser.SetPassword(passwordHasher.HashPassword(password), dateTimeProvider);
-            if (setPasswordResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to set certification user password for '{email}': {setPasswordResult.Error.Description}");
-            }
-
-            needsSave = true;
-        }
-
-        if (needsSave)
-        {
-            await db.SaveChangesAsync();
-            logger.LogInformation("Updated certification user '{Email}'.", email);
-        }
-
-        return;
-    }
-
-    Result<User> userResult = User.CreateLocal(
-        email,
-        displayName,
-        passwordHasher.HashPassword(password),
-        dateTimeProvider,
-        profile);
-    if (userResult.IsFailure)
-    {
-        throw new InvalidOperationException($"Failed to create certification user '{email}': {userResult.Error.Description}");
-    }
-
-    User user = userResult.Value;
-    Result activationResult = user.VerifyEmail(dateTimeProvider);
-    if (activationResult.IsFailure)
-    {
-        throw new InvalidOperationException($"Failed to activate certification user '{email}': {activationResult.Error.Description}");
-    }
-
-    db.Users.Add(user);
-    await db.SaveChangesAsync();
-    logger.LogInformation("Created certification user '{Email}'.", email);
+    bool created = await serviceProvider.GetRequiredService<LocalUserBootstrapper>()
+        .CreateIfAbsentAsync(email, displayName, password, assignAdministrator: false, profile);
+    serviceProvider.GetRequiredService<ILogger<Program>>().LogInformation(
+        "Certification bootstrap completed (Created: {Created}); existing accounts are preserved.", created);
 }
-
 static UserProfileData CreateCertificationUserProfile(
     Uri issuer,
     string preferredUsername,
@@ -466,6 +280,27 @@ static UserProfileData CreateCertificationUserProfile(
         PhoneNumber: phoneNumber,
         // Nothing has verified these numbers; the suite checks the type, not the value.
         PhoneNumberVerified: false);
+}
+
+static async Task PrepareCertificationClientAsync(
+    IServiceProvider serviceProvider,
+    string clientId,
+    string displayName,
+    string clientSecret,
+    IReadOnlyList<string> redirectUris,
+    IReadOnlyList<string> scopes)
+{
+    var configuration = new SeededOAuthClientConfiguration(
+        clientId, displayName, OpenIdentityStack.Domain.Applications.ApplicationProfile.Web,
+        OpenIdentityStack.Domain.Applications.OAuthClientType.Confidential,
+        [OpenIddictConstants.GrantTypes.AuthorizationCode, OpenIddictConstants.GrantTypes.RefreshToken],
+        scopes, redirectUris, [], RequirePkce: false, RequireConsent: false);
+    Result<OpenIdentityStack.Domain.Applications.Application> prepared = await serviceProvider
+        .GetRequiredService<SeededOAuthClientPreparation>().PrepareAsync(configuration, clientSecret);
+    if (prepared.IsFailure) { throw new InvalidOperationException(prepared.Error.Description); }
+    await SeedCertificationClientAsync(serviceProvider, clientId, displayName, clientSecret, redirectUris, scopes);
+    serviceProvider.GetRequiredService<ILogger<Program>>()
+        .LogInformation("Prepared certification OAuth client '{ClientId}'.", clientId);
 }
 
 static async Task SeedCertificationClientAsync(
@@ -523,7 +358,7 @@ static async Task SeedCertificationClientAsync(
     object? existingApplication = await applicationManager.FindByClientIdAsync(clientId);
     if (existingApplication is not null)
     {
-        await applicationManager.UpdateAsync(existingApplication, descriptor);
+        await SeededOpenIddictApplicationUpdater.UpdateAsync(applicationManager, existingApplication, descriptor);
         logger.LogInformation("Updated certification OpenIddict client '{ClientId}'.", clientId);
         return;
     }
@@ -569,101 +404,77 @@ static async Task SeedDefaultAdminUserAsync(IServiceProvider serviceProvider)
 {
     ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
     IConfiguration configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    OpenIdentityStackDbContext db = serviceProvider.GetRequiredService<OpenIdentityStackDbContext>();
-    IPasswordHasher passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
-    IPasswordPolicyValidator passwordPolicyValidator = serviceProvider.GetRequiredService<IPasswordPolicyValidator>();
-    IDateTimeProvider dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
+    LocalUserBootstrapper bootstrapper = serviceProvider.GetRequiredService<LocalUserBootstrapper>();
+    string[] permissions = GetTraceableIsotopesPermissionConfigurations()
+        .Select(static permission => $"traceable-isotopes:{permission.PermissionKey}").ToArray();
+    await bootstrapper.EnsureAdministratorPermissionsAsync(permissions);
 
-    const string adminEmail = "admin@localhost.dev";
-    const string adminDisplayName = "Default Admin";
-    string? adminSecret = configuration["Seed:DefaultAdmin:Password"];
-
-    if (string.IsNullOrWhiteSpace(adminSecret))
+    string? password = configuration["Seed:DefaultAdmin:Password"];
+    if (string.IsNullOrWhiteSpace(password))
     {
-        logger.LogInformation(
-            "Skipping default admin user seeding. Configure Seed:DefaultAdmin:Password to enable the development admin account.");
+        logger.LogInformation("Skipping development admin bootstrap; no password is configured.");
         return;
     }
 
-    Role? superAdminRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == "super-admin");
+    bool created = await bootstrapper
+        .CreateIfAbsentAsync(
+            "admin@localhost.dev", "Default Admin", password, assignAdministrator: true);
+    logger.LogInformation("Development admin bootstrap completed (Created: {Created}); existing accounts are preserved.", created);
+}
 
-    User? existingAdmin = await db.Users.FirstOrDefaultAsync(u => u.Email == adminEmail);
-    if (existingAdmin is not null)
-    {
-        bool needsSave = false;
+static SeededPermissionConfiguration[] GetTraceableIsotopesPermissionConfigurations() =>
+[
+    new("isotopes:read", "Read isotopes", null, "Isotopes"),
+    new("isotopes:write", "Write isotopes", null, "Isotopes"),
+    new("exports:read", "Read exports", null, "Exports"),
+    new("exports:write", "Write exports", null, "Exports"),
+    new("audit:read", "Read audit records", null, "Audit")
+];
 
-        if (existingAdmin.Status != UserStatus.Active)
-        {
-            existingAdmin.VerifyEmail(dateTimeProvider);
-            needsSave = true;
-            logger.LogDebug("Activated existing admin user '{Email}'", adminEmail);
-        }
-
-        if (superAdminRole is not null)
-        {
-            bool hasRole = await db.RoleAssignments.AnyAsync(
-                ra => ra.UserId == existingAdmin.Id && ra.RoleId == superAdminRole.Id);
-
-            if (!hasRole)
-            {
-                Result<RoleAssignment> assignmentResult = RoleAssignment.Create(
-                    existingAdmin.Id, superAdminRole.Id, dateTimeProvider.UtcNow);
-                if (assignmentResult.IsSuccess)
-                {
-                    db.RoleAssignments.Add(assignmentResult.Value);
-                    needsSave = true;
-                    logger.LogInformation("Assigned super-admin role to existing admin user '{Email}'", adminEmail);
-                }
-            }
-        }
-
-        if (needsSave)
-        {
-            await db.SaveChangesAsync();
-        }
-        else
-        {
-            logger.LogDebug("Default admin user '{Email}' already exists and is properly configured", adminEmail);
-        }
-        return;
-    }
-
-    Result passwordValidation = passwordPolicyValidator.ValidatePassword(adminSecret);
-    if (passwordValidation.IsFailure)
-    {
-        throw new InvalidOperationException($"Default admin password does not satisfy the password policy: {passwordValidation.Error.Description}");
-    }
-
-    string passwordHash = passwordHasher.HashPassword(adminSecret);
-    Result<User> userResult = User.CreateLocal(adminEmail, adminDisplayName, passwordHash, dateTimeProvider);
-
-    if (userResult.IsFailure)
-    {
-        logger.LogWarning("Failed to create default admin user: {Error}", userResult.Error.Description);
-        return;
-    }
-
-    User adminUser = userResult.Value;
-    adminUser.VerifyEmail(dateTimeProvider);
-
-    db.Users.Add(adminUser);
-
-    if (superAdminRole is not null)
-    {
-        Result<RoleAssignment> assignmentResult = RoleAssignment.Create(
-            adminUser.Id, superAdminRole.Id, dateTimeProvider.UtcNow);
-        if (assignmentResult.IsSuccess)
-        {
-            db.RoleAssignments.Add(assignmentResult.Value);
-        }
-    }
-
-    await db.SaveChangesAsync();
-
-    logger.LogInformation(
-        "Created default admin user '{Email}' with super-admin role (Status: {Status}). Configure Seed:DefaultAdmin:Password to set a stable development password.",
-        adminEmail,
-        adminUser.Status);
+static async Task PrepareTraceableIsotopesWebClientAsync(IServiceProvider serviceProvider)
+{
+    SeededPermissionConfiguration[] permissions = GetTraceableIsotopesPermissionConfigurations();
+    string[] resourceScopes = permissions.Select(static permission => permission.PermissionKey).ToArray();
+    string[] scopes =
+    [
+        OpenIddictConstants.Scopes.OpenId,
+        OpenIddictConstants.Scopes.Profile,
+        OpenIddictConstants.Scopes.Email,
+        .. resourceScopes
+    ];
+    string[] redirectUris =
+    [
+        "http://localhost:5176/callback",
+        "http://localhost:5173/callback",
+        "http://localhost:5174/callback",
+        "http://localhost:3000/callback",
+    ];
+    string[] postLogoutRedirectUris =
+    [
+        "http://localhost:5176/", "http://localhost:5176",
+        "http://localhost:5173/", "http://localhost:5173",
+        "http://localhost:5174/", "http://localhost:5174",
+        "http://localhost:3000/", "http://localhost:3000",
+    ];
+    SeededProtectedResourceConfiguration[] resources = resourceScopes
+        .Select(static scope => new SeededProtectedResourceConfiguration(
+            $"urn:traceable-isotopes:scope:{scope}", scope,
+            $"Traceable Isotopes {scope} access", ["traceable-isotopes"], [$"traceable-isotopes:{scope}"]))
+        .ToArray();
+    var catalog = new SeededPermissionCatalogConfiguration(
+        "traceable-isotopes", "Traceable Isotopes", "deployment-seed",
+        OpenIdentityStack.Domain.ApplicationPermissions.OwnerType.User, permissions);
+    var configuration = new SeededOAuthClientConfiguration(
+        "traceable-isotopes-web", "Traceable Isotopes Web Application",
+        OpenIdentityStack.Domain.Applications.ApplicationProfile.SinglePage, OpenIdentityStack.Domain.Applications.OAuthClientType.Public,
+        [OpenIddictConstants.GrantTypes.AuthorizationCode, OpenIddictConstants.GrantTypes.RefreshToken],
+        scopes, redirectUris, postLogoutRedirectUris, RequirePkce: true, RequireConsent: false);
+    Result<OpenIdentityStack.Domain.Applications.Application> prepared = await serviceProvider
+        .GetRequiredService<SeededOAuthClientPreparation>().PrepareAsync(configuration, null, resources, catalog);
+    if (prepared.IsFailure) { throw new InvalidOperationException(prepared.Error.Description); }
+    await SeedTraceableIsotopesWebClientAsync(serviceProvider);
+    serviceProvider.GetRequiredService<ILogger<Program>>()
+        .LogInformation("Prepared Traceable Isotopes OAuth client and resource access.");
 }
 
 static async Task SeedTraceableIsotopesWebClientAsync(IServiceProvider serviceProvider)
@@ -760,7 +571,7 @@ static async Task SeedTraceableIsotopesWebClientAsync(IServiceProvider servicePr
     object? existingApp = await applicationManager.FindByClientIdAsync(clientId);
     if (existingApp is not null)
     {
-        await applicationManager.UpdateAsync(existingApp, descriptor);
+        await SeededOpenIddictApplicationUpdater.UpdateAsync(applicationManager, existingApp, descriptor);
         logger.LogInformation("Updated OpenIddict public client '{ClientId}' for Traceable Isotopes Web", clientId);
         return;
     }
@@ -780,6 +591,22 @@ static async Task SeedIsotopesApiResourceClientAsync(IServiceProvider servicePro
     // Well-known secret for a local demo client. ShouldSeedDemoClients refuses to run outside
     // development/testing, so this never reaches a production or staging database.
     const string clientSecret = "isotopes-api-resource-secret";
+
+    string[] resourceScopes = ["isotopes:read", "isotopes:write", "exports:read", "exports:write", "audit:read"];
+    SeededProtectedResourceConfiguration[] resources = resourceScopes.Select(static scope =>
+        new SeededProtectedResourceConfiguration(
+            $"urn:traceable-isotopes:scope:{scope}", scope,
+            $"Traceable Isotopes {scope} access", ["traceable-isotopes"], [])).ToArray();
+    var authorityConfiguration = new SeededOAuthClientConfiguration(
+        clientId, "Isotopes API Resource Server",
+        OpenIdentityStack.Domain.Applications.ApplicationProfile.MachineToMachine,
+        OpenIdentityStack.Domain.Applications.OAuthClientType.Confidential,
+        [OpenIddictConstants.GrantTypes.ClientCredentials], resourceScopes, [], [],
+        RequirePkce: false, RequireConsent: false);
+    Result<OpenIdentityStack.Domain.Applications.Application> prepared = await serviceProvider
+        .GetRequiredService<SeededOAuthClientPreparation>()
+        .PrepareAuthorityOnlyAsync(authorityConfiguration, resources);
+    if (prepared.IsFailure) { throw new InvalidOperationException(prepared.Error.Description); }
 
     object? apiScope = await scopeManager.FindByNameAsync("api");
     if (apiScope is null)
@@ -809,12 +636,6 @@ static async Task SeedIsotopesApiResourceClientAsync(IServiceProvider servicePro
     }
 
     object? existingClient = await applicationManager.FindByClientIdAsync(clientId);
-    if (existingClient is not null)
-    {
-        logger.LogDebug("OpenIddict client '{ClientId}' already exists, skipping seed", clientId);
-        return;
-    }
-
     var descriptor = new OpenIddictApplicationDescriptor
     {
         ClientId = clientId,
@@ -826,9 +647,17 @@ static async Task SeedIsotopesApiResourceClientAsync(IServiceProvider servicePro
             OpenIddictConstants.Permissions.Endpoints.Introspection
         }
     };
+    SeededOpenIddictApplicationUpdater.AttachProjectionIdentity(descriptor, prepared.Value.Id);
 
-    await applicationManager.CreateAsync(descriptor);
-    logger.LogInformation("Created OpenIddict introspection client '{ClientId}' for IsotopesApi", clientId);
+    if (existingClient is null)
+    {
+        await applicationManager.CreateAsync(descriptor);
+        logger.LogInformation("Created OpenIddict introspection client '{ClientId}' for IsotopesApi", clientId);
+        return;
+    }
+
+    await SeededOpenIddictApplicationUpdater.UpdateAsync(applicationManager, existingClient, descriptor);
+    logger.LogInformation("Updated OpenIddict introspection client '{ClientId}' for IsotopesApi", clientId);
 }
 
 static async Task SeedConfiguredAdminUserAsync(IServiceProvider serviceProvider)
@@ -849,7 +678,6 @@ static async Task SeedConfiguredAdminUserAsync(IServiceProvider serviceProvider)
         { Length: > 0 } configuredDisplayName => configuredDisplayName,
         _ => "Production Admin"
     };
-    bool resetPasswordOnExistingUser = configuration.GetValue<bool>("Seed:AdminUser:ResetPasswordOnExistingUser");
 
     if (string.IsNullOrWhiteSpace(email))
     {
@@ -861,155 +689,20 @@ static async Task SeedConfiguredAdminUserAsync(IServiceProvider serviceProvider)
         throw new InvalidOperationException("Seed:AdminUser:Password must be configured when Seed:AdminUser:Enabled is true.");
     }
 
-    await UpsertAdminUserAsync(serviceProvider, email, displayName, password, resetPasswordOnExistingUser);
+    await CreateConfiguredAdminUserAsync(serviceProvider, email, displayName, password);
 }
 
-static async Task UpsertAdminUserAsync(
+static async Task CreateConfiguredAdminUserAsync(
     IServiceProvider serviceProvider,
-    string adminEmail,
-    string adminDisplayName,
-    string adminPassword,
-    bool resetPasswordOnExistingUser)
+    string email,
+    string displayName,
+    string password)
 {
-    ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-    OpenIdentityStackDbContext db = serviceProvider.GetRequiredService<OpenIdentityStackDbContext>();
-    IPasswordHasher passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
-    IPasswordPolicyValidator passwordPolicyValidator = serviceProvider.GetRequiredService<IPasswordPolicyValidator>();
-    IDateTimeProvider dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
-    string? passwordHash = null;
-    string normalizedAdminEmail = adminEmail.ToUpperInvariant();
-    Role? superAdminRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == "super-admin");
-    User? existingAdmin = await db.Users.FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedAdminEmail);
-
-    if (existingAdmin is not null)
-    {
-        bool needsSave = false;
-
-        if (existingAdmin.Status == UserStatus.PendingVerification)
-        {
-            Result verifyResult = existingAdmin.VerifyEmail(dateTimeProvider);
-            if (verifyResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to verify configured admin user '{adminEmail}': {verifyResult.Error.Description}");
-            }
-            needsSave = true;
-        }
-        else if (existingAdmin.Status == UserStatus.Disabled)
-        {
-            Result enableResult = existingAdmin.Enable(dateTimeProvider);
-            if (enableResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to enable configured admin user '{adminEmail}': {enableResult.Error.Description}");
-            }
-            needsSave = true;
-        }
-
-        if (!string.Equals(existingAdmin.DisplayName, adminDisplayName, StringComparison.Ordinal))
-        {
-            Result updateDisplayNameResult = existingAdmin.UpdateDisplayName(adminDisplayName, dateTimeProvider);
-            if (updateDisplayNameResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to update configured admin user display name for '{adminEmail}': {updateDisplayNameResult.Error.Description}");
-            }
-            needsSave = true;
-        }
-
-        bool hadPassword = existingAdmin.HasPassword();
-        if (!hadPassword || resetPasswordOnExistingUser)
-        {
-            Result setPasswordResult = existingAdmin.SetPassword(GetPasswordHash(), dateTimeProvider);
-            if (setPasswordResult.IsFailure)
-            {
-                throw new InvalidOperationException($"Failed to set configured admin password for '{adminEmail}': {setPasswordResult.Error.Description}");
-            }
-            needsSave = true;
-            logger.LogInformation(
-                "Updated password for configured admin user '{Email}' ({Reason}).",
-                adminEmail,
-                hadPassword ? "reset requested" : "password was missing");
-        }
-
-        if (superAdminRole is not null)
-        {
-            bool hasRole = await db.RoleAssignments.AnyAsync(
-                ra => ra.UserId == existingAdmin.Id && ra.RoleId == superAdminRole.Id);
-
-            if (!hasRole)
-            {
-                Result<RoleAssignment> assignmentResult = RoleAssignment.Create(
-                    existingAdmin.Id, superAdminRole.Id, dateTimeProvider.UtcNow);
-                if (assignmentResult.IsFailure)
-                {
-                    throw new InvalidOperationException($"Failed to assign super-admin role to configured admin user '{adminEmail}': {assignmentResult.Error.Description}");
-                }
-
-                db.RoleAssignments.Add(assignmentResult.Value);
-                needsSave = true;
-            }
-        }
-
-        if (needsSave)
-        {
-            await db.SaveChangesAsync();
-            logger.LogInformation("Upserted configured admin user '{Email}'.", adminEmail);
-        }
-        else
-        {
-            logger.LogInformation("Configured admin user '{Email}' already exists and is correctly configured.", adminEmail);
-        }
-
-        return;
-    }
-
-    string newUserPasswordHash = GetPasswordHash();
-    Result<User> userResult = User.CreateLocal(adminEmail, adminDisplayName, newUserPasswordHash, dateTimeProvider);
-    if (userResult.IsFailure)
-    {
-        throw new InvalidOperationException($"Failed to create configured admin user '{adminEmail}': {userResult.Error.Description}");
-    }
-
-    User adminUser = userResult.Value;
-    Result activateResult = adminUser.VerifyEmail(dateTimeProvider);
-    if (activateResult.IsFailure)
-    {
-        throw new InvalidOperationException($"Failed to activate configured admin user '{adminEmail}': {activateResult.Error.Description}");
-    }
-
-    db.Users.Add(adminUser);
-
-    if (superAdminRole is not null)
-    {
-        Result<RoleAssignment> assignmentResult = RoleAssignment.Create(
-            adminUser.Id, superAdminRole.Id, dateTimeProvider.UtcNow);
-        if (assignmentResult.IsFailure)
-        {
-            throw new InvalidOperationException($"Failed to assign super-admin role to configured admin user '{adminEmail}': {assignmentResult.Error.Description}");
-        }
-
-        db.RoleAssignments.Add(assignmentResult.Value);
-    }
-
-    await db.SaveChangesAsync();
-    logger.LogInformation("Created configured admin user '{Email}' with super-admin role.", adminEmail);
-
-    string GetPasswordHash()
-    {
-        if (passwordHash is not null)
-        {
-            return passwordHash;
-        }
-
-        Result passwordValidation = passwordPolicyValidator.ValidatePassword(adminPassword);
-        if (passwordValidation.IsFailure)
-        {
-            throw new InvalidOperationException($"Configured admin password does not satisfy the password policy: {passwordValidation.Error.Description}");
-        }
-
-        passwordHash = passwordHasher.HashPassword(adminPassword);
-        return passwordHash;
-    }
+    bool created = await serviceProvider.GetRequiredService<LocalUserBootstrapper>()
+        .CreateIfAbsentAsync(email, displayName, password, assignAdministrator: true);
+    serviceProvider.GetRequiredService<ILogger<Program>>().LogInformation(
+        "Configured admin bootstrap completed (Created: {Created}); existing accounts are preserved.", created);
 }
-
 static string[] GetConfiguredUris(IConfiguration configuration, string key)
 {
     string[]? values = configuration.GetSection(key).Get<string[]>();

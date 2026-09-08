@@ -67,8 +67,12 @@ public sealed class CredentialTerminationSequenceTests(AppHostFixture fixture)
 
         using HttpClient bearer = fixture.CreateClient(allowAutoRedirect: false);
         bearer.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        // An ordinary user token is valid at UserInfo, but deliberately lacks the
+        // dedicated administrative-resource entitlement required by /api/me.
+        using HttpResponseMessage beforeUserInfo = await bearer.GetAsync("/connect/userinfo");
+        beforeUserInfo.StatusCode.ShouldBe(HttpStatusCode.OK);
         using HttpResponseMessage before = await bearer.GetAsync("/api/me");
-        before.StatusCode.ShouldBe(HttpStatusCode.OK);
+        before.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         using HttpClient otherBrowser = fixture.CreateClient(allowAutoRedirect: false);
         await LoginAsync(otherBrowser, email);
@@ -84,7 +88,7 @@ public sealed class CredentialTerminationSequenceTests(AppHostFixture fixture)
             using HttpResponseMessage confirmation = await browser.GetAsync("/connect/logout");
             confirmation.StatusCode.ShouldBe(HttpStatusCode.OK);
             confirmationToken = ExtractAntiForgeryToken(await confirmation.Content.ReadAsStringAsync());
-            using HttpResponseMessage stillActive = await bearer.GetAsync("/api/me");
+            using HttpResponseMessage stillActive = await bearer.GetAsync("/connect/userinfo");
             stillActive.StatusCode.ShouldBe(HttpStatusCode.OK);
             using HttpResponseMessage csrf = await browser.PostAsync("/connect/logout", new FormUrlEncodedContent([]));
             csrf.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -129,7 +133,7 @@ public sealed class CredentialTerminationSequenceTests(AppHostFixture fixture)
         otherBearer.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", otherAccessToken);
         using HttpResponseMessage otherAccess = await otherBearer.GetAsync("/api/me");
         otherAccess.StatusCode.ShouldBe(operation is "revoke-all" or "reset" or "disable"
-            ? HttpStatusCode.Unauthorized : HttpStatusCode.OK);
+            ? HttpStatusCode.Unauthorized : HttpStatusCode.Forbidden);
         using HttpResponseMessage machineAccess = await admin.GetAsync("/api/me");
         machineAccess.StatusCode.ShouldBe(HttpStatusCode.OK);
 
@@ -181,7 +185,7 @@ public sealed class CredentialTerminationSequenceTests(AppHostFixture fixture)
     }
 
     [Fact]
-    public async Task RemovedRole_IsRejectedByRetainedAndRefreshedAccessTokens()
+    public async Task RemovedLastRole_PreventsRetainedAccessAndRefresh()
     {
         string email = $"privilege-{Guid.NewGuid():N}@example.test";
         Guid userId = await fixture.CreateTestUserAsync(email, "Privilege User", password);
@@ -195,18 +199,9 @@ public sealed class CredentialTerminationSequenceTests(AppHostFixture fixture)
         createdRole.StatusCode.ShouldBe(HttpStatusCode.Created);
         Guid roleId = (await createdRole.Content.ReadFromJsonAsync<JsonNode>())!["id"]!.GetValue<Guid>();
         await fixture.AssignRoleToUserAsync(userId, roleId);
-        string clientId = $"privilege-client-{Guid.NewGuid():N}";
-        await fixture.CreateServiceAccountAsync(clientId, clientSecret,
-            allowedScopes: ["openid", "offline_access"],
-            allowedGrantTypes: ["authorization_code", "refresh_token"], redirectUris: [redirectUri]);
-        using HttpClient browser = fixture.CreateClient(allowAutoRedirect: false);
-        await LoginAsync(browser, email);
-        (string code, string verifier) = await ObtainCodeAsync(browser, clientId);
-        using HttpResponseMessage issued = await ExchangeCodeAsync(browser, clientId, code, verifier);
-        issued.StatusCode.ShouldBe(HttpStatusCode.OK);
-        JsonNode tokens = (await issued.Content.ReadFromJsonAsync<JsonNode>())!;
-        using HttpClient bearer = fixture.CreateClient(allowAutoRedirect: false);
-        bearer.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens["access_token"]!.GetValue<string>());
+        HumanAdministrativeSession administrativeSession = await HumanAdministrativeSession.SignInAsync(
+            fixture, email, password, sessionReadPermissions);
+        using HttpClient bearer = administrativeSession.Client;
         using HttpResponseMessage allowed = await bearer.GetAsync("/api/admin/sessions");
         allowed.StatusCode.ShouldBe(HttpStatusCode.OK);
 
@@ -214,18 +209,15 @@ public sealed class CredentialTerminationSequenceTests(AppHostFixture fixture)
         removed.IsSuccessStatusCode.ShouldBeTrue();
         using HttpResponseMessage denied = await bearer.GetAsync("/api/admin/sessions");
         denied.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        using HttpResponseMessage refreshed = await browser.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+        using HttpResponseMessage refreshed = await bearer.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "refresh_token",
-            ["client_id"] = clientId,
-            ["client_secret"] = clientSecret,
-            ["refresh_token"] = tokens["refresh_token"]!.GetValue<string>()
+            ["client_id"] = administrativeSession.ClientId,
+            ["client_secret"] = administrativeSession.ClientSecret,
+            ["refresh_token"] = administrativeSession.RefreshToken
         }));
-        refreshed.StatusCode.ShouldBe(HttpStatusCode.OK);
-        bearer.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
-            (await refreshed.Content.ReadFromJsonAsync<JsonNode>())!["access_token"]!.GetValue<string>());
-        using HttpResponseMessage refreshedDenied = await bearer.GetAsync("/api/admin/sessions");
-        refreshedDenied.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        refreshed.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await refreshed.Content.ReadFromJsonAsync<JsonNode>())!["error"]!.GetValue<string>().ShouldBe("invalid_grant");
     }
 
     private static async Task<(string Code, string Verifier)> ObtainCodeAsync(HttpClient browser, string clientId)

@@ -1,3 +1,4 @@
+import { ProviderIdentityInventory } from './ProviderIdentityInventory';
 import { Badge, Button, Group, PasswordInput, Stack, Switch, Tabs, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
@@ -23,6 +24,7 @@ export function ProviderDetailPage() {
   // Deletion is authorized with providers:delete, independent of providers:write.
   const canDelete = hasPermission(auth.permissions, 'providers:delete');
   const [confirmDeleteOpened, confirmDeleteControls] = useDisclosure(false);
+  const [confirmEmailTrustWithdrawalOpened, confirmEmailTrustWithdrawalControls] = useDisclosure(false);
 
   const providerQuery = useQuery({ queryKey: ['provider', providerId], queryFn: () => api.providers.getProvider(providerId) });
 
@@ -56,6 +58,16 @@ export function ProviderDetailPage() {
       notifications.show({ message: 'Provider deleted', color: 'green' });
       void queryClient.invalidateQueries({ queryKey: ['providers'] });
       navigate('/providers');
+    },
+    onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
+  });
+
+  const setEmailTrust = useMutation({
+    mutationFn: (trusted: boolean) => api.providers.setEmailVerificationTrust(providerId, trusted),
+    onSuccess: () => {
+      notifications.show({ message: 'Email verification trust updated', color: 'green' });
+      confirmEmailTrustWithdrawalControls.close();
+      invalidate();
     },
     onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
@@ -108,12 +120,13 @@ export function ProviderDetailPage() {
 
         <Tabs.Panel value="connection">
           <Stack gap="lg">
-            <SectionCard title="Connection">
+            <SectionCard title="Connection" description="Authority cannot be replaced. Register a new provider and explicitly migrate identities when changing issuer.">
               <FieldRow label="Name" value={provider.name} mono />
-              <FieldRow label="Issuer / authority" value={provider.authority} mono />
+              <FieldRow label="Discovery authority" value={provider.authority} mono />
               <FieldRow label="Client ID" value={provider.clientId} mono />
               <FieldRow label="Created" value={formatDateTime(provider.createdAt)} last />
             </SectionCard>
+            {hasPermission(auth.permissions, 'users:read') && <ProviderIdentityInventory key={providerId} providerId={providerId} />}
             <SectionCard title="Scopes" description="Scopes requested from this provider during sign-in.">
               <Group gap="xs">
                 {provider.scopes.length === 0 ? (
@@ -135,6 +148,19 @@ export function ProviderDetailPage() {
         <Tabs.Panel value="settings">
           <Stack gap="lg">
             <ProviderConfigForm provider={provider} canWrite={canWrite} onSaved={invalidate} />
+
+            <SectionCard title="Email verification" description="Trust this provider's verified-email evidence. This does not permit linking existing accounts or reactivate disabled users.">
+              <Switch
+                label="Trust email verification"
+                checked={provider.trustEmailVerification ?? false}
+                disabled={!canWrite || setEmailTrust.isPending}
+                onChange={(event) => event.currentTarget.checked
+                  ? setEmailTrust.mutate(true)
+                  : confirmEmailTrustWithdrawalControls.open()}
+              />
+              <Text size="xs" c="dimmed" mt="sm">Withdrawing trust invalidates provider evidence and revokes credentials that lose sufficient verification. Affected OpenIdentityStack sessions require a new sign-in. Independent verification is retained.</Text>
+              <Text size="xs" c="dimmed" mt="sm">Relying-party sessions can remain active until the application terminates them or requires reauthentication. Offline APIs may accept existing JWTs until expiry. Coordinate their revocation or introspection policy before withdrawing trust.</Text>
+            </SectionCard>
 
             <SectionCard title="Provisioning">
               <Group justify="space-between" wrap="nowrap">
@@ -165,6 +191,16 @@ export function ProviderDetailPage() {
           </Stack>
         </Tabs.Panel>
       </Tabs>
+
+      <ConfirmModal
+        opened={confirmEmailTrustWithdrawalOpened}
+        title="Withdraw email verification trust"
+        message="Existing proofs from this provider remain withdrawn even if trust is enabled again. Users verified solely by this provider remain unverified until a later sign-in supplies a fresh verified-email assertion. This action revokes affected credentials and sessions for users who lose sufficient verification. Affected users must sign in again. Offline APIs may accept existing JWTs until expiry; coordinate their revocation or introspection policy before withdrawing trust."
+        confirmLabel="Withdraw trust"
+        loading={setEmailTrust.isPending}
+        onConfirm={() => setEmailTrust.mutate(false)}
+        onClose={confirmEmailTrustWithdrawalControls.close}
+      />
 
       <ConfirmModal
         opened={confirmDeleteOpened}

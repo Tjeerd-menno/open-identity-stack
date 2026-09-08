@@ -18,6 +18,79 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 /// </summary>
 public sealed class DynamicAuthenticationSchemeServiceTests
 {
+    [Theory]
+    [InlineData(null, null, null)]
+    [InlineData(false, "person@example.com", null)]
+    [InlineData("true", "person@example.com", null)]
+    [InlineData(true, null, null)]
+    [InlineData(true, "person@example.com", "person@example.com")]
+    public async Task RegisterSchemeAsync_CapturesOnlySerializableValidatedIssuerAndEmailEvidence(
+        object? verified,
+        string? email,
+        string? expectedEvidence)
+    {
+        IAuthenticationSchemeProvider schemes = Substitute.For<IAuthenticationSchemeProvider>();
+        var cache = new OptionsCache<OpenIdConnectOptions>();
+        IServiceProvider services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(IEnumerable<IPostConfigureOptions<OpenIdConnectOptions>>)).Returns(Array.Empty<IPostConfigureOptions<OpenIdConnectOptions>>());
+        var service = new DynamicAuthenticationSchemeService(schemes, cache, services, Substitute.For<ILogger<DynamicAuthenticationSchemeService>>());
+        UpstreamProvider provider = UpstreamProvider.Create("tenant", "Tenant", "https://discovery.example/common", "client").Value;
+        await service.RegisterSchemeAsync(provider);
+        OpenIdConnectOptions options = cache.GetOrAdd("tenant", () => throw new InvalidOperationException());
+        var properties = new AuthenticationProperties();
+        var payload = new System.IdentityModel.Tokens.Jwt.JwtPayload
+        {
+            { "iss", "https://issuer.example/tenant/" }
+        };
+        if (email is not null)
+        {
+            payload.Add("email", email);
+        }
+        if (verified is not null)
+        {
+            payload.Add("email_verified", verified);
+        }
+        var securityToken = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(new System.IdentityModel.Tokens.Jwt.JwtHeader(), payload);
+        var principal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(securityToken.Claims, "tenant"));
+        var context = new TokenValidatedContext(new Microsoft.AspNetCore.Http.DefaultHttpContext(), new AuthenticationScheme("tenant", "Tenant", typeof(OpenIdConnectHandler)), options, principal, properties)
+        {
+            SecurityToken = securityToken
+        };
+        await options.Events.TokenValidated(context);
+        properties.GetString("ois.validated_issuer").ShouldBe("https://issuer.example/tenant/");
+        properties.GetString("ois.provider_id").ShouldBe(provider.Id.Value.ToString());
+        properties.GetString("ois.authentication_authority").ShouldBe("https://discovery.example/common");
+        properties.GetString(ExternalIdentityProperties.VerifiedEmail).ShouldBe(expectedEvidence);
+        properties.Items.Values.ShouldAllBe(value => value != null);
+
+        var ticket = new AuthenticationTicket(principal, properties, "ExternalCookie");
+        byte[] serialized = TicketSerializer.Default.Serialize(ticket);
+        TicketSerializer.Default.Deserialize(serialized).ShouldNotBeNull();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("1788640000")]
+    public async Task RegisterSchemeAsync_AuthenticationTimeComesOnlyFromValidatedIdToken(string? authenticationTime)
+    {
+        IAuthenticationSchemeProvider schemes = Substitute.For<IAuthenticationSchemeProvider>();
+        var cache = new OptionsCache<OpenIdConnectOptions>();
+        IServiceProvider services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(IEnumerable<IPostConfigureOptions<OpenIdConnectOptions>>)).Returns(Array.Empty<IPostConfigureOptions<OpenIdConnectOptions>>());
+        var service = new DynamicAuthenticationSchemeService(schemes, cache, services, Substitute.For<ILogger<DynamicAuthenticationSchemeService>>());
+        UpstreamProvider provider = UpstreamProvider.Create("tenant", "Tenant", "https://issuer.example/", "client").Value;
+        await service.RegisterSchemeAsync(provider);
+        OpenIdConnectOptions options = cache.GetOrAdd("tenant", () => throw new InvalidOperationException());
+        var properties = new AuthenticationProperties();
+        var context = new TokenValidatedContext(new Microsoft.AspNetCore.Http.DefaultHttpContext(), new AuthenticationScheme("tenant", "Tenant", typeof(OpenIdConnectHandler)), options,
+            new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity([new System.Security.Claims.Claim("auth_time", "9999999999")])), properties)
+        {
+            SecurityToken = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(issuer: provider.Authority,
+                claims: authenticationTime is null ? [] : [new System.Security.Claims.Claim("auth_time", authenticationTime)])
+        };
+        await options.Events.TokenValidated(context);
+        properties.GetString("ois.validated_authentication_time").ShouldBe(authenticationTime);
+    }
     [Fact]
     public async Task RegisterSchemeAsync_AddsSchemeToProvider()
     {

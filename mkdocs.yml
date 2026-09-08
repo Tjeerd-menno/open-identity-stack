@@ -86,6 +86,14 @@ nav:
       - Clients and service accounts: troubleshooting/clients-and-service-accounts.md
   - Security:
       - Overview: security.md
+      - OIDC and IAM assessment: security/oidc-iam-conformance-assessment.md
+      - Identity boundary rollout: security/identity-boundary-rollout.md
+      - Email verification evidence: security/email-verification-evidence.md
+      - Unrestricted administration: security/unrestricted-administration.md
+      - Administrative client access: security/administrative-client-access.md
+      - Credential boundary cutover: security/credential-boundary-cutover.md
+      - Identity boundary rehearsal: security/identity-boundary-cutover-rehearsal.md
+      - Identity boundary implementation evidence: security/identity-boundary-implementation-evidence.md
       - Hardening checklist: security/hardening-checklist.md
       - Secrets management: security/secrets-management.md
       - Certificates and keys: security/certificates-and-keys.md
@@ -112,6 +120,8 @@ nav:
           - Dual admin UI strategy: adr/0001-dual-admin-ui-strategy.md
           - Dual-host management UI: adr/0002-dual-host-management-ui.md
           - Unified release train for breaking API changes: adr/0003-unified-release-train-for-breaking-api-changes.md
+          - Management Web opaque access token permissions: adr/0004-management-web-opaque-access-token-permissions.md
+          - Identity and administrative trust boundaries: adr/0005-identity-and-administrative-trust-boundaries.md
       - Certification workbench:
           - OIDC negative review automation plan: certification/oidf-negative-review-automation-plan.md
           - OpenID Connect certification scope: certification/openid-connect-certification-scope.md

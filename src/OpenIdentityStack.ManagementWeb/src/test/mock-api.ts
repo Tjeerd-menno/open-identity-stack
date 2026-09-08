@@ -10,6 +10,7 @@ import { vi } from 'vitest';
  *   });
  */
 export const mockApi = {
+  cutover: { getReadiness: vi.fn(), recordEmergencyAccess: vi.fn(), reviewResourceWindow: vi.fn(), execute: vi.fn() },
   users: {
     getUsers: vi.fn(),
     getUser: vi.fn(),
@@ -24,10 +25,16 @@ export const mockApi = {
     unassignUserRole: vi.fn(),
     getUserGroups: vi.fn(),
     getUserUpstreamIdentities: vi.fn(),
-    linkUserUpstreamIdentity: vi.fn(),
+    getIdentityMigrationInventory: vi.fn(),
     unlinkUserUpstreamIdentity: vi.fn(),
   },
   applications: {
+    listProtectedResources: vi.fn().mockResolvedValue([]),
+    createProtectedResource: vi.fn(),
+    configureProtectedResource: vi.fn(),
+    listClientResourceGrants: vi.fn().mockResolvedValue([]),
+    configureClientResourceGrant: vi.fn(),
+    revokeClientResourceGrant: vi.fn(),
     getApplications: vi.fn(),
     getApplication: vi.fn(),
     getApplicationProfilePolicies: vi.fn(),
@@ -75,6 +82,7 @@ export const mockApi = {
     enableProvider: vi.fn(),
     disableProvider: vi.fn(),
     deleteProvider: vi.fn(),
+    setEmailVerificationTrust: vi.fn(),
   },
   settings: {
     getAuthenticationSettings: vi.fn(),

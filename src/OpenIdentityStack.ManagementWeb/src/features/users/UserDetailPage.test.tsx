@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Route, Routes } from 'react-router';
 import { makeAuth, renderManagementWeb } from '@/test/render';
@@ -44,6 +45,46 @@ function renderDetail(auth = makeAuth()) {
 }
 
 describe('UserDetailPage', () => {
+  it.each([
+    { name: 'unrestricted', permissions: ['*'] },
+    { name: 'user write', permissions: ['users:read', 'users:write'] },
+  ])('does not offer raw identity linking to a $name operator', async ({ permissions }) => {
+    const user = userEvent.setup();
+    renderDetail(makeAuth({ permissions }));
+
+    await user.click(await screen.findByRole('tab', { name: /upstream identities/i }));
+
+    expect(screen.queryByRole('button', { name: /^link$/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^provider(?: id)?$/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^subject$/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/linking an existing account requires proof of account ownership/i)).toBeInTheDocument();
+    expect(mockApi.providers.getProviders).not.toHaveBeenCalled();
+  });
+
+  it('retains linked identities and allows authorized unlinking', async () => {
+    const user = userEvent.setup();
+    mockApi.users.getUserUpstreamIdentities.mockResolvedValue([
+      { providerId: 'p1', providerName: 'Example provider', subjectId: 'existing-subject', associationEvidence: 'NewAccountProvisioning', isQuarantined: false },
+    ]);
+    mockApi.users.unlinkUserUpstreamIdentity.mockResolvedValue(undefined);
+    renderDetail(makeAuth({ permissions: ['users:read', 'users:write'] }));
+
+    await user.click(await screen.findByRole('tab', { name: /upstream identities/i }));
+    expect(await screen.findByText('existing-subject')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Unlink Example provider' }));
+
+    await waitFor(() => expect(mockApi.users.unlinkUserUpstreamIdentity).toHaveBeenCalledWith('u1', 'p1'));
+  });
+
+  it('keeps quarantined evidence visible without offering unlink or trust controls', async () => {
+    mockApi.users.getUserUpstreamIdentities.mockResolvedValue([{ providerId: 'p1', providerName: 'Legacy provider', subjectId: 'legacy', associationEvidence: 'Unknown', isQuarantined: true }]);
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Ada Lovelace' });
+    await userEvent.click(screen.getByRole('tab', { name: /upstream identities/i }));
+    expect(await screen.findByText('Quarantined — authentication and migration blocked')).toBeInTheDocument();
+    expect(screen.getByText('Evidence: Unknown')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Unlink Legacy provider' })).not.toBeInTheDocument();
+  });
   it('renders the user header and profile fields', async () => {
     renderDetail();
 
@@ -52,6 +93,30 @@ describe('UserDetailPage', () => {
     expect(screen.getByRole('tab', { name: /profile/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /roles/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /upstream identities/i })).toBeInTheDocument();
+  });
+
+  it('distinguishes email evidence from providers that share an issuer', async () => {
+    mockApi.users.getUser.mockResolvedValue({
+      id: 'u1',
+      email: 'ada@northwind.io',
+      displayName: 'Ada Lovelace',
+      status: 'Active',
+      createdAt: '2026-06-01T00:00:00Z',
+      mfaEnabled: false,
+      lastLoginAt: null,
+      modifiedAt: null,
+      profile: {},
+      emailVerified: true,
+      emailVerificationEvidence: [
+        { email: 'ada@northwind.io', providerId: 'provider-one', issuer: 'https://issuer.example', verifiedAt: '2026-06-02T00:00:00Z', withdrawnAt: null },
+        { email: 'ada@northwind.io', providerId: 'provider-two', issuer: 'https://issuer.example', verifiedAt: '2026-06-03T00:00:00Z', withdrawnAt: null },
+      ],
+    });
+
+    renderDetail();
+
+    expect(await screen.findByText(/provider-one/)).toBeInTheDocument();
+    expect(screen.getByText(/provider-two/)).toBeInTheDocument();
   });
 
   it('offers reset and disable actions gated on their granular permissions', async () => {

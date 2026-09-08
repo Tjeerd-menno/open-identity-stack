@@ -15,6 +15,7 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
     private readonly IPasswordPolicyValidator passwordPolicyValidator;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
+    private readonly IAdministrativeApproval approval;
     private readonly ICredentialLifecycleTransactionRunner transactionRunner;
     private readonly ISessionRepository sessionRepository;
 
@@ -24,6 +25,7 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
         IPasswordPolicyValidator passwordPolicyValidator,
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog,
+        IAdministrativeApproval approval,
         ICredentialLifecycleTransactionRunner transactionRunner,
         ISessionRepository sessionRepository)
     {
@@ -32,6 +34,7 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
         this.passwordPolicyValidator = passwordPolicyValidator;
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
+        this.approval = approval;
         this.transactionRunner = transactionRunner;
         this.sessionRepository = sessionRepository;
     }
@@ -41,6 +44,7 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
         ResetPasswordCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         // Validate password policy
         Result passwordValidation = this.passwordPolicyValidator.ValidatePassword(command.NewPassword);
         if (passwordValidation.IsFailure)
@@ -48,14 +52,23 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
             return passwordValidation.Error;
         }
 
-        return await this.transactionRunner.ExecuteAsync<ResetPasswordResult>(async transactionCancellationToken =>
+        User? user = await this.userRepository.GetByIdAsync(command.UserId, cancellationToken);
+        if (user is null)
         {
-            User? user = await this.userRepository.GetByIdAsync(command.UserId, transactionCancellationToken);
-            if (user is null)
-            {
-                return UserErrors.NotFound;
-            }
+            return UserErrors.NotFound;
+        }
 
+        Result approvalResult = await this.approval.RequireForUserAccessAsync(
+            user.Id,
+            "User.ResetPasswordUnrestricted",
+            cancellationToken);
+        if (approvalResult.IsFailure)
+        {
+            return approvalResult.Error;
+        }
+
+        Result<ResetPasswordResult> resetResult = await this.transactionRunner.ExecuteAsync<ResetPasswordResult>(async transactionCancellationToken =>
+        {
             string hashedPassword = this.passwordHasher.HashPassword(command.NewPassword);
             Result result = user.SetPassword(hashedPassword, this.dateTimeProvider);
             if (result.IsFailure)
@@ -76,17 +89,24 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
 
             await this.userRepository.SaveChangesAsync(transactionCancellationToken);
 
-        // Never include the password (plain or hashed) in the audit detail.
-        await this.auditLog.LogAsync(
-            command.ActorId,
-            "User.PasswordReset",
-            "User",
-            user.Id.Value.ToString(),
-            $"Email: {user.Email}",
-            transactionCancellationToken);
+            // Never include the password (plain or hashed) in the audit detail.
+            await this.auditLog.LogAsync(
+                command.ActorId,
+                "User.PasswordReset",
+                "User",
+                user.Id.Value.ToString(),
+                $"Email: {user.Email}",
+                transactionCancellationToken);
 
             return new ResetPasswordResult(user.Id, this.dateTimeProvider.UtcNow);
         }, cancellationToken);
+
+        if (resetResult.IsSuccess)
+        {
+            await this.approval.RecordOutcomeAsync(true, cancellationToken);
+        }
+
+        return resetResult;
     }
 
 }

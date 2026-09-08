@@ -1,3 +1,4 @@
+using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Domain.Roles;
@@ -25,13 +26,16 @@ public interface ISetRolePermissionsUseCase
 public sealed class SetRolePermissionsUseCase : ISetRolePermissionsUseCase
 {
     private readonly IRoleRepository roleRepository;
+    private readonly IAdministrativeApproval approval;
     private readonly IPermissionAssignmentValidator permissionAssignmentValidator;
 
     public SetRolePermissionsUseCase(
         IRoleRepository roleRepository,
-        IPermissionAssignmentValidator permissionAssignmentValidator)
+        IPermissionAssignmentValidator permissionAssignmentValidator,
+        IAdministrativeApproval approval)
     {
         this.roleRepository = roleRepository;
+        this.approval = approval;
         this.permissionAssignmentValidator = permissionAssignmentValidator;
     }
 
@@ -40,6 +44,7 @@ public sealed class SetRolePermissionsUseCase : ISetRolePermissionsUseCase
         SetRolePermissionsCommand command,
         CancellationToken cancellationToken = default)
     {
+        await this.approval.CaptureAuthorityAsync(cancellationToken);
         Role? role = await this.roleRepository.GetByIdAsync(command.RoleId, cancellationToken);
         if (role is null)
         {
@@ -49,6 +54,11 @@ public sealed class SetRolePermissionsUseCase : ISetRolePermissionsUseCase
         IReadOnlyList<string> newPermissions = command.Permissions
             .Except(role.Permissions, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        if (UnrestrictedGrantPolicy.IncludesAllPermissions(newPermissions))
+        {
+            Result approvalResult = await this.approval.RequireAsync("Role.GrantUnrestricted", role.Id.Value.ToString(), command.AcknowledgeWildcardGrant, cancellationToken);
+            if (approvalResult.IsFailure) { return approvalResult.Error; }
+        }
         Result validationResult = await this.permissionAssignmentValidator.ValidateAssignableAsync(
             newPermissions,
             command.AcknowledgeWildcardGrant,
@@ -60,6 +70,7 @@ public sealed class SetRolePermissionsUseCase : ISetRolePermissionsUseCase
 
         role.SetPermissions(command.Permissions);
         await this.roleRepository.SaveChangesAsync(cancellationToken);
+        await this.approval.RecordOutcomeAsync(true, cancellationToken);
 
         return RoleDtoMapper.ToDto(role);
     }

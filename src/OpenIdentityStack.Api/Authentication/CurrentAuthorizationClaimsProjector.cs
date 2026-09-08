@@ -1,9 +1,9 @@
 using System.Security.Claims;
 
-using OpenIdentityStack.Application.Authorization;
-using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Resources;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Users.Queries;
+using OpenIddict.Abstractions;
 using SharedKernel;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
@@ -15,18 +15,23 @@ namespace OpenIdentityStack.Api.Authentication;
 public sealed class CurrentAuthorizationClaimsProjector
 {
     private readonly IGetUserEffectiveRolesQueryHandler rolesQuery;
-    private readonly IPermissionClaimProjectionService permissions;
+    private readonly IResourcePermissionService resources;
 
     public CurrentAuthorizationClaimsProjector(
         IGetUserEffectiveRolesQueryHandler rolesQuery,
-        IPermissionClaimProjectionService permissions)
+        IResourcePermissionService resources)
     {
         this.rolesQuery = rolesQuery;
-        this.permissions = permissions;
+        this.resources = resources;
     }
 
     public async Task RefreshAsync(ClaimsPrincipal principal, UserId userId, CancellationToken cancellationToken = default)
     {
+        string clientId = principal.GetClaim("client_id") ?? string.Empty;
+        string[] scopes = principal.GetScopes().ToArray();
+        string[] audiences = (principal.GetAudiences().IsEmpty ? principal.GetResources() : principal.GetAudiences()).ToArray();
+        string[] originalPermissions = principal.FindAll("permission").Select(static claim => claim.Value).ToArray();
+
         foreach (ClaimsIdentity existingIdentity in principal.Identities)
         {
             foreach (Claim claim in existingIdentity.Claims.Where(IsAuthorizationClaim).ToArray())
@@ -41,16 +46,26 @@ public sealed class CurrentAuthorizationClaimsProjector
             return;
         }
 
+        RoleDto[] activeRoles = result.Value.Where(static role => role.IsActive).ToArray();
+        Result<ResourceTokenProjection> projection = await this.resources.ProjectAsync(
+            new ResourceTokenRequest(clientId, scopes, audiences, userId, originalPermissions, audiences,
+                activeRoles.SelectMany(static role => role.Permissions).ToArray()),
+            cancellationToken);
+        if (projection.IsFailure)
+        {
+            return;
+        }
+
         ClaimsIdentity identity = principal.Identities.FirstOrDefault()
             ?? throw new InvalidOperationException("The token principal has no claims identity.");
-        foreach (RoleDto role in result.Value)
+        foreach (RoleDto role in activeRoles)
         {
             identity.AddClaim(new Claim(Claims.Role, role.Name));
-            IReadOnlyList<string> expanded = await this.permissions.ExpandAssignedPermissionsAsync(role.Permissions, cancellationToken);
-            foreach (string permission in expanded)
-            {
-                identity.AddClaim(new Claim("permission", permission));
-            }
+        }
+
+        foreach (string permission in projection.Value.Permissions)
+        {
+            identity.AddClaim(new Claim("permission", permission));
         }
     }
 
