@@ -315,12 +315,12 @@ internal static class GroupsApi
             .ToList();
 
         Dictionary<Guid, string> roleNames = [];
-        foreach (Guid roleId in roleIds)
+        if (roleIds.Count > 0)
         {
-            Role? role = await roleRepository.GetByIdAsync(new RoleId(roleId));
-            if (role is not null)
+            IReadOnlyList<Role> roles = await roleRepository.GetByIdsAsync(roleIds.Select(id => new RoleId(id)));
+            foreach (Role role in roles)
             {
-                roleNames[roleId] = role.Name;
+                roleNames[role.Id.Value] = role.Name;
             }
         }
 

@@ -8,11 +8,11 @@ public sealed record GroupClaimDto(string Type, string Value, TokenTarget TokenT
 
 public sealed class GetGroupClaimsForUserQueryHandler : IGetGroupClaimsForUserQueryHandler
 {
-    private readonly IGroupRepository groupRepository;
+    private readonly IUserGroupsProvider userGroups;
 
-    public GetGroupClaimsForUserQueryHandler(IGroupRepository groupRepository)
+    public GetGroupClaimsForUserQueryHandler(IUserGroupsProvider userGroups)
     {
-        this.groupRepository = groupRepository;
+        this.userGroups = userGroups;
     }
 
     /// <summary>
@@ -39,7 +39,7 @@ public sealed class GetGroupClaimsForUserQueryHandler : IGetGroupClaimsForUserQu
         UserId userId,
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<Group> groups = await this.groupRepository.GetGroupsForUserAsync(userId, cancellationToken);
+        IReadOnlyList<Group> groups = await this.userGroups.GetGroupsForUserAsync(userId, cancellationToken);
 
         var claims = new List<GroupClaimDto>();
 

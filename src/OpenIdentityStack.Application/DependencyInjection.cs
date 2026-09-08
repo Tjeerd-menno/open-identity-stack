@@ -12,6 +12,7 @@ using OpenIdentityStack.Application.Audit.Queries;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Federation.Commands;
 using OpenIdentityStack.Application.Federation.Queries;
+using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.Groups.Commands;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Roles.Commands;
@@ -111,6 +112,7 @@ public static class DependencyInjection
         services.AddScoped<IListGroupMembersQueryHandler, ListGroupMembersQueryHandler>();
         services.AddScoped<IListGroupMappingsQueryHandler, ListGroupMappingsQueryHandler>();
         services.AddScoped<IGetUserGroupsQueryHandler, GetUserGroupsQueryHandler>();
+        services.AddScoped<IUserGroupsProvider, RequestScopedUserGroupsProvider>();
         services.AddScoped<IGetGroupClaimsForUserQueryHandler, GetGroupClaimsForUserQueryHandler>();
     }
 

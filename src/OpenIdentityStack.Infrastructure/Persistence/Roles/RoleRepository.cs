@@ -109,8 +109,9 @@ internal sealed class RoleRepository : IRoleRepository
         {
             string searchLower = search.Trim().ToLowerInvariant();
 #pragma warning disable CA1304, CA1311, CA1862 // EF Core LINQ expression - ToLower() translates to SQL LOWER function
+            // Role.Name is persisted lower-cased, so it is compared directly (keeps the index usable).
             query = query.Where(r =>
-                r.Name.ToLower().Contains(searchLower) ||
+                r.Name.Contains(searchLower) ||
                 r.DisplayName.ToLower().Contains(searchLower));
 #pragma warning restore CA1304, CA1311, CA1862
         }
@@ -125,7 +126,7 @@ internal sealed class RoleRepository : IRoleRepository
     /// <inheritdoc />
     public async Task<int> GetCountAsync(bool includeInactive = false, string? search = null, CancellationToken cancellationToken = default)
     {
-        IQueryable<Role> query = this.dbContext.Roles.AsQueryable();
+        IQueryable<Role> query = this.dbContext.Roles.AsNoTracking();
 
         if (!includeInactive)
         {
@@ -137,7 +138,7 @@ internal sealed class RoleRepository : IRoleRepository
             string searchLower = search.Trim().ToLowerInvariant();
 #pragma warning disable CA1304, CA1311, CA1862 // EF Core LINQ expression - ToLower() translates to SQL LOWER function
             query = query.Where(r =>
-                r.Name.ToLower().Contains(searchLower) ||
+                r.Name.Contains(searchLower) ||
                 r.DisplayName.ToLower().Contains(searchLower));
 #pragma warning restore CA1304, CA1311, CA1862
         }
