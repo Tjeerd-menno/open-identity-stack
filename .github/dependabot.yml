@@ -63,18 +63,18 @@ updates:
         patterns: ["@vitejs/*"]
         update-types: ["minor", "patch"]
       npm-vitest-major:
-        patterns: ["@vitest/*"]
+        patterns: ["vitest", "@vitest/*"]
         update-types: ["major"]
       npm-vitest-minor-patch:
-        patterns: ["@vitest/*"]
+        patterns: ["vitest", "@vitest/*"]
         update-types: ["minor", "patch"]
       npm-unscoped-major:
         patterns: ["*"]
-        exclude-patterns: ["@*"]
+        exclude-patterns: ["@*", "vitest"]
         update-types: ["major"]
       npm-unscoped-minor-patch:
         patterns: ["*"]
-        exclude-patterns: ["@*"]
+        exclude-patterns: ["@*", "vitest"]
         update-types: ["minor", "patch"]
 
   # npm (E2E tests)
