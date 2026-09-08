@@ -67,9 +67,18 @@ public sealed class ResourcePermissionService(
         {
             User? user = await users.GetByIdAsync(userId, cancellationToken);
             if (user is null || user.Status != UserStatus.Active) { return ResourceAccessErrors.NotGranted; }
-            Result<IReadOnlyList<Roles.Queries.RoleDto>> effectiveRoles = await roles.HandleAsync(userId, cancellationToken);
-            if (effectiveRoles.IsFailure) { return ResourceAccessErrors.NotGranted; }
-            userPermissions = effectiveRoles.Value.Where(static role => role.IsActive).SelectMany(static role => role.Permissions).ToArray();
+            if (request.UserPermissions is not null)
+            {
+                // Caller already resolved the user's effective roles for this request; reuse them
+                // instead of re-running the roles + groups + mapped-role queries.
+                userPermissions = request.UserPermissions;
+            }
+            else
+            {
+                Result<IReadOnlyList<Roles.Queries.RoleDto>> effectiveRoles = await roles.HandleAsync(userId, cancellationToken);
+                if (effectiveRoles.IsFailure) { return ResourceAccessErrors.NotGranted; }
+                userPermissions = effectiveRoles.Value.Where(static role => role.IsActive).SelectMany(static role => role.Permissions).ToArray();
+            }
         }
 
         var permissions = new HashSet<string>(StringComparer.Ordinal);

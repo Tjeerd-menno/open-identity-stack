@@ -47,6 +47,7 @@ internal sealed class GroupRepository : IGroupRepository
     public async Task<IReadOnlyList<Group>> GetGroupsForUserAsync(UserId userId, CancellationToken cancellationToken = default)
     {
         return await this.dbContext.Groups
+            .AsNoTracking()
             .Include(g => g.Mappings) // Needed for token generation/effective roles
             .Where(g => g.Memberships.Any(m => m.UserId == userId))
             .ToListAsync(cancellationToken);
@@ -54,7 +55,7 @@ internal sealed class GroupRepository : IGroupRepository
 
     public async Task<(IReadOnlyList<Group> Items, int TotalCount)> ListAsync(int page, int pageSize, string? search, CancellationToken cancellationToken = default)
     {
-        IQueryable<Group> query = this.dbContext.Groups.AsQueryable();
+        IQueryable<Group> query = this.dbContext.Groups.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
         {

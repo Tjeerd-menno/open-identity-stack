@@ -61,6 +61,22 @@ public sealed class ResourcePermissionServiceTests
     }
 
     [Fact]
+    public async Task ProjectAsync_ReusesPrecomputedUserPermissionsWithoutResolvingRoles()
+    {
+        Result<ResourceTokenProjection> result = await this.service.ProjectAsync(new ResourceTokenRequest(
+            this.client.ClientId, ["orders-api"], [], this.user.Id, UserPermissions: ["orders:invoice:read"]));
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Permissions.ShouldBe(["orders:invoice:read"]);
+        await this.roles.DidNotReceive().HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+
+        Result<ResourceTokenProjection> denied = await this.service.ProjectAsync(new ResourceTokenRequest(
+            this.client.ClientId, ["orders-api"], [], this.user.Id, UserPermissions: []));
+        denied.IsSuccess.ShouldBeTrue();
+        denied.Value.Permissions.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task ProjectAsync_RefreshNeverAddsNewAuthorityAndReflectsReducedGrant()
     {
         Result<ResourceTokenProjection> result = await this.service.ProjectAsync(new ResourceTokenRequest(

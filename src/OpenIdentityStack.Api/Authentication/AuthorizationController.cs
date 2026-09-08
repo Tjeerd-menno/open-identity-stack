@@ -177,6 +177,7 @@ public class AuthorizationController : ControllerBase
         }
 
         var roleNames = new List<string>();
+        IReadOnlyList<string>? userPermissions = null;
 
         IReadOnlyList<GroupClaimDto> groupClaims = [];
 
@@ -192,6 +193,13 @@ public class AuthorizationController : ControllerBase
                      roleNames.Add(role.Name);
 
                  }
+
+                 // Hand the already-resolved permissions to resource projection so it does not
+                 // re-run the effective-roles queries for the same user in this request.
+                 userPermissions = rolesResult.Value
+                     .Where(static role => role.IsActive)
+                     .SelectMany(static role => role.Permissions)
+                     .ToArray();
              }
 
             // 2. Group Claims
@@ -202,7 +210,7 @@ public class AuthorizationController : ControllerBase
              }
         }
 
-        Result<ResourceTokenProjection> resourceAccess = await this.ProjectResourcesAsync(request, request.GetScopes(), userId);
+        Result<ResourceTokenProjection> resourceAccess = await this.ProjectResourcesAsync(request, request.GetScopes(), userId, userPermissions: userPermissions);
         if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error, isAuthorizationRequest: true); }
 
         ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectSubjectClaims(
@@ -422,11 +430,11 @@ public class AuthorizationController : ControllerBase
         }));
 
     private Task<Result<ResourceTokenProjection>> ProjectResourcesAsync(OpenIddictRequest request, IReadOnlyList<string> scopes, UserId? userId,
-        IReadOnlyList<string>? originalPermissions = null, IReadOnlyList<string>? originalAudiences = null) =>
+        IReadOnlyList<string>? originalPermissions = null, IReadOnlyList<string>? originalAudiences = null, IReadOnlyList<string>? userPermissions = null) =>
         this.resourcePermissionService is null
             ? Task.FromResult<Result<ResourceTokenProjection>>(Domain.Resources.ResourceAccessErrors.NotGranted)
             : this.resourcePermissionService.ProjectAsync(new ResourceTokenRequest(request.ClientId ?? string.Empty, scopes,
-                request.GetResources(), userId, originalPermissions, originalAudiences), this.HttpContext.RequestAborted);
+                request.GetResources(), userId, originalPermissions, originalAudiences, userPermissions), this.HttpContext.RequestAborted);
 
     private ForbidResult ResourceAccessDenied(DomainError error, bool isAuthorizationRequest = false) => this.Forbid(
         authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
