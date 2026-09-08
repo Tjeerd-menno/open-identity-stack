@@ -24,6 +24,22 @@ public interface IRoleRepository
     Task<Role?> GetByNameAsync(string name, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets all roles whose normalized names match any of the supplied names in a single query.
+    /// </summary>
+    /// <param name="names">The role names (normalized internally).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The matching roles; names that do not exist are omitted.</returns>
+    Task<IReadOnlyList<Role>> GetByNamesAsync(IEnumerable<string> names, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all roles whose IDs match any of the supplied IDs in a single query.
+    /// </summary>
+    /// <param name="ids">The role IDs.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The matching roles; IDs that do not exist are omitted.</returns>
+    Task<IReadOnlyList<Role>> GetByIdsAsync(IEnumerable<RoleId> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets all roles with optional filtering.
     /// </summary>
     /// <param name="includeInactive">Whether to include inactive roles.</param>

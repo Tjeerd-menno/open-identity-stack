@@ -8,7 +8,8 @@ public sealed record ResourceTokenRequest(
     IReadOnlyList<string> RequestedResources,
     UserId? UserId,
     IReadOnlyList<string>? OriginalPermissions = null,
-    IReadOnlyList<string>? OriginalAudiences = null);
+    IReadOnlyList<string>? OriginalAudiences = null,
+    IReadOnlyList<string>? UserPermissions = null);
 
 public sealed record ResourceTokenProjection(
     IReadOnlyList<string> Audiences,

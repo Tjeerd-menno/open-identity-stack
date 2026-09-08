@@ -41,6 +41,7 @@ public sealed class UpstreamProviderRepository : IUpstreamProviderRepository
         CancellationToken cancellationToken = default)
     {
         return await this.dbContext.UpstreamProviders
+            .AsNoTracking()
             .Where(p => p.Status == ProviderStatus.Active)
             .OrderBy(p => p.DisplayName)
             .ToListAsync(cancellationToken);
@@ -51,6 +52,7 @@ public sealed class UpstreamProviderRepository : IUpstreamProviderRepository
         CancellationToken cancellationToken = default)
     {
         return await this.dbContext.UpstreamProviders
+            .AsNoTracking()
             .OrderBy(p => p.DisplayName)
             .ToListAsync(cancellationToken);
     }

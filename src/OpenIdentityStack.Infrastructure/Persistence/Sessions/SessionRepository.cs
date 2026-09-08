@@ -82,8 +82,8 @@ public sealed class SessionRepository : ISessionRepository
         CancellationToken cancellationToken = default)
     {
         IQueryable<UserSession> query = this.context.UserSessions
-            .Include(s => s.ClientSessions)
-            .AsQueryable();
+            .AsNoTracking()
+            .Include(s => s.ClientSessions);
 
         if (userIdFilter.HasValue)
         {

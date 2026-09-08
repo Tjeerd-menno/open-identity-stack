@@ -39,6 +39,58 @@ internal sealed class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Role>> GetByNamesAsync(IEnumerable<string> names, CancellationToken cancellationToken = default)
+    {
+        // Chunking keeps each IN clause well within provider parameter limits.
+        const int chunkSize = 500;
+        var normalizedNames = names
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .Select(static name => name.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (normalizedNames.Count == 0)
+        {
+            return [];
+        }
+
+        var roles = new List<Role>(normalizedNames.Count);
+        foreach (string[] chunk in normalizedNames.Chunk(chunkSize))
+        {
+            List<Role> batch = await this.dbContext.Roles
+                .AsNoTracking()
+                .Where(r => chunk.Contains(r.Name))
+                .ToListAsync(cancellationToken);
+            roles.AddRange(batch);
+        }
+
+        return roles;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Role>> GetByIdsAsync(IEnumerable<RoleId> ids, CancellationToken cancellationToken = default)
+    {
+        const int chunkSize = 500;
+        var distinctIds = ids.Distinct().ToList();
+        if (distinctIds.Count == 0)
+        {
+            return [];
+        }
+
+        var roles = new List<Role>(distinctIds.Count);
+        foreach (RoleId[] chunk in distinctIds.Chunk(chunkSize))
+        {
+            List<Role> batch = await this.dbContext.Roles
+                .AsNoTracking()
+                .Where(r => chunk.Contains(r.Id))
+                .ToListAsync(cancellationToken);
+            roles.AddRange(batch);
+        }
+
+        return roles;
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Role>> GetAllAsync(
         bool includeInactive = false,
         int skip = 0,
@@ -46,7 +98,7 @@ internal sealed class RoleRepository : IRoleRepository
         string? search = null,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<Role> query = this.dbContext.Roles.AsQueryable();
+        IQueryable<Role> query = this.dbContext.Roles.AsNoTracking();
 
         if (!includeInactive)
         {
@@ -155,6 +207,7 @@ internal sealed class RoleRepository : IRoleRepository
         }
 
         return await query
+            .AsNoTracking()
             .OrderBy(r => r.Name)
             .ToListAsync(cancellationToken);
     }
