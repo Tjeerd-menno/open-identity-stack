@@ -41,13 +41,16 @@ public sealed class AddClientSessionUseCase : IAddClientSessionUseCase
 {
     private readonly ISessionRepository sessionRepository;
     private readonly IDateTimeProvider dateTimeProvider;
+    private readonly IClientLogoutMetadataResolver clientLogoutMetadataResolver;
 
     public AddClientSessionUseCase(
         ISessionRepository sessionRepository,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        IClientLogoutMetadataResolver clientLogoutMetadataResolver)
     {
         this.sessionRepository = sessionRepository;
         this.dateTimeProvider = dateTimeProvider;
+        this.clientLogoutMetadataResolver = clientLogoutMetadataResolver;
     }
 
     /// <inheritdoc />
@@ -67,6 +70,16 @@ public sealed class AddClientSessionUseCase : IAddClientSessionUseCase
         if (result.IsFailure)
         {
             return result;
+        }
+
+        ClientLogoutMetadata metadata = await this.clientLogoutMetadataResolver.ResolveAsync(command.ClientId, cancellationToken);
+        ClientSession? clientSession = session.ClientSessions
+            .FirstOrDefault(client => string.Equals(client.ClientId, command.ClientId, StringComparison.Ordinal));
+        if (clientSession is not null)
+        {
+            clientSession.SetLogoutUris(
+                metadata.FrontChannelLogoutUri ?? command.FrontChannelLogoutUri,
+                metadata.BackChannelLogoutUri ?? command.BackChannelLogoutUri);
         }
 
         // Persist changes

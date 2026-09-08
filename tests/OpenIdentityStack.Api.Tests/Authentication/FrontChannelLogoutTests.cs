@@ -2,6 +2,7 @@ using System.Security.Claims;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Api.Tests.Helpers;
@@ -12,7 +13,7 @@ using OpenIdentityStack.Domain.Common;
 using SharedKernel;
 namespace OpenIdentityStack.Api.Tests.Authentication;
 
-public class FrontChannelLogoutTests
+public class FrontChannelLogoutTests : IDisposable
 {
     private readonly IProcessLogoutUseCase _processLogoutUseCase;
     private readonly IFrontChannelLogoutService _frontChannelLogoutService;
@@ -39,10 +40,13 @@ public class FrontChannelLogoutTests
 
         DefaultHttpContext httpContext = HttpContextTestHelper.CreateWithAuthenticationServices();
         this._controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        this._controller.TempData = new TempDataDictionary(httpContext, Substitute.For<ITempDataProvider>());
     }
 
+    public void Dispose() => this._controller.Dispose();
+
     [Fact]
-    public async Task Logout_WithFrontChannelClients_ReturnsOkWithIframes()
+    public async Task Logout_WithFrontChannelClients_RendersIframes()
     {
         // Arrange
         var sessionId = SessionId.Create();
@@ -51,7 +55,7 @@ public class FrontChannelLogoutTests
         var principal = new ClaimsPrincipal(identity);
         this._controller.ControllerContext.HttpContext.User = principal;
 
-        // No PostLogoutRedirectUri to get OkObjectResult with iframes (with redirect URI it redirects immediately)
+        // Participating relying parties receive browser logout frames.
         var request = new OpenIddictRequest();
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
@@ -62,20 +66,16 @@ public class FrontChannelLogoutTests
             FrontChannelLogoutUrls: logoutUrls
         );
 
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)logoutResult);
 
         // Act
         IActionResult result = await this._controller.Logout();
 
         // Assert
-        OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
-        LogoutResponse response = Assert.IsType<LogoutResponse>(okResult.Value);
-        
-        Assert.True(response.Success);
-        Assert.Equal(2, response.FrontChannelLogoutFrames.Count);
-        Assert.Contains(response.FrontChannelLogoutFrames, iframe => iframe.Url == "https://client1.com/logout");
-        Assert.Contains(response.FrontChannelLogoutFrames, iframe => iframe.Url == "https://client2.com/logout");
+        ViewResult view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("~/Authentication/Views/Logout.cshtml", view.ViewName);
+        Assert.Equal(logoutUrls, Assert.IsAssignableFrom<IReadOnlyList<string>>(view.ViewData["FrontChannelLogoutFrames"]));
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class FrontChannelLogoutTests
             FrontChannelLogoutUrls: Array.Empty<string>()
         );
 
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)logoutResult);
 
         // Act

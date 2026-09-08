@@ -38,7 +38,7 @@ public sealed class OidcControllerRouteTests
         yield return [new OidcEndpointExpectation("Authorization", "UserInfo", "GET", "connect/userinfo")];
         yield return [new OidcEndpointExpectation("Authorization", "UserInfo", "POST", "connect/userinfo")];
         yield return [new OidcEndpointExpectation("Logout", "Logout", "GET", "connect/logout")];
-        yield return [new OidcEndpointExpectation("Logout", "Logout", "POST", "connect/logout")];
+        yield return [new OidcEndpointExpectation("Logout", "ConfirmLogout", "POST", "connect/logout")];
     }
 
     private static WebApplication CreateApplication()

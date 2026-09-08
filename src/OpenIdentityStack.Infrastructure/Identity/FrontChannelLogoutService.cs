@@ -11,10 +11,17 @@ namespace OpenIdentityStack.Infrastructure.Identity;
 public sealed partial class FrontChannelLogoutService : IFrontChannelLogoutService
 {
     private readonly ILogger<FrontChannelLogoutService> logger;
+    private readonly string issuer;
 
     public FrontChannelLogoutService(ILogger<FrontChannelLogoutService> logger)
+        : this(logger, "open-identity-stack")
+    {
+    }
+
+    public FrontChannelLogoutService(ILogger<FrontChannelLogoutService> logger, string issuer)
     {
         this.logger = logger;
+        this.issuer = issuer;
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Client {ClientId} does not have front-channel logout configured")]
@@ -38,9 +45,20 @@ public sealed partial class FrontChannelLogoutService : IFrontChannelLogoutServi
                 continue;
             }
 
-            // Build the logout URL with session identifier
-            string separator = client.FrontChannelLogoutUri.Contains('?') ? "&" : "?";
-            string logoutUrl = $"{client.FrontChannelLogoutUri}{separator}sid={sessionId.Value}&iss={Uri.EscapeDataString("open-identity-stack")}";
+            if (!Uri.TryCreate(client.FrontChannelLogoutUri, UriKind.Absolute, out Uri? logoutUri) ||
+                (logoutUri.Scheme != Uri.UriSchemeHttp && logoutUri.Scheme != Uri.UriSchemeHttps))
+            {
+                this.LogNoFrontChannelLogout(client.ClientId);
+                continue;
+            }
+
+            var uriBuilder = new UriBuilder(logoutUri);
+            string existingQuery = uriBuilder.Query.TrimStart('?');
+            string logoutParameters = $"sid={Uri.EscapeDataString(sessionId.Value.ToString())}&iss={Uri.EscapeDataString(this.issuer)}";
+            uriBuilder.Query = string.IsNullOrEmpty(existingQuery)
+                ? logoutParameters
+                : $"{existingQuery}&{logoutParameters}";
+            string logoutUrl = uriBuilder.Uri.AbsoluteUri;
 
             frames.Add(new FrontChannelLogoutFrame(client.ClientId, logoutUrl));
 

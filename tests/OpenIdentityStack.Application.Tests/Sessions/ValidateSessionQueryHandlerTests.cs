@@ -131,6 +131,7 @@ public sealed class ValidateSessionQueryHandlerTests
         result.Reason.ShouldBeNull();
     }
 
+
     [Fact]
     public async Task HandleAsync_ValidSession_UpdatesLastActivity()
     {
@@ -150,6 +151,7 @@ public sealed class ValidateSessionQueryHandlerTests
         // Assert
         await this._sessionRepository.Received(1).UpdateAsync(session, Arg.Any<CancellationToken>());
     }
+
 
     [Fact]
     public async Task HandleAsync_InvalidSession_DoesNotUpdateRepository()

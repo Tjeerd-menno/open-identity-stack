@@ -299,6 +299,7 @@ public sealed class AuthEndpointLatencyTests
         IAddClientSessionUseCase addClientSessionUseCase = Substitute.For<IAddClientSessionUseCase>();
         IValidateSessionQueryHandler validateSessionQueryHandler = Substitute.For<IValidateSessionQueryHandler>();
         IOpenIddictRequestService openIddictRequestService = Substitute.For<IOpenIddictRequestService>();
+        ICredentialSessionValidator credentialSessionValidator = Substitute.For<ICredentialSessionValidator>();
 
         var controller = new AuthorizationController(
             applicationManager,
@@ -308,7 +309,8 @@ public sealed class AuthEndpointLatencyTests
             getGroupClaimsForUserQueryHandler,
             addClientSessionUseCase,
             validateSessionQueryHandler,
-            openIddictRequestService
+            openIddictRequestService,
+            credentialSessionValidator
         );
 
         var httpContext = new DefaultHttpContext();
@@ -382,7 +384,7 @@ public sealed class AuthEndpointLatencyTests
             FrontChannelLogoutUrls: []
         );
 
-        processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)logoutResult);
 
         var controller = new LogoutController(

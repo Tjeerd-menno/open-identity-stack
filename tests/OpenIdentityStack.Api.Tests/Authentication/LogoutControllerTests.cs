@@ -1,6 +1,7 @@
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Api.Tests.Helpers;
@@ -11,7 +12,7 @@ using System.Security.Claims;
 
 using SharedKernel;
 namespace OpenIdentityStack.Api.Tests.Authentication;
-public sealed class LogoutControllerTests
+public sealed class LogoutControllerTests : IDisposable
 {
     private readonly IProcessLogoutUseCase _processLogoutUseCase;
     private readonly IFrontChannelLogoutService _frontChannelLogoutService;
@@ -39,6 +40,9 @@ public sealed class LogoutControllerTests
         {
             HttpContext = HttpContextTestHelper.CreateWithAuthenticationServices()
         };
+        this._controller.TempData = new TempDataDictionary(
+            this._controller.HttpContext,
+            Substitute.For<ITempDataProvider>());
     }
 
     [Fact]
@@ -80,8 +84,29 @@ public sealed class LogoutControllerTests
         this._controller.HttpContext.Response.Headers.ShouldContain(h => h.Key == "Set-Cookie");
     }
 
+    public void Dispose() => this._controller.Dispose();
+
     [Fact]
-    public async Task Logout_ShouldReturnOk_WithFrontChannelIframes()
+    public async Task Logout_Get_RendersConfirmationWithoutTerminatingSession()
+    {
+        // Arrange
+        this._controller.HttpContext.Request.Method = HttpMethods.Get;
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest());
+
+        // Act
+        IActionResult result = await this._controller.Logout();
+
+        // Assert
+        ViewResult view = result.ShouldBeOfType<ViewResult>();
+        view.ViewName.ShouldBe("~/Authentication/Views/LogoutConfirmation.cshtml");
+        await this._processLogoutUseCase.DidNotReceive().ExecuteAsync(
+            Arg.Any<SessionId>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Logout_WithFrontChannelIframes_RendersLogoutViewWithScopedFramePolicy()
     {
         // Arrange
         var sessionId = SessionId.Create();
@@ -96,16 +121,24 @@ public sealed class LogoutControllerTests
             new LogoutNotificationResult(1, 0, []),
             new List<string> { "https://client/logout" });
 
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)result);
+
+        this._controller.HttpContext.Response.Headers["Content-Security-Policy"] =
+            "default-src 'self'; frame-src 'none'; object-src 'none';";
 
         // Act
         IActionResult response = await this._controller.Logout();
 
         // Assert
-        OkObjectResult ok = response.ShouldBeOfType<OkObjectResult>();
-        LogoutResponse payload = ok.Value.ShouldBeOfType<LogoutResponse>();
-        payload.FrontChannelLogoutFrames.Count.ShouldBe(1);
+        ViewResult view = response.ShouldBeOfType<ViewResult>();
+        view.ViewName.ShouldBe("~/Authentication/Views/Logout.cshtml");
+        this._controller.HttpContext.Response.Headers["Content-Security-Policy"].ToString()
+            .ShouldContain("frame-src 'self' https://client");
+        this._controller.HttpContext.Response.Headers["Content-Security-Policy"].ToString()
+            .ShouldContain("object-src 'none'");
+        this._controller.HttpContext.Response.Headers["Content-Security-Policy"].ToString()
+            .ShouldNotContain("frame-src 'none'");
         
         // Verify session cookie was deleted
         this._controller.HttpContext.Response.Headers.ShouldContain(h => h.Key == "Set-Cookie");
@@ -131,7 +164,7 @@ public sealed class LogoutControllerTests
             new LogoutNotificationResult(0, 0, []),
             []);
 
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)result);
 
         // Act
@@ -162,7 +195,7 @@ public sealed class LogoutControllerTests
             new LogoutNotificationResult(0, 0, []),
             []);
 
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)result);
 
         // Act
@@ -177,7 +210,7 @@ public sealed class LogoutControllerTests
     public async Task AdminLogout_ShouldReturnNotFound_WhenSessionMissing()
     {
         // Arrange
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), null, Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Is<string?>(value => value == null), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)DomainError.NotFound("Session.NotFound", "Missing"));
 
         // Act
@@ -197,7 +230,7 @@ public sealed class LogoutControllerTests
             new LogoutNotificationResult(0, 0, []),
             []);
 
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), null, Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Is<string?>(value => value == null), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)logoutResult);
 
         // Act

@@ -99,6 +99,31 @@ public sealed class ClientSessionTests
 
     #endregion
 
+    [Fact]
+    public void MarkLogoutAttemptFailed_SchedulesBoundedRetry()
+    {
+        ClientSession session = ClientSession.Create("client-app", this._dateTimeProvider).Value;
+
+        session.MarkLogoutAttemptFailed(this._dateTimeProvider);
+
+        session.LogoutStatus.ShouldBe(LogoutStatus.Failed);
+        session.LogoutAttemptCount.ShouldBe(1);
+        session.NextLogoutAttemptAt.ShouldBe(this._now.AddMinutes(2));
+    }
+
+    [Fact]
+    public void MarkLogoutCompleted_ClearsScheduledRetry()
+    {
+        ClientSession session = ClientSession.Create("client-app", this._dateTimeProvider).Value;
+        session.MarkLogoutAttemptFailed(this._dateTimeProvider);
+
+        session.MarkLogoutCompleted(this._dateTimeProvider);
+
+        session.LogoutStatus.ShouldBe(LogoutStatus.Completed);
+        session.NextLogoutAttemptAt.ShouldBeNull();
+        session.LogoutCompletedAt.ShouldBe(this._now);
+    }
+
     #region UpdateLastAccess Tests
 
     [Fact]

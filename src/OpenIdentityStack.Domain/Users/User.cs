@@ -136,6 +136,12 @@ public sealed partial class User : AggregateRoot<UserId>
     public DateTimeOffset? LastLoginAt { get; private set; }
 
     /// <summary>
+    /// Monotonically increasing credential epoch. Sessions created before the
+    /// current value are permanently invalid after a password reset or disable.
+    /// </summary>
+    public long SecurityVersion { get; private set; }
+
+    /// <summary>
     /// Gets the linked upstream identities for federated login.
     /// </summary>
     public IReadOnlyList<UpstreamIdentity> UpstreamIdentities => this.upstreamIdentities.AsReadOnly();
@@ -165,6 +171,7 @@ public sealed partial class User : AggregateRoot<UserId>
         this.MfaEnabled = false;
         this.MfaSecret = null;
         this.LastLoginAt = null;
+        this.SecurityVersion = 0;
         this.CreatedAt = createdAt;
     }
 
@@ -308,6 +315,7 @@ public sealed partial class User : AggregateRoot<UserId>
         }
 
         this.Status = UserStatus.Disabled;
+        this.SecurityVersion++;
         this.SetModified(dateTimeProvider.UtcNow);
 
         this.RaiseDomainEvent(new UserDomainEvents.UserDisabled(this.Id, reason, dateTimeProvider.UtcNow));
@@ -355,6 +363,7 @@ public sealed partial class User : AggregateRoot<UserId>
         }
 
         this.PasswordHash = newPasswordHash;
+        this.SecurityVersion++;
         this.SetModified(dateTimeProvider.UtcNow);
 
         this.RaiseDomainEvent(new UserDomainEvents.UserPasswordChanged(this.Id, dateTimeProvider.UtcNow));
@@ -423,6 +432,12 @@ public sealed partial class User : AggregateRoot<UserId>
     /// Checks if the user can authenticate.
     /// </summary>
     public bool CanAuthenticate() => this.Status == UserStatus.Active;
+
+    public void AdvanceSecurityVersion(IDateTimeProvider dateTimeProvider)
+    {
+        this.SecurityVersion++;
+        this.SetModified(dateTimeProvider.UtcNow);
+    }
 
     /// <summary>
     /// Checks if the user has a password set.

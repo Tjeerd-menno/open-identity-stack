@@ -81,6 +81,8 @@ builder.Services.AddAuthentication(options =>
 })
 .AddExternalCookie(builder.Environment); // Add external cookie for OAuth callback flow
 
+builder.Services.AddCredentialValidation();
+
 // NOTE: Rate limiting for authentication endpoints
 // Implemented via EnableRateLimiting attribute on AccountController methods
 // Configuration:

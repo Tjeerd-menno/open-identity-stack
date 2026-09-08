@@ -37,6 +37,11 @@ public interface ISessionRepository
     /// </summary>
     Task UpdateAsync(UserSession session, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<UserSession>> GetTerminalSessionsWithPendingLogoutNotificationsAsync(
+        DateTimeOffset dueBefore,
+        int maximumCount,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Lists sessions with pagination.
     /// </summary>

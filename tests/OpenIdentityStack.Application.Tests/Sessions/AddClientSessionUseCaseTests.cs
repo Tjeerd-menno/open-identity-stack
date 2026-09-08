@@ -12,14 +12,21 @@ public sealed class AddClientSessionUseCaseTests
 {
     private readonly ISessionRepository _sessionRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IClientLogoutMetadataResolver _clientLogoutMetadataResolver;
     private readonly AddClientSessionUseCase _useCase;
 
     public AddClientSessionUseCaseTests()
     {
         this._sessionRepository = Substitute.For<ISessionRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        this._clientLogoutMetadataResolver = Substitute.For<IClientLogoutMetadataResolver>();
+        this._clientLogoutMetadataResolver.ResolveAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new ClientLogoutMetadata(null, null));
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
-        this._useCase = new AddClientSessionUseCase(this._sessionRepository, this._dateTimeProvider);
+        this._useCase = new AddClientSessionUseCase(
+            this._sessionRepository,
+            this._dateTimeProvider,
+            this._clientLogoutMetadataResolver);
     }
 
     private UserSession CreateSession(UserId userId)
@@ -72,6 +79,31 @@ public sealed class AddClientSessionUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_RegisteredLogoutUris_AreStoredOnClientSession()
+    {
+        // Arrange
+        UserSession session = this.CreateSession(UserId.Create());
+        var command = new AddClientSessionCommand(
+            session.Id,
+            "portal-client",
+            "https://portal.example.test/front-channel-logout",
+            "https://portal.example.test/back-channel-logout");
+
+        this._sessionRepository
+            .GetByIdAsync(session.Id, Arg.Any<CancellationToken>())
+            .Returns(session);
+
+        // Act
+        Result result = await this._useCase.ExecuteAsync(command);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        ClientSession clientSession = session.ClientSessions.ShouldHaveSingleItem();
+        clientSession.FrontChannelLogoutUri.ShouldBe(command.FrontChannelLogoutUri);
+        clientSession.BackChannelLogoutUri.ShouldBe(command.BackChannelLogoutUri);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ValidSession_UpdatesRepository()
     {
         // Arrange
@@ -88,6 +120,22 @@ public sealed class AddClientSessionUseCaseTests
 
         // Assert
         await this._sessionRepository.Received(1).UpdateAsync(session, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_NormalAuthorization_UsesRegisteredLogoutMetadata()
+    {
+        UserSession session = this.CreateSession(UserId.Create());
+        this._sessionRepository.GetByIdAsync(session.Id, Arg.Any<CancellationToken>()).Returns(session);
+        this._clientLogoutMetadataResolver.ResolveAsync("portal", Arg.Any<CancellationToken>())
+            .Returns(new ClientLogoutMetadata("https://portal.test/front", "https://portal.test/back"));
+
+        Result result = await this._useCase.ExecuteAsync(new AddClientSessionCommand(session.Id, "portal"));
+
+        result.IsSuccess.ShouldBeTrue();
+        ClientSession client = session.ClientSessions.ShouldHaveSingleItem();
+        client.FrontChannelLogoutUri.ShouldBe("https://portal.test/front");
+        client.BackChannelLogoutUri.ShouldBe("https://portal.test/back");
     }
 
     [Fact]

@@ -31,6 +31,7 @@ public class AccountController : Controller
     private readonly IUserRepository userRepository;
     private readonly IDynamicAuthenticationSchemeService schemeService;
     private readonly IJitProvisionUserUseCase jitProvisionUseCase;
+    private readonly ICredentialTerminationService credentialTerminationService;
 
     public AccountController(
         IValidateUserCredentialsUseCase validateCredentialsUseCase,
@@ -40,7 +41,8 @@ public class AccountController : Controller
         IPermissionChecker permissionChecker,
         IUserRepository userRepository,
         IDynamicAuthenticationSchemeService schemeService,
-        IJitProvisionUserUseCase jitProvisionUseCase)
+        IJitProvisionUserUseCase jitProvisionUseCase,
+        ICredentialTerminationService credentialTerminationService)
     {
         this.validateCredentialsUseCase = validateCredentialsUseCase;
         this.createSessionUseCase = createSessionUseCase;
@@ -50,6 +52,7 @@ public class AccountController : Controller
         this.userRepository = userRepository;
         this.schemeService = schemeService;
         this.jitProvisionUseCase = jitProvisionUseCase;
+        this.credentialTerminationService = credentialTerminationService;
     }
 
     /// <summary>
@@ -242,6 +245,11 @@ public class AccountController : Controller
             }
         }
 
+        if (!user.CanAuthenticate())
+        {
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "account_disabled" });
+        }
+
         // Sign out of the external cookie
         await this.HttpContext.SignOutAsync("ExternalCookie");
 
@@ -267,12 +275,14 @@ public class AccountController : Controller
             userAgent);
 
         Result<CreateSessionResult> sessionResult = await this.createSessionUseCase.ExecuteAsync(createSessionCommand);
-        if (sessionResult.IsSuccess)
+        if (sessionResult.IsFailure)
         {
-            string sessionId = sessionResult.Value.SessionId.Value.ToString();
-            claims.Add(new Claim("sid", sessionId));
-            claims.Add(new Claim("session_id", sessionId));
+            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "session_creation_failed" });
         }
+
+        string sessionId = sessionResult.Value.SessionId.Value.ToString();
+        claims.Add(new Claim("sid", sessionId));
+        claims.Add(new Claim("session_id", sessionId));
 
         var claimsIdentity = new ClaimsIdentity(claims, "Cookies");
         var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
@@ -336,15 +346,19 @@ public class AccountController : Controller
         var createSessionCommand = new CreateSessionCommand(
             result.Value.UserId,
             ipAddress,
-            userAgent);
+            userAgent,
+            ExpectedSecurityVersion: result.Value.SecurityVersion);
 
         Result<CreateSessionResult> sessionResult = await this.createSessionUseCase.ExecuteAsync(createSessionCommand);
-        if (sessionResult.IsSuccess)
+        if (sessionResult.IsFailure)
         {
-            string sessionId = sessionResult.Value.SessionId.Value.ToString();
-            claims.Add(new Claim("sid", sessionId));
-            claims.Add(new Claim("session_id", sessionId));
+            this.ModelState.AddModelError(string.Empty, "Unable to establish a secure session. Please try again.");
+            return this.View(model);
         }
+
+        string sessionId = sessionResult.Value.SessionId.Value.ToString();
+        claims.Add(new Claim("sid", sessionId));
+        claims.Add(new Claim("session_id", sessionId));
 
         var claimsIdentity = new ClaimsIdentity(claims, "Cookies");
         var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
@@ -373,6 +387,16 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
+        string? sessionId = this.User.FindFirstValue("sid") ?? this.User.FindFirstValue("session_id");
+        string actorId = this.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "interactive-user";
+        if (sessionId is not null &&
+            (!Guid.TryParse(sessionId, out Guid parsedSessionId)
+             || (await this.credentialTerminationService.TerminateSessionAsync(
+                 new SessionId(parsedSessionId), actorId, "Interactive logout", isLogout: true)).IsFailure))
+        {
+            return this.StatusCode(StatusCodes.Status500InternalServerError);
+        }
+
         await this.HttpContext.SignOutAsync("Cookies");
         this.HttpContext.Response.Cookies.Delete(
             SessionManagementDefaults.SessionCookieName,

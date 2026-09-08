@@ -19,7 +19,8 @@ public sealed record ValidateUserCredentialsCommand(
 public sealed record ValidateUserCredentialsResult(
     UserId UserId,
     string Email,
-    string DisplayName);
+    string DisplayName,
+    long SecurityVersion = 0);
 
 /// <summary>
 /// Use case interface for validating user credentials.

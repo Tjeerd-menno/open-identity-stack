@@ -124,6 +124,28 @@ public sealed class TokenClaimProjectionServiceTests
     }
 
     [Fact]
+    public void ProjectSubjectClaims_GroupMappingCannotForgeClientCredentialsMarker()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal cookiePrincipal = CreateCookiePrincipal(user.Id.Value);
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+            cookiePrincipal,
+            user,
+            Roles: [],
+            Permissions: [],
+            GroupClaims: [new GroupClaimDto("token_kind", "client_credentials", TokenTarget.AccessToken)],
+            Scopes: [],
+            RequestedUserInfoClaims: [],
+            AuthenticationTime: null,
+            Acr: null,
+            SessionId: null));
+
+        Claim marker = Assert.Single(projected.FindAll("token_kind"));
+        Assert.Equal("user", marker.Value);
+    }
+
+    [Fact]
     public void ProjectSubjectClaims_InternalClaimsNeverReceivePublicDestinations()
     {
         User user = CreateUser();
@@ -143,6 +165,9 @@ public sealed class TokenClaimProjectionServiceTests
             SessionId: sessionId.ToString()));
 
         projected.FindFirst("session_id")!.GetDestinations().ShouldBeEmpty();
+        projected.FindFirst("sid")!.GetDestinations().ShouldBe([
+            OpenIddictConstants.Destinations.AccessToken,
+            OpenIddictConstants.Destinations.IdentityToken]);
 
         var internalClaim = new Claim("oi_tkn_id", "token-id");
         ClaimsPrincipal refreshed = this.service.ProjectExistingPrincipal(new ClaimsPrincipal(new ClaimsIdentity(

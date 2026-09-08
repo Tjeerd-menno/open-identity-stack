@@ -1,6 +1,4 @@
 using OpenIdentityStack.Application.Abstractions;
-using OpenIdentityStack.Domain.Sessions;
-using OpenIdentityStack.Domain.Users;
 
 using SharedKernel;
 namespace OpenIdentityStack.Application.Sessions.Commands;
@@ -12,7 +10,8 @@ namespace OpenIdentityStack.Application.Sessions.Commands;
 /// <param name="ExcludeSessionId">Optional session ID to exclude from revocation (current session).</param>
 public sealed record RevokeAllUserSessionsCommand(
     UserId UserId,
-    SessionId? ExcludeSessionId = null);
+    SessionId? ExcludeSessionId,
+    string ActorId);
 
 /// <summary>
 /// Result of revoking all user sessions.
@@ -39,21 +38,18 @@ public interface IRevokeAllUserSessionsUseCase
 /// </summary>
 public sealed class RevokeAllUserSessionsUseCase : IRevokeAllUserSessionsUseCase
 {
-    private readonly ISessionRepository sessionRepository;
-    private readonly IUserRepository userRepository;
     private readonly IDateTimeProvider dateTimeProvider;
+    private readonly ICredentialTerminationService terminationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RevokeAllUserSessionsUseCase"/> class.
     /// </summary>
     public RevokeAllUserSessionsUseCase(
-        ISessionRepository sessionRepository,
-        IUserRepository userRepository,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        ICredentialTerminationService terminationService)
     {
-        this.sessionRepository = sessionRepository;
-        this.userRepository = userRepository;
         this.dateTimeProvider = dateTimeProvider;
+        this.terminationService = terminationService;
     }
 
     /// <inheritdoc/>
@@ -61,33 +57,17 @@ public sealed class RevokeAllUserSessionsUseCase : IRevokeAllUserSessionsUseCase
         RevokeAllUserSessionsCommand command,
         CancellationToken cancellationToken = default)
     {
-        // Verify user exists
-        User? user = await this.userRepository.GetByIdAsync(command.UserId, cancellationToken);
-        if (user is null)
+        Result<int> revokeResult = await this.terminationService.TerminateAllSessionsAsync(
+            command.UserId,
+            command.ActorId,
+            "administrative-revoke-all",
+            command.ExcludeSessionId,
+            cancellationToken);
+        if (revokeResult.IsFailure)
         {
-            return UserErrors.NotFound;
+            return revokeResult.Error;
         }
 
-        // Get all active sessions for the user
-        IReadOnlyList<UserSession> sessions = await this.sessionRepository.GetActiveByUserIdAsync(command.UserId, cancellationToken);
-
-        int revokedCount = 0;
-        foreach (UserSession session in sessions)
-        {
-            // Skip the excluded session (e.g., current session)
-            if (command.ExcludeSessionId.HasValue && session.Id == command.ExcludeSessionId.Value)
-            {
-                continue;
-            }
-
-            Result revokeResult = session.Revoke(this.dateTimeProvider);
-            if (revokeResult.IsSuccess)
-            {
-                await this.sessionRepository.UpdateAsync(session, cancellationToken);
-                revokedCount++;
-            }
-        }
-
-        return new RevokeAllUserSessionsResult(revokedCount, this.dateTimeProvider.UtcNow);
+        return new RevokeAllUserSessionsResult(revokeResult.Value, this.dateTimeProvider.UtcNow);
     }
 }

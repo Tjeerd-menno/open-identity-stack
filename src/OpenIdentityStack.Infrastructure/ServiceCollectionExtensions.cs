@@ -165,7 +165,7 @@ public static class ServiceCollectionExtensions
 
         AddPlatformServices(services);
         AddRepositories(services);
-        AddInfrastructureDomainServices(services);
+        AddInfrastructureDomainServices(services, configuration);
         AddInfrastructureUseCases(services);
     }
 
@@ -193,11 +193,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();
+        services.AddScoped<ICredentialTerminationService, CredentialTerminationService>();
+        services.AddScoped<ICredentialLifecycleTransactionRunner, CredentialLifecycleTransactionRunner>();
         services.AddScoped<IAuthenticationSettingsRepository, AuthenticationSettingsRepository>();
         services.AddScoped<IAuditEntryReader, AuditEntryReader>();
     }
 
-    private static void AddInfrastructureDomainServices(IServiceCollection services)
+    private static void AddInfrastructureDomainServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IApplicationProtocolProjection, OpenIddictApplicationProjection>();
         services.AddScoped<IRolePermissionDependencyReader, RolePermissionDependencyReader>();
@@ -211,7 +213,12 @@ public static class ServiceCollectionExtensions
         // notifier were ever resolved outside a request scope.
         services.AddSingleton<ILogoutTokenFactory, LogoutTokenFactory>();
         services.AddHttpClient<ILogoutNotifier, BackChannelLogoutNotifier>();
-        services.AddScoped<IFrontChannelLogoutService, FrontChannelLogoutService>();
+        services.AddScoped<IClientLogoutMetadataResolver, OpenIddictClientLogoutMetadataResolver>();
+        services.AddScoped<IFrontChannelLogoutService>(provider => new FrontChannelLogoutService(
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<FrontChannelLogoutService>>(),
+            configuration["OpenIddict:Issuer"]
+                ?? throw new InvalidOperationException("OpenIddict:Issuer is required for front-channel logout.")));
+        services.AddHostedService<PendingLogoutNotificationWorker>();
     }
 
     private static void AddInfrastructureUseCases(IServiceCollection services)

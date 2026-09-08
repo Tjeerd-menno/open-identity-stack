@@ -29,6 +29,7 @@ public class AccountControllerTests : IDisposable
     private readonly IUserRepository _userRepository;
     private readonly IDynamicAuthenticationSchemeService _schemeService;
     private readonly IJitProvisionUserUseCase _jitProvisionUseCase;
+    private readonly ICredentialTerminationService _credentialTerminationService;
     private readonly AccountController _controller;
     private readonly IAuthenticationService _authService;
 
@@ -43,6 +44,7 @@ public class AccountControllerTests : IDisposable
         this._userRepository = Substitute.For<IUserRepository>();
         this._schemeService = Substitute.For<IDynamicAuthenticationSchemeService>();
         this._jitProvisionUseCase = Substitute.For<IJitProvisionUserUseCase>();
+        this._credentialTerminationService = Substitute.For<ICredentialTerminationService>();
 
         // Setup default auth settings - local is default
         IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
@@ -59,7 +61,8 @@ public class AccountControllerTests : IDisposable
             this._permissionChecker,
             this._userRepository,
             this._schemeService,
-            this._jitProvisionUseCase);
+            this._jitProvisionUseCase,
+            this._credentialTerminationService);
 
         this.SetupHttpContext();
     }
@@ -288,6 +291,26 @@ public class AccountControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Login_Post_WhenSessionCreationFails_DoesNotSignIn()
+    {
+        // Arrange
+        var model = new LoginViewModel { Email = "user@example.com", Password = "correct" };
+        var userId = UserId.Create();
+        this._validateCredentialsUseCase.ExecuteAsync(Arg.Any<ValidateUserCredentialsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new ValidateUserCredentialsResult(userId, "user@example.com", "Test User"));
+        this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(DomainError.Failure("Session.CreateFailed", "Session creation failed."));
+
+        // Act
+        IActionResult result = await this._controller.Login(model);
+
+        // Assert
+        Assert.IsType<ViewResult>(result);
+        await this._authService.DidNotReceive().SignInAsync(
+            Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
+    }
+
+    [Fact]
     public async Task Login_Post_WithValidCredentials_RedirectsToHome()
     {
         // Arrange
@@ -461,7 +484,7 @@ public class AccountControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Login_Post_WhenSessionCreationFails_StillSignsIn()
+    public async Task Login_Post_WhenSessionCreationFails_ReturnsErrorWithoutSigningIn()
     {
         // Arrange
         var model = new LoginViewModel { Email = "user@example.com", Password = "correct" };
@@ -477,11 +500,9 @@ public class AccountControllerTests : IDisposable
         IActionResult result = await this._controller.Login(model);
 
         // Assert
-        // Should still redirect to home (login succeeded, session creation is optional)
-        RedirectResult redirectResult = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/", redirectResult.Url);
+        Assert.IsType<ViewResult>(result);
 
-        await this._authService.Received(1).SignInAsync(
+        await this._authService.DidNotReceive().SignInAsync(
             Arg.Any<HttpContext>(),
             "Cookies",
             Arg.Any<ClaimsPrincipal>(),
@@ -489,7 +510,7 @@ public class AccountControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Login_Post_WhenSessionCreationFails_DoesNotIncludeSessionIdClaim()
+    public async Task Login_Post_WhenSessionCreationFails_DoesNotCreatePrincipal()
     {
         // Arrange
         var model = new LoginViewModel { Email = "user@example.com", Password = "correct" };
@@ -509,9 +530,7 @@ public class AccountControllerTests : IDisposable
         await this._controller.Login(model);
 
         // Assert
-        Assert.NotNull(capturedPrincipal);
-        Claim? sessionClaim = capturedPrincipal.FindFirst("session_id");
-        Assert.Null(sessionClaim);
+        Assert.Null(capturedPrincipal);
     }
 
     [Fact]

@@ -40,6 +40,7 @@ public class AuthorizationControllerTests
     private readonly IValidateSessionQueryHandler _validateSessionQueryHandler;
     private readonly IOpenIddictRequestService _requestService;
     private readonly IApplicationPermissionRegistryRepository _applicationPermissionRegistryRepository;
+    private readonly ICredentialSessionValidator _credentialSessionValidator;
     private readonly AuthorizationController _controller;
 
     public AuthorizationControllerTests()
@@ -50,9 +51,20 @@ public class AuthorizationControllerTests
         this._getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
         this._getGroupClaimsForUserQueryHandler = Substitute.For<IGetGroupClaimsForUserQueryHandler>();
         this._addClientSessionUseCase = Substitute.For<IAddClientSessionUseCase>();
+        this._addClientSessionUseCase.ExecuteAsync(Arg.Any<AddClientSessionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
         this._validateSessionQueryHandler = Substitute.For<IValidateSessionQueryHandler>();
+        this._validateSessionQueryHandler.HandleAsync(Arg.Any<ValidateSessionQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ValidateSessionResult(true)));
+        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>()));
+        this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>()));
         this._requestService = Substitute.For<IOpenIddictRequestService>();
         this._applicationPermissionRegistryRepository = Substitute.For<IApplicationPermissionRegistryRepository>();
+        this._credentialSessionValidator = Substitute.For<ICredentialSessionValidator>();
+        this._credentialSessionValidator.IsValidAsync(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(true));
 
         this._controller = new AuthorizationController(
             this._applicationManager,
@@ -63,7 +75,9 @@ public class AuthorizationControllerTests
             this._addClientSessionUseCase,
             this._validateSessionQueryHandler,
             this._requestService,
-            this._applicationPermissionRegistryRepository);
+            this._credentialSessionValidator,
+            this._applicationPermissionRegistryRepository,
+            tokenClaimProjectionService: null);
 
         var httpContext = new DefaultHttpContext();
         this._controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
@@ -73,8 +87,24 @@ public class AuthorizationControllerTests
     private void SetupMockServices(
         ClaimsPrincipal? principal = null,
         bool authSuccess = true,
-        AuthenticationProperties? properties = null)
+        AuthenticationProperties? properties = null,
+        bool addSession = true)
     {
+        if (principal is not null && addSession && principal.Identity is ClaimsIdentity identity
+            && !principal.HasClaim(claim => claim.Type is "sid" or "session_id"))
+        {
+            identity.AddClaim(new Claim("sid", Guid.NewGuid().ToString()));
+        }
+        if (principal is not null && addSession && principal.Identity is ClaimsIdentity subjectIdentity)
+        {
+            Claim? subject = subjectIdentity.FindFirst(OpenIddictConstants.Claims.Subject)
+                ?? subjectIdentity.FindFirst(ClaimTypes.NameIdentifier);
+            if (subject is not null && !Guid.TryParse(subject.Value, out _))
+            {
+                subjectIdentity.RemoveClaim(subject);
+                subjectIdentity.AddClaim(new Claim(OpenIddictConstants.Claims.Subject, Guid.NewGuid().ToString()));
+            }
+        }
         IAuthenticationService authService = Substitute.For<IAuthenticationService>();
         AuthenticationTicket? ticket = principal != null
             ? new AuthenticationTicket(
@@ -174,7 +204,7 @@ public class AuthorizationControllerTests
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) },
             "Cookies"));
         this._controller.ControllerContext.HttpContext.User = principal;
-        this.SetupMockServices(principal);
+        this.SetupMockServices(principal, addSession: false);
         this._controller.HttpContext.Request.Path = "/connect/authorize";
         this._controller.HttpContext.Request.QueryString = new QueryString(
             "?client_id=test-client&prompt=login&max_age=0&scope=openid&state=abc");
@@ -215,6 +245,7 @@ public class AuthorizationControllerTests
             },
             "Cookies"));
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
         // Act
         IActionResult result = await this._controller.Authorize();
@@ -245,6 +276,7 @@ public class AuthorizationControllerTests
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
         // Setup role and group claims handlers to return empty results
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
@@ -274,6 +306,7 @@ public class AuthorizationControllerTests
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
         // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(() => this._controller.Authorize());
@@ -296,6 +329,7 @@ public class AuthorizationControllerTests
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
@@ -334,6 +368,7 @@ public class AuthorizationControllerTests
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
@@ -363,6 +398,7 @@ public class AuthorizationControllerTests
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
 #pragma warning disable CA1861
         var roleDto = new RoleDto(RoleId.Create().Value, "Admin", "Admin", "Administrator role", true, true, (IReadOnlyList<string>)new[] { "read", "write" });
@@ -393,6 +429,7 @@ public class AuthorizationControllerTests
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
             "Cookies"));
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
         var roleDto = new RoleDto(
             RoleId.Create().Value,
@@ -429,6 +466,7 @@ public class AuthorizationControllerTests
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
             "Cookies"));
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
         var roleDto = new RoleDto(
             RoleId.Create().Value,
@@ -463,6 +501,7 @@ public class AuthorizationControllerTests
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
             "Cookies"));
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
         var roleDto = new RoleDto(
             RoleId.Create().Value,
@@ -513,6 +552,7 @@ public class AuthorizationControllerTests
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
             "Cookies"));
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
         var roleDto = new RoleDto(
             RoleId.Create().Value,
@@ -544,6 +584,7 @@ public class AuthorizationControllerTests
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
 
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
@@ -759,6 +800,7 @@ public class AuthorizationControllerTests
         var identity = new ClaimsIdentity(claims, "Cookies");
         var principal = new ClaimsPrincipal(identity);
         this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
         this.SetupMockServices(
             principal,
             properties: new AuthenticationProperties
@@ -1064,9 +1106,7 @@ public class AuthorizationControllerTests
 
         // Assert
         SignInResult signIn = Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
-        Assert.DoesNotContain(signIn.Principal!.Claims, claim => claim.Type is "session_id");
-
-        foreach (Claim claim in signIn.Principal.Claims.Where(claim => claim.Type.StartsWith("oi_", StringComparison.Ordinal)))
+        foreach (Claim claim in signIn.Principal!.Claims.Where(claim => claim.Type is "session_id" || claim.Type.StartsWith("oi_", StringComparison.Ordinal)))
         {
             Assert.Empty(claim.GetDestinations());
         }
@@ -1120,7 +1160,7 @@ public class AuthorizationControllerTests
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
         var sessionId = SessionId.Create();
-        Claim[] claims = new[] { new Claim("session_id", sessionId.Value.ToString()) };
+        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, Guid.NewGuid().ToString()), new Claim("session_id", sessionId.Value.ToString()) };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
@@ -1147,7 +1187,7 @@ public class AuthorizationControllerTests
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
         var sessionId = SessionId.Create();
-        Claim[] claims = new[] { new Claim("session_id", sessionId.Value.ToString()) };
+        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, Guid.NewGuid().ToString()), new Claim("session_id", sessionId.Value.ToString()) };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
@@ -1173,7 +1213,7 @@ public class AuthorizationControllerTests
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
         var sessionId = SessionId.Create();
-        Claim[] claims = new[] { new Claim("session_id", sessionId.Value.ToString()) };
+        Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, Guid.NewGuid().ToString()), new Claim("session_id", sessionId.Value.ToString()) };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         this.SetupMockServices(principal);
@@ -1191,7 +1231,7 @@ public class AuthorizationControllerTests
     }
 
     [Fact]
-    public async Task Exchange_RefreshToken_WithoutSessionClaim_ReturnsSignIn()
+    public async Task Exchange_RefreshToken_WithoutSessionClaim_ReturnsInvalidGrant()
     {
         // Arrange
         var request = new OpenIddictRequest
@@ -1204,13 +1244,16 @@ public class AuthorizationControllerTests
         Claim[] claims = new[] { new Claim(OpenIddictConstants.Claims.Subject, "user-id") };
         var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
-        this.SetupMockServices(principal);
+        this.SetupMockServices(principal, addSession: false);
 
         // Act
         IActionResult result = await this._controller.Exchange();
 
-        // Assert - should proceed without session validation
-        Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
+        // Assert - a user refresh token without a session is never valid.
+        ForbidResult forbid = Assert.IsType<ForbidResult>(result);
+        Assert.Equal(
+            OpenIddictConstants.Errors.InvalidGrant,
+            forbid.Properties!.Items[OpenIddictServerAspNetCoreConstants.Properties.Error]);
         await this._validateSessionQueryHandler.DidNotReceive().HandleAsync(Arg.Any<ValidateSessionQuery>(), Arg.Any<CancellationToken>());
     }
 
@@ -1260,7 +1303,7 @@ public class AuthorizationControllerTests
         // Assert
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result);
         Dictionary<string, object> claims_result = Assert.IsType<Dictionary<string, object>>(ok.Value);
-        Assert.Equal("user-123", claims_result[OpenIddictConstants.Claims.Subject]);
+        Assert.Equal(principal.FindFirstValue(OpenIddictConstants.Claims.Subject), claims_result[OpenIddictConstants.Claims.Subject]);
     }
 
     [Fact]

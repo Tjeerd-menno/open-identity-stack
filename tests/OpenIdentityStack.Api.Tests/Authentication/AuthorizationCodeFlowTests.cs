@@ -495,7 +495,7 @@ public sealed class AuthorizationCodeFlowTests
     }
 
     [Fact]
-    public async Task UserInfo_WithValidServiceAccountToken_ReturnsUserInfo()
+    public async Task UserInfo_WithServiceAccountToken_ReturnsUnauthorized()
     {
         // Arrange
         string clientId = $"userinfo-client-{Guid.NewGuid():N}";
@@ -506,9 +506,7 @@ public sealed class AuthorizationCodeFlowTests
         HttpResponseMessage response = await client.GetAsync("/connect/userinfo");
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        string content = await response.Content.ReadAsStringAsync();
-        content.ShouldContain("sub");
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     #endregion

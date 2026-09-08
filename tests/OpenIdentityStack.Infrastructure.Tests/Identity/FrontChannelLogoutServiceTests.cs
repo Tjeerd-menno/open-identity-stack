@@ -92,6 +92,27 @@ public sealed class FrontChannelLogoutServiceTests
     }
 
     [Fact]
+    public void GenerateLogoutFrames_UsesConfiguredIssuerAndPreservesUriFragment()
+    {
+        // Arrange
+        var service = new FrontChannelLogoutService(this._logger, "https://identity.example.test");
+        var sessionId = SessionId.Create();
+        var clients = new List<ClientSessionInfo>
+        {
+            new("client-1", "https://client1.com/logout?return=true#complete", null)
+        };
+
+        // Act
+        IReadOnlyList<FrontChannelLogoutFrame> frames = service.GenerateLogoutFrames(sessionId, clients);
+
+        // Assert
+        frames.ShouldHaveSingleItem();
+        frames[0].IframeUrl.ShouldContain("iss=https%3A%2F%2Fidentity.example.test");
+        frames[0].IframeUrl.ShouldEndWith("#complete");
+        frames[0].IframeUrl.ShouldContain($"sid={sessionId.Value}");
+    }
+
+    [Fact]
     public void GenerateLogoutFrames_UriWithExistingQueryParams_UsesAmpersand()
     {
         // Arrange

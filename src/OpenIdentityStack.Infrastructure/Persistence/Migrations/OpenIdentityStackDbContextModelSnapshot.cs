@@ -17,7 +17,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.10")
+                .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -832,6 +832,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
+                        .IsConcurrencyToken()
                         .HasColumnType("integer");
 
                     b.Property<string>("UserAgent")
@@ -841,6 +842,10 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
+
+                    b.Property<long>("UserSecurityVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
@@ -984,6 +989,10 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.Property<string>("Profile")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
+
+                    b.Property<long>("SecurityVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -1246,6 +1255,18 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                                 .HasColumnType("character varying(2048)");
 
                             b1.Property<DateTimeOffset>("LastAccessAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<int>("LogoutAttemptCount")
+                                .HasColumnType("integer");
+
+                            b1.Property<DateTimeOffset?>("LogoutCompletedAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<int>("LogoutStatus")
+                                .HasColumnType("integer");
+
+                            b1.Property<DateTimeOffset?>("NextLogoutAttemptAt")
                                 .HasColumnType("timestamp with time zone");
 
                             b1.Property<Guid>("UserSessionId")
