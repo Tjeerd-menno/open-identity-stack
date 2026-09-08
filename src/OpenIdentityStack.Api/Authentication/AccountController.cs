@@ -407,21 +407,62 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
-        string? sessionId = this.User.FindFirstValue("sid") ?? this.User.FindFirstValue("session_id");
-        string actorId = this.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "interactive-user";
-        if (sessionId is not null &&
-            (!Guid.TryParse(sessionId, out Guid parsedSessionId)
-             || (await this.credentialTerminationService.TerminateSessionAsync(
-                 new SessionId(parsedSessionId), actorId, "Interactive logout", isLogout: true)).IsFailure))
+        try
         {
-            return this.StatusCode(StatusCodes.Status500InternalServerError);
-        }
+            string? sessionId = this.User.FindFirstValue("sid") ?? this.User.FindFirstValue("session_id");
+            string actorId = this.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "interactive-user";
+            if (sessionId is not null)
+            {
+                if (!Guid.TryParse(sessionId, out Guid parsedSessionId))
+                {
+                    return this.StatusCode(StatusCodes.Status500InternalServerError);
+                }
 
-        await this.HttpContext.SignOutAsync("Cookies");
-        this.HttpContext.Response.Cookies.Delete(
-            SessionManagementDefaults.SessionCookieName,
-            SessionManagementDefaults.CreateSessionCookieOptions());
-        return this.Redirect("/");
+                try
+                {
+                    Result terminationResult = await this.credentialTerminationService.TerminateSessionAsync(
+                        new SessionId(parsedSessionId), actorId, "Interactive logout", isLogout: true);
+                    if (terminationResult.IsFailure)
+                    {
+                        return this.StatusCode(StatusCodes.Status500InternalServerError);
+                    }
+                }
+                catch (Exception)
+                {
+                    try
+                    {
+                        await this.audit.LogAsync(
+                            "authentication",
+                            "Authentication.InteractiveLogoutFailed",
+                            "Session",
+                            "interactive",
+                            "Interactive session termination failed.",
+                            this.HttpContext.RequestAborted);
+                    }
+                    catch (Exception)
+                    {
+                        // Cleanup must still continue when durable audit logging is unavailable.
+                    }
+
+                    return this.StatusCode(StatusCodes.Status500InternalServerError);
+                }
+            }
+
+            return this.Redirect("/");
+        }
+        finally
+        {
+            try
+            {
+                await this.HttpContext.SignOutAsync("Cookies");
+            }
+            finally
+            {
+                this.HttpContext.Response.Cookies.Delete(
+                    SessionManagementDefaults.SessionCookieName,
+                    SessionManagementDefaults.CreateSessionCookieOptions());
+            }
+        }
     }
 
     /// <summary>

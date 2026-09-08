@@ -130,10 +130,16 @@ public sealed class LogoutTokenFactory : ILogoutTokenFactory
         HttpRequest? request = this.httpContextAccessor.HttpContext?.Request;
         if (request is not null && request.Host.HasValue)
         {
+            string pathBase = request.PathBase.ToString();
+            if (!pathBase.EndsWith('/'))
+            {
+                pathBase += "/";
+            }
+
             return new UriBuilder(request.Scheme, request.Host.Host)
             {
                 Port = request.Host.Port ?? -1,
-                Path = request.PathBase.ToString(),
+                Path = pathBase,
             }.Uri.AbsoluteUri;
         }
 

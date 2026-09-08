@@ -139,6 +139,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
         IReadOnlyList<string>? allowedScopes = null,
         IReadOnlyList<string>? allowedGrantTypes = null,
         IReadOnlyList<string>? redirectUris = null,
+        IReadOnlyList<string>? postLogoutRedirectUris = null,
         CancellationToken cancellationToken = default)
     {
         using IServiceScope scope = _serviceProvider.CreateScope();
@@ -170,7 +171,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
                 resolvedGrantTypes,
                 resolvedScopes,
                 redirectUris ?? [],
-                [],
+                postLogoutRedirectUris ?? [],
                 requirePkce: false,
                 requireConsent: false,
                 dateTimeProvider);
@@ -231,6 +232,15 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
             foreach (string redirectUri in redirectUris)
             {
                 descriptor.RedirectUris.Add(new Uri(redirectUri));
+            }
+        }
+
+        if (postLogoutRedirectUris is { Count: > 0 })
+        {
+            descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.EndSession);
+            foreach (string postLogoutRedirectUri in postLogoutRedirectUris)
+            {
+                descriptor.PostLogoutRedirectUris.Add(new Uri(postLogoutRedirectUri));
             }
         }
 

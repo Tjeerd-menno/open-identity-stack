@@ -1,5 +1,6 @@
 
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using OpenIddict.Abstractions;
@@ -19,6 +20,7 @@ public sealed class LogoutControllerTests : IDisposable
     private readonly ISessionRepository _sessionRepository;
     private readonly ILogoutNotifier _logoutNotifier;
     private readonly IOpenIddictRequestService _requestService;
+    private readonly IAntiforgery _antiforgery;
     private readonly LogoutController _controller;
 
     public LogoutControllerTests()
@@ -28,21 +30,60 @@ public sealed class LogoutControllerTests : IDisposable
         this._sessionRepository = Substitute.For<ISessionRepository>();
         this._logoutNotifier = Substitute.For<ILogoutNotifier>();
         this._requestService = Substitute.For<IOpenIddictRequestService>();
+        this._antiforgery = Substitute.For<IAntiforgery>();
+        this._antiforgery.ValidateRequestAsync(Arg.Any<HttpContext>()).Returns(Task.CompletedTask);
 
         this._controller = new LogoutController(
             this._processLogoutUseCase,
             this._frontChannelLogoutService,
             this._sessionRepository,
             this._logoutNotifier,
-            this._requestService);
+            this._requestService,
+            this._antiforgery);
 
+        DefaultHttpContext httpContext = HttpContextTestHelper.CreateWithAuthenticationServices();
+        httpContext.Request.Method = HttpMethods.Post;
+        httpContext.Request.ContentType = "application/x-www-form-urlencoded";
+        httpContext.Request.Form = new FormCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+        {
+            ["confirm_logout"] = "true"
+        });
         this._controller.ControllerContext = new ControllerContext
         {
-            HttpContext = HttpContextTestHelper.CreateWithAuthenticationServices()
+            HttpContext = httpContext
         };
         this._controller.TempData = new TempDataDictionary(
             this._controller.HttpContext,
             Substitute.For<ITempDataProvider>());
+    }
+
+    [Fact]
+    public async Task Logout_ShouldRenderConfirmation_ForProtocolPostWithoutConfirmationMarker()
+    {
+        // Arrange
+        this._controller.HttpContext.Request.Form = new FormCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+        {
+            ["client_id"] = "client"
+        });
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest
+        {
+            ClientId = "client",
+            PostLogoutRedirectUri = "https://example.com/logout",
+            State = "protocol-state"
+        });
+
+        // Act
+        IActionResult result = await this._controller.Logout();
+
+        // Assert
+        ViewResult view = result.ShouldBeOfType<ViewResult>();
+        view.ViewName.ShouldBe("~/Authentication/Views/LogoutConfirmation.cshtml");
+        view.ViewData["ClientId"].ShouldBe("client");
+        view.ViewData["PostLogoutRedirectUri"].ShouldBe("https://example.com/logout");
+        view.ViewData["State"].ShouldBe("protocol-state");
+        await this._antiforgery.DidNotReceive().ValidateRequestAsync(Arg.Any<HttpContext>());
+        await this._processLogoutUseCase.DidNotReceive().ExecuteAsync(
+            Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

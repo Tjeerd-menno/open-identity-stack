@@ -242,8 +242,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IClientLogoutMetadataResolver, OpenIddictClientLogoutMetadataResolver>();
         services.AddScoped<IFrontChannelLogoutService>(provider => new FrontChannelLogoutService(
             provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<FrontChannelLogoutService>>(),
-            configuration["OpenIddict:Issuer"]
-                ?? throw new InvalidOperationException("OpenIddict:Issuer is required for front-channel logout.")));
+            provider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>(),
+            configuration["OpenIddict:Issuer"]));
         services.AddHostedService<PendingLogoutNotificationWorker>();
     }
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
@@ -28,19 +29,22 @@ public sealed class LogoutController : Controller
     private readonly ISessionRepository sessionRepository;
     private readonly ILogoutNotifier logoutNotifier;
     private readonly IOpenIddictRequestService requestService;
+    private readonly IAntiforgery antiforgery;
 
     public LogoutController(
         IProcessLogoutUseCase processLogoutUseCase,
         IFrontChannelLogoutService frontChannelLogoutService,
         ISessionRepository sessionRepository,
         ILogoutNotifier logoutNotifier,
-        IOpenIddictRequestService requestService)
+        IOpenIddictRequestService requestService,
+        IAntiforgery antiforgery)
     {
         this.processLogoutUseCase = processLogoutUseCase;
         this.frontChannelLogoutService = frontChannelLogoutService;
         this.sessionRepository = sessionRepository;
         this.logoutNotifier = logoutNotifier;
         this.requestService = requestService;
+        this.antiforgery = antiforgery;
     }
 
     /// <summary>
@@ -49,23 +53,36 @@ public sealed class LogoutController : Controller
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Logout response with optional front-channel logout iframes.</returns>
-    [HttpGet("logout")]
+    [AcceptVerbs("GET", "POST", Route = "logout")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(LogoutResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> Logout(
         CancellationToken cancellationToken = default)
     {
         OpenIddictRequest request = this.requestService.GetRequest(this.HttpContext) ?? new OpenIddictRequest();
-        if (HttpMethods.IsGet(this.HttpContext.Request.Method))
+        if (HttpMethods.IsGet(this.HttpContext.Request.Method)
+            || (HttpMethods.IsPost(this.HttpContext.Request.Method)
+                && !await this.IsLogoutConfirmationRequestAsync(cancellationToken)))
         {
-            this.ViewData["IdTokenHint"] = request.IdTokenHint;
-            this.ViewData["PostLogoutRedirectUri"] = request.PostLogoutRedirectUri;
-            this.ViewData["State"] = request.State;
-            this.ViewData["ClientId"] = request.ClientId;
-            return this.View("~/Authentication/Views/LogoutConfirmation.cshtml");
+            return this.RenderLogoutConfirmation(request);
         }
 
+        try
+        {
+            await this.antiforgery.ValidateRequestAsync(this.HttpContext);
+        }
+        catch (AntiforgeryValidationException)
+        {
+            return this.BadRequest();
+        }
 
+        return await this.ProcessLogoutAsync(request, cancellationToken);
+    }
+
+    private async Task<IActionResult> ProcessLogoutAsync(
+        OpenIddictRequest request,
+        CancellationToken cancellationToken)
+    {
         string? postLogoutRedirectUri = request.PostLogoutRedirectUri;
         string? state = request.State;
 
@@ -156,11 +173,24 @@ public sealed class LogoutController : Controller
         return this.Ok(response);
     }
 
-    [HttpPost("logout")]
-    [ValidateAntiForgeryToken]
-    public Task<IActionResult> ConfirmLogout(CancellationToken cancellationToken = default)
+    private ViewResult RenderLogoutConfirmation(OpenIddictRequest request)
     {
-        return this.Logout(cancellationToken);
+        this.ViewData["IdTokenHint"] = request.IdTokenHint;
+        this.ViewData["PostLogoutRedirectUri"] = request.PostLogoutRedirectUri;
+        this.ViewData["State"] = request.State;
+        this.ViewData["ClientId"] = request.ClientId;
+        return this.View("~/Authentication/Views/LogoutConfirmation.cshtml");
+    }
+
+    private async Task<bool> IsLogoutConfirmationRequestAsync(CancellationToken cancellationToken)
+    {
+        if (!this.HttpContext.Request.HasFormContentType)
+        {
+            return false;
+        }
+
+        IFormCollection form = await this.HttpContext.Request.ReadFormAsync(cancellationToken);
+        return string.Equals(form["confirm_logout"], "true", StringComparison.Ordinal);
     }
 
     /// <summary>

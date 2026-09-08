@@ -887,6 +887,56 @@ public class AccountControllerTests : IDisposable
         Assert.Equal("/", redirectResult.Url);
     }
 
+    [Fact]
+    public async Task Logout_WhenDurableTerminationReturnsFailure_ClearsCookiesAndReturnsServerError()
+    {
+        this.SetAuthenticatedUserWithSessionId(Guid.NewGuid().ToString());
+        this._credentialTerminationService.TerminateSessionAsync(
+                Arg.Any<SessionId>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(DomainError.Failure("Session.TerminationFailed", "The session could not be terminated."));
+
+        IActionResult result = await this._controller.Logout();
+
+        StatusCodeResult status = result.ShouldBeOfType<StatusCodeResult>();
+        status.StatusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+        await this._authService.Received(1).SignOutAsync(
+            Arg.Any<HttpContext>(), "Cookies", Arg.Any<AuthenticationProperties>());
+        this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=");
+    }
+
+    [Fact]
+    public async Task Logout_WhenDurableTerminationThrows_ClearsCookiesAndReturnsServerError()
+    {
+        this.SetAuthenticatedUserWithSessionId(Guid.NewGuid().ToString());
+        this._credentialTerminationService.TerminateSessionAsync(
+                Arg.Any<SessionId>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result>(new InvalidOperationException("persistence failure")));
+
+        IActionResult result = await this._controller.Logout();
+
+        StatusCodeResult status = result.ShouldBeOfType<StatusCodeResult>();
+        status.StatusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+        await this._authService.Received(1).SignOutAsync(
+            Arg.Any<HttpContext>(), "Cookies", Arg.Any<AuthenticationProperties>());
+        this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=");
+    }
+
+    [Fact]
+    public async Task Logout_WhenSessionIdIsMalformed_ClearsCookiesAndReturnsServerError()
+    {
+        this.SetAuthenticatedUserWithSessionId("not-a-guid");
+
+        IActionResult result = await this._controller.Logout();
+
+        StatusCodeResult status = result.ShouldBeOfType<StatusCodeResult>();
+        status.StatusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+        await this._credentialTerminationService.DidNotReceive().TerminateSessionAsync(
+            Arg.Any<SessionId>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        await this._authService.Received(1).SignOutAsync(
+            Arg.Any<HttpContext>(), "Cookies", Arg.Any<AuthenticationProperties>());
+        this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=");
+    }
+
     #endregion
 
     #region AccessDenied Tests
@@ -1058,5 +1108,13 @@ public class AccountControllerTests : IDisposable
         Type valueType = value.GetType();
         object? canAccess = valueType.GetProperty("canAccess")?.GetValue(value);
         return Assert.IsType<bool>(canAccess);
+    }
+
+    private void SetAuthenticatedUserWithSessionId(string sessionId)
+    {
+        this._controller.HttpContext.User = new ClaimsPrincipal(
+            new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()), new Claim("sid", sessionId)],
+                "Cookies"));
     }
 }

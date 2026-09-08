@@ -393,7 +393,8 @@ public sealed class AuthEndpointLatencyTests
             frontChannelLogoutService,
             sessionRepository,
             logoutNotifier,
-            requestService
+            requestService,
+            Substitute.For<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()
         );
 
         DefaultHttpContext httpContext = Helpers.HttpContextTestHelper.CreateWithAuthenticationServices();

@@ -23,7 +23,9 @@ Register RP endpoints as string values in the OpenIddict application's `Properti
 
 Only trusted client provisioning should write these properties. The resolver accepts absolute HTTP(S) URIs and normal authorization captures them in the participating client session. This change does not add management-UI fields for these properties. Existing client sessions need another authorization visit to capture newly configured endpoints.
 
-Browser OIDC logout displays an antiforgery-protected confirmation before changing state. Front-channel logout renders actual frames with `sid` and the configured issuer. Only the logout page receives the required RP frame sources; the session-check iframe receives its embedding exception, while other pages retain their frame protection.
+Browser OIDC logout accepts GET and protocol POST requests, displaying an antiforgery-protected confirmation before changing state. The confirmation preserves the protocol parameters and returns to the same OpenIddict-validated endpoint. Front-channel logout renders actual frames with `sid` and the configured issuer, falling back to the current request's canonical base URI when no issuer is configured. Only the logout page receives the required RP frame sources; the session-check iframe receives its embedding exception, while other pages retain their frame protection.
+
+Local account logout clears the authentication and session-monitoring cookies even when durable termination fails. Such failures return a generic server error rather than reporting successful revocation; browser cleanup alone does not guarantee that retained tokens were terminated.
 
 Back-channel notification work is durable. A hosted worker polls every minute, processes up to 100 due sessions, and backs off failed deliveries from two minutes to a maximum interval of one hour. Pending work survives request cancellation and process restart. Completed work is excluded from retries. A crash between an RP accepting a notification and its completion being saved can cause a duplicate; receivers must support idempotent logout. Delivery is at least once, with no fixed deadline for an unreachable RP.
 
@@ -49,14 +51,14 @@ The merge also preserves main's user credential revisions, global credential bou
 
 ## Verification — 8 September 2026
 
-The solution build passed with zero errors and the existing `ASPIRE010` CLI-bundle warning. After merging main at `ed5f16a2`, 2,432 tests in the relevant suites passed. Nine PostgreSQL-specific infrastructure tests were skipped because this run used the local SQLite test environment:
+The solution build passed with zero errors and the existing `ASPIRE010` CLI-bundle warning. After merging main at `ed5f16a2` and addressing the PR review, 2,441 tests in the relevant suites passed. Nine PostgreSQL-specific infrastructure tests were skipped because this run used the local SQLite test environment:
 
 | Suite | Passed |
 | --- | ---: |
 | Domain | 507 |
 | Application | 577 |
-| Infrastructure | 561 |
-| API integration and controller tests | 554 |
+| Infrastructure | 564 |
+| API integration and controller tests | 560 |
 | API unit tests | 123 |
 | Public contracts | 104 |
 | Architecture | 6 |

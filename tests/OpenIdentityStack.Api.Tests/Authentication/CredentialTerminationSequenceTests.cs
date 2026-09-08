@@ -37,7 +37,8 @@ public sealed class CredentialTerminationSequenceTests(AppHostFixture fixture)
         await fixture.CreateServiceAccountAsync(clientId, clientSecret,
             allowedScopes: ["openid", "offline_access"],
             allowedGrantTypes: ["authorization_code", "refresh_token"],
-            redirectUris: [redirectUri]);
+            redirectUris: [redirectUri],
+            postLogoutRedirectUris: [redirectUri]);
 
         using HttpClient browser = fixture.CreateClient(allowAutoRedirect: false);
         string loginPage = await browser.GetStringAsync("/Account/Login");
@@ -85,13 +86,36 @@ public sealed class CredentialTerminationSequenceTests(AppHostFixture fixture)
         string? confirmationToken = null;
         if (operation == "oidc-logout")
         {
-            using HttpResponseMessage confirmation = await browser.GetAsync("/connect/logout");
+            using HttpResponseMessage confirmation = await browser.PostAsync("/connect/logout", new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = clientId,
+                ["post_logout_redirect_uri"] = redirectUri,
+                ["state"] = "protocol-post"
+            }));
             confirmation.StatusCode.ShouldBe(HttpStatusCode.OK);
-            confirmationToken = ExtractAntiForgeryToken(await confirmation.Content.ReadAsStringAsync());
+            string confirmationPage = await confirmation.Content.ReadAsStringAsync();
+            confirmationPage.ShouldContain("name=\"client_id\" value=\"" + clientId + "\"");
+            confirmationPage.ShouldContain("name=\"post_logout_redirect_uri\" value=\"" + redirectUri + "\"");
+            confirmationPage.ShouldContain("name=\"state\" value=\"protocol-post\"");
+            confirmationPage.ShouldContain("name=\"confirm_logout\" value=\"true\"");
+            confirmationToken = ExtractAntiForgeryToken(confirmationPage);
             using HttpResponseMessage stillActive = await bearer.GetAsync("/connect/userinfo");
             stillActive.StatusCode.ShouldBe(HttpStatusCode.OK);
-            using HttpResponseMessage csrf = await browser.PostAsync("/connect/logout", new FormUrlEncodedContent([]));
+            using HttpResponseMessage csrf = await browser.PostAsync("/connect/logout", new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = clientId,
+                ["post_logout_redirect_uri"] = redirectUri,
+                ["state"] = "protocol-post",
+                ["confirm_logout"] = "true"
+            }));
             csrf.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+            using HttpResponseMessage rejectedRedirect = await browser.PostAsync("/connect/logout", new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = clientId,
+                ["post_logout_redirect_uri"] = "https://localhost/unregistered-logout",
+                ["state"] = "protocol-post"
+            }));
+            rejectedRedirect.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         }
         if (operation == "delete-session")
         {
@@ -112,6 +136,10 @@ public sealed class CredentialTerminationSequenceTests(AppHostFixture fixture)
                 "disable" => await admin.PostAsJsonAsync($"/api/admin/users/{userId}/disable", new { Reason = "Credential termination test" }),
                 "oidc-logout" => await browser.PostAsync("/connect/logout", new FormUrlEncodedContent(new Dictionary<string, string>
                 {
+                    ["client_id"] = clientId,
+                    ["post_logout_redirect_uri"] = redirectUri,
+                    ["state"] = "protocol-post",
+                    ["confirm_logout"] = "true",
                     ["__RequestVerificationToken"] = confirmationToken!
                 })),
                 "form-logout" => await browser.PostAsync("/Account/Logout", new FormUrlEncodedContent(new Dictionary<string, string>
@@ -121,6 +149,11 @@ public sealed class CredentialTerminationSequenceTests(AppHostFixture fixture)
                 _ => throw new InvalidOperationException("Unknown termination action.")
             };
             (terminated.IsSuccessStatusCode || terminated.StatusCode == HttpStatusCode.Redirect).ShouldBeTrue();
+            if (operation == "oidc-logout")
+            {
+                terminated.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+                terminated.Headers.Location!.ToString().ShouldBe(redirectUri + "?state=protocol-post");
+            }
         }
 
         if (operation == "disable")

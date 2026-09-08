@@ -35,7 +35,8 @@ public class FrontChannelLogoutTests : IDisposable
             this._frontChannelLogoutService,
             this._sessionRepository,
             this._logoutNotifier,
-            this._requestService
+            this._requestService,
+            Substitute.For<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()
         );
 
         DefaultHttpContext httpContext = HttpContextTestHelper.CreateWithAuthenticationServices();

@@ -177,6 +177,20 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void AddInfrastructure_WithoutConfiguredIssuer_ResolvesFrontChannelLogoutService()
+    {
+        var services = new ServiceCollection();
+
+        services.AddInfrastructure("Data Source=:memory:", BuildTestConfiguration(), "Testing");
+        using ServiceProvider provider = services.BuildServiceProvider();
+        using IServiceScope scope = provider.CreateScope();
+
+        IFrontChannelLogoutService service = scope.ServiceProvider.GetRequiredService<IFrontChannelLogoutService>();
+
+        service.ShouldBeOfType<FrontChannelLogoutService>();
+    }
+
+    [Fact]
     public void AddInfrastructureWithAspire_ThrowsWhenConnectionStringMissing()
     {
         var services = new ServiceCollection();
