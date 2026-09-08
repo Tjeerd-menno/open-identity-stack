@@ -55,21 +55,8 @@ public sealed class SessionsEndpointWorkflowTests(AppHostFixture fixture) : IAsy
         return await this.Client.SendAsync(request);
     }
 
-    private async Task<Guid> CreateUserAsync()
-    {
-        var request = new
-        {
-            Email = $"session-{Guid.NewGuid():N}@example.com",
-            DisplayName = "Session User",
-            Password = "TestPassword123!"
-        };
-
-        HttpResponseMessage response = await this.SendRequestAsync(HttpMethod.Post, "/api/admin/users", request);
-        response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        JsonNode? json = await response.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonNode>();
-        return json?["id"]?.GetValue<Guid>() ?? throw new InvalidOperationException("User ID not returned.");
-    }
-
+    private Task<Guid> CreateUserAsync() =>
+        this._fixture.CreateTestUserAsync($"session-{Guid.NewGuid():N}@example.com", "Session User", "TestPassword123!");
     private async Task<Guid> CreateSessionAsync(Guid userId)
     {
         return await this._fixture.CreateSessionAsync(userId);
@@ -210,7 +197,7 @@ public sealed class SessionsEndpointWorkflowTests(AppHostFixture fixture) : IAsy
     }
 
     [Fact]
-    public async Task RevokeSession_WithAlreadyRevokedSession_Returns409Conflict()
+    public async Task RevokeSession_WithAlreadyRevokedSession_Returns204NoContent()
     {
         // Arrange
         Guid userId = await this.CreateUserAsync();
@@ -222,7 +209,7 @@ public sealed class SessionsEndpointWorkflowTests(AppHostFixture fixture) : IAsy
         HttpResponseMessage response = await this.SendRequestAsync(HttpMethod.Delete, $"/api/admin/sessions/{sessionId}");
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
     }
 
     #endregion

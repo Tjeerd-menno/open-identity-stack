@@ -24,16 +24,27 @@ public static class SecurityHeadersExtensions
         return app.Use(async (context, next) =>
         {
             // Content Security Policy - restrict resources to same origin
+            bool isSessionCheckIframe = context.Request.Path.Equals("/connect/check_session", StringComparison.OrdinalIgnoreCase);
             if (!string.IsNullOrEmpty(options.ContentSecurityPolicy))
             {
-                context.Response.Headers["Content-Security-Policy"] = options.ContentSecurityPolicy;
+                string policy = options.ContentSecurityPolicy;
+                if (isSessionCheckIframe)
+                {
+                    policy = string.Join("; ", policy.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Where(directive => !directive.Split(' ', 2)[0].Equals("frame-ancestors", StringComparison.OrdinalIgnoreCase)));
+                    policy = $"{policy}; frame-ancestors *;";
+                }
+                context.Response.Headers["Content-Security-Policy"] = policy;
             }
 
             // Prevent MIME type sniffing
             context.Response.Headers["X-Content-Type-Options"] = "nosniff";
 
             // Prevent clickjacking
-            context.Response.Headers["X-Frame-Options"] = options.FrameOptions;
+            if (!isSessionCheckIframe)
+            {
+                context.Response.Headers["X-Frame-Options"] = options.FrameOptions;
+            }
 
             // Referrer policy
             context.Response.Headers["Referrer-Policy"] = options.ReferrerPolicy;

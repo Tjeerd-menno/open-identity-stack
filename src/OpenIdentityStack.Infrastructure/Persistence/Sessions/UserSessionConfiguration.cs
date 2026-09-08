@@ -29,6 +29,10 @@ public sealed class UserSessionConfiguration : IEntityTypeConfiguration<UserSess
                 value => new UserId(value))
             .IsRequired();
 
+        builder.Property(s => s.UserSecurityVersion)
+            .IsRequired()
+            .IsConcurrencyToken();
+
         builder.Property(s => s.IpAddress)
             .HasMaxLength(45) // IPv6 max length
             .IsRequired();
@@ -39,7 +43,8 @@ public sealed class UserSessionConfiguration : IEntityTypeConfiguration<UserSess
 
         builder.Property(s => s.Status)
             .HasConversion<int>()
-            .IsRequired();
+            .IsRequired()
+            .IsConcurrencyToken();
 
         builder.Property(s => s.LastActivityAt)
             .IsRequired();
@@ -80,6 +85,11 @@ public sealed class UserSessionConfiguration : IEntityTypeConfiguration<UserSess
 
             clientBuilder.Property(c => c.BackChannelLogoutUri)
                 .HasMaxLength(2048);
+
+            clientBuilder.Property(c => c.LogoutStatus).HasConversion<int>().IsRequired();
+            clientBuilder.Property(c => c.LogoutAttemptCount).IsRequired();
+            clientBuilder.Property(c => c.NextLogoutAttemptAt);
+            clientBuilder.Property(c => c.LogoutCompletedAt);
 
             clientBuilder.HasIndex("UserSessionId", "ClientId")
                 .IsUnique();

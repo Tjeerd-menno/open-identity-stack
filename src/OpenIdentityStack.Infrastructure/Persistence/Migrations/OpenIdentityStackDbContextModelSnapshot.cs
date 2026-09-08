@@ -956,6 +956,7 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
+                        .IsConcurrencyToken()
                         .HasColumnType("integer");
 
                     b.Property<string>("UserAgent")
@@ -965,6 +966,10 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
+
+                    b.Property<long>("UserSecurityVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
@@ -1116,6 +1121,10 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                     b.Property<string>("Profile")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
+
+                    b.Property<long>("SecurityVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
 
                     b.Property<int>("Status")
                         .IsConcurrencyToken()
@@ -1528,6 +1537,18 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
                                 .HasColumnType("character varying(2048)");
 
                             b1.Property<DateTimeOffset>("LastAccessAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<int>("LogoutAttemptCount")
+                                .HasColumnType("integer");
+
+                            b1.Property<DateTimeOffset?>("LogoutCompletedAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<int>("LogoutStatus")
+                                .HasColumnType("integer");
+
+                            b1.Property<DateTimeOffset?>("NextLogoutAttemptAt")
                                 .HasColumnType("timestamp with time zone");
 
                             b1.Property<Guid>("UserSessionId")

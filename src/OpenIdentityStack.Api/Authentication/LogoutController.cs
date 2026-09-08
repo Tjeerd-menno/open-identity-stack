@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using OpenIddict.Abstractions;
@@ -20,26 +22,29 @@ namespace OpenIdentityStack.Api.Authentication;
 /// </summary>
 [ApiController]
 [Route("connect")]
-public sealed class LogoutController : ControllerBase
+public sealed class LogoutController : Controller
 {
     private readonly IProcessLogoutUseCase processLogoutUseCase;
     private readonly IFrontChannelLogoutService frontChannelLogoutService;
     private readonly ISessionRepository sessionRepository;
     private readonly ILogoutNotifier logoutNotifier;
     private readonly IOpenIddictRequestService requestService;
+    private readonly IAntiforgery antiforgery;
 
     public LogoutController(
         IProcessLogoutUseCase processLogoutUseCase,
         IFrontChannelLogoutService frontChannelLogoutService,
         ISessionRepository sessionRepository,
         ILogoutNotifier logoutNotifier,
-        IOpenIddictRequestService requestService)
+        IOpenIddictRequestService requestService,
+        IAntiforgery antiforgery)
     {
         this.processLogoutUseCase = processLogoutUseCase;
         this.frontChannelLogoutService = frontChannelLogoutService;
         this.sessionRepository = sessionRepository;
         this.logoutNotifier = logoutNotifier;
         this.requestService = requestService;
+        this.antiforgery = antiforgery;
     }
 
     /// <summary>
@@ -48,16 +53,36 @@ public sealed class LogoutController : ControllerBase
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Logout response with optional front-channel logout iframes.</returns>
-    [HttpGet("logout")]
-    [HttpPost("logout")]
+    [AcceptVerbs("GET", "POST", Route = "logout")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(LogoutResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> Logout(
         CancellationToken cancellationToken = default)
     {
-        OpenIddictRequest request = this.requestService.GetRequest(this.HttpContext) ??
-            throw new InvalidOperationException("The OpenID Connect request cannot be retrieved.");
+        OpenIddictRequest request = this.requestService.GetRequest(this.HttpContext) ?? new OpenIddictRequest();
+        if (HttpMethods.IsGet(this.HttpContext.Request.Method)
+            || (HttpMethods.IsPost(this.HttpContext.Request.Method)
+                && !await this.IsLogoutConfirmationRequestAsync(cancellationToken)))
+        {
+            return this.RenderLogoutConfirmation(request);
+        }
 
+        try
+        {
+            await this.antiforgery.ValidateRequestAsync(this.HttpContext);
+        }
+        catch (AntiforgeryValidationException)
+        {
+            return this.BadRequest();
+        }
+
+        return await this.ProcessLogoutAsync(request, cancellationToken);
+    }
+
+    private async Task<IActionResult> ProcessLogoutAsync(
+        OpenIddictRequest request,
+        CancellationToken cancellationToken)
+    {
         string? postLogoutRedirectUri = request.PostLogoutRedirectUri;
         string? state = request.State;
 
@@ -91,7 +116,11 @@ public sealed class LogoutController : ControllerBase
         string? initiatingClientId = null;
 
         // Process the logout
-        Result<ProcessLogoutResult> result = await this.processLogoutUseCase.ExecuteAsync(sessionId.Value, initiatingClientId, cancellationToken);
+        string actorId = this.HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? this.HttpContext.User?.FindFirst("sub")?.Value
+            ?? this.HttpContext.User?.Identity?.Name
+            ?? "system";
+        Result<ProcessLogoutResult> result = await this.processLogoutUseCase.ExecuteAsync(sessionId.Value, initiatingClientId, actorId, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -113,15 +142,26 @@ public sealed class LogoutController : ControllerBase
         // which can render the logout view with iframes
         if (frontChannelFrames.Count > 0)
         {
-            // For front-channel logout, redirect to a dedicated page that handles iframes
-            // Since the cookies are already cleared, clients will be notified through iframes
-            // For now, redirect immediately - front-channel logout is handled asynchronously
-            if (!string.IsNullOrEmpty(postLogoutRedirectUri))
+            string[] frameOrigins = result.Value.FrontChannelLogoutUrls
+                .Select(url => Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ? uri.GetLeftPart(UriPartial.Authority) : null)
+                .Where(origin => origin is not null)
+                .Cast<string>()
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (frameOrigins.Length > 0)
             {
-                return this.Redirect(AppendStateParameter(postLogoutRedirectUri, state));
+                string existingPolicy = this.HttpContext.Response.Headers["Content-Security-Policy"].ToString();
+                string framePolicy = $"frame-src 'self' {string.Join(" ", frameOrigins)};";
+                string retainedPolicy = string.Join("; ", existingPolicy.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(directive => !directive.Split(' ', 2)[0].Equals("frame-src", StringComparison.OrdinalIgnoreCase)));
+                this.HttpContext.Response.Headers["Content-Security-Policy"] = retainedPolicy.Length > 0
+                    ? $"{retainedPolicy}; {framePolicy}"
+                    : framePolicy;
             }
-
-            return this.Ok(response);
+            this.ViewData["PostLogoutRedirectUri"] = postLogoutRedirectUri;
+            this.ViewData["FrontChannelLogoutFrames"] = result.Value.FrontChannelLogoutUrls;
+            this.ViewData["State"] = state;
+            return this.View("~/Authentication/Views/Logout.cshtml");
         }
 
         // No front-channel logout needed, redirect immediately
@@ -131,6 +171,26 @@ public sealed class LogoutController : ControllerBase
         }
 
         return this.Ok(response);
+    }
+
+    private ViewResult RenderLogoutConfirmation(OpenIddictRequest request)
+    {
+        this.ViewData["IdTokenHint"] = request.IdTokenHint;
+        this.ViewData["PostLogoutRedirectUri"] = request.PostLogoutRedirectUri;
+        this.ViewData["State"] = request.State;
+        this.ViewData["ClientId"] = request.ClientId;
+        return this.View("~/Authentication/Views/LogoutConfirmation.cshtml");
+    }
+
+    private async Task<bool> IsLogoutConfirmationRequestAsync(CancellationToken cancellationToken)
+    {
+        if (!this.HttpContext.Request.HasFormContentType)
+        {
+            return false;
+        }
+
+        IFormCollection form = await this.HttpContext.Request.ReadFormAsync(cancellationToken);
+        return string.Equals(form["confirm_logout"], "true", StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -146,7 +206,11 @@ public sealed class LogoutController : ControllerBase
         Guid sessionId,
         CancellationToken cancellationToken = default)
     {
-        Result<ProcessLogoutResult> result = await this.processLogoutUseCase.ExecuteAsync(new SessionId(sessionId), null, cancellationToken);
+        string actorId = this.HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? this.HttpContext.User?.FindFirst("sub")?.Value
+            ?? this.HttpContext.User?.Identity?.Name
+            ?? "system";
+        Result<ProcessLogoutResult> result = await this.processLogoutUseCase.ExecuteAsync(new SessionId(sessionId), null, actorId, cancellationToken);
 
         if (result.IsFailure)
         {

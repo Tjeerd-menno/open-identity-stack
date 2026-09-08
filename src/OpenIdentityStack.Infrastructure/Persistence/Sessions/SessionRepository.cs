@@ -72,6 +72,22 @@ public sealed class SessionRepository : ISessionRepository
         await this.context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<UserSession>> GetTerminalSessionsWithPendingLogoutNotificationsAsync(
+        DateTimeOffset dueBefore,
+        int maximumCount,
+        CancellationToken cancellationToken = default)
+    {
+        return await this.context.UserSessions
+            .Include(s => s.ClientSessions)
+            .Where(s => s.Status != SessionStatus.Active && s.ClientSessions.Any(c =>
+                !string.IsNullOrWhiteSpace(c.BackChannelLogoutUri) &&
+                (c.LogoutStatus == LogoutStatus.Pending || c.LogoutStatus == LogoutStatus.Failed) &&
+                c.NextLogoutAttemptAt != null && c.NextLogoutAttemptAt <= dueBefore))
+            .OrderBy(s => s.CreatedAt)
+            .Take(maximumCount)
+            .ToListAsync(cancellationToken);
+    }
+
     /// <inheritdoc/>
     public async Task<(IReadOnlyList<UserSession> Sessions, int TotalCount)> ListAsync(
         int page,

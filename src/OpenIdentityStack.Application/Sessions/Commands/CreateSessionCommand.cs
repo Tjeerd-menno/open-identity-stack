@@ -16,7 +16,8 @@ public sealed record CreateSessionCommand(
     UserId UserId,
     string IpAddress,
     string UserAgent,
-    TimeSpan? Duration = null);
+    TimeSpan? Duration = null,
+    long? ExpectedSecurityVersion = null);
 
 /// <summary>
 /// Result of session creation.
@@ -64,11 +65,28 @@ public sealed class CreateSessionUseCase : ICreateSessionUseCase
         CreateSessionCommand command,
         CancellationToken cancellationToken = default)
     {
+        if (command.UserId == UserId.Empty)
+        {
+            return SessionErrors.UserIdRequired;
+        }
+
         // Verify user exists
         User? user = await this.userRepository.GetByIdAsync(command.UserId, cancellationToken);
         if (user is null)
         {
             return DomainError.NotFound("User.NotFound", "User not found.");
+        }
+
+        if (!user.CanAuthenticate())
+        {
+            return user.Status == UserStatus.Disabled
+                ? UserErrors.AccountDisabled
+                : UserErrors.AccountNotVerified;
+        }
+
+        if (command.ExpectedSecurityVersion.HasValue && command.ExpectedSecurityVersion.Value != user.SecurityVersion)
+        {
+            return DomainError.Unauthorized("Session.CredentialVersionChanged", "Credentials changed while the session was being created.");
         }
 
         // Create the session
@@ -77,7 +95,8 @@ public sealed class CreateSessionUseCase : ICreateSessionUseCase
             command.IpAddress,
             command.UserAgent,
             this.dateTimeProvider,
-            command.Duration);
+            command.Duration,
+            user.SecurityVersion);
 
         if (sessionResult.IsFailure)
         {

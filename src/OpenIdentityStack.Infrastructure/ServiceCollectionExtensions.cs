@@ -175,7 +175,7 @@ public static class ServiceCollectionExtensions
 
         AddPlatformServices(services);
         AddRepositories(services);
-        AddInfrastructureDomainServices(services);
+        AddInfrastructureDomainServices(services, configuration);
         AddInfrastructureUseCases(services);
     }
 
@@ -218,11 +218,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();
+        services.AddScoped<ICredentialTerminationService, CredentialTerminationService>();
+        services.AddScoped<ICredentialLifecycleTransactionRunner, CredentialLifecycleTransactionRunner>();
         services.AddScoped<IAuthenticationSettingsRepository, AuthenticationSettingsRepository>();
         services.AddScoped<IAuditEntryReader, AuditEntryReader>();
     }
 
-    private static void AddInfrastructureDomainServices(IServiceCollection services)
+    private static void AddInfrastructureDomainServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IApplicationProtocolProjectionTransaction, ApplicationProtocolProjectionTransaction>();
         services.AddScoped<IApplicationProtocolProjection, OpenIddictApplicationProjection>();
@@ -237,7 +239,12 @@ public static class ServiceCollectionExtensions
         // notifier were ever resolved outside a request scope.
         services.AddSingleton<ILogoutTokenFactory, LogoutTokenFactory>();
         services.AddHttpClient<ILogoutNotifier, BackChannelLogoutNotifier>();
-        services.AddScoped<IFrontChannelLogoutService, FrontChannelLogoutService>();
+        services.AddScoped<IClientLogoutMetadataResolver, OpenIddictClientLogoutMetadataResolver>();
+        services.AddScoped<IFrontChannelLogoutService>(provider => new FrontChannelLogoutService(
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<FrontChannelLogoutService>>(),
+            provider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>(),
+            configuration["OpenIddict:Issuer"]));
+        services.AddHostedService<PendingLogoutNotificationWorker>();
     }
 
     private static void AddInfrastructureUseCases(IServiceCollection services)

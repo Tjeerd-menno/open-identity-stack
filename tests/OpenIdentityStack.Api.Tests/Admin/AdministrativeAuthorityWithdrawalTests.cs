@@ -119,7 +119,7 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
             staleUser.Disable("stale-withdrawal", CreateClock()).IsSuccess.ShouldBeTrue();
             await Should.ThrowAsync<DbUpdateConcurrencyException>(() => stale.SaveChangesAsync());
         });
-        (await client.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await client.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         await fixture.ExecuteDbContextAsync(async db =>
             (await db.AuditLogEntries.CountAsync(entry => entry.Action == "AdministrativeAuthorityChanged" && entry.EntityId == authority.UserId.Value.ToString())).ShouldBe(before + 1));
     }
@@ -316,7 +316,7 @@ public sealed class AdministrativeAuthorityWithdrawalTests(AppHostFixture fixtur
             }
             await db.SaveChangesAsync();
         });
-        (await client.GetAsync("/api/admin/users")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await client.GetAsync("/api/admin/users")).StatusCode.ShouldBe(change == "user-disabled" ? HttpStatusCode.Unauthorized : HttpStatusCode.Forbidden);
         client.DefaultRequestHeaders.Authorization!.Parameter.ShouldBe(bearer);
         await fixture.ExecuteDbContextAsync(async db =>
             (await db.AuditLogEntries.AnyAsync(entry => entry.Action == "AdministrativeAuthorityChanged" && entry.EntityId == auditId &&

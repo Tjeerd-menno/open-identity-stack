@@ -31,6 +31,7 @@ public class AccountControllerTests : IDisposable
     private readonly IUserRepository _userRepository;
     private readonly IDynamicAuthenticationSchemeService _schemeService;
     private readonly IJitProvisionUserUseCase _jitProvisionUseCase;
+    private readonly ICredentialTerminationService _credentialTerminationService;
     private readonly AccountController _controller;
     private readonly IAuthenticationService _authService;
     private readonly IAuditLog audit = Substitute.For<IAuditLog>();
@@ -47,6 +48,7 @@ public class AccountControllerTests : IDisposable
         this._userRepository = Substitute.For<IUserRepository>();
         this._schemeService = Substitute.For<IDynamicAuthenticationSchemeService>();
         this._jitProvisionUseCase = Substitute.For<IJitProvisionUserUseCase>();
+        this._credentialTerminationService = Substitute.For<ICredentialTerminationService>();
 
         // Setup default auth settings - local is default
         IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
@@ -70,7 +72,8 @@ public class AccountControllerTests : IDisposable
             this._jitProvisionUseCase,
             this.audit,
             boundary,
-            this.sessionMonitoringCookies);
+            this.sessionMonitoringCookies,
+            this._credentialTerminationService);
 
         this.SetupHttpContext();
     }
@@ -775,6 +778,24 @@ public class AccountControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Login_Post_WhenSessionCreationFails_DoesNotCreatePrincipal()
+    {
+        var model = new LoginViewModel { Email = "user@example.com", Password = "correct" };
+        var userId = UserId.Create();
+        ClaimsPrincipal? capturedPrincipal = null;
+        this._validateCredentialsUseCase.ExecuteAsync(Arg.Any<ValidateUserCredentialsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new ValidateUserCredentialsResult(userId, "user@example.com", "Test User"));
+        this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(DomainError.Failure("Session.CreateFailed", "Failed to create session"));
+        this._authService.SignInAsync(Arg.Any<HttpContext>(), Arg.Any<string>(), Arg.Do<ClaimsPrincipal>(principal => capturedPrincipal = principal), Arg.Any<AuthenticationProperties>())
+            .Returns(Task.CompletedTask);
+
+        await this._controller.Login(model);
+
+        Assert.Null(capturedPrincipal);
+    }
+
+    [Fact]
     public async Task Login_Post_IncludesUserClaimsInPrincipal()
     {
         // Arrange
@@ -864,6 +885,56 @@ public class AccountControllerTests : IDisposable
         // Assert
         RedirectResult redirectResult = Assert.IsType<RedirectResult>(result);
         Assert.Equal("/", redirectResult.Url);
+    }
+
+    [Fact]
+    public async Task Logout_WhenDurableTerminationReturnsFailure_ClearsCookiesAndReturnsServerError()
+    {
+        this.SetAuthenticatedUserWithSessionId(Guid.NewGuid().ToString());
+        this._credentialTerminationService.TerminateSessionAsync(
+                Arg.Any<SessionId>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(DomainError.Failure("Session.TerminationFailed", "The session could not be terminated."));
+
+        IActionResult result = await this._controller.Logout();
+
+        StatusCodeResult status = result.ShouldBeOfType<StatusCodeResult>();
+        status.StatusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+        await this._authService.Received(1).SignOutAsync(
+            Arg.Any<HttpContext>(), "Cookies", Arg.Any<AuthenticationProperties>());
+        this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=");
+    }
+
+    [Fact]
+    public async Task Logout_WhenDurableTerminationThrows_ClearsCookiesAndReturnsServerError()
+    {
+        this.SetAuthenticatedUserWithSessionId(Guid.NewGuid().ToString());
+        this._credentialTerminationService.TerminateSessionAsync(
+                Arg.Any<SessionId>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result>(new InvalidOperationException("persistence failure")));
+
+        IActionResult result = await this._controller.Logout();
+
+        StatusCodeResult status = result.ShouldBeOfType<StatusCodeResult>();
+        status.StatusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+        await this._authService.Received(1).SignOutAsync(
+            Arg.Any<HttpContext>(), "Cookies", Arg.Any<AuthenticationProperties>());
+        this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=");
+    }
+
+    [Fact]
+    public async Task Logout_WhenSessionIdIsMalformed_ClearsCookiesAndReturnsServerError()
+    {
+        this.SetAuthenticatedUserWithSessionId("not-a-guid");
+
+        IActionResult result = await this._controller.Logout();
+
+        StatusCodeResult status = result.ShouldBeOfType<StatusCodeResult>();
+        status.StatusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+        await this._credentialTerminationService.DidNotReceive().TerminateSessionAsync(
+            Arg.Any<SessionId>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        await this._authService.Received(1).SignOutAsync(
+            Arg.Any<HttpContext>(), "Cookies", Arg.Any<AuthenticationProperties>());
+        this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=");
     }
 
     #endregion
@@ -1037,5 +1108,13 @@ public class AccountControllerTests : IDisposable
         Type valueType = value.GetType();
         object? canAccess = valueType.GetProperty("canAccess")?.GetValue(value);
         return Assert.IsType<bool>(canAccess);
+    }
+
+    private void SetAuthenticatedUserWithSessionId(string sessionId)
+    {
+        this._controller.HttpContext.User = new ClaimsPrincipal(
+            new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()), new Claim("sid", sessionId)],
+                "Cookies"));
     }
 }

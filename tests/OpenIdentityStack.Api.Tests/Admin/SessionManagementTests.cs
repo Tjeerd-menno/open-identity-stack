@@ -8,7 +8,6 @@ namespace OpenIdentityStack.Api.Tests.Admin;
 /// <summary>
 /// Integration tests for Admin Session Management.
 /// These tests verify session visibility and revocation via the Admin API.
-/// Currently skipped pending authentication infrastructure fixes.
 /// </summary>
 public sealed class SessionManagementTests
 {
@@ -25,27 +24,14 @@ public sealed class SessionManagementTests
         return await this._fixture.CreateAuthenticatedClientAsync($"sessions-admin-{id}", "test-admin-secret");
     }
 
-    private static async Task<Guid> CreateUserAsync(HttpClient client)
-    {
-        var request = new
-        {
-            Email = $"session-user-{Guid.NewGuid():N}@example.com",
-            DisplayName = "Session User",
-            Password = "TestPassword123!"
-        };
-
-        HttpResponseMessage response = await client.PostAsJsonAsync("/api/admin/users", request);
-        response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        JsonNode? json = await response.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonNode>();
-        return json?["id"]?.GetValue<Guid>() ?? throw new InvalidOperationException("User ID not returned.");
-    }
-
+    private Task<Guid> CreateUserAsync() =>
+        this._fixture.CreateTestUserAsync($"session-user-{Guid.NewGuid():N}@example.com", "Session User", "TestPassword123!");
     [Fact]
     public async Task ListSessions_WithActiveSessions_ReturnsSessionList()
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
-        Guid userId = await CreateUserAsync(client);
+        Guid userId = await this.CreateUserAsync();
         Guid sessionId = await this._fixture.CreateSessionAsync(userId);
 
         // Act
@@ -63,7 +49,7 @@ public sealed class SessionManagementTests
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
-        Guid userId = await CreateUserAsync(client);
+        Guid userId = await this.CreateUserAsync();
         await this._fixture.CreateSessionAsync(userId);
 
         // Act
@@ -80,7 +66,7 @@ public sealed class SessionManagementTests
     public async Task ListSessions_SearchFiltersBeforePaginationAndCombinesWithUserAndStatus()
     {
         HttpClient client = await this.CreateAuthenticatedClientAsync();
-        Guid userId = await CreateUserAsync(client);
+        Guid userId = await this.CreateUserAsync();
         Guid first = await this._fixture.CreateSessionAsync(userId, "192.0.2.41", "Search Browser");
         Guid second = await this._fixture.CreateSessionAsync(userId, "192.0.2.42", "Search Browser");
         Guid revoked = await this._fixture.CreateSessionAsync(userId, "192.0.2.43", "Search Browser");
@@ -103,7 +89,7 @@ public sealed class SessionManagementTests
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
-        Guid userId = await CreateUserAsync(client);
+        Guid userId = await this.CreateUserAsync();
         Guid sessionId = await this._fixture.CreateSessionAsync(userId);
 
         // Act
@@ -128,11 +114,11 @@ public sealed class SessionManagementTests
     }
 
     [Fact]
-    public async Task RevokeSession_AlreadyRevokedSession_Returns409()
+    public async Task RevokeSession_AlreadyRevokedSession_Returns204()
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
-        Guid userId = await CreateUserAsync(client);
+        Guid userId = await this.CreateUserAsync();
         Guid sessionId = await this._fixture.CreateSessionAsync(userId);
         HttpResponseMessage first = await client.DeleteAsync($"/api/admin/sessions/{sessionId}");
         first.StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -141,7 +127,7 @@ public sealed class SessionManagementTests
         HttpResponseMessage response = await client.DeleteAsync($"/api/admin/sessions/{sessionId}");
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
     }
 
     [Fact]
@@ -149,7 +135,7 @@ public sealed class SessionManagementTests
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
-        Guid userId = await CreateUserAsync(client);
+        Guid userId = await this.CreateUserAsync();
         await this._fixture.CreateSessionAsync(userId);
         await this._fixture.CreateSessionAsync(userId);
 
@@ -163,11 +149,11 @@ public sealed class SessionManagementTests
     }
 
     [Fact]
-    public async Task RevokedSession_RefreshTokenFails()
+    public async Task RevokedSession_RemainsVisibleAsRevoked()
     {
         // Arrange
         HttpClient client = await this.CreateAuthenticatedClientAsync();
-        Guid userId = await CreateUserAsync(client);
+        Guid userId = await this.CreateUserAsync();
         Guid sessionId = await this._fixture.CreateSessionAsync(userId);
         HttpResponseMessage revoke = await client.DeleteAsync($"/api/admin/sessions/{sessionId}");
         revoke.StatusCode.ShouldBe(HttpStatusCode.NoContent);

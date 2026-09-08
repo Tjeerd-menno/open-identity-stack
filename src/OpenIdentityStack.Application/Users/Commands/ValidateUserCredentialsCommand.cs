@@ -21,7 +21,8 @@ public sealed record ValidateUserCredentialsResult(
     UserId UserId,
     string Email,
     string DisplayName,
-    Guid CredentialRevision = default);
+    Guid CredentialRevision = default,
+    long SecurityVersion = 0);
 
 /// <summary>
 /// Use case interface for validating user credentials.

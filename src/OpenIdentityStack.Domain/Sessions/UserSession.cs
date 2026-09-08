@@ -18,6 +18,9 @@ public sealed class UserSession : AggregateRoot<SessionId>
     /// </summary>
     public UserId UserId { get; private set; }
 
+    /// <summary>Credential epoch of the owner at session creation.</summary>
+    public long UserSecurityVersion { get; private set; }
+
     /// <summary>
     /// Gets the IP address from which the session was created.
     /// </summary>
@@ -62,9 +65,11 @@ public sealed class UserSession : AggregateRoot<SessionId>
         string ipAddress,
         string userAgent,
         TimeSpan duration,
-        DateTimeOffset createdAt) : base(id)
+        DateTimeOffset createdAt,
+        long userSecurityVersion) : base(id)
     {
         this.UserId = userId;
+        this.UserSecurityVersion = userSecurityVersion;
         this.IpAddress = ipAddress;
         this.UserAgent = userAgent;
         this.Status = SessionStatus.Active;
@@ -88,7 +93,8 @@ public sealed class UserSession : AggregateRoot<SessionId>
         string ipAddress,
         string userAgent,
         IDateTimeProvider dateTimeProvider,
-        TimeSpan? duration = null)
+        TimeSpan? duration = null,
+        long userSecurityVersion = 0)
     {
         if (userId.Value == Guid.Empty)
         {
@@ -101,7 +107,8 @@ public sealed class UserSession : AggregateRoot<SessionId>
             ipAddress ?? string.Empty,
             userAgent ?? string.Empty,
             duration ?? defaultSessionDuration,
-            dateTimeProvider.UtcNow);
+            dateTimeProvider.UtcNow,
+            userSecurityVersion);
 
         return session;
     }
@@ -129,6 +136,10 @@ public sealed class UserSession : AggregateRoot<SessionId>
         DateTimeOffset now = dateTimeProvider.UtcNow;
         this.Status = SessionStatus.Revoked;
         this.RevokedAt = now;
+        foreach (ClientSession clientSession in this.clientSessions)
+        {
+            clientSession.MarkLogoutPending(dateTimeProvider);
+        }
 
         this.RaiseDomainEvent(new SessionRevokedEvent(this.Id, this.UserId, now));
 
@@ -156,6 +167,10 @@ public sealed class UserSession : AggregateRoot<SessionId>
         }
 
         this.Status = SessionStatus.LoggedOut;
+        foreach (ClientSession clientSession in this.clientSessions)
+        {
+            clientSession.MarkLogoutPending(dateTimeProvider);
+        }
 
         return Result.Success();
     }
@@ -226,6 +241,11 @@ public sealed class UserSession : AggregateRoot<SessionId>
     public void UpdateLastActivity(IDateTimeProvider dateTimeProvider)
     {
         this.LastActivityAt = dateTimeProvider.UtcNow;
+    }
+
+    public void UpdateUserSecurityVersion(long securityVersion)
+    {
+        this.UserSecurityVersion = securityVersion;
     }
 }
 

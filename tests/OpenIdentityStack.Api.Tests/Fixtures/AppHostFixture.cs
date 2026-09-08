@@ -80,12 +80,14 @@ public class AppHostFixture : IAsyncLifetime
     /// <param name="allowedScopes">Optional scopes the client can request.</param>
     /// <param name="allowedGrantTypes">Optional grant types (defaults to client_credentials).</param>
     /// <param name="redirectUris">Optional redirect URIs for authorization code flow.</param>
+    /// <param name="postLogoutRedirectUris">Optional registered post-logout redirect URIs.</param>
     public async Task CreateServiceAccountAsync(
         string clientId,
         string clientSecret,
         IReadOnlyList<string>? allowedScopes = null,
         IReadOnlyList<string>? allowedGrantTypes = null,
-        IReadOnlyList<string>? redirectUris = null)
+        IReadOnlyList<string>? redirectUris = null,
+        IReadOnlyList<string>? postLogoutRedirectUris = null)
     {
         if (this.TestSeeder is null)
         {
@@ -97,7 +99,8 @@ public class AppHostFixture : IAsyncLifetime
             clientSecret,
             allowedScopes,
             allowedGrantTypes,
-            redirectUris);
+            redirectUris,
+            postLogoutRedirectUris);
     }
 
     /// <summary>

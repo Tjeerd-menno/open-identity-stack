@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using OpenIdentityStack.Api.Common;
 using OpenIddict.Validation.AspNetCore;
@@ -127,10 +128,12 @@ internal static class SessionsApi
 
     private static async Task<IResult> RevokeSession(
         [FromServices] IRevokeSessionUseCase revokeSessionUseCase,
-        Guid id)
+        Guid id,
+        HttpContext context,
+        CancellationToken cancellationToken)
     {
-        var command = new RevokeSessionCommand(new SessionId(id));
-        Result<RevokeSessionResult> result = await revokeSessionUseCase.ExecuteAsync(command);
+        var command = new RevokeSessionCommand(new SessionId(id), GetActorId(context));
+        Result<RevokeSessionResult> result = await revokeSessionUseCase.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -143,13 +146,16 @@ internal static class SessionsApi
     private static async Task<IResult> RevokeAllUserSessions(
         [FromServices] IRevokeAllUserSessionsUseCase revokeAllUserSessionsUseCase,
         Guid userId,
-        [FromQuery] Guid? excludeSessionId = null)
+        HttpContext context,
+        [FromQuery] Guid? excludeSessionId = null,
+        CancellationToken cancellationToken = default)
     {
         var command = new RevokeAllUserSessionsCommand(
             new UserId(userId),
-            excludeSessionId.HasValue ? new SessionId(excludeSessionId.Value) : null);
+            excludeSessionId.HasValue ? new SessionId(excludeSessionId.Value) : null,
+            GetActorId(context));
 
-        Result<RevokeAllUserSessionsResult> result = await revokeAllUserSessionsUseCase.ExecuteAsync(command);
+        Result<RevokeAllUserSessionsResult> result = await revokeAllUserSessionsUseCase.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -162,5 +168,10 @@ internal static class SessionsApi
 
         return TypedResults.Ok(response);
     }
+
+    private static string GetActorId(HttpContext context) =>
+        context.User.FindFirstValue("sub")
+        ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? throw new InvalidOperationException("The authenticated actor has no subject.");
 
 }

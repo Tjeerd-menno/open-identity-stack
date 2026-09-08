@@ -22,7 +22,14 @@ public interface IProcessLogoutUseCase
 {
     Task<Result<ProcessLogoutResult>> ExecuteAsync(
         SessionId sessionId,
+        string? initiatingClientId,
+        CancellationToken cancellationToken)
+        => this.ExecuteAsync(sessionId, initiatingClientId, "system", cancellationToken);
+
+    Task<Result<ProcessLogoutResult>> ExecuteAsync(
+        SessionId sessionId,
         string? initiatingClientId = null,
+        string actorId = "system",
         CancellationToken cancellationToken = default);
 }
 
@@ -30,21 +37,28 @@ public sealed class ProcessLogoutUseCase : IProcessLogoutUseCase
 {
     private readonly ISessionRepository sessionRepository;
     private readonly ILogoutNotifier logoutNotifier;
+    private readonly IFrontChannelLogoutService frontChannelLogoutService;
     private readonly IDateTimeProvider dateTimeProvider;
+    private readonly ICredentialTerminationService credentialTerminationService;
 
     public ProcessLogoutUseCase(
         ISessionRepository sessionRepository,
         ILogoutNotifier logoutNotifier,
-        IDateTimeProvider dateTimeProvider)
+        IFrontChannelLogoutService frontChannelLogoutService,
+        IDateTimeProvider dateTimeProvider,
+        ICredentialTerminationService credentialTerminationService)
     {
         this.sessionRepository = sessionRepository;
         this.logoutNotifier = logoutNotifier;
+        this.frontChannelLogoutService = frontChannelLogoutService;
         this.dateTimeProvider = dateTimeProvider;
+        this.credentialTerminationService = credentialTerminationService;
     }
 
     public async Task<Result<ProcessLogoutResult>> ExecuteAsync(
         SessionId sessionId,
         string? initiatingClientId = null,
+        string actorId = "system",
         CancellationToken cancellationToken = default)
     {
         UserSession? session = await this.sessionRepository.GetByIdAsync(sessionId, cancellationToken);
@@ -53,28 +67,39 @@ public sealed class ProcessLogoutUseCase : IProcessLogoutUseCase
             return DomainError.NotFound("Session.NotFound", $"Session {sessionId.Value} not found");
         }
 
-        if (session.Status == SessionStatus.Revoked)
+        Result terminationResult = await this.credentialTerminationService.TerminateSessionAsync(
+            sessionId,
+            actorId,
+            "logout",
+            true,
+            cancellationToken);
+        if (terminationResult.IsFailure)
         {
-            return DomainError.Conflict("Session.AlreadyRevoked", "Session has already been revoked");
+            return terminationResult.Error;
         }
 
-        if (session.Status == SessionStatus.LoggedOut)
+        // The termination service uses its own atomic persistence boundary. Reload the
+        // aggregate before recording delivery outcomes so this use case never writes a
+        // stale active session over the terminal state.
+        session = await this.sessionRepository.GetByIdAsync(sessionId, cancellationToken);
+        if (session is null)
         {
-            return DomainError.Conflict("Session.AlreadyLoggedOut", "Session has already been logged out");
+            return DomainError.NotFound("Session.NotFound", $"Session {sessionId.Value} not found");
         }
-
-        // Logout the session
-        Result logoutResult = session.Logout(this.dateTimeProvider);
-        if (logoutResult.IsFailure)
-        {
-            return logoutResult.Error;
-        }
-
-        await this.sessionRepository.UpdateAsync(session, cancellationToken);
 
         // Get clients to notify (excluding the initiating client)
+        var participatingClients = session.ClientSessions
+            .Where(cs => cs.ClientId != initiatingClientId)
+            .Select(cs => new ClientSessionInfo(
+                cs.ClientId,
+                cs.FrontChannelLogoutUri,
+                cs.BackChannelLogoutUri))
+            .ToList();
+
         var clientsToNotify = session.ClientSessions
             .Where(cs => cs.ClientId != initiatingClientId)
+            .Where(cs => cs.LogoutStatus is LogoutStatus.Pending or LogoutStatus.Failed)
+            .Where(cs => cs.NextLogoutAttemptAt is null || cs.NextLogoutAttemptAt <= this.dateTimeProvider.UtcNow)
             .Select(cs => new ClientSessionInfo(
                 cs.ClientId,
                 cs.FrontChannelLogoutUri,
@@ -92,15 +117,31 @@ public sealed class ProcessLogoutUseCase : IProcessLogoutUseCase
                 clientsToNotify,
                 cancellationToken);
 
-            // Generate front-channel logout URLs
-            frontChannelUrls = this.logoutNotifier.GenerateFrontChannelLogoutUrls(
-                sessionId,
-                clientsToNotify);
+            foreach (ClientSession clientSession in session.ClientSessions
+                         .Where(clientSession => clientsToNotify.Any(client => client.ClientId == clientSession.ClientId)))
+            {
+                if (notificationResult.FailedClients.Contains(clientSession.ClientId, StringComparer.Ordinal))
+                {
+                    clientSession.MarkLogoutAttemptFailed(this.dateTimeProvider);
+                }
+                else
+                {
+                    clientSession.MarkLogoutCompleted(this.dateTimeProvider);
+                }
+            }
+
+            await this.sessionRepository.UpdateAsync(session, cancellationToken);
+
         }
         else
         {
             notificationResult = new LogoutNotificationResult(0, 0, []);
         }
+
+        frontChannelUrls = this.frontChannelLogoutService
+            .GenerateLogoutFrames(sessionId, participatingClients)
+            .Select(frame => frame.IframeUrl)
+            .ToList();
 
         return new ProcessLogoutResult(sessionId, notificationResult, frontChannelUrls);
     }

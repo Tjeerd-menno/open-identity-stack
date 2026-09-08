@@ -8,7 +8,7 @@ namespace OpenIdentityStack.Application.Sessions.Commands;
 /// Command to revoke a user session.
 /// </summary>
 /// <param name="SessionId">The session ID to revoke.</param>
-public sealed record RevokeSessionCommand(SessionId SessionId);
+public sealed record RevokeSessionCommand(SessionId SessionId, string ActorId);
 
 /// <summary>
 /// Result of revoking a session.
@@ -36,6 +36,7 @@ public interface IRevokeSessionUseCase
 public sealed class RevokeSessionUseCase : IRevokeSessionUseCase
 {
     private readonly ISessionRepository sessionRepository;
+    private readonly ICredentialTerminationService terminationService;
     private readonly IDateTimeProvider dateTimeProvider;
 
     /// <summary>
@@ -43,9 +44,11 @@ public sealed class RevokeSessionUseCase : IRevokeSessionUseCase
     /// </summary>
     public RevokeSessionUseCase(
         ISessionRepository sessionRepository,
+        ICredentialTerminationService terminationService,
         IDateTimeProvider dateTimeProvider)
     {
         this.sessionRepository = sessionRepository;
+        this.terminationService = terminationService;
         this.dateTimeProvider = dateTimeProvider;
     }
 
@@ -60,14 +63,16 @@ public sealed class RevokeSessionUseCase : IRevokeSessionUseCase
             return SessionErrors.NotFound;
         }
 
-        Result revokeResult = session.Revoke(this.dateTimeProvider);
+        Result revokeResult = await this.terminationService.TerminateSessionAsync(
+            session.Id,
+            command.ActorId,
+            "administrative-revocation",
+            cancellationToken: cancellationToken);
         if (revokeResult.IsFailure)
         {
             return revokeResult.Error;
         }
 
-        await this.sessionRepository.UpdateAsync(session, cancellationToken);
-
-        return new RevokeSessionResult(session.Id, session.RevokedAt!.Value);
+        return new RevokeSessionResult(session.Id, session.RevokedAt ?? this.dateTimeProvider.UtcNow);
     }
 }

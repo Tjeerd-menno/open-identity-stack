@@ -2,6 +2,7 @@ using System.Security.Claims;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using OpenIddict.Abstractions;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Api.Tests.Helpers;
@@ -12,7 +13,7 @@ using OpenIdentityStack.Domain.Common;
 using SharedKernel;
 namespace OpenIdentityStack.Api.Tests.Authentication;
 
-public class BackChannelLogoutTests
+public class BackChannelLogoutTests : IDisposable
 {
     private readonly IProcessLogoutUseCase _processLogoutUseCase;
     private readonly IFrontChannelLogoutService _frontChannelLogoutService;
@@ -34,12 +35,16 @@ public class BackChannelLogoutTests
             this._frontChannelLogoutService,
             this._sessionRepository,
             this._logoutNotifier,
-            this._requestService
+            this._requestService,
+            Substitute.For<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()
         );
 
         DefaultHttpContext httpContext = HttpContextTestHelper.CreateWithAuthenticationServices();
         this._controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        this._controller.TempData = new TempDataDictionary(httpContext, Substitute.For<ITempDataProvider>());
     }
+
+    public void Dispose() => this._controller.Dispose();
 
     [Fact]
     public async Task Logout_TriggersProcessLogoutUseCase()
@@ -60,7 +65,7 @@ public class BackChannelLogoutTests
             FrontChannelLogoutUrls: Array.Empty<string>()
         );
 
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)logoutResult);
 
         // Act
@@ -70,6 +75,7 @@ public class BackChannelLogoutTests
         await this._processLogoutUseCase.Received(1).ExecuteAsync(
             Arg.Is<SessionId>(id => id == sessionId),
             Arg.Any<string?>(),
+            Arg.Any<string>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -86,7 +92,7 @@ public class BackChannelLogoutTests
         var request = new OpenIddictRequest();
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)DomainError.Validation("Logout.Failed", "Logout failed"));
 
         // Act
@@ -122,7 +128,7 @@ public class BackChannelLogoutTests
             FrontChannelLogoutUrls: Array.Empty<string>()
         );
 
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)logoutResult);
 
         // Act
@@ -132,6 +138,7 @@ public class BackChannelLogoutTests
         await this._processLogoutUseCase.Received(1).ExecuteAsync(
             Arg.Any<SessionId>(),
             Arg.Any<string?>(),
+            Arg.Any<string>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -160,7 +167,7 @@ public class BackChannelLogoutTests
             FrontChannelLogoutUrls: Array.Empty<string>()
         );
 
-        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        this._processLogoutUseCase.ExecuteAsync(Arg.Any<SessionId>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Result<ProcessLogoutResult>)logoutResult);
 
         // Act

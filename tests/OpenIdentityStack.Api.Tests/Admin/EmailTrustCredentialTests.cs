@@ -106,7 +106,7 @@ public sealed class EmailTrustCredentialTests(AppHostFixture fixture)
             IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
             clock.UtcNow.Returns(DateTimeOffset.UtcNow.AddSeconds(1));
             session.UpdateLastActivity(clock);
-            await repository.UpdateAsync(session);
+            await Should.ThrowAsync<DbUpdateConcurrencyException>(() => repository.UpdateAsync(session));
         }) : Task.CompletedTask;
         if (staleSessionActivity) { await activityLoaded.Task; }
         try

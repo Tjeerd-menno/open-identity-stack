@@ -55,6 +55,7 @@
     </style>
 </head>
 <body>
+    <div id="logout-redirect" data-url="@redirectUri" data-state="@state"></div>
     <div class="logout-container">
         <div class="spinner"></div>
         <h1>Signing out...</h1>
@@ -79,6 +80,7 @@
         (function() {
             var iframeCount = @iframes.Count;
             var loadedCount = 0;
+            var redirecting = false;
             var timeoutMs = 5000; // 5 second timeout for front-channel logout
             
             function checkComplete() {
@@ -89,15 +91,20 @@
             }
             
             function performRedirect() {
+                if (redirecting) {
+                    return;
+                }
+                redirecting = true;
                 @if (!string.IsNullOrEmpty(redirectUri))
                 {
-                    var finalUri = redirectUri;
-                    if (!string.IsNullOrEmpty(state))
-                    {
-                        var separator = redirectUri.Contains("?") ? "&" : "?";
-                        finalUri = $"{redirectUri}{separator}state={Uri.EscapeDataString(state)}";
+                    <text>
+                    var redirect = document.getElementById('logout-redirect');
+                    var target = new URL(redirect.dataset.url, window.location.origin);
+                    if (redirect.dataset.state) {
+                        target.searchParams.set('state', redirect.dataset.state);
                     }
-                    <text>window.location.href = '@Html.Raw(finalUri)';</text>
+                    window.location.assign(target.toString());
+                    </text>
                 }
                 else
                 {

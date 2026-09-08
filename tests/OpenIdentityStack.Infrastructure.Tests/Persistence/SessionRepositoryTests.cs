@@ -122,7 +122,7 @@ public sealed class SessionRepositoryTests : IClassFixture<SqliteTestFixture>, I
         await this._repository.UpdateAsync(session);
         this._dateTimeProvider.UtcNow.Returns(this._now.AddMinutes(1));
         loaded.UpdateLastActivity(this._dateTimeProvider);
-        await activityRepository.UpdateAsync(loaded);
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(() => activityRepository.UpdateAsync(loaded));
 
         await using OpenIdentityStackDbContext fresh = this._fixture.CreateDbContext();
         UserSession persisted = (await new SessionRepository(fresh).GetByIdAsync(session.Id))!;

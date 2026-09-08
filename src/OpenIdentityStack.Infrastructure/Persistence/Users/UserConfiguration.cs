@@ -127,6 +127,10 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.LastLoginAt);
 
+        builder.Property(u => u.SecurityVersion)
+            .IsRequired()
+            .IsConcurrencyToken();
+
         builder.Property(u => u.CreatedAt)
             .IsRequired();
 

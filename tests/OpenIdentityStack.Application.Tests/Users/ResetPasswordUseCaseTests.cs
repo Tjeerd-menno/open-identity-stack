@@ -2,6 +2,7 @@ using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Users.Commands;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Users;
+using OpenIdentityStack.Domain.Sessions;
 
 using SharedKernel;
 namespace OpenIdentityStack.Application.Tests.Users;
@@ -15,6 +16,7 @@ public sealed class ResetPasswordUseCaseTests
     private readonly IPasswordPolicyValidator _passwordPolicyValidator;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly IAuditLog _auditLog;
+    private readonly ISessionRepository _sessionRepository;
     private readonly IResetPasswordUseCase _sut;
 
     public ResetPasswordUseCaseTests()
@@ -24,6 +26,8 @@ public sealed class ResetPasswordUseCaseTests
         this._passwordPolicyValidator = Substitute.For<IPasswordPolicyValidator>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._auditLog = Substitute.For<IAuditLog>();
+        this._sessionRepository = Substitute.For<ISessionRepository>();
+        this._sessionRepository.GetActiveByUserIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<UserSession>());
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
         this._passwordHasher.HashPassword(Arg.Any<string>()).Returns(callInfo => $"hashed_{callInfo.Arg<string>()}");
 
@@ -40,7 +44,15 @@ public sealed class ResetPasswordUseCaseTests
 
         IAdministrativeApproval approval = Substitute.For<IAdministrativeApproval>();
         approval.RequireForUserAccessAsync(Arg.Any<UserId>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
-        this._sut = new ResetPasswordUseCase(this._userRepository, this._passwordHasher, this._passwordPolicyValidator, this._dateTimeProvider, this._auditLog, approval);
+        this._sut = new ResetPasswordUseCase(
+            this._userRepository,
+            this._passwordHasher,
+            this._passwordPolicyValidator,
+            this._dateTimeProvider,
+            this._auditLog,
+            approval,
+            new PassthroughTransactionRunner(),
+            this._sessionRepository);
     }
 
     [Fact]
@@ -209,5 +221,10 @@ public sealed class ResetPasswordUseCaseTests
         dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
         user.Disable("Disabled for testing", dateTimeProvider);
         return user;
+    }
+
+    private sealed class PassthroughTransactionRunner : ICredentialLifecycleTransactionRunner
+    {
+        public Task<Result<T>> ExecuteAsync<T>(Func<CancellationToken, Task<Result<T>>> operation, CancellationToken cancellationToken = default) => operation(cancellationToken);
     }
 }

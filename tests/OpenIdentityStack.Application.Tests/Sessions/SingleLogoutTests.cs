@@ -12,6 +12,8 @@ public sealed class SingleLogoutTests
 {
     private readonly ISessionRepository _sessionRepository;
     private readonly ILogoutNotifier _logoutNotifier;
+    private readonly IFrontChannelLogoutService _frontChannelLogoutService;
+    private readonly ICredentialTerminationService _credentialTerminationService;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly ProcessLogoutUseCase _useCase;
     private static readonly DateTimeOffset TestTime = new(2024, 1, 15, 10, 30, 0, TimeSpan.Zero);
@@ -20,12 +22,22 @@ public sealed class SingleLogoutTests
     {
         this._sessionRepository = Substitute.For<ISessionRepository>();
         this._logoutNotifier = Substitute.For<ILogoutNotifier>();
+        this._frontChannelLogoutService = Substitute.For<IFrontChannelLogoutService>();
+        this._credentialTerminationService = Substitute.For<ICredentialTerminationService>();
+        this._credentialTerminationService.TerminateSessionAsync(
+            Arg.Any<SessionId>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<bool>(),
+            Arg.Any<CancellationToken>()).Returns(Result.Success());
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._dateTimeProvider.UtcNow.Returns(TestTime);
         this._useCase = new ProcessLogoutUseCase(
             this._sessionRepository,
             this._logoutNotifier,
-            this._dateTimeProvider);
+            this._frontChannelLogoutService,
+            this._dateTimeProvider,
+            this._credentialTerminationService);
     }
 
     [Fact]
@@ -36,6 +48,13 @@ public sealed class SingleLogoutTests
 
         this._sessionRepository.GetByIdAsync(session.Id, Arg.Any<CancellationToken>())
             .Returns(session);
+        this._credentialTerminationService.TerminateSessionAsync(
+            session.Id,
+            Arg.Any<string>(),
+            "logout",
+            true,
+            Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
         this._logoutNotifier.NotifyClientsAsync(
             Arg.Any<SessionId>(),
             Arg.Any<IReadOnlyList<ClientSessionInfo>>(),
@@ -47,10 +66,15 @@ public sealed class SingleLogoutTests
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
-        session.Status.ShouldBe(SessionStatus.LoggedOut);
         await this._logoutNotifier.Received(1).NotifyClientsAsync(
             session.Id,
             Arg.Is<IReadOnlyList<ClientSessionInfo>>(c => c!.Count == 2),
+            Arg.Any<CancellationToken>());
+        await this._credentialTerminationService.Received(1).TerminateSessionAsync(
+            session.Id,
+            "system",
+            "logout",
+            true,
             Arg.Any<CancellationToken>());
     }
 
@@ -143,7 +167,32 @@ public sealed class SingleLogoutTests
     }
 
     [Fact]
-    public async Task ProcessLogout_AlreadyRevokedSession_ReturnsError()
+    public async Task ProcessLogout_ImmediateDeliverySuccess_IsPersisted()
+    {
+        UserSession session = this.CreateSessionWithClients("client-1", "client-2");
+        session.ClientSessions.Single(client => client.ClientId == "client-2")
+            .SetLogoutUris("https://client.test/front", "https://client.test/back");
+        session.Logout(this._dateTimeProvider);
+        this._sessionRepository.GetByIdAsync(session.Id, Arg.Any<CancellationToken>()).Returns(session);
+        this._logoutNotifier.NotifyClientsAsync(
+            Arg.Any<SessionId>(), Arg.Any<IReadOnlyList<ClientSessionInfo>>(), Arg.Any<CancellationToken>())
+            .Returns(new LogoutNotificationResult(1, 0, []));
+
+        Result<ProcessLogoutResult> result = await this._useCase.ExecuteAsync(session.Id, "client-1");
+
+        result.IsSuccess.ShouldBeTrue();
+        session.ClientSessions.Single(client => client.ClientId == "client-2").LogoutStatus.ShouldBe(LogoutStatus.Completed);
+        await this._sessionRepository.Received().UpdateAsync(session, Arg.Any<CancellationToken>());
+
+        (await this._useCase.ExecuteAsync(session.Id, "client-1")).IsSuccess.ShouldBeTrue();
+        await this._logoutNotifier.Received(1).NotifyClientsAsync(
+            session.Id, Arg.Any<IReadOnlyList<ClientSessionInfo>>(), Arg.Any<CancellationToken>());
+        this._frontChannelLogoutService.Received(2).GenerateLogoutFrames(
+            session.Id, Arg.Is<IReadOnlyList<ClientSessionInfo>>(clients => clients.Count == 1));
+    }
+
+    [Fact]
+    public async Task ProcessLogout_AlreadyRevokedSession_IsIdempotent()
     {
         // Arrange
         UserSession session = this.CreateSessionWithClients("client-1");
@@ -156,8 +205,7 @@ public sealed class SingleLogoutTests
         Result<ProcessLogoutResult> result = await this._useCase.ExecuteAsync(session.Id, "client-1");
 
         // Assert
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Code.ShouldBe("Conflict.Session.AlreadyRevoked");
+        result.IsSuccess.ShouldBeTrue();
     }
 
     private UserSession CreateSessionWithClients(params string[] clientIds)

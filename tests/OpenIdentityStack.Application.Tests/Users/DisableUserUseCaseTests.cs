@@ -2,6 +2,7 @@ using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Users.Commands;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Users;
+using OpenIdentityStack.Domain.Sessions;
 
 using SharedKernel;
 namespace OpenIdentityStack.Application.Tests.Users;
@@ -13,6 +14,7 @@ public sealed class DisableUserUseCaseTests
     private readonly IUserRepository _userRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly IAuditLog _auditLog;
+    private readonly ISessionRepository _sessionRepository;
     private readonly IDisableUserUseCase _sut;
 
     public DisableUserUseCaseTests()
@@ -20,9 +22,11 @@ public sealed class DisableUserUseCaseTests
         this._userRepository = Substitute.For<IUserRepository>();
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._auditLog = Substitute.For<IAuditLog>();
+        this._sessionRepository = Substitute.For<ISessionRepository>();
+        this._sessionRepository.GetActiveByUserIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<UserSession>());
         this._dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
 
-        this._sut = new DisableUserUseCase(this._userRepository, this._dateTimeProvider, this._auditLog);
+        this._sut = new DisableUserUseCase(this._userRepository, this._dateTimeProvider, this._auditLog, new PassthroughTransactionRunner(), this._sessionRepository);
     }
 
     [Fact]
@@ -191,5 +195,10 @@ public sealed class DisableUserUseCaseTests
             .SetValue(user, userId);
 
         return user;
+    }
+
+    private sealed class PassthroughTransactionRunner : ICredentialLifecycleTransactionRunner
+    {
+        public Task<Result<T>> ExecuteAsync<T>(Func<CancellationToken, Task<Result<T>>> operation, CancellationToken cancellationToken = default) => operation(cancellationToken);
     }
 }

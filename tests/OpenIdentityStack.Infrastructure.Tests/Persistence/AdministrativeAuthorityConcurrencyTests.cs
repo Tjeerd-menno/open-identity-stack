@@ -158,7 +158,7 @@ public sealed class AdministrativeAuthorityConcurrencyTests(AdministrativeAuthor
         IPasswordPolicyValidator policy = Substitute.For<IPasswordPolicyValidator>();
         policy.ValidatePassword(Arg.Any<string>()).Returns(Result.Success());
         Func<Task> attempt = passwordReset
-            ? async () => await new ResetPasswordUseCase(users, hasher, policy, clock, Substitute.For<IAuditLog>(), approval).ExecuteAsync(new(user.Id, "Password123!", "operator"))
+            ? async () => await new ResetPasswordUseCase(users, hasher, policy, clock, Substitute.For<IAuditLog>(), approval, new OpenIdentityStack.Infrastructure.Identity.CredentialLifecycleTransactionRunner(stale), new OpenIdentityStack.Infrastructure.Persistence.Sessions.SessionRepository(stale)).ExecuteAsync(new(user.Id, "Password123!", "operator"))
             : async () => await new EnableUserUseCase(users, clock, Substitute.For<IAuditLog>(), approval).ExecuteAsync(new(user.Id, "operator"));
 
         await Should.ThrowAsync<DbUpdateConcurrencyException>(attempt);

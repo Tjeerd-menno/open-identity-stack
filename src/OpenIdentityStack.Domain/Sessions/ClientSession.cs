@@ -50,6 +50,14 @@ public sealed class ClientSession : IEquatable<ClientSession>
     /// </summary>
     public string? BackChannelLogoutUri { get; private set; }
 
+    public LogoutStatus LogoutStatus { get; private set; } = LogoutStatus.Pending;
+
+    public int LogoutAttemptCount { get; private set; }
+
+    public DateTimeOffset? NextLogoutAttemptAt { get; private set; }
+
+    public DateTimeOffset? LogoutCompletedAt { get; private set; }
+
     /// <summary>
     /// Creates a new ClientSession.
     /// </summary>
@@ -80,6 +88,28 @@ public sealed class ClientSession : IEquatable<ClientSession>
     {
         this.FrontChannelLogoutUri = frontChannelUri;
         this.BackChannelLogoutUri = backChannelUri;
+    }
+
+    public void MarkLogoutPending(IDateTimeProvider dateTimeProvider)
+    {
+        this.LogoutStatus = LogoutStatus.Pending;
+        this.NextLogoutAttemptAt = dateTimeProvider.UtcNow;
+        this.LogoutCompletedAt = null;
+    }
+
+    public void MarkLogoutAttemptFailed(IDateTimeProvider dateTimeProvider)
+    {
+        this.LogoutAttemptCount++;
+        this.LogoutStatus = LogoutStatus.Failed;
+        int delayMinutes = Math.Min(60, 1 << Math.Min(this.LogoutAttemptCount, 6));
+        this.NextLogoutAttemptAt = dateTimeProvider.UtcNow.AddMinutes(delayMinutes);
+    }
+
+    public void MarkLogoutCompleted(IDateTimeProvider dateTimeProvider)
+    {
+        this.LogoutStatus = LogoutStatus.Completed;
+        this.LogoutCompletedAt = dateTimeProvider.UtcNow;
+        this.NextLogoutAttemptAt = null;
     }
 
     public bool Equals(ClientSession? other)

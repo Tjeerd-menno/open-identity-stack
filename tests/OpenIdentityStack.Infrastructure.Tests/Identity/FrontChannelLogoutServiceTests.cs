@@ -1,4 +1,5 @@
 
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Common;
@@ -16,7 +17,7 @@ public sealed class FrontChannelLogoutServiceTests
     public FrontChannelLogoutServiceTests()
     {
         this._logger = Substitute.For<ILogger<FrontChannelLogoutService>>();
-        this._service = new FrontChannelLogoutService(this._logger);
+        this._service = this.CreateService("https://identity.example.test");
     }
 
     [Fact]
@@ -89,6 +90,57 @@ public sealed class FrontChannelLogoutServiceTests
         // Assert
         frames.ShouldHaveSingleItem();
         frames[0].IframeUrl.ShouldContain("iss=");
+    }
+
+    [Fact]
+    public void GenerateLogoutFrames_UsesConfiguredIssuerAndPreservesUriFragment()
+    {
+        // Arrange
+        var context = new DefaultHttpContext();
+        context.Request.Scheme = "https";
+        context.Request.Host = new HostString("request-derived.example.test");
+        FrontChannelLogoutService service = this.CreateService("https://identity.example.test", context);
+        var sessionId = SessionId.Create();
+        var clients = new List<ClientSessionInfo>
+        {
+            new("client-1", "https://client1.com/logout?return=true#complete", null)
+        };
+
+        // Act
+        IReadOnlyList<FrontChannelLogoutFrame> frames = service.GenerateLogoutFrames(sessionId, clients);
+
+        // Assert
+        frames.ShouldHaveSingleItem();
+        frames[0].IframeUrl.ShouldContain("iss=https%3A%2F%2Fidentity.example.test");
+        frames[0].IframeUrl.ShouldEndWith("#complete");
+        frames[0].IframeUrl.ShouldContain($"sid={sessionId.Value}");
+    }
+
+    [Fact]
+    public void GenerateLogoutFrames_WithoutConfiguredIssuer_UsesRequestBaseUri()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Scheme = "https";
+        context.Request.Host = new HostString("login.example.test:8443");
+        context.Request.PathBase = "/identity";
+        FrontChannelLogoutService service = this.CreateService(issuer: null, context);
+
+        IReadOnlyList<FrontChannelLogoutFrame> frames = service.GenerateLogoutFrames(
+            SessionId.Create(),
+            [new ClientSessionInfo("client-1", "https://client.example.test/logout", null)]);
+
+        frames.ShouldHaveSingleItem();
+        frames[0].IframeUrl.ShouldContain("iss=https%3A%2F%2Flogin.example.test%3A8443%2Fidentity%2F");
+    }
+
+    [Fact]
+    public void GenerateLogoutFrames_WithoutConfiguredIssuerOrRequest_Throws()
+    {
+        FrontChannelLogoutService service = this.CreateService(issuer: null);
+
+        Should.Throw<InvalidOperationException>(() => service.GenerateLogoutFrames(
+            SessionId.Create(),
+            [new ClientSessionInfo("client-1", "https://client.example.test/logout", null)]));
     }
 
     [Fact]
@@ -201,5 +253,13 @@ public sealed class FrontChannelLogoutServiceTests
         frames[0].ClientId.ShouldBe("first-client");
         frames[1].ClientId.ShouldBe("second-client");
         frames[2].ClientId.ShouldBe("third-client");
+    }
+
+    private FrontChannelLogoutService CreateService(string? issuer, HttpContext? context = null)
+    {
+        return new FrontChannelLogoutService(
+            this._logger,
+            new HttpContextAccessor { HttpContext = context },
+            issuer);
     }
 }

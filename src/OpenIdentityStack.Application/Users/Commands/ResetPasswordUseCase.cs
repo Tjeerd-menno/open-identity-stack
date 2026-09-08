@@ -1,5 +1,6 @@
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Users;
+using OpenIdentityStack.Domain.Sessions;
 
 using SharedKernel;
 namespace OpenIdentityStack.Application.Users.Commands;
@@ -15,6 +16,8 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
     private readonly IAdministrativeApproval approval;
+    private readonly ICredentialLifecycleTransactionRunner transactionRunner;
+    private readonly ISessionRepository sessionRepository;
 
     public ResetPasswordUseCase(
         IUserRepository userRepository,
@@ -22,7 +25,9 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
         IPasswordPolicyValidator passwordPolicyValidator,
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog,
-        IAdministrativeApproval approval)
+        IAdministrativeApproval approval,
+        ICredentialLifecycleTransactionRunner transactionRunner,
+        ISessionRepository sessionRepository)
     {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
@@ -30,6 +35,8 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
         this.dateTimeProvider = dateTimeProvider;
         this.auditLog = auditLog;
         this.approval = approval;
+        this.transactionRunner = transactionRunner;
+        this.sessionRepository = sessionRepository;
     }
 
     /// <inheritdoc />
@@ -51,29 +58,55 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
             return UserErrors.NotFound;
         }
 
-        Result approvalResult = await this.approval.RequireForUserAccessAsync(user.Id, "User.ResetPasswordUnrestricted", cancellationToken);
-        if (approvalResult.IsFailure) { return approvalResult.Error; }
-
-        string hashedPassword = this.passwordHasher.HashPassword(command.NewPassword);
-        Result result = user.SetPassword(hashedPassword, this.dateTimeProvider);
-
-        if (result.IsFailure)
+        Result approvalResult = await this.approval.RequireForUserAccessAsync(
+            user.Id,
+            "User.ResetPasswordUnrestricted",
+            cancellationToken);
+        if (approvalResult.IsFailure)
         {
-            return result.Error;
+            return approvalResult.Error;
         }
 
-        await this.userRepository.SaveChangesAsync(cancellationToken);
-        await this.approval.RecordOutcomeAsync(true, cancellationToken);
+        Result<ResetPasswordResult> resetResult = await this.transactionRunner.ExecuteAsync<ResetPasswordResult>(async transactionCancellationToken =>
+        {
+            string hashedPassword = this.passwordHasher.HashPassword(command.NewPassword);
+            Result result = user.SetPassword(hashedPassword, this.dateTimeProvider);
+            if (result.IsFailure)
+            {
+                return result.Error;
+            }
 
-        // Never include the password (plain or hashed) in the audit detail.
-        await this.auditLog.LogAsync(
-            command.ActorId,
-            "User.PasswordReset",
-            "User",
-            user.Id.Value.ToString(),
-            $"Email: {user.Email}",
-            cancellationToken);
+            IReadOnlyList<UserSession> sessions = await this.sessionRepository.GetActiveByUserIdAsync(user.Id, transactionCancellationToken);
+            foreach (UserSession session in sessions)
+            {
+                Result revoke = session.Revoke(this.dateTimeProvider);
+                if (revoke.IsFailure)
+                {
+                    return revoke.Error;
+                }
+                await this.sessionRepository.UpdateAsync(session, transactionCancellationToken);
+            }
 
-        return new ResetPasswordResult(user.Id, this.dateTimeProvider.UtcNow);
+            await this.userRepository.SaveChangesAsync(transactionCancellationToken);
+
+            // Never include the password (plain or hashed) in the audit detail.
+            await this.auditLog.LogAsync(
+                command.ActorId,
+                "User.PasswordReset",
+                "User",
+                user.Id.Value.ToString(),
+                $"Email: {user.Email}",
+                transactionCancellationToken);
+
+            return new ResetPasswordResult(user.Id, this.dateTimeProvider.UtcNow);
+        }, cancellationToken);
+
+        if (resetResult.IsSuccess)
+        {
+            await this.approval.RecordOutcomeAsync(true, cancellationToken);
+        }
+
+        return resetResult;
     }
+
 }

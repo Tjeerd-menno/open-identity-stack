@@ -45,6 +45,7 @@ public class AuthorizationController : ControllerBase
     private readonly IAuditLog auditLog;
     private readonly ITokenClaimProjectionService tokenClaimProjectionService;
     private readonly IResourcePermissionService? resourcePermissionService;
+    private readonly ICredentialSessionValidator credentialSessionValidator;
 
     public AuthorizationController(
         IOpenIddictApplicationManager applicationManager,
@@ -56,6 +57,7 @@ public class AuthorizationController : ControllerBase
         IValidateSessionQueryHandler validateSessionQueryHandler,
         IOpenIddictRequestService requestService,
         IAuditLog auditLog,
+        ICredentialSessionValidator credentialSessionValidator,
         IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null,
         IHostEnvironment? environment = null,
         IPermissionClaimProjectionService? permissionClaimProjectionService = null,
@@ -70,6 +72,7 @@ public class AuthorizationController : ControllerBase
         this.validateSessionQueryHandler = validateSessionQueryHandler;
         this.requestService = requestService;
         this.auditLog = auditLog;
+        this.credentialSessionValidator = credentialSessionValidator;
         this.tokenClaimProjectionService = tokenClaimProjectionService ?? new TokenClaimProjectionService();
         this.resourcePermissionService = resourcePermissionService;
     }
@@ -156,6 +159,8 @@ public class AuthorizationController : ControllerBase
 
         string? sessionIdValue = user.FindFirstValue("sid") ?? user.FindFirstValue(legacySessionIdClaim);
         if (!Guid.TryParse(sessionIdValue, out Guid sessionIdGuid)
+            || userId is null
+            || !await this.HasValidCredentialSessionAsync(user, userId.Value)
             || !(await this.validateSessionQueryHandler.HandleAsync(
                 new ValidateSessionQuery(new SessionId(sessionIdGuid)), this.HttpContext.RequestAborted)).IsValid)
         {
@@ -172,8 +177,12 @@ public class AuthorizationController : ControllerBase
 
         if (!string.IsNullOrEmpty(request.ClientId))
         {
-            await this.addClientSessionUseCase.ExecuteAsync(new AddClientSessionCommand(
+            Result participation = await this.addClientSessionUseCase.ExecuteAsync(new AddClientSessionCommand(
                 new SessionId(sessionIdGuid), request.ClientId), this.HttpContext.RequestAborted);
+            if (participation.IsFailure)
+            {
+                return this.RejectUnavailableCredentials(Errors.AccessDenied);
+            }
         }
 
         var roleNames = new List<string>();
@@ -256,6 +265,7 @@ public class AuthorizationController : ControllerBase
 
             string? clientId = await this.applicationManager.GetClientIdAsync(application);
             identity.AddClaim(new Claim(Claims.Subject, clientId!));
+            identity.AddClaim(new Claim("token_kind", "client_credentials"));
             identity.AddClaim(new Claim(TokenSubjectClaims.Kind, TokenSubjectClaims.Application).SetDestinations(Destinations.AccessToken));
             identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, clientId!));
 
@@ -306,7 +316,13 @@ public class AuthorizationController : ControllerBase
             string? sessionIdStr = result.Principal.FindFirst("sid")?.Value
                 ?? result.Principal.FindFirst(legacySessionIdClaim)?.Value;
 
-            if (sessionIdStr is not null && Guid.TryParse(sessionIdStr, out Guid sessionIdGuid))
+            if (!Guid.TryParse(sessionIdStr, out Guid sessionIdGuid)
+                || TryParseUserId(subject ?? string.Empty) is not { } sessionUserId
+                || !await this.HasValidCredentialSessionAsync(result.Principal, sessionUserId))
+            {
+                return this.RejectUnavailableCredentials();
+            }
+
             {
                 ValidateSessionResult validateResult = await this.validateSessionQueryHandler.HandleAsync(
                     new ValidateSessionQuery(new SessionId(sessionIdGuid)));
@@ -317,7 +333,7 @@ public class AuthorizationController : ControllerBase
                         authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
                         properties: new AuthenticationProperties(new Dictionary<string, string?>
                         {
-                            [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.AccessDenied,
+                            [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.InvalidGrant,
                             [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = validateResult.Reason ?? "Session invalid"
                         }));
                 }
@@ -334,8 +350,17 @@ public class AuthorizationController : ControllerBase
             Result<ResourceTokenProjection> resourceAccess = await this.ProjectResourcesAsync(request, scopes, subjectId,
                 result.Principal.FindAll("permission").Select(static claim => claim.Value).ToArray(), result.Principal.GetResources());
             if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error); }
-            ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, authenticationTime, tokenUser);
-            projectedPrincipal.SetScopes(scopes);
+            Result<IReadOnlyList<RoleDto>> roles = await this.getUserEffectiveRolesQueryHandler.HandleAsync(subjectId.Value, this.HttpContext.RequestAborted);
+            Result<IReadOnlyList<GroupClaimDto>> groups = await this.getGroupClaimsForUserQueryHandler.HandleAsync(subjectId.Value, this.HttpContext.RequestAborted);
+            if (roles.IsFailure || groups.IsFailure || tokenUser is null)
+            {
+                return this.RejectUnavailableCredentials();
+            }
+            ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectSubjectClaims(new TokenClaimProjectionRequest(
+                result.Principal!, tokenUser, roles.Value.Where(static role => role.IsActive).Select(static role => role.Name).ToArray(),
+                resourceAccess.Value.Permissions, groups.Value, scopes,
+                result.Principal!.FindAll(TokenClaimProjectionService.RequestedUserInfoClaim).Select(static claim => claim.Value).ToImmutableHashSet(StringComparer.Ordinal),
+                authenticationTime, result.Principal.GetClaim(TokenClaimProjectionService.AuthenticationContextClassReferenceClaim), sessionIdStr));
             ApplyResourceAccess(projectedPrincipal, request.ClientId!, ResourceTokenActorTypes.User, resourceAccess.Value);
             return this.SignIn(
                 projectedPrincipal,
@@ -394,7 +419,8 @@ public class AuthorizationController : ControllerBase
         Domain.Users.User? emailEvidenceUser = null;
         if (!applicationSubject)
         {
-            if (TryParseUserId(subject ?? string.Empty) is not { } userId)
+            if (TryParseUserId(subject ?? string.Empty) is not { } userId
+                || !await this.HasValidCredentialSessionAsync(principal, userId))
             {
                 return this.InvalidUserInfoToken();
             }
@@ -413,6 +439,13 @@ public class AuthorizationController : ControllerBase
             [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.InvalidToken,
             [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The access token is not valid."
         }));
+
+    private async Task<bool> HasValidCredentialSessionAsync(ClaimsPrincipal principal, UserId userId)
+    {
+        string? sessionId = principal.FindFirstValue("sid") ?? principal.FindFirstValue(legacySessionIdClaim);
+        return Guid.TryParse(sessionId, out Guid parsedSessionId)
+            && await this.credentialSessionValidator.IsValidAsync(userId, new SessionId(parsedSessionId), this.HttpContext.RequestAborted);
+    }
 
     // NOTE: Logout endpoint is handled by LogoutController which implements
     // full Single Logout (SLO) with front-channel and back-channel support.

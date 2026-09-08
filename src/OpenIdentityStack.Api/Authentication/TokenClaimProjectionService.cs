@@ -40,6 +40,7 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             roleType: Claims.Role);
 
         string userIdString = request.Principal.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? request.Principal.FindFirstValue(Claims.Subject)
             ?? throw new InvalidOperationException("Subject claim not found.");
         identity.AddClaim(new Claim(Claims.Subject, userIdString));
 
@@ -114,6 +115,14 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
         {
             identity.AddClaim(CreateGroupClaim(groupClaim));
         }
+
+        // Group claim mappings are administrator-configured input and must never be able to
+        // manufacture the server-reserved client-credentials marker used by token validation.
+        foreach (Claim claim in identity.FindAll("token_kind").ToArray())
+        {
+            identity.RemoveClaim(claim);
+        }
+        identity.AddClaim(new Claim("token_kind", "user"));
 
         ClaimsPrincipal principal = new(identity);
         principal.SetScopes(request.Scopes.ToImmutableArray());
@@ -323,7 +332,15 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
                 yield break;
 
+            case "token_kind":
+                yield return Destinations.AccessToken;
+                yield break;
+
             case "sid":
+                // The local validation boundary uses the standard session identifier to
+                // validate each user access token against authoritative session state.
+                yield return Destinations.AccessToken;
+
                 if (claim.Subject?.HasScope(Scopes.OpenId) == true)
                 {
                     yield return Destinations.IdentityToken;

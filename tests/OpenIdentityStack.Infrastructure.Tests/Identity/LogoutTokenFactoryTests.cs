@@ -199,13 +199,14 @@ public sealed class LogoutTokenFactoryTests : IDisposable
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
-        httpContext.Request.Host = new HostString("login.example.org");
+        httpContext.Request.Host = new HostString("login.example.org:8443");
+        httpContext.Request.PathBase = "/identity";
 
         LogoutTokenFactory factory = this.CreateFactory(issuer: null, httpContext: httpContext);
 
         string token = factory.CreateLogoutToken(SessionId.Create(), "client-1");
 
-        new JsonWebTokenHandler().ReadJsonWebToken(token).Issuer.ShouldBe("https://login.example.org/");
+        new JsonWebTokenHandler().ReadJsonWebToken(token).Issuer.ShouldBe("https://login.example.org:8443/identity/");
     }
 
     [Fact]

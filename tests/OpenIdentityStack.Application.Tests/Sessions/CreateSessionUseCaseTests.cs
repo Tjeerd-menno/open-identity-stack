@@ -69,6 +69,22 @@ public sealed class CreateSessionUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WhenUserCannotAuthenticate_DoesNotPersistSession()
+    {
+        User user = this.CreateUser("disabled@example.com");
+        user.VerifyEmail(this.dateTimeProvider);
+        user.Disable("Administrative action", this.dateTimeProvider);
+        var command = new CreateSessionCommand(user.Id, "203.0.113.10", "Mozilla/5.0");
+        this.userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+
+        Result<CreateSessionResult> result = await this.useCase.ExecuteAsync(command);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe(UserErrors.AccountDisabled.Code);
+        await this.sessionRepository.DidNotReceive().AddAsync(Arg.Any<UserSession>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithInvalidUserId_ReturnsValidationError()
     {
         var command = new CreateSessionCommand(UserId.Empty, "203.0.113.10", "Mozilla/5.0");
@@ -116,6 +132,8 @@ public sealed class CreateSessionUseCaseTests
 
     private User CreateUser(string email)
     {
-        return User.CreateLocal(email, "Test User", "hashed-password", this.dateTimeProvider).Value;
+        User user = User.CreateLocal(email, "Test User", "hashed-password", this.dateTimeProvider).Value;
+        user.VerifyEmail(this.dateTimeProvider);
+        return user;
     }
 }

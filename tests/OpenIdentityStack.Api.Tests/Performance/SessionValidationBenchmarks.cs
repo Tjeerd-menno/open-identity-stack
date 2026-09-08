@@ -30,6 +30,7 @@ public class SessionValidationBenchmarks
         IAddClientSessionUseCase addClientSessionUseCase = Substitute.For<OpenIdentityStack.Application.Sessions.Commands.IAddClientSessionUseCase>();
         IValidateSessionQueryHandler validateSessionQueryHandler = Substitute.For<IValidateSessionQueryHandler>();
         IOpenIddictRequestService openIddictRequestService = Substitute.For<IOpenIddictRequestService>();
+        ICredentialSessionValidator credentialSessionValidator = Substitute.For<ICredentialSessionValidator>();
         
         var controller = new AuthorizationController(
             applicationManager,
@@ -40,7 +41,8 @@ public class SessionValidationBenchmarks
             addClientSessionUseCase,
             validateSessionQueryHandler,
             openIddictRequestService,
-            Substitute.For<IAuditLog>()
+            Substitute.For<IAuditLog>(),
+            credentialSessionValidator
         );
 
         var httpContext = new DefaultHttpContext();
