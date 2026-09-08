@@ -28,15 +28,15 @@ Administrative access tokens target only the Admin API. Missing, incorrect, or c
 
 Where provisioning is enabled, a newly authenticated upstream identity may receive an ordinary local account without trusted email-verification evidence, provided no email collision exists. Identity derives from the provider and subject; email verification remains false or unknown, and no administrative privilege is assigned automatically. Unverified email provides no basis for linking or email-dependent authorization.
 
-## Recovery and cutover constraints
+## Recovery and deployment constraints
 
 Proof-based identity recovery is deferred unless the legacy-link inventory makes it a prerequisite for safe migration; the raw provider/subject linking bypass is closed. Rollout requires a tested, independently accessible emergency administrator. Neither routine seeding nor recovery shortcuts may silently reactivate a disabled account or manufacture email-verification evidence.
 
-Administrative client registrations are prepared before cutover: Management Web is explicitly configured and other administrative integrations require approval. The upgraded Admin API has no compatibility bypass for generic `api` tokens; it requires fresh tokens with the dedicated audience and permission ceilings. Existing explicit wildcard grants are preserved, but role names such as `admin` are never automatically converted into wildcard grants.
+Administrative client registrations are prepared before deployment: Management Web is explicitly configured and other administrative integrations require approval. The upgraded Admin API has no compatibility bypass for generic `api` tokens; it requires fresh tokens with the dedicated audience and permission ceilings. Existing explicit wildcard grants are preserved, but role names such as `admin` are never automatically converted into wildcard grants.
 
 Existing identity links require independent evidence of legitimate association before they are trusted. Links without that evidence are retained as quarantined records and cannot authenticate a user; signing in through the disputed link does not prove control of the local account. Before rollout, inventory affected users and independently usable login methods. Users relying solely on quarantined federation links cannot migrate until safe recovery is available, which may bring the deferred proof-based recovery slice forward.
 
-Cutover invalidates pre-cutover OpenID Provider sessions and grants and requires fresh authentication; the Admin API rejects pre-cutover administrative credentials. Independently validating business APIs need a separate plan for outstanding tokens: changing the provider cannot instantly recall tokens those APIs continue to accept.
+Decision amended on 8 September 2026: OpenIdentityStack is still pre-release and has no issued production credentials requiring migration. Remove the global credential cutover operation, credential epoch, readiness gate, and rehearsal workflow. They are not first-release prerequisites. Initial deployment starts with the identity and administrative boundaries already enforced. Targeted session/token revocation, provider email-trust withdrawal, and current-authority checks remain required product behavior. Independently validating business APIs still need a revocation policy: changing the provider cannot instantly recall tokens those APIs continue to accept.
 
 ## Withdrawal of trust and authority
 
@@ -46,4 +46,4 @@ Changes to a user's administrative permissions, a client's administrative approv
 
 ## Verification expectations
 
-Plan regression tests before implementation for email collisions and quarantined links, disabled-user federation, issuer replacement, verification provenance and trust withdrawal, administrative audience isolation, delegated and machine permission limits, protected approval operations, and authority withdrawal using already-issued credentials. Cutover validation must demonstrate emergency access, rejection of pre-cutover credentials, and safe handling of users without an independent login method. These are delivery requirements; the design interview does not establish that the current implementation passes them.
+Plan regression tests before implementation for email collisions and quarantined links, disabled-user federation, issuer replacement, verification provenance and trust withdrawal, administrative audience isolation, delegated and machine permission limits, protected approval operations, and authority withdrawal using already-issued credentials. Verify emergency access and safe handling of users without an independent login method. These are delivery requirements; the design interview does not establish that the current implementation passes them.

@@ -4,21 +4,20 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Common;
-using SharedKernel;
 using OpenIdentityStack.Infrastructure.Identity;
+using SharedKernel;
 
 namespace OpenIdentityStack.Api.Authentication;
 
-public static class CredentialBoundaryCookieValidation
+public static class SessionCookieValidation
 {
     public static async Task ValidateAsync(CookieValidatePrincipalContext context)
     {
         IServiceProvider services = context.HttpContext.RequestServices;
-        ICredentialBoundaryStore boundary = services.GetRequiredService<ICredentialBoundaryStore>();
         string? subject = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
         string? session = context.Principal?.FindFirstValue("sid");
-        bool valid = await boundary.IsCurrentAsync(context.Principal?.FindFirstValue(CredentialBoundaryClaims.Epoch), context.HttpContext.RequestAborted);
-        if (valid && Guid.TryParse(subject, out Guid userId) && Guid.TryParse(session, out Guid sessionId))
+        bool valid;
+        if (Guid.TryParse(subject, out Guid userId) && Guid.TryParse(session, out Guid sessionId))
         {
             OpenIdentityStack.Domain.Users.User? user = await services.GetRequiredService<IUserRepository>().GetByIdAsync(new UserId(userId), context.HttpContext.RequestAborted);
             UserSession? persisted = await services.GetRequiredService<ISessionRepository>().GetByIdAsync(new SessionId(sessionId), context.HttpContext.RequestAborted);

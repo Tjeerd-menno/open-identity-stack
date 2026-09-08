@@ -5,11 +5,10 @@ import { AppShell } from '@/components/AppShell';
 import { Icon } from '@/components/Icon';
 import { CenteredState } from '@/components/primitives';
 import { useAuth } from '@/lib/auth-context';
-import { credentialCutoverPermissions, hasAnyPermission, hasEveryPermission } from '@/lib/permissions';
+import { hasAnyPermission } from '@/lib/permissions';
 
 // Feature pages are lazily loaded so each route ships as its own chunk instead of in the initial bundle.
 const OverviewPage = lazy(() => import('@/features/overview/OverviewPage').then((m) => ({ default: m.OverviewPage })));
-const CutoverReadinessPage = lazy(() => import('@/features/security/CutoverReadinessPage').then((m) => ({ default: m.CutoverReadinessPage })));
 const UsersPage = lazy(() => import('@/features/users/UsersPage').then((m) => ({ default: m.UsersPage })));
 const UserDetailPage = lazy(() => import('@/features/users/UserDetailPage').then((m) => ({ default: m.UserDetailPage })));
 const ApplicationsPage = lazy(() => import('@/features/applications/ApplicationsPage').then((m) => ({ default: m.ApplicationsPage })));
@@ -97,15 +96,15 @@ function LazyPageOutlet() {
   );
 }
 
-function RequirePermissions({ permissions, children, requireAll = false }: { permissions: string[]; children: ReactNode; requireAll?: boolean }) {
+function RequirePermissions({ permissions, children }: { permissions: string[]; children: ReactNode }) {
   const auth = useAuth();
-  if (!(requireAll ? hasEveryPermission(auth.permissions, permissions) : hasAnyPermission(auth.permissions, permissions))) {
+  if (!hasAnyPermission(auth.permissions, permissions)) {
     return (
       <CenteredState
         icon="shield-off"
         iconColor="orange"
         title="Access denied"
-        text={`You need ${requireAll ? 'all of' : 'one of'}: ${permissions.join(', ')} to view this area.`}
+        text={`You need one of: ${permissions.join(', ')} to view this area.`}
       />
     );
   }
@@ -133,7 +132,6 @@ export function AppRoutes() {
       <Route element={<AppShell />}>
         <Route element={<LazyPageOutlet />}>
           <Route index element={<OverviewPage />} />
-          <Route path="security/cutover" element={<RequirePermissions requireAll permissions={credentialCutoverPermissions}><CutoverReadinessPage /></RequirePermissions>} />
           <Route
             path="users"
             element={

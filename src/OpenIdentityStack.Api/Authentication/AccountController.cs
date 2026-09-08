@@ -33,7 +33,6 @@ public class AccountController : Controller
     private readonly IDynamicAuthenticationSchemeService schemeService;
     private readonly IJitProvisionUserUseCase jitProvisionUseCase;
     private readonly IAuditLog audit;
-    private readonly ICredentialBoundaryStore credentialBoundary;
     private readonly ISessionMonitoringCookieService sessionMonitoringCookies;
     private readonly ICredentialTerminationService credentialTerminationService;
 
@@ -47,7 +46,6 @@ public class AccountController : Controller
         IDynamicAuthenticationSchemeService schemeService,
         IJitProvisionUserUseCase jitProvisionUseCase,
         IAuditLog audit,
-        ICredentialBoundaryStore credentialBoundary,
         ISessionMonitoringCookieService sessionMonitoringCookies,
         ICredentialTerminationService credentialTerminationService)
     {
@@ -60,7 +58,6 @@ public class AccountController : Controller
         this.schemeService = schemeService;
         this.jitProvisionUseCase = jitProvisionUseCase;
         this.audit = audit;
-        this.credentialBoundary = credentialBoundary;
         this.sessionMonitoringCookies = sessionMonitoringCookies;
         this.credentialTerminationService = credentialTerminationService;
     }
@@ -174,8 +171,6 @@ public class AccountController : Controller
             }
         };
 
-        properties.SetString(CredentialBoundaryClaims.Epoch, (await this.credentialBoundary.GetEpochAsync(this.HttpContext.RequestAborted)).ToString());
-
         // If fresh login is required, pass prompt=login to the upstream IdP
         // This forces the external IdP (like Authentik) to show its login page
         if (fresh)
@@ -204,11 +199,6 @@ public class AccountController : Controller
         // Consume the authenticated external ticket before any validation or JIT denial can return.
         await this.HttpContext.SignOutAsync("ExternalCookie");
         ClaimsPrincipal externalUser = authenticateResult.Principal;
-        string? credentialEpoch = authenticateResult.Properties?.GetString(CredentialBoundaryClaims.Epoch);
-        if (!await this.credentialBoundary.IsCurrentAsync(credentialEpoch, this.HttpContext.RequestAborted))
-        {
-            return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
-        }
         string? verifiedEvidenceEmail = null;
         authenticateResult.Properties?.Items.TryGetValue(ExternalIdentityProperties.VerifiedEmail, out verifiedEvidenceEmail);
 
@@ -275,7 +265,6 @@ public class AccountController : Controller
             new(ClaimTypes.Name, user.DisplayName),
             new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
             new("auth_method", "external"),
-            new(CredentialBoundaryClaims.Epoch, credentialEpoch ?? Guid.Empty.ToString()),
             new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, user.Id.Value.ToString()),
             new("provider", authenticatedProvider)
         };
@@ -315,9 +304,8 @@ public class AccountController : Controller
         };
 
         await this.HttpContext.SignInAsync("Cookies", claimsPrincipal, authProperties);
-        Guid capturedEpoch = Guid.TryParse(credentialEpoch, out Guid parsedEpoch) ? parsedEpoch : Guid.Empty;
         this.AppendSessionMonitoringCookie(
-            user.Id, sessionResult.Value.SessionId, capturedEpoch, authProperties.ExpiresUtc!.Value);
+            user.Id, sessionResult.Value.SessionId, authProperties.ExpiresUtc!.Value);
 
         return this.RedirectToValidatedUrl(returnUrl);
     }
@@ -338,7 +326,6 @@ public class AccountController : Controller
             return this.View(model);
         }
 
-        Guid credentialEpoch = await this.credentialBoundary.GetEpochAsync(this.HttpContext.RequestAborted);
         var command = new ValidateUserCredentialsCommand(model.Email, model.Password);
         Result<ValidateUserCredentialsResult> result = await this.validateCredentialsUseCase.ExecuteAsync(command);
 
@@ -354,13 +341,11 @@ public class AccountController : Controller
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, result.Value.UserId.Value.ToString()),
-            new(CredentialBoundaryClaims.Epoch, credentialEpoch.ToString()),
             new(ClaimTypes.Email, result.Value.Email),
             new(ClaimTypes.Name, result.Value.DisplayName),
             new(Claims.AuthenticationTime, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
             new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, result.Value.UserId.Value.ToString()),
-            new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
-            new(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision, result.Value.CredentialRevision.ToString())
+            new(OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim, authenticationTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64)
         };
 
         // Create user session
@@ -381,7 +366,6 @@ public class AccountController : Controller
         string sessionId = sessionResult.Value.SessionId.Value.ToString();
         claims.Add(new Claim("sid", sessionId));
         claims.Add(new Claim("session_id", sessionId));
-        claims.Add(new Claim(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.LocalPasswordSession, sessionId));
 
         var claimsIdentity = new ClaimsIdentity(claims, "Cookies");
         var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
@@ -395,7 +379,7 @@ public class AccountController : Controller
 
         await this.HttpContext.SignInAsync("Cookies", claimsPrincipal, authProperties);
         this.AppendSessionMonitoringCookie(
-            result.Value.UserId, sessionResult.Value.SessionId, credentialEpoch, authProperties.ExpiresUtc!.Value);
+            result.Value.UserId, sessionResult.Value.SessionId, authProperties.ExpiresUtc!.Value);
 
         return this.RedirectToValidatedUrl(returnUrl);
     }
@@ -477,10 +461,9 @@ public class AccountController : Controller
     private void AppendSessionMonitoringCookie(
         UserId userId,
         SessionId sessionId,
-        Guid credentialEpoch,
         DateTimeOffset expiresUtc)
     {
-        string value = this.sessionMonitoringCookies.Create(userId, sessionId, credentialEpoch, expiresUtc);
+        string value = this.sessionMonitoringCookies.Create(userId, sessionId, expiresUtc);
         this.HttpContext.Response.Cookies.Append(
             SessionManagementDefaults.SessionCookieName,
             value,

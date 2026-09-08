@@ -97,7 +97,7 @@ public sealed class CheckSessionTests(AppHostFixture fixture)
     }
 
     [Fact]
-    public async Task LegacyMonitoringCookieIsRetainedBeforeCredentialCutover()
+    public async Task UnprotectedMonitoringCookieIsCleared()
     {
         using HttpClient browser = fixture.CreateClient(allowAutoRedirect: false);
         browser.DefaultRequestHeaders.Add("Cookie", "op_session=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
@@ -105,7 +105,7 @@ public sealed class CheckSessionTests(AppHostFixture fixture)
         HttpResponseMessage response = await browser.GetAsync("/connect/check_session");
 
         response.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
-        response.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? values).ShouldBeFalse();
+        response.Headers.GetValues("Set-Cookie").ShouldContain(value => value.StartsWith("op_session=;", StringComparison.Ordinal));
     }
 
     [Theory]

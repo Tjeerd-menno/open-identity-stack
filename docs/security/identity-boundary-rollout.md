@@ -1,6 +1,8 @@
 # Identity and privilege boundary rollout
 
-This delivery implements the policies in [ADR 0005](../adr/0005-identity-and-administrative-trust-boundaries.md). Each implementation layer must pass its focused checks before integration; the final cutover rehearsal remains a release gate.
+This delivery implements the policies in [ADR 0005](../adr/0005-identity-and-administrative-trust-boundaries.md). Each implementation layer must pass its focused checks before integration. The first release enforces these boundaries from initial deployment.
+
+The `RemoveCredentialCutover` migration removes the four obsolete cutover tables from existing development databases. Historical migrations remain so those databases can upgrade normally. This schema cleanup does not revoke sessions or tokens or change passwords, client secrets, or signing keys.
 
 ## Account linking
 
@@ -24,4 +26,4 @@ The checked-in OpenAPI contract marks raw linking as deprecated and describes it
 
 The Admin API contract release is **2.0.0**, advancing from 1.1.0 for this removal of the advertised raw-link success response and shared-client operation. Release the API, shared administrative client, and Management Web together under [ADR 0003](../adr/0003-unified-release-train-for-breaking-api-changes.md). This contract release does not introduce a versioned URL: `/api/admin` remains the administrative base path. Consumers must migrate away from raw-link calls before upgrading; the endpoint continues to return the documented proof-required 403.
 
-Implementation issues are [#445–#456](https://github.com/Tjeerd-menno/open-identity-stack/issues?q=is%3Aissue+is%3Aopen+label%3Aready-for-agent). Broader assessment findings and formal OpenID Connect certification are separate work. Production cutover is not authorized by implementing these changes.
+Implementation issues are [#445–#456](https://github.com/Tjeerd-menno/open-identity-stack/issues?q=is%3Aissue+is%3Aopen+label%3Aready-for-agent). Broader assessment findings and formal OpenID Connect certification are separate work. The pre-release credential cutover workflow was removed; see the amended deployment decision in ADR 0005.

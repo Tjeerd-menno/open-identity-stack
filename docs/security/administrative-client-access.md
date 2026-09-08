@@ -37,7 +37,7 @@ OAuth settings, new credentials, and re-enabling an entitled client use the same
 
 The API exposes `GET` and `PUT /api/admin/applications/{id}/administrative-access`. The response contains `approved`, `delegatedPermissions`, `applicationPermissions`, and nullable `revision`. PUT supplies both ceilings and `expectedRevision`; use null for a new entitlement. A stale revision returns 409. Approval failures return the 403 Problem Details codes described in [unrestricted administrative approval](unrestricted-administration.md).
 
-## Management Web preparation and cutover
+## Management Web preparation
 
 The migrator prepares only the fixed `management-web-client` registration, with `ois.admin`, authorization code plus PKCE, and independently reviewed redirect URIs configured under `OpenIddict:Clients:ManagementWeb`. Preparation alone does not approve it.
 
@@ -47,7 +47,7 @@ An existing grant is never expanded or restored by bootstrap reruns, including a
 
 Every preparation run validates the existing registration against the complete reviewed configuration before protocol projection, even with bootstrap disabled or an existing grant. Redirects, logout redirects, scopes, grant types, public SPA profile, PKCE, consent policy, active status, and absence of credentials must match. Mismatches fail without changing the client or grant; reconcile them through the approved administrative workflow, including an intentionally removed `ois.admin` scope, before rerunning preparation. New registrations are persisted before projection; existing registrations are never silently repaired.
 
-Before enabling the boundary, preserve and test an independently accessible emergency human administrator and review the Management Web deployment configuration. Apply resource persistence migrations, prepare registrations, perform the controlled bootstrap if required, approve other integrations, and execute the coordinated credential cutover in [ADR 0005](../adr/0005-identity-and-administrative-trust-boundaries.md). Require fresh administrative tokens. There is no generic-`api` compatibility mode. Downgrading reopens the old administrative boundary.
+Before enabling the boundary, preserve and test an independently accessible emergency human administrator and review the Management Web deployment configuration. Apply resource persistence migrations, prepare registrations, perform the controlled bootstrap if required, approve other integrations, as described in [ADR 0005](../adr/0005-identity-and-administrative-trust-boundaries.md). Obtain administrative tokens with the dedicated audience and approved ceilings. There is no generic-`api` compatibility mode. Downgrading reopens the old administrative boundary.
 
 ## Browser verification
 

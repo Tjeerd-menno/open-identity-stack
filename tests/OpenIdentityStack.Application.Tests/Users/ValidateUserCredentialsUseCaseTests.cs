@@ -71,7 +71,6 @@ public sealed class ValidateUserCredentialsUseCaseTests
         result.Value.UserId.ShouldBe(user.Id);
         result.Value.Email.ShouldBe("test@example.com");
         result.Value.DisplayName.ShouldBe("Test User");
-        result.Value.CredentialRevision.ShouldBe(user.CredentialRevision);
     }
 
     [Fact]

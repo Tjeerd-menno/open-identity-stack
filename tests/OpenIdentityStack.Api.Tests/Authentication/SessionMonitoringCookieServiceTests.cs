@@ -12,12 +12,10 @@ public sealed class SessionMonitoringCookieServiceTests
 {
     private readonly IUserRepository users = Substitute.For<IUserRepository>();
     private readonly ISessionRepository sessions = Substitute.For<ISessionRepository>();
-    private readonly ICredentialBoundaryStore boundary = Substitute.For<ICredentialBoundaryStore>();
     private readonly IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
     private readonly SessionMonitoringCookieService service;
     private readonly User user;
     private readonly UserSession session;
-    private readonly Guid epoch = Guid.NewGuid();
 
     public SessionMonitoringCookieServiceTests()
     {
@@ -28,16 +26,15 @@ public sealed class SessionMonitoringCookieServiceTests
         this.session = UserSession.Create(this.user.Id, "127.0.0.1", "tests", this.clock).Value;
         this.users.GetByIdAsync(this.user.Id, Arg.Any<CancellationToken>()).Returns(this.user);
         this.sessions.GetByIdAsync(this.session.Id, Arg.Any<CancellationToken>()).Returns(this.session);
-        this.boundary.IsCurrentAsync(this.epoch.ToString(), Arg.Any<CancellationToken>()).Returns(true);
         this.service = new SessionMonitoringCookieService(
-            new EphemeralDataProtectionProvider(), this.users, this.sessions, this.boundary, this.clock);
+            new EphemeralDataProtectionProvider(), this.users, this.sessions, this.clock);
     }
 
     [Fact]
     public async Task ProtectedCookieValidatesWithoutUpdatingSessionActivity()
     {
         string value = this.service.Create(
-            this.user.Id, this.session.Id, this.epoch, this.clock.UtcNow.AddHours(1));
+            this.user.Id, this.session.Id, this.clock.UtcNow.AddHours(1));
 
         (await this.service.IsCurrentAsync(value)).ShouldBeTrue();
         await this.sessions.DidNotReceive().UpdateAsync(
@@ -48,10 +45,10 @@ public sealed class SessionMonitoringCookieServiceTests
     public void ProtectedCookiesUseIndependentRateLimitPartitions()
     {
         string first = this.service.Create(
-            this.user.Id, this.session.Id, this.epoch, this.clock.UtcNow.AddHours(1));
+            this.user.Id, this.session.Id, this.clock.UtcNow.AddHours(1));
         UserSession otherSession = UserSession.Create(this.user.Id, "127.0.0.1", "tests", this.clock).Value;
         string second = this.service.Create(
-            this.user.Id, otherSession.Id, this.epoch, this.clock.UtcNow.AddHours(1));
+            this.user.Id, otherSession.Id, this.clock.UtcNow.AddHours(1));
 
         this.service.GetRateLimitPartitionKey(first).ShouldBe(this.session.Id.Value.ToString("N"));
         this.service.GetRateLimitPartitionKey(second).ShouldBe(otherSession.Id.Value.ToString("N"));
@@ -67,7 +64,7 @@ public sealed class SessionMonitoringCookieServiceTests
     public void ExpiredProtectedCookieCannotChooseRateLimitPartition()
     {
         string value = this.service.Create(
-            this.user.Id, this.session.Id, this.epoch, this.clock.UtcNow.AddMinutes(-1));
+            this.user.Id, this.session.Id, this.clock.UtcNow.AddMinutes(-1));
 
         this.service.GetRateLimitPartitionKey(value).ShouldBeNull();
     }
@@ -82,19 +79,9 @@ public sealed class SessionMonitoringCookieServiceTests
     }
 
     [Fact]
-    public async Task LegacyBase64UrlCookieRemainsCurrentBeforeCredentialCutover()
+    public async Task UnprotectedBase64UrlCookieFailsClosed()
     {
         const string legacyValue = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        this.boundary.IsCurrentAsync(null, Arg.Any<CancellationToken>()).Returns(true);
-
-        (await this.service.IsCurrentAsync(legacyValue)).ShouldBeTrue();
-    }
-
-    [Fact]
-    public async Task LegacyBase64UrlCookieFailsClosedAfterCredentialCutover()
-    {
-        const string legacyValue = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        this.boundary.IsCurrentAsync(null, Arg.Any<CancellationToken>()).Returns(false);
 
         (await this.service.IsCurrentAsync(legacyValue)).ShouldBeFalse();
     }
@@ -103,7 +90,7 @@ public sealed class SessionMonitoringCookieServiceTests
     public async Task TamperedCookieFailsClosed()
     {
         string value = this.service.Create(
-            this.user.Id, this.session.Id, this.epoch, this.clock.UtcNow.AddHours(1));
+            this.user.Id, this.session.Id, this.clock.UtcNow.AddHours(1));
         char replacement = value[^1] == 'A' ? 'B' : 'A';
 
         (await this.service.IsCurrentAsync(value[..^1] + replacement)).ShouldBeFalse();
@@ -113,17 +100,7 @@ public sealed class SessionMonitoringCookieServiceTests
     public async Task ExpiredCookieFailsClosed()
     {
         string value = this.service.Create(
-            this.user.Id, this.session.Id, this.epoch, this.clock.UtcNow.AddMinutes(-1));
-
-        (await this.service.IsCurrentAsync(value)).ShouldBeFalse();
-    }
-
-    [Fact]
-    public async Task CredentialCutoverMakesProtectedCookieStale()
-    {
-        string value = this.service.Create(
-            this.user.Id, this.session.Id, this.epoch, this.clock.UtcNow.AddHours(1));
-        this.boundary.IsCurrentAsync(this.epoch.ToString(), Arg.Any<CancellationToken>()).Returns(false);
+            this.user.Id, this.session.Id, this.clock.UtcNow.AddMinutes(-1));
 
         (await this.service.IsCurrentAsync(value)).ShouldBeFalse();
     }
@@ -132,7 +109,7 @@ public sealed class SessionMonitoringCookieServiceTests
     public async Task CookieCannotBeReboundToAnotherUsersSession()
     {
         string value = this.service.Create(
-            this.user.Id, this.session.Id, this.epoch, this.clock.UtcNow.AddHours(1));
+            this.user.Id, this.session.Id, this.clock.UtcNow.AddHours(1));
         User other = User.CreateLocal("other@example.test", "Other", "fixture-hash", this.clock).Value;
         UserSession otherSession = UserSession.Create(other.Id, "127.0.0.1", "tests", this.clock).Value;
         this.sessions.GetByIdAsync(this.session.Id, Arg.Any<CancellationToken>()).Returns(otherSession);
@@ -144,7 +121,7 @@ public sealed class SessionMonitoringCookieServiceTests
     public async Task RevokedSessionMakesProtectedCookieStale()
     {
         string value = this.service.Create(
-            this.user.Id, this.session.Id, this.epoch, this.clock.UtcNow.AddHours(1));
+            this.user.Id, this.session.Id, this.clock.UtcNow.AddHours(1));
         this.session.Revoke(this.clock).IsSuccess.ShouldBeTrue();
 
         (await this.service.IsCurrentAsync(value)).ShouldBeFalse();

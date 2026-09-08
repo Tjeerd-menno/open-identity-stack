@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.WebUtilities;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Sessions;
@@ -11,7 +10,7 @@ namespace OpenIdentityStack.Api.Authentication;
 
 public interface ISessionMonitoringCookieService
 {
-    string Create(UserId userId, SessionId sessionId, Guid credentialEpoch, DateTimeOffset expiresUtc);
+    string Create(UserId userId, SessionId sessionId, DateTimeOffset expiresUtc);
 
     string? GetRateLimitPartitionKey(string? value);
 
@@ -25,27 +24,24 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
     private readonly IDataProtector protector;
     private readonly IUserRepository users;
     private readonly ISessionRepository sessions;
-    private readonly ICredentialBoundaryStore boundary;
     private readonly IDateTimeProvider clock;
 
     public SessionMonitoringCookieService(
         IDataProtectionProvider dataProtection,
         IUserRepository users,
         ISessionRepository sessions,
-        ICredentialBoundaryStore boundary,
         IDateTimeProvider clock)
     {
         this.protector = dataProtection.CreateProtector(protectorPurpose);
         this.users = users;
         this.sessions = sessions;
-        this.boundary = boundary;
         this.clock = clock;
     }
 
-    public string Create(UserId userId, SessionId sessionId, Guid credentialEpoch, DateTimeOffset expiresUtc)
+    public string Create(UserId userId, SessionId sessionId, DateTimeOffset expiresUtc)
     {
         var payload = new SessionMonitoringCookiePayload(
-            currentVersion, userId.Value, sessionId.Value, credentialEpoch, expiresUtc);
+            currentVersion, userId.Value, sessionId.Value, expiresUtc);
         return this.protector.Protect(JsonSerializer.Serialize(payload));
     }
 
@@ -69,16 +65,14 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
 
         if (!this.TryReadProtectedPayload(value, out SessionMonitoringCookiePayload payload))
         {
-            return IsLegacyCookie(value)
-                && await this.boundary.IsCurrentAsync(null, cancellationToken);
+            return false;
         }
 
         if (payload is null
             || payload.Version != currentVersion
             || payload.UserId == Guid.Empty
             || payload.SessionId == Guid.Empty
-            || payload.ExpiresUtc <= this.clock.UtcNow
-            || !await this.boundary.IsCurrentAsync(payload.CredentialEpoch.ToString(), cancellationToken))
+            || payload.ExpiresUtc <= this.clock.UtcNow)
         {
             return false;
         }
@@ -119,22 +113,9 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
         }
     }
 
-    private static bool IsLegacyCookie(string value)
-    {
-        try
-        {
-            return WebEncoders.Base64UrlDecode(value).Length == 32;
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-    }
-
     private sealed record SessionMonitoringCookiePayload(
         int Version,
         Guid UserId,
         Guid SessionId,
-        Guid CredentialEpoch,
         DateTimeOffset ExpiresUtc);
 }

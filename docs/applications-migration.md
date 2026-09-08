@@ -14,7 +14,7 @@ ManagementWeb requests the dedicated `ois.admin` scope and requires an explicit 
 4. Update callers to request those scopes and APIs to validate their exact audience. Treat `client_id` as the caller identity, not an audience or permission namespace. Obtain new authorization grants; refresh cannot acquire newly added authority.
 5. Verify allowed and denied token cases, audience mismatch, empty ceilings, grant reduction, and introspection using a caller explicitly assigned to the resource. Inspect `ResourceMappingChanged` and `ClientResourceGrantChanged` audit records before resuming traffic.
 
-Deploy this with the coordinated credential/session cutover. Existing signed access tokens cannot be safely recalled at offline resource servers merely by changing these tables; the cutover must retire old artifacts and external validators must use the agreed validation policy. Keep the new boundary in place during rollback. A schema downgrade deletes mappings and grants and an older binary restores unsafe issuance behavior, so do not use an older binary as an authorization fallback.
+The first release starts with these resource boundaries enforced. Existing signed access tokens cannot be safely recalled at offline resource servers merely by changing these tables; external validators must enforce their configured revocation and expiry policy. Keep the new boundary in place during rollback. A schema downgrade deletes mappings and grants and an older binary restores unsafe issuance behavior, so do not use an older binary as an authorization fallback.
 
 ## Legacy application preflight checks
 
