@@ -4,7 +4,9 @@ param(
 
     [string]$OasdiffImage = "tufin/oasdiff:v1.15.0",
 
-    [switch]$AllowExternalRefs
+    [switch]$AllowExternalRefs,
+
+    [string[]]$AllowRemovedSpec = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -157,6 +159,10 @@ try {
         }
 
         if (-not $currentExists) {
+            if ($AllowRemovedSpec -ccontains $specKey) {
+                Write-Host "Skipping '$baseSpecPath'; explicitly approved contract removal."
+                continue
+            }
             Write-Host "::error file=$baseSpecPath::Breaking change: OpenAPI spec '$baseSpecPath' exists on $BaseRef but was removed in this branch. Spec removal is treated as a breaking API contract change."
             $hasFailures = $true
             continue

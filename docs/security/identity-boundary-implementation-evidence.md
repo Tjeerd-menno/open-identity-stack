@@ -1,6 +1,6 @@
 # Identity boundary implementation evidence
 
-The twelve tickets implementing [ADR 0005](../adr/0005-identity-and-administrative-trust-boundaries.md) are delivered as dependent pull requests in GitHub stack 458. They address the accepted identity and privilege boundaries; this is implementation evidence, not a new standards scan or formal OIDC certification. Production cutover has not been executed.
+The twelve tickets implementing [ADR 0005](../adr/0005-identity-and-administrative-trust-boundaries.md) are delivered as dependent pull requests in GitHub stack 458. They address the accepted identity and privilege boundaries; this is implementation evidence, not a new standards scan or formal OIDC certification. This page records historical verification at the named revisions, not verification of the current tree. On 8 September 2026, the pre-release credential cutover feature was removed under the amended ADR 0005 decision; its historical implementation and test results below are superseded and are not release prerequisites.
 
 ## Delivered behavior
 
@@ -16,8 +16,8 @@ The twelve tickets implementing [ADR 0005](../adr/0005-identity-and-administrati
 | [452](https://github.com/Tjeerd-menno/open-identity-stack/issues/452) | Require the dedicated administrative audience and client entitlement; guard client approval, expansion and takeover paths, including concurrent enablement. |
 | [453](https://github.com/Tjeerd-menno/open-identity-stack/issues/453) | Evaluate current persisted administrative authority on each request and audit authority mutations in the committing transaction. |
 | [454](https://github.com/Tjeerd-menno/open-identity-stack/issues/454) | Withdraw provider-derived verification and invalidate affected credentials while preserving independent verification. |
-| [455](https://github.com/Tjeerd-menno/open-identity-stack/issues/455) | Persist a global credential epoch, reject pre-cutover credentials, and make transactional cutover retries idempotent. |
-| [456](https://github.com/Tjeerd-menno/open-identity-stack/issues/456) | Gate cutover on real emergency access, identity quarantine, prepared clients and reviewed external token windows; provide UI, rehearsal and rollback guidance. |
+| [455](https://github.com/Tjeerd-menno/open-identity-stack/issues/455) | Superseded: global credential epoch and cutover removed before first release. |
+| [456](https://github.com/Tjeerd-menno/open-identity-stack/issues/456) | Superseded: cutover readiness, UI, and rehearsal removed before first release. |
 
 ## Initial verification
 
@@ -67,13 +67,11 @@ The browser target was `2f4e5fa991a0d5b29a8e31e248d0009ce75e9657`. Its product c
 
 ![Provider trust explanation distinguishing OP sessions, relying-party sessions and offline APIs](images/identity-boundaries/provider-trust-session-boundaries.png)
 
-![Cutover readiness with acknowledged execution still blocked by unresolved prerequisites](images/identity-boundaries/cutover-readiness-review.png)
-
 ## Additional PR review corrections
 
 Further review added creation-policy audit attribution and atomicity, quarantine-preserving account deletion with actionable Problem Details, bounded trust-withdrawal batches in one transaction, and idempotent concurrent email proofs. The raw identity-link contract now documents its proof-required denial and the shared client removes the unsupported mutation. The current-user contract advertises administrative-boundary denial in its owning layer and describes current authority in the dependent layer.
 
-Application subjects now carry protected issuance evidence, so a UUID client identifier cannot inherit a matching user's email or be mistaken for that user during targeted withdrawal. Human credentials still revoke, and global cutover still invalidates application credentials. Session activity saves cannot restore revoked state. Cutover captures authority before approval reads, limits local-session proof exposure to the dedicated administrative resource, and correlates emergency login sessions using the five-minute freshness window. The approval dialog describes the operation's effects without claiming every operation grants access.
+Application subjects now carry protected issuance evidence, so a UUID client identifier cannot inherit a matching user's email or be mistaken for that user during targeted withdrawal. Human credentials still revoke. Session activity saves cannot restore revoked state. The approval dialog describes the operation's effects without claiming every operation grants access.
 
 The CI session-search failure exposed an ignored backend search parameter. Search now filters IP address and user agent before pagination; the browser regression awaits the matching response and final rendered results. The scenario passed three fresh PostgreSQL/Aspire/Chromium runs. Independent review found no further actionable issues in the proof reconciliation or bounded withdrawal changes.
 
@@ -99,7 +97,7 @@ Revision `fdaa5adb3a6cb6b6b69882f1e0323bcbd61e7928` contains only two additional
 
 EF reports no pending model changes. All eleven OpenAPI YAML documents have no duplicate keys and resolve all 774 local references. The existing compatibility gate passes against `origin/main`; strict MkDocs also passes. The gate used its existing cached comparison image with only contract files exposed, networking disabled, a read-only filesystem, and capabilities dropped.
 
-The separate review request to change the accepted treatment of legacy wildcard grants remains a policy decision. ADR 0005's existing preservation rule remains in force pending that decision; these checks do not approve production cutover or consumer residual windows.
+The separate review request to change the accepted treatment of legacy wildcard grants remains a policy decision. ADR 0005's existing preservation rule remains in force pending that decision.
 
 ## Initial standards review
 
@@ -115,12 +113,10 @@ Those initial independent reviews ended with zero outstanding standards or spec 
 
 | Risk | Level | Required control |
 | --- | --- | --- |
-| Unproven legacy association transfers access | High | Preserve quarantine. Cutover remains blocked until independently proven recovery is available through a separately specified workflow. |
-| Lost emergency access during invalidation | High | Demonstrate a fresh, active local-password emergency session with current explicit unrestricted authority; the gate verifies it again inside cutover. |
+| Unproven legacy association transfers access | High | Preserve quarantine. Accounts without independently usable access require proof-based recovery through a separately specified workflow. |
+| Lost emergency access | High | Maintain a tested, independently accessible administrator with current explicit unrestricted authority. |
 | Offline consumers accept old credentials | High until bounded | Measure each consumer's revocation/introspection/expiry behavior, including cache and clock skew. Record and accept its actual residual window. OP revocation alone cannot recall offline JWTs or relying-party sessions. |
-| Mixed old and new serving binaries | High | Drain old binaries and follow the deployment order. Retain credential epochs, quarantine and revocation state during rollback. |
+| Mixed old and new serving binaries | High | Drain old binaries and follow the deployment order. Retain quarantine, user credential revisions and revocation state during rollback. |
 | Concurrent administrative writes reject an operation | Medium operational | Reload current state and repeat the explicitly intended operation after HTTP 409. The global authority revision deliberately favors rejection over committing stale privilege decisions. |
 
-Use the [cutover rehearsal runbook](identity-boundary-cutover-rehearsal.md) for deployment, evidence, failure handling and rollback. No production approval or consumer rehearsal is implied by these automated results.
-
-![PostgreSQL-backed readiness screen retaining quarantine, counting outstanding tokens and blocking execution](images/identity-boundaries/cutover-blocked.png)
+Use the [boundary rollout guidance](identity-boundary-rollout.md) for deployment preparation and the relevant security workflow documentation for failure handling and rollback. Historical automated results do not establish external consumer behavior.

@@ -239,7 +239,7 @@ public class AppHostFixture : IAsyncLifetime
         return await this.TestSeeder.CreateSessionAsync(userId, ipAddress, userAgent, durationMinutes);
     }
 
-    public async Task<string> CreateSessionMonitoringCookieAsync(Guid userId, Guid sessionId)
+    public Task<string> CreateSessionMonitoringCookieAsync(Guid userId, Guid sessionId)
     {
         if (this.Factory is null)
         {
@@ -247,14 +247,11 @@ public class AppHostFixture : IAsyncLifetime
         }
 
         using IServiceScope scope = this.Factory.Services.CreateScope();
-        ICredentialBoundaryStore boundary = scope.ServiceProvider.GetRequiredService<ICredentialBoundaryStore>();
         ISessionMonitoringCookieService cookies = scope.ServiceProvider.GetRequiredService<ISessionMonitoringCookieService>();
-        Guid epoch = await boundary.GetEpochAsync();
-        return cookies.Create(
+        return Task.FromResult(cookies.Create(
             new SharedKernel.UserId(userId),
             new OpenIdentityStack.Domain.Common.SessionId(sessionId),
-            epoch,
-            DateTimeOffset.UtcNow.AddHours(1));
+            DateTimeOffset.UtcNow.AddHours(1)));
     }
 
     public async Task ValidateUserCredentialsAsync(string email, string password)

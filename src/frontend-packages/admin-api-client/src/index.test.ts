@@ -65,7 +65,7 @@ describe('admin api client', () => {
       onAdministrativeApprovalRequired: vi.fn().mockResolvedValue(false),
     });
 
-    await expect(client.post('/api/admin/security/credential-cutovers', {}, onRetry)).rejects.toMatchObject({ status: 403 });
+    await expect(client.post('/api/admin/users/user/roles/role', undefined, onRetry)).rejects.toMatchObject({ status: 403 });
 
     expect(onRetry).not.toHaveBeenCalled();
   });

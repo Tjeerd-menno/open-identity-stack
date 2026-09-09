@@ -35,7 +35,14 @@ jobs:
 
       - name: Check OpenAPI breaking changes
         shell: bash
-        run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN bash scripts/ci/compare-openapi-breaking-changes.sh --base-ref "origin/${{ github.base_ref }}"
+        # ADR 0005 retires this pre-release workflow; all other contracts remain checked.
+        run: >-
+          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN bash scripts/ci/compare-openapi-breaking-changes.sh
+          --base-ref "origin/${{ github.base_ref }}"
+          --allow-removed-spec identity-boundaries/credential-cutover.openapi.yaml
+
+      - name: Test OpenAPI comparison policy
+        run: python3 -m unittest discover -s scripts/ci/tests -p test_openapi_comparison.py -v
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0

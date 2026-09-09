@@ -1,7 +1,6 @@
 import {
   createAdminApiClient,
   createAdministrativeAccessContract,
-  createCutoverContract,
   createApplicationPermissionsContract,
   createApplicationsContract,
   createAuditEntriesContract,
@@ -48,7 +47,6 @@ const client = createAdminApiClient({
 /** Typed access to every Admin API domain, backed by the shared client. */
 export const api = {
   administrativeAccess: createAdministrativeAccessContract(client),
-  cutover: createCutoverContract(client),
   users: createUsersContract(client),
   groups: createGroupsContract(client),
   applications: createApplicationsContract(client),

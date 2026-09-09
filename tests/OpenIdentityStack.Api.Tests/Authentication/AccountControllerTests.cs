@@ -57,9 +57,7 @@ public class AccountControllerTests : IDisposable
         this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(defaultSettings));
 
-        ICredentialBoundaryStore boundary = Substitute.For<ICredentialBoundaryStore>();
-        boundary.IsCurrentAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(true);
-        this.sessionMonitoringCookies.Create(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset>())
+        this.sessionMonitoringCookies.Create(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<DateTimeOffset>())
             .Returns("protected-session-cookie");
         this._controller = new AccountController(
             this._validateCredentialsUseCase,
@@ -71,7 +69,6 @@ public class AccountControllerTests : IDisposable
             this._schemeService,
             this._jitProvisionUseCase,
             this.audit,
-            boundary,
             this.sessionMonitoringCookies,
             this._credentialTerminationService);
 
@@ -132,7 +129,7 @@ public class AccountControllerTests : IDisposable
         await this._createSessionUseCase.DidNotReceive().ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>());
         await this._authService.DidNotReceive().SignInAsync(Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
         this.sessionMonitoringCookies.DidNotReceive().Create(
-            Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset>());
+            Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<DateTimeOffset>());
     }
 
     [Fact]
@@ -162,7 +159,7 @@ public class AccountControllerTests : IDisposable
 
         this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=protected-session-cookie");
         this.sessionMonitoringCookies.Received(1).Create(
-            user.Id, sessionId, Guid.Empty, Arg.Any<DateTimeOffset>());
+            user.Id, sessionId, Arg.Any<DateTimeOffset>());
     }
 
     [Theory]
@@ -516,11 +513,11 @@ public class AccountControllerTests : IDisposable
         await this._authService.Received(1).SignInAsync(
             Arg.Any<HttpContext>(),
             "Cookies",
-            Arg.Is<ClaimsPrincipal>(principal => principal.FindFirst("ois_local_password_session")!.Value == sessionId.Value.ToString()),
+            Arg.Is<ClaimsPrincipal>(principal => principal.FindFirst("sid")!.Value == sessionId.Value.ToString()),
             Arg.Any<AuthenticationProperties>());
         this._controller.Response.Headers.SetCookie.ToString().ShouldContain("op_session=protected-session-cookie");
         this.sessionMonitoringCookies.Received(1).Create(
-            userId, sessionId, Arg.Any<Guid>(), Arg.Any<DateTimeOffset>());
+            userId, sessionId, Arg.Any<DateTimeOffset>());
     }
 
     [Fact]
@@ -697,28 +694,6 @@ public class AccountControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Login_Post_WithValidCredentials_BindsCookieToAuthenticatedCredentialRevision()
-    {
-        var model = new LoginViewModel { Email = "user@example.com", Password = "correct" };
-        var userId = UserId.Create();
-        var sessionId = SessionId.Create();
-        var credentialRevision = Guid.NewGuid();
-        ClaimsPrincipal? capturedPrincipal = null;
-        this._validateCredentialsUseCase.ExecuteAsync(Arg.Any<ValidateUserCredentialsCommand>(), Arg.Any<CancellationToken>())
-            .Returns(new ValidateUserCredentialsResult(userId, "user@example.com", "Test User", credentialRevision));
-        this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
-            .Returns(new CreateSessionResult(sessionId));
-        this._authService.SignInAsync(Arg.Any<HttpContext>(), Arg.Any<string>(), Arg.Do<ClaimsPrincipal>(principal => capturedPrincipal = principal), Arg.Any<AuthenticationProperties>())
-            .Returns(Task.CompletedTask);
-
-        await this._controller.Login(model);
-
-        capturedPrincipal.ShouldNotBeNull();
-        capturedPrincipal.FindFirst(OpenIdentityStack.Application.Authorization.IndependentAuthenticationClaims.AuthenticatedCredentialRevision)!
-            .Value.ShouldBe(credentialRevision.ToString());
-    }
-
-    [Fact]
     public async Task Login_Post_WhenSessionCreationFails_DoesNotSignIn()
     {
         // Arrange
@@ -742,7 +717,7 @@ public class AccountControllerTests : IDisposable
             Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
         this._controller.Response.Headers.SetCookie.ToString().ShouldNotContain("op_session=");
         this.sessionMonitoringCookies.DidNotReceive().Create(
-            Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset>());
+            Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<DateTimeOffset>());
     }
 
     [Fact]
@@ -774,7 +749,7 @@ public class AccountControllerTests : IDisposable
         await this._authService.DidNotReceive().SignInAsync(
             Arg.Any<HttpContext>(), "Cookies", Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
         this.sessionMonitoringCookies.DidNotReceive().Create(
-            Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset>());
+            Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<DateTimeOffset>());
     }
 
     [Fact]

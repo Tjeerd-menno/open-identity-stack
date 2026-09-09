@@ -2,8 +2,7 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Application.Abstractions;
 
-public sealed record AdministrativeActor(UserId UserId, DateTimeOffset? AuthenticatedAt, bool IsHuman, bool Acknowledged,
-    Guid? LocalPasswordSessionId = null, Guid? CredentialEpoch = null, Guid? AuthenticatedCredentialRevision = null);
+public sealed record AdministrativeActor(UserId UserId, DateTimeOffset? AuthenticatedAt, bool IsHuman, bool Acknowledged);
 
 public interface IAdministrativeActorContext
 {
