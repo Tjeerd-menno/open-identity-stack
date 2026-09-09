@@ -5,6 +5,7 @@ set -euo pipefail
 base_ref=""
 oasdiff_image="tufin/oasdiff:v1.15.0"
 allow_external_refs="false"
+declare -A allowed_removed_specs=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -19,6 +20,14 @@ while [[ $# -gt 0 ]]; do
     --allow-external-refs)
       allow_external_refs="true"
       shift
+      ;;
+    --allow-removed-spec)
+      if [[ -z "${2:-}" || "$2" == --* ]]; then
+        echo "--allow-removed-spec requires an exact contract key" >&2
+        exit 1
+      fi
+      allowed_removed_specs["$2"]=1
+      shift 2
       ;;
     *)
       echo "Unknown argument: $1" >&2
@@ -148,6 +157,10 @@ while IFS= read -r spec_key; do
   fi
 
   if [[ $current_exists -eq 0 ]]; then
+    if [[ "${allowed_removed_specs[$spec_key]:-}" == 1 ]]; then
+      echo "Skipping '$base_spec_path'; explicitly approved contract removal."
+      continue
+    fi
     echo "::error file=$base_spec_path::Breaking change: OpenAPI spec '$base_spec_path' exists on $base_ref but was removed in this branch. Spec removal is treated as a breaking API contract change."
     has_failures=1
     continue

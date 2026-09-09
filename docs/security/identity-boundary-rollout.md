@@ -4,6 +4,8 @@ This delivery implements the policies in [ADR 0005](../adr/0005-identity-and-adm
 
 The `RemoveCredentialCutover` migration removes the four obsolete cutover tables from existing development databases. Historical migrations remain so those databases can upgrade normally. This schema cleanup does not revoke sessions or tokens or change passwords, client secrets, or signing keys.
 
+PR validation explicitly permits removal of `identity-boundaries/credential-cutover.openapi.yaml` under the amended ADR 0005 decision. The OpenAPI comparison scripts accept an exact contract key with `--allow-removed-spec` (PowerShell: `-AllowRemovedSpec`). This exception applies only while that contract is absent; other removals and changes to existing contracts retain their normal checks.
+
 ## Account linking
 
 An authenticated upstream identity with an email matching an existing local account is rejected instead of automatically linked. The public sign-in failure is generic. Operators can investigate the audited association denial without recording the supplied subject or email in that event.
