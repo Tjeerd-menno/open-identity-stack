@@ -11,6 +11,8 @@ namespace OpenIdentityStack.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Requires all old API instances to be drained and stopped first.
+            // See docs/operations/upgrades.md for the maintenance-window sequence.
             migrationBuilder.DropTable(
                 name: "CredentialBoundary");
 

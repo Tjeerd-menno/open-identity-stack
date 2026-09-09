@@ -2,7 +2,7 @@
 
 This delivery implements the policies in [ADR 0005](../adr/0005-identity-and-administrative-trust-boundaries.md). Each implementation layer must pass its focused checks before integration. The first release enforces these boundaries from initial deployment.
 
-The `RemoveCredentialCutover` migration removes the four obsolete cutover tables from existing development databases. Historical migrations remain so those databases can upgrade normally. This schema cleanup does not revoke sessions or tokens or change passwords, client secrets, or signing keys.
+The `RemoveCredentialCutover` migration removes the four obsolete cutover tables from existing development databases. Historical migrations remain so those databases can upgrade using the [maintenance-window sequence](../operations/upgrades.md#removing-the-pre-release-credential-cutover-schema). Drain and stop every old API instance before running the migrator: those builds still query the removed tables. This schema cleanup does not revoke sessions or tokens or change passwords, client secrets, or signing keys.
 
 PR validation explicitly permits removal of `identity-boundaries/credential-cutover.openapi.yaml` under the amended ADR 0005 decision. The OpenAPI comparison scripts accept an exact contract key with `--allow-removed-spec` (PowerShell: `-AllowRemovedSpec`). This exception applies only while that contract is absent; other removals and changes to existing contracts retain their normal checks.
 
