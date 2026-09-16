@@ -11,6 +11,7 @@ namespace OpenIdentityStack.Application.Authorization;
 public sealed class PermissionChecker : IPermissionChecker
 {
     private readonly IRoleRepository roleRepository;
+    private PermissionSnapshot? snapshot;
 
     public PermissionChecker(IRoleRepository roleRepository)
     {
@@ -50,6 +51,13 @@ public sealed class PermissionChecker : IPermissionChecker
         UserId userId,
         CancellationToken cancellationToken = default)
     {
+        // The checker is scoped per request and a user's role assignments cannot change within that
+        // scope, so resolve the role graph once instead of on every check.
+        if (this.snapshot is { } cached && cached.UserId == userId)
+        {
+            return cached.Permissions;
+        }
+
         // Get roles from the RoleAssignments table via the repository
         IReadOnlyList<Role> roles = await this.roleRepository.GetUserRolesAsync(userId, activeOnly: true, cancellationToken);
         
@@ -63,6 +71,11 @@ public sealed class PermissionChecker : IPermissionChecker
             }
         }
 
-        return [.. allPermissions];
+        string[] resolved = [.. allPermissions];
+        this.snapshot = new PermissionSnapshot(userId, resolved);
+
+        return resolved;
     }
+
+    private sealed record PermissionSnapshot(UserId UserId, string[] Permissions);
 }

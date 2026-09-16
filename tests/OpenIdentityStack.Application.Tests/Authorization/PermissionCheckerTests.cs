@@ -261,6 +261,49 @@ public sealed class PermissionCheckerTests
         permissions.ShouldContain(Permissions.Users.Read);
     }
 
+    [Fact]
+    public async Task GetAllPermissions_RepeatedCheckForSameUser_QueriesRolesOnce()
+    {
+        // Arrange
+        var userId = UserId.Create();
+        Role role = CreateRoleWithPermissions("UserAdmin", Permissions.Users.Read);
+
+        this._roleRepository.GetUserRolesAsync(userId, true, Arg.Any<CancellationToken>())
+            .Returns(new List<Role> { role });
+
+        // Act
+        IReadOnlyList<string> first = await this._permissionChecker.GetAllPermissionsAsync(userId);
+        IReadOnlyList<string> second = await this._permissionChecker.GetAllPermissionsAsync(userId);
+
+        // Assert
+        second.ShouldBe(first);
+        await this._roleRepository.Received(1).GetUserRolesAsync(userId, true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAllPermissions_DifferentUsers_QueriesRolesPerUser()
+    {
+        // Arrange
+        var firstUserId = UserId.Create();
+        var secondUserId = UserId.Create();
+
+        this._roleRepository.GetUserRolesAsync(firstUserId, true, Arg.Any<CancellationToken>())
+            .Returns(new List<Role> { CreateRoleWithPermissions("UserReader", Permissions.Users.Read) });
+        this._roleRepository.GetUserRolesAsync(secondUserId, true, Arg.Any<CancellationToken>())
+            .Returns(new List<Role> { CreateRoleWithPermissions("RoleReader", Permissions.Roles.Read) });
+
+        // Act
+        IReadOnlyList<string> first = await this._permissionChecker.GetAllPermissionsAsync(firstUserId);
+        IReadOnlyList<string> second = await this._permissionChecker.GetAllPermissionsAsync(secondUserId);
+
+        // Assert
+        first.ShouldContain(Permissions.Users.Read);
+        first.ShouldNotContain(Permissions.Roles.Read);
+        second.ShouldContain(Permissions.Roles.Read);
+        second.ShouldNotContain(Permissions.Users.Read);
+        await this._roleRepository.Received(2).GetUserRolesAsync(Arg.Any<UserId>(), true, Arg.Any<CancellationToken>());
+    }
+
     private static Role CreateRoleWithPermissions(string name, params string[] permissions)
     {
         Role role = Role.Create(name, $"{name} role for testing").Value;

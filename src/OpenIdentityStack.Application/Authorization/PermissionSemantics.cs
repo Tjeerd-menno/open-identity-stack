@@ -17,36 +17,49 @@ public static class PermissionSemantics
             return false;
         }
 
-        string normalizedGranted = grantedPermission.Trim();
-        string normalizedRequired = requiredPermission.Trim();
-        string[] requiredParts = normalizedRequired.Split(':');
+        ReadOnlySpan<char> granted = grantedPermission.AsSpan().Trim();
+        ReadOnlySpan<char> required = requiredPermission.AsSpan().Trim();
 
         // Full wildcard only applies to platform permissions.
-        if (normalizedGranted == PlatformWildcard)
+        if (granted.SequenceEqual(PlatformWildcard))
         {
-            return requiredParts.Length == 2;
+            return CountColons(required) == 1;
         }
 
-        if (string.Equals(normalizedGranted, normalizedRequired, StringComparison.OrdinalIgnoreCase))
+        if (granted.Equals(required, StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
-        if (!IsTerminalWildcard(normalizedGranted))
+        if (!IsTerminalWildcard(granted))
         {
             return false;
         }
 
-        string grantedResource = normalizedGranted[..^2];
-        string[] grantedParts = grantedResource.Split(':');
-        return requiredParts.Length == grantedParts.Length + 1 &&
-            string.Equals(
-                grantedResource,
-                string.Join(':', requiredParts[..grantedParts.Length]),
-                StringComparison.OrdinalIgnoreCase);
+        ReadOnlySpan<char> grantedResource = granted[..^2];
+        return CountColons(required) == CountColons(grantedResource) + 1 &&
+            required.Length > grantedResource.Length &&
+            required.StartsWith(grantedResource, StringComparison.OrdinalIgnoreCase) &&
+            required[grantedResource.Length] == ':';
     }
 
-    private static bool IsTerminalWildcard(string grantedPermission) =>
-        grantedPermission.EndsWith(":*", StringComparison.OrdinalIgnoreCase) &&
-        grantedPermission.IndexOf('*', StringComparison.OrdinalIgnoreCase) == grantedPermission.Length - 1;
+    internal static bool IsTerminalWildcard(ReadOnlySpan<char> grantedPermission) =>
+        grantedPermission.Length >= 2 &&
+        grantedPermission[^1] == '*' &&
+        grantedPermission[^2] == ':' &&
+        !grantedPermission[..^1].Contains('*');
+
+    internal static int CountColons(ReadOnlySpan<char> value)
+    {
+        int count = 0;
+        foreach (char character in value)
+        {
+            if (character == ':')
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
 }
