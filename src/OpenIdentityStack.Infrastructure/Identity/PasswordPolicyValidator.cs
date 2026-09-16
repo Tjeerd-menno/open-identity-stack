@@ -28,32 +28,47 @@ public sealed class PasswordPolicyValidator : IPasswordPolicyValidator
                 $"Password must be at least {minimumLength} characters long.");
         }
 
-        // Check for at least one uppercase letter
-        if (!password.Any(char.IsUpper))
+        bool hasUppercase = false;
+        bool hasLowercase = false;
+        bool hasDigit = false;
+        bool hasSpecialCharacter = false;
+
+        foreach (char character in password)
+        {
+            hasUppercase |= char.IsUpper(character);
+            hasLowercase |= char.IsLower(character);
+            hasDigit |= char.IsDigit(character);
+            hasSpecialCharacter |= !char.IsLetterOrDigit(character);
+
+            if (hasUppercase && hasLowercase && hasDigit && hasSpecialCharacter)
+            {
+                break;
+            }
+        }
+
+        // Characters are classified in a single pass; the check order below is what determines the reported error.
+        if (!hasUppercase)
         {
             return DomainError.Validation(
                 "Password.NoUppercase",
                 "Password must contain at least one uppercase letter.");
         }
 
-        // Check for at least one lowercase letter
-        if (!password.Any(char.IsLower))
+        if (!hasLowercase)
         {
             return DomainError.Validation(
                 "Password.NoLowercase",
                 "Password must contain at least one lowercase letter.");
         }
 
-        // Check for at least one digit
-        if (!password.Any(char.IsDigit))
+        if (!hasDigit)
         {
             return DomainError.Validation(
                 "Password.NoDigit",
                 "Password must contain at least one number.");
         }
 
-        // Check for at least one special character
-        if (!password.Any(ch => !char.IsLetterOrDigit(ch)))
+        if (!hasSpecialCharacter)
         {
             return DomainError.Validation(
                 "Password.NoSpecialCharacter",
