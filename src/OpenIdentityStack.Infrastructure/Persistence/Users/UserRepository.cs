@@ -42,6 +42,7 @@ public sealed class UserRepository : IUserRepository
         foreach (UserId[] chunk in distinctIds.Chunk(chunkSize))
         {
             List<User> batch = await this.dbContext.Users
+                .AsNoTracking()
                 .Where(u => chunk.Contains(u.Id))
                 .ToListAsync(cancellationToken);
             users.AddRange(batch);

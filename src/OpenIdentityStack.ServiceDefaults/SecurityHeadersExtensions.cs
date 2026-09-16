@@ -21,20 +21,17 @@ public static class SecurityHeadersExtensions
         var options = new SecurityHeadersOptions();
         configure?.Invoke(options);
 
+        string? sessionCheckContentSecurityPolicy = BuildSessionCheckContentSecurityPolicy(options.ContentSecurityPolicy);
+
         return app.Use(async (context, next) =>
         {
             // Content Security Policy - restrict resources to same origin
             bool isSessionCheckIframe = context.Request.Path.Equals("/connect/check_session", StringComparison.OrdinalIgnoreCase);
             if (!string.IsNullOrEmpty(options.ContentSecurityPolicy))
             {
-                string policy = options.ContentSecurityPolicy;
-                if (isSessionCheckIframe)
-                {
-                    policy = string.Join("; ", policy.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                        .Where(directive => !directive.Split(' ', 2)[0].Equals("frame-ancestors", StringComparison.OrdinalIgnoreCase)));
-                    policy = $"{policy}; frame-ancestors *;";
-                }
-                context.Response.Headers["Content-Security-Policy"] = policy;
+                context.Response.Headers["Content-Security-Policy"] = isSessionCheckIframe
+                    ? sessionCheckContentSecurityPolicy
+                    : options.ContentSecurityPolicy;
             }
 
             // Prevent MIME type sniffing
@@ -57,6 +54,20 @@ public static class SecurityHeadersExtensions
 
             await next();
         });
+    }
+
+    private static string? BuildSessionCheckContentSecurityPolicy(string? contentSecurityPolicy)
+    {
+        if (string.IsNullOrEmpty(contentSecurityPolicy))
+        {
+            return contentSecurityPolicy;
+        }
+
+        string directives = string.Join("; ", contentSecurityPolicy
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(directive => !directive.Split(' ', 2)[0].Equals("frame-ancestors", StringComparison.OrdinalIgnoreCase)));
+
+        return $"{directives}; frame-ancestors *;";
     }
 }
 

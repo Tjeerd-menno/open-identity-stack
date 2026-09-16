@@ -26,14 +26,17 @@ public sealed class AuthenticationSettingsRepository : IAuthenticationSettingsRe
     public async Task<AuthenticationSettings?> GetAsync(CancellationToken cancellationToken = default)
     {
         return await this.dbContext.AuthenticationSettings
+            .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
     }
 
     /// <inheritdoc />
     public async Task<AuthenticationSettings> GetOrCreateAsync(CancellationToken cancellationToken = default)
     {
-        AuthenticationSettings? settings = await this.GetAsync(cancellationToken);
-        
+        // Callers mutate the returned settings and persist them, so this path must stay tracked.
+        AuthenticationSettings? settings = await this.dbContext.AuthenticationSettings
+            .FirstOrDefaultAsync(cancellationToken);
+
         if (settings is null)
         {
             settings = AuthenticationSettings.CreateDefault(this.dateTimeProvider);

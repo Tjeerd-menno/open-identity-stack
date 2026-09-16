@@ -38,7 +38,7 @@ public sealed class AdministrativeAccessWorkflow(
         if (await applications.GetByIdAsync(clientId, cancellationToken) is null) { return ResourceAccessErrors.NotGranted; }
         ClientResourceGrant? grant = await resources.GetGrantAsync(clientId, ProtectedResource.AdministrativeResourceId, cancellationToken);
         if (request.ExpectedRevision != grant?.Revision) { return conflict; }
-        if (request.DelegatedPermissions.Concat(request.ApplicationPermissions).Any(permission => !IsPlatformPermission(permission)))
+        if (request.DelegatedPermissions.Concat(request.ApplicationPermissions).Any(permission => !Permissions.IsPlatformPermission(permission)))
         {
             return ResourceAccessErrors.InvalidConfiguration;
         }
@@ -88,11 +88,6 @@ public sealed class AdministrativeAccessWorkflow(
 
     public Task RecordOutcomeAsync(CancellationToken cancellationToken = default) => approval.RecordOutcomeAsync(true, cancellationToken);
     public Task CaptureAuthorityAsync(CancellationToken cancellationToken = default) => approval.CaptureAuthorityAsync(cancellationToken);
-
-    private static bool IsPlatformPermission(string permission) => !string.IsNullOrWhiteSpace(permission) && (permission == "*"
-        || Permissions.GetAllPermissions().Contains(permission, StringComparer.OrdinalIgnoreCase)
-        || permission.EndsWith(":*", StringComparison.Ordinal) && permission.Count(character => character == ':') == 1
-            && Permissions.GetAllPermissions().Any(candidate => PermissionSemantics.Matches(permission, candidate)));
 
     private static bool Expands(IReadOnlyList<string> current, IReadOnlyList<string> proposed) =>
         proposed.Any(permission => !current.Any(existing => existing == "*" || string.Equals(existing, permission, StringComparison.OrdinalIgnoreCase)

@@ -877,7 +877,7 @@ public sealed partial class User : AggregateRoot<UserId>
         return normalized.IsEmpty ? null : normalized;
     }
 
-    [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.IgnoreCase)]
     private static partial Regex GenerateEmailRegex();
 
     /// <summary>

@@ -81,6 +81,12 @@ public sealed class ResourcePermissionService(
             }
         }
 
+        // Index the caller's permissions once instead of re-scanning them with PermissionSemantics.Matches
+        // for every candidate permission of every resource.
+        PermissionGrantIndex? userPermissionIndex = request.UserId is null ? null : PermissionGrantIndex.Create(userPermissions);
+
+        // Namespaces repeat across resources, so resolve each registry catalog at most once per projection.
+        var catalogs = new Dictionary<string, IReadOnlyList<string>?>(StringComparer.Ordinal);
         var permissions = new HashSet<string>(StringComparer.Ordinal);
         var revisions = new Dictionary<Guid, long>();
         foreach (ProtectedResource resource in requested.Values)
@@ -91,24 +97,29 @@ public sealed class ResourcePermissionService(
             IReadOnlyList<string> assigned = request.UserId is null ? grant.ApplicationPermissions : grant.DelegatedPermissions;
             if (assigned.Count == 0) { return ResourceAccessErrors.NotGranted; }
             revisions[resource.Id] = grant.Revision;
+            var assignedIndex = PermissionGrantIndex.Create(assigned);
             foreach (string permissionNamespace in resource.PermissionNamespaces)
             {
-                IReadOnlyList<string> candidates;
+                IReadOnlyList<string>? candidates;
                 if (resource.IsAdministrative && permissionNamespace == ProtectedResource.PlatformNamespace)
                 {
                     candidates = Permissions.GetAllPermissions();
                 }
-                else
+                else if (!catalogs.TryGetValue(permissionNamespace, out candidates))
                 {
                     RegisteredApplication? catalog = await registry.GetByIdentifierAsync(permissionNamespace, cancellationToken);
-                    if (catalog is null || catalog.Status != ApplicationLifecycleStatus.Active) { continue; }
-                    candidates = catalog.Permissions.Where(static permission => !permission.IsRemoved).Select(static permission => permission.FullPermissionKey).ToArray();
+                    candidates = catalog is null || catalog.Status != ApplicationLifecycleStatus.Active
+                        ? null
+                        : catalog.Permissions.Where(static permission => !permission.IsRemoved).Select(static permission => permission.FullPermissionKey).ToArray();
+                    catalogs[permissionNamespace] = candidates;
                 }
+
+                if (candidates is null) { continue; }
 
                 foreach (string candidate in candidates)
                 {
-                    if (assigned.Any(permission => PermissionSemantics.Matches(permission, candidate))
-                        && (request.UserId is null || userPermissions.Any(permission => PermissionSemantics.Matches(permission, candidate)))
+                    if (assignedIndex.Covers(candidate)
+                        && (userPermissionIndex is null || userPermissionIndex.Covers(candidate))
                         && (request.OriginalPermissions is null || request.OriginalPermissions.Contains(candidate, StringComparer.Ordinal)))
                     {
                         permissions.Add(candidate);

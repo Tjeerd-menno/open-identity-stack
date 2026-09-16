@@ -14,19 +14,26 @@ internal static class AdministrativeTokenBoundary
         clientId = string.Empty;
         userId = null;
         if (principal.Identity?.IsAuthenticated != true) { return false; }
-        string[] audiences = principal.FindAll("aud").Select(claim => claim.Value).ToArray();
-        string[] clients = principal.FindAll("client_id").Select(claim => claim.Value).ToArray();
-        string[] subjects = principal.FindAll("sub").Select(claim => claim.Value).ToArray();
-        string[] scopes = principal.FindAll("scope").SelectMany(claim => claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToArray();
-        if (audiences.Length != 1 || audiences[0] != Audience || clients.Length != 1 || string.IsNullOrWhiteSpace(clients[0])
-            || subjects.Length != 1 || !scopes.Contains(Scope, StringComparer.Ordinal))
+        if (principal.FindSingleClaim("aud")?.Value != Audience) { return false; }
+
+        string? client = principal.FindSingleClaim("client_id")?.Value;
+        if (string.IsNullOrWhiteSpace(client)) { return false; }
+
+        string? subject = principal.FindSingleClaim("sub")?.Value;
+        if (subject is null || !principal.ContainsScopeValue(Scope)) { return false; }
+
+        clientId = client;
+        string? humanSubject = null;
+        foreach (Claim claim in principal.FindAll(AdministrativeActorContext.HumanSubjectClaim))
         {
-            return false;
+            // One human-subject claim is a delegated token and zero is an application token, but more
+            // than one is ambiguous: fail closed instead of falling through to the application path.
+            if (humanSubject is not null) { return false; }
+            humanSubject = claim.Value;
         }
-        clientId = clients[0];
-        string[] humanSubjects = principal.FindAll(AdministrativeActorContext.HumanSubjectClaim).Select(claim => claim.Value).ToArray();
-        if (humanSubjects.Length == 0) { return subjects[0] == clientId; }
-        if (humanSubjects.Length != 1 || humanSubjects[0] != subjects[0] || !Guid.TryParse(subjects[0], out Guid id)) { return false; }
+
+        if (humanSubject is null) { return subject == clientId; }
+        if (humanSubject != subject || !Guid.TryParse(subject, out Guid id)) { return false; }
         userId = new UserId(id);
         return true;
     }

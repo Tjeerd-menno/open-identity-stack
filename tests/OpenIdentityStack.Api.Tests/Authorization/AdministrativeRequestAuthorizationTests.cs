@@ -37,6 +37,32 @@ public sealed class AdministrativeRequestAuthorizationTests
         evaluator.Request.ShouldBeNull();
     }
 
+    [Theory]
+    [InlineData("duplicated-human", "duplicated-human")]
+    [InlineData("first-human", "second-human")]
+    public async Task DuplicatedHumanSubjectClaimFailsClosed(string first, string second)
+    {
+        var evaluator = new CapturingEvaluator();
+        var authorization = new AdministrativeRequestAuthorization(evaluator);
+        var identity = new ClaimsIdentity([new Claim("permission", "users:read")], "mock");
+        // The fixture uses sub == client_id, so dropping the duplicate check would downgrade this
+        // ambiguous delegated token into an accepted application token.
+        ClaimsPrincipal principal = ApprovedAdministrativeAccess.Principal(identity);
+        identity.AddClaims([new Claim("ois_human_subject", first), new Claim("ois_human_subject", second)]);
+        (await authorization.EvaluateAsync(principal)).ShouldBeEmpty();
+        evaluator.Request.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ApplicationTokenWithoutHumanSubjectClaimIsStillEvaluated()
+    {
+        var evaluator = new CapturingEvaluator();
+        var authorization = new AdministrativeRequestAuthorization(evaluator);
+        ClaimsPrincipal principal = ApprovedAdministrativeAccess.Principal(new ClaimsIdentity([new Claim("permission", "users:read")], "mock"));
+        (await authorization.EvaluateAsync(principal)).ShouldBe(["users:read"]);
+        evaluator.Request!.UserId.ShouldBeNull();
+    }
+
     [Fact]
     public async Task HumanSubjectIsBoundAndRequestAuthorizationIsEvaluatedOnce()
     {

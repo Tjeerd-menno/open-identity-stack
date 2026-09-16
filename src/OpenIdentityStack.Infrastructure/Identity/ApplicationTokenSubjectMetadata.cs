@@ -5,6 +5,7 @@ using OpenIddict.EntityFrameworkCore.Models;
 using OpenIddict.Server;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Infrastructure.Persistence;
+using OpenIdentityStack.Infrastructure.Serialization;
 
 namespace OpenIdentityStack.Infrastructure.Identity;
 
@@ -32,9 +33,13 @@ public sealed class ApplicationTokenSubjectMetadata(OpenIdentityStackDbContext d
         OpenIddictEntityFrameworkCoreToken token = await dbContext.Set<OpenIddictEntityFrameworkCoreToken>()
             .SingleAsync(entry => entry.Id == tokenId, context.CancellationToken);
         Dictionary<string, JsonElement> properties = string.IsNullOrEmpty(token.Properties)
-            ? [] : JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(token.Properties)!;
-        properties[TokenSubjectClaims.Kind] = JsonSerializer.SerializeToElement(TokenSubjectClaims.Application);
-        token.Properties = JsonSerializer.Serialize(properties);
+            ? []
+            : JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                token.Properties, InfrastructureJsonContext.Default.DictionaryStringJsonElement)!;
+        properties[TokenSubjectClaims.Kind] = JsonSerializer.SerializeToElement(
+            TokenSubjectClaims.Application, InfrastructureJsonContext.Default.String);
+        token.Properties = JsonSerializer.Serialize(
+            properties, InfrastructureJsonContext.Default.DictionaryStringJsonElement);
         // The tracked entry saves only the metadata property, never stale token status. The
         // outer issuance transaction makes the token row and classification visible together.
         await dbContext.SaveChangesAsync(context.CancellationToken);

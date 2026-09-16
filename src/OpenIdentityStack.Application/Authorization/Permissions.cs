@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace OpenIdentityStack.Application.Authorization;
 
 /// <summary>
@@ -115,10 +117,7 @@ public static class Permissions
         public const string All = "system:*";
     }
 
-    /// <summary>
-    /// Gets all defined permissions for documentation/seeding purposes.
-    /// </summary>
-    public static IReadOnlyList<string> GetAllPermissions() =>
+    private static readonly string[] allPermissions =
     [
         Users.Read, Users.Write, Users.Delete, Users.Disable, Users.ResetPassword,
         Roles.Read, Roles.Write, Roles.Delete, Roles.Assign,
@@ -131,6 +130,40 @@ public static class Permissions
         AuditLogs.Read,
         System.ManageSettings, System.ViewMetrics
     ];
+
+    private static readonly FrozenSet<string> permissionCatalogue =
+        allPermissions.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly FrozenSet<string> platformNamespaceWildcards = BuildNamespaceWildcards();
+
+    /// <summary>
+    /// Gets all defined permissions for documentation/seeding purposes.
+    /// </summary>
+    public static IReadOnlyList<string> GetAllPermissions() => allPermissions;
+
+    /// <summary>
+    /// Checks whether a permission is defined by the platform, as opposed to belonging to a dynamic
+    /// application permission namespace. Expects a normalized "resource:operation" (or "resource:*") value.
+    /// </summary>
+    public static bool IsPlatformPermission(string permission) =>
+        !string.IsNullOrWhiteSpace(permission) && (permission == All
+            || permissionCatalogue.Contains(permission)
+            || platformNamespaceWildcards.Contains(permission));
+
+    private static FrozenSet<string> BuildNamespaceWildcards()
+    {
+        var wildcards = new List<string>(allPermissions.Length);
+        foreach (string permission in allPermissions)
+        {
+            int separator = permission.IndexOf(':');
+            if (separator > 0)
+            {
+                wildcards.Add(string.Concat(permission.AsSpan(0, separator), ":*"));
+            }
+        }
+
+        return wildcards.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Checks if the granted permission matches the required permission.
