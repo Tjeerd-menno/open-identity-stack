@@ -1,4 +1,6 @@
 
+using System.Text.RegularExpressions;
+
 using OpenIdentityStack.Domain.Common;
 
 using SharedKernel;
@@ -8,6 +10,10 @@ namespace OpenIdentityStack.Domain.Federation;
 /// </summary>
 public sealed class ClaimMapping : IEquatable<ClaimMapping>
 {
+    private static readonly TimeSpan regexMatchTimeout = TimeSpan.FromMilliseconds(250);
+
+    private readonly Regex? transformRegex;
+
     private ClaimMapping(
         string sourceClaim,
         string targetClaim,
@@ -18,6 +24,9 @@ public sealed class ClaimMapping : IEquatable<ClaimMapping>
         this.TargetClaim = targetClaim;
         this.TransformType = transformType;
         this.TransformPattern = transformPattern;
+        this.transformRegex = transformType == TransformType.Regex && !string.IsNullOrEmpty(transformPattern)
+            ? CreateRegex(transformPattern)
+            : null;
     }
 
     /// <summary>
@@ -90,31 +99,52 @@ public sealed class ClaimMapping : IEquatable<ClaimMapping>
 
         try
         {
+            int atIndex = value.IndexOf('@');
+
             return this.TransformType switch
             {
                 TransformType.Direct => value,
                 TransformType.Lowercase => value.ToLowerInvariant(),
                 TransformType.Uppercase => value.ToUpperInvariant(),
-                TransformType.EmailPrefix => value.Contains('@') ? value.Split('@')[0] : value,
-                TransformType.EmailDomain => value.Contains('@') ? value.Split('@')[1] : value,
-                TransformType.Regex when !string.IsNullOrEmpty(this.TransformPattern) =>
-                    System.Text.RegularExpressions.Regex.Replace(
-                        value,
-                        this.TransformPattern,
-                        string.Empty,
-                        System.Text.RegularExpressions.RegexOptions.None,
-                        TimeSpan.FromMilliseconds(250)),
+                TransformType.EmailPrefix => atIndex < 0 ? value : value[..atIndex],
+                TransformType.EmailDomain => GetEmailDomain(value, atIndex),
+                TransformType.Regex when this.transformRegex is not null => this.transformRegex.Replace(value, string.Empty),
                 _ => value,
             };
         }
-        catch (System.ArgumentException)
+        catch (ArgumentException)
         {
             return value;
         }
-        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        catch (RegexMatchTimeoutException)
         {
             return value;
         }
+    }
+
+    private static Regex? CreateRegex(string pattern)
+    {
+        try
+        {
+            return new Regex(pattern, RegexOptions.None, regexMatchTimeout);
+        }
+        catch (ArgumentException)
+        {
+            // An unusable pattern is treated as a pass-through mapping, matching the historical
+            // behaviour of catching the same exception from Regex.Replace on every transform.
+            return null;
+        }
+    }
+
+    private static string GetEmailDomain(string value, int atIndex)
+    {
+        if (atIndex < 0)
+        {
+            return value;
+        }
+
+        int domainEnd = value.IndexOf('@', atIndex + 1);
+        return domainEnd < 0 ? value[(atIndex + 1)..] : value[(atIndex + 1)..domainEnd];
     }
 
     /// <inheritdoc />
