@@ -10,9 +10,15 @@ internal static class ClaimPrincipalExtensions
 {
     /// <summary>
     /// Returns the only claim of <paramref name="claimType"/>, or <c>null</c> when it is absent or
-    /// duplicated. Duplicates are treated as absent because ambiguity must not be resolved by
-    /// taking the first value.
+    /// duplicated. Duplicates collapse into the same result as absence because ambiguity must not be
+    /// resolved by taking the first value.
     /// </summary>
+    /// <remarks>
+    /// Collapsing duplicates into <c>null</c> is only safe when the caller treats absence the same
+    /// way. A caller that must reject duplicates has to count the claims itself by iterating
+    /// <see cref="ClaimsPrincipal.FindAll(string)"/>, because there is no way to tell the two cases
+    /// apart from this result.
+    /// </remarks>
     public static Claim? FindSingleClaim(this ClaimsPrincipal principal, string claimType)
     {
         Claim? match = null;

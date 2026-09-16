@@ -23,13 +23,17 @@ internal static class AdministrativeTokenBoundary
         if (subject is null || !principal.ContainsScopeValue(Scope)) { return false; }
 
         clientId = client;
-        Claim? humanSubject = principal.FindSingleClaim(AdministrativeActorContext.HumanSubjectClaim);
-        if (humanSubject is null)
+        string? humanSubject = null;
+        foreach (Claim claim in principal.FindAll(AdministrativeActorContext.HumanSubjectClaim))
         {
-            return subject == clientId;
+            // One human-subject claim is a delegated token and zero is an application token, but more
+            // than one is ambiguous: fail closed instead of falling through to the application path.
+            if (humanSubject is not null) { return false; }
+            humanSubject = claim.Value;
         }
 
-        if (humanSubject.Value != subject || !Guid.TryParse(subject, out Guid id)) { return false; }
+        if (humanSubject is null) { return subject == clientId; }
+        if (humanSubject != subject || !Guid.TryParse(subject, out Guid id)) { return false; }
         userId = new UserId(id);
         return true;
     }
