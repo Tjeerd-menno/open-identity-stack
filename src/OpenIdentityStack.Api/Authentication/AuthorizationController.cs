@@ -60,7 +60,6 @@ public class AuthorizationController : ControllerBase
         ICredentialSessionValidator credentialSessionValidator,
         IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null,
         IHostEnvironment? environment = null,
-        IPermissionClaimProjectionService? permissionClaimProjectionService = null,
         ITokenClaimProjectionService? tokenClaimProjectionService = null,
         IResourcePermissionService? resourcePermissionService = null)
     {

@@ -5,6 +5,8 @@ using System.Text.Json;
 
 using Microsoft.IdentityModel.JsonWebTokens;
 
+using OpenIdentityStack.Api.Authorization;
+using OpenIdentityStack.Api.Serialization;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Domain.Groups;
@@ -31,6 +33,12 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
     public const string LegacySessionIdClaim = "session_id";
     public const string RequestedUserInfoClaim = "requested_userinfo_claim";
     public const string AuthenticationContextClassReferenceClaim = "acr";
+
+    private static readonly string[] actorClaimTypes =
+    [
+        AdministrativeActorContext.HumanSubjectClaim,
+        AdministrativeActorContext.HumanAuthenticationClaim,
+    ];
 
     public ClaimsPrincipal ProjectSubjectClaims(TokenClaimProjectionRequest request)
     {
@@ -105,10 +113,12 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             identity.AddClaim(new Claim("permission", permission));
         }
 
-        foreach (string type in new[] { OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanSubjectClaim, OpenIdentityStack.Api.Authorization.AdministrativeActorContext.HumanAuthenticationClaim })
+        foreach (string type in actorClaimTypes)
         {
-            Claim[] sourceClaims = request.Principal.FindAll(type).ToArray();
-            if (sourceClaims.Length == 1) { identity.AddClaim(sourceClaims[0]); }
+            if (request.Principal.FindSingleClaim(type) is { } actorClaim)
+            {
+                identity.AddClaim(actorClaim);
+            }
         }
 
         foreach (GroupClaimDto groupClaim in request.GroupClaims.Where(claim => !ReservedGroupClaimTypes.IsReserved(claim.Type)))
@@ -223,17 +233,23 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             yield break;
         }
 
-        if (claim.Properties.TryGetValue("destinations", out string? destinations))
+        if (claim.Properties.TryGetValue("destinations", out string? destinations)
+            && !string.IsNullOrEmpty(destinations))
         {
-            if (!string.IsNullOrEmpty(destinations))
+            int start = 0;
+            while (start < destinations.Length)
             {
-                foreach (string dest in destinations.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                int separator = destinations.IndexOf(' ', start);
+                int end = separator < 0 ? destinations.Length : separator;
+                if (end > start)
                 {
-                    yield return dest;
+                    yield return destinations[start..end];
                 }
 
-                yield break;
+                start = end + 1;
             }
+
+            yield break;
         }
 
         switch (claim.Type)
@@ -479,11 +495,11 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
     /// absent components. The suite validates only the sub-fields that are present.
     /// </summary>
     private static string SerializeAddress(Address address) =>
-        JsonSerializer.Serialize(BuildAddressObject(address));
+        JsonSerializer.Serialize(BuildAddressObject(address), ApiJsonContext.Default.DictionaryStringString);
 
-    private static Dictionary<string, object> BuildAddressObject(Address address)
+    private static Dictionary<string, string> BuildAddressObject(Address address)
     {
-        var components = new Dictionary<string, object>(StringComparer.Ordinal);
+        var components = new Dictionary<string, string>(StringComparer.Ordinal);
         AddAddressComponent(components, "formatted", address.Formatted);
         AddAddressComponent(components, "street_address", address.StreetAddress);
         AddAddressComponent(components, "locality", address.Locality);
@@ -493,7 +509,7 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
         return components;
     }
 
-    private static void AddAddressComponent(Dictionary<string, object> components, string name, string? value)
+    private static void AddAddressComponent(Dictionary<string, string> components, string name, string? value)
     {
         if (!string.IsNullOrWhiteSpace(value))
         {
@@ -523,7 +539,8 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
         // Every sub-field of `address` is a string, so this stays type-exact -- deserializing
         // to object would hand the response JsonElement values instead.
         Dictionary<string, string>? components =
-            JsonSerializer.Deserialize<Dictionary<string, string>>(serialized);
+            JsonSerializer.Deserialize<Dictionary<string, string>>(
+                serialized, ApiJsonContext.Default.DictionaryStringString);
 
         if (components is { Count: > 0 })
         {
@@ -555,7 +572,7 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
     private static void SetAuthenticationTimeClaim(ClaimsIdentity identity, DateTimeOffset authenticationTime)
     {
-        foreach (Claim claim in identity.FindAll(Claims.AuthenticationTime).ToList())
+        foreach (Claim claim in identity.FindAll(Claims.AuthenticationTime).ToArray())
         {
             identity.RemoveClaim(claim);
         }

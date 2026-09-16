@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Api.Serialization;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Sessions;
 using SharedKernel;
@@ -42,7 +43,8 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
     {
         var payload = new SessionMonitoringCookiePayload(
             currentVersion, userId.Value, sessionId.Value, expiresUtc);
-        return this.protector.Protect(JsonSerializer.Serialize(payload));
+        return this.protector.Protect(
+            JsonSerializer.Serialize(payload, ApiJsonContext.Default.SessionMonitoringCookiePayload));
     }
 
     public string? GetRateLimitPartitionKey(string? value)
@@ -98,7 +100,8 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
         try
         {
             SessionMonitoringCookiePayload? candidate = JsonSerializer.Deserialize<SessionMonitoringCookiePayload>(
-                this.protector.Unprotect(value));
+                this.protector.Unprotect(value),
+                ApiJsonContext.Default.SessionMonitoringCookiePayload);
             if (candidate is null)
             {
                 return false;
@@ -113,7 +116,7 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
         }
     }
 
-    private sealed record SessionMonitoringCookiePayload(
+    internal sealed record SessionMonitoringCookiePayload(
         int Version,
         Guid UserId,
         Guid SessionId,

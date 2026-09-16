@@ -14,19 +14,22 @@ internal static class AdministrativeTokenBoundary
         clientId = string.Empty;
         userId = null;
         if (principal.Identity?.IsAuthenticated != true) { return false; }
-        string[] audiences = principal.FindAll("aud").Select(claim => claim.Value).ToArray();
-        string[] clients = principal.FindAll("client_id").Select(claim => claim.Value).ToArray();
-        string[] subjects = principal.FindAll("sub").Select(claim => claim.Value).ToArray();
-        string[] scopes = principal.FindAll("scope").SelectMany(claim => claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToArray();
-        if (audiences.Length != 1 || audiences[0] != Audience || clients.Length != 1 || string.IsNullOrWhiteSpace(clients[0])
-            || subjects.Length != 1 || !scopes.Contains(Scope, StringComparer.Ordinal))
+        if (principal.FindSingleClaim("aud")?.Value != Audience) { return false; }
+
+        string? client = principal.FindSingleClaim("client_id")?.Value;
+        if (string.IsNullOrWhiteSpace(client)) { return false; }
+
+        string? subject = principal.FindSingleClaim("sub")?.Value;
+        if (subject is null || !principal.ContainsScopeValue(Scope)) { return false; }
+
+        clientId = client;
+        Claim? humanSubject = principal.FindSingleClaim(AdministrativeActorContext.HumanSubjectClaim);
+        if (humanSubject is null)
         {
-            return false;
+            return subject == clientId;
         }
-        clientId = clients[0];
-        string[] humanSubjects = principal.FindAll(AdministrativeActorContext.HumanSubjectClaim).Select(claim => claim.Value).ToArray();
-        if (humanSubjects.Length == 0) { return subjects[0] == clientId; }
-        if (humanSubjects.Length != 1 || humanSubjects[0] != subjects[0] || !Guid.TryParse(subjects[0], out Guid id)) { return false; }
+
+        if (humanSubject.Value != subject || !Guid.TryParse(subject, out Guid id)) { return false; }
         userId = new UserId(id);
         return true;
     }
