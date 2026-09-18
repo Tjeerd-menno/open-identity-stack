@@ -15,7 +15,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { Group as GroupModel, GroupMapping, GroupMember } from '@openidentitystack/admin-api-client';
@@ -51,6 +51,10 @@ export function GroupDetailPage() {
   const membersQuery = useQuery({
     queryKey: ['group', groupId, 'members', { page, pageSize }],
     queryFn: () => api.groups.getGroupMembers(groupId, { page, pageSize }),
+    // Keep the previous page visible while paging within the same group, but never
+    // show another group's members when the route param changes.
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[1] === groupId ? previousData : undefined,
   });
   const mappingsQuery = useQuery({
     queryKey: ['group', groupId, 'mappings'],
@@ -182,6 +186,7 @@ export function GroupDetailPage() {
             rows={membersQuery.data?.items ?? []}
             getRowKey={(member) => member.userId}
             isLoading={membersQuery.isLoading}
+            isRefreshing={membersQuery.isPlaceholderData}
             emptyIcon="users"
             emptyTitle="No members"
             emptyText="Add users to this group to grant them its delegated access."
@@ -280,6 +285,7 @@ function AddMembersModal({ groupId, onAdded, onClose }: { groupId: string; onAdd
   const usersQuery = useQuery({
     queryKey: ['users', 'picker', search],
     queryFn: () => api.users.getUsers({ page: 1, pageSize: 8, search: search || undefined }),
+    placeholderData: keepPreviousData,
   });
 
   const add = useMutation({

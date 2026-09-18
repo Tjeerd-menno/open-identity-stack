@@ -16,6 +16,8 @@ type DataTableProps<T> = {
   getRowKey: (row: T) => string;
   onRowClick?: (row: T) => void;
   isLoading?: boolean;
+  /** Previous page is still shown while the next one loads; rows are dimmed rather than replaced by skeletons. */
+  isRefreshing?: boolean;
   emptyIcon?: IconName;
   emptyTitle?: string;
   emptyText?: string;
@@ -32,6 +34,7 @@ export function DataTable<T>({
   getRowKey,
   onRowClick,
   isLoading = false,
+  isRefreshing = false,
   emptyIcon = 'search',
   emptyTitle = 'Nothing to show',
   emptyText = 'Adjust your filters or create a new record.',
@@ -58,7 +61,10 @@ export function DataTable<T>({
               ))}
             </Table.Tr>
           </Table.Thead>
-          <Table.Tbody>
+          <Table.Tbody
+            aria-busy={isRefreshing || undefined}
+            style={isRefreshing ? { opacity: 0.55, transition: 'opacity 150ms ease' } : { transition: 'opacity 150ms ease' }}
+          >
             {isLoading ? (
               Array.from({ length: 5 }, (_, index) => (
                 <Table.Tr key={index}>

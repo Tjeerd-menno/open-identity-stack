@@ -1,4 +1,5 @@
 import { ActionIcon, Box, Group, NativeSelect, Select, Text, TextInput } from '@mantine/core';
+import { useDebouncedSearch } from '@/lib/useDebouncedSearch';
 import { Icon } from './Icon';
 
 export type ToolbarFilter = {
@@ -24,6 +25,7 @@ const ALL = 'All';
 
 export function FilterToolbar({ noun, search, onSearch, filters = [], rows, onRows, count, total }: FilterToolbarProps) {
   const applied = filters.filter((filter) => filter.value && filter.value !== ALL);
+  const [draft, setDraft] = useDebouncedSearch(search, onSearch);
 
   return (
     <Box mb="md">
@@ -36,8 +38,8 @@ export function FilterToolbar({ noun, search, onSearch, filters = [], rows, onRo
             aria-label={`Search ${noun}`}
             leftSection={<Icon name="search" size={16} />}
             placeholder={`Search ${noun}…`}
-            value={search}
-            onChange={(event) => onSearch(event.currentTarget.value)}
+            value={draft}
+            onChange={(event) => setDraft(event.currentTarget.value)}
           />
         </Box>
         {filters.map((filter) => (
