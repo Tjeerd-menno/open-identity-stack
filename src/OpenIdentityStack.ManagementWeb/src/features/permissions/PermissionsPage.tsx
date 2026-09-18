@@ -1,6 +1,6 @@
 import { Badge, Box, Button, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { RegisteredApplicationListItem } from '@openidentitystack/admin-api-client';
@@ -26,6 +26,7 @@ export function PermissionsPage() {
   const query = useQuery({
     queryKey: ['application-permissions', { page, pageSize, search }],
     queryFn: () => api.applicationPermissions.getRegisteredApplications({ page, pageSize, search: search || undefined }),
+    placeholderData: keepPreviousData,
   });
 
   const columns: Column<RegisteredApplicationListItem>[] = [
@@ -98,6 +99,7 @@ export function PermissionsPage() {
             getRowKey={(item) => item.id}
             onRowClick={(item) => navigate(`/application-permissions/${item.id}`)}
             isLoading={query.isLoading}
+            isRefreshing={query.isPlaceholderData}
             emptyIcon="list-checks"
             emptyTitle="No registered applications"
             emptyText="No applications have declared permissions yet."

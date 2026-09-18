@@ -346,10 +346,17 @@ public class AuthorizationController : ControllerBase
             }
             UserId? subjectId = TryParseUserId(result.Principal!.GetClaim(Claims.Subject) ?? string.Empty);
             if (subjectId is null) { return this.ResourceAccessDenied(Domain.Resources.ResourceAccessErrors.NotGranted); }
-            Result<ResourceTokenProjection> resourceAccess = await this.ProjectResourcesAsync(request, scopes, subjectId,
-                result.Principal.FindAll("permission").Select(static claim => claim.Value).ToArray(), result.Principal.GetResources());
-            if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error); }
+
+            // Resolve effective roles once and hand the permissions to resource projection, mirroring the
+            // authorize path: otherwise ProjectAsync re-loads the user and re-runs the roles pipeline.
             Result<IReadOnlyList<RoleDto>> roles = await this.getUserEffectiveRolesQueryHandler.HandleAsync(subjectId.Value, this.HttpContext.RequestAborted);
+            IReadOnlyList<string>? userPermissions = roles.IsSuccess
+                ? roles.Value.Where(static role => role.IsActive).SelectMany(static role => role.Permissions).ToArray()
+                : null;
+
+            Result<ResourceTokenProjection> resourceAccess = await this.ProjectResourcesAsync(request, scopes, subjectId,
+                result.Principal.FindAll("permission").Select(static claim => claim.Value).ToArray(), result.Principal.GetResources(), userPermissions);
+            if (resourceAccess.IsFailure) { return this.ResourceAccessDenied(resourceAccess.Error); }
             Result<IReadOnlyList<GroupClaimDto>> groups = await this.getGroupClaimsForUserQueryHandler.HandleAsync(subjectId.Value, this.HttpContext.RequestAborted);
             if (roles.IsFailure || groups.IsFailure || tokenUser is null)
             {

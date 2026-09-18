@@ -2,7 +2,7 @@ import { Badge, Box, Button, Group, Modal, Stack, Text, TextInput, Textarea, The
 import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { GroupListItem } from '@openidentitystack/admin-api-client';
@@ -33,6 +33,7 @@ export function GroupsPage() {
   const query = useQuery({
     queryKey: ['groups', { page, pageSize, search }],
     queryFn: () => api.groups.getGroups({ page, pageSize, search: search || undefined }),
+    placeholderData: keepPreviousData,
   });
 
   const remove = useMutation({
@@ -123,6 +124,7 @@ export function GroupsPage() {
             getRowKey={(group) => group.id}
             onRowClick={(group) => navigate(`/groups/${group.id}`)}
             isLoading={query.isLoading}
+            isRefreshing={query.isPlaceholderData}
             emptyIcon="users-round"
             emptyTitle="No groups"
             emptyText="Adjust your search or create a group."
