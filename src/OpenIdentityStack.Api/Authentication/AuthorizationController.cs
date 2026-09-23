@@ -46,6 +46,7 @@ public class AuthorizationController : Controller
 
     private readonly IOpenIddictApplicationManager applicationManager;
     private readonly IOpenIddictAuthorizationManager authorizationManager;
+    private readonly IConsentApprovalTransactionRunner consentApprovalTransactionRunner;
     private readonly IUserRepository userRepository;
     private readonly IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler;
     private readonly IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler;
@@ -62,6 +63,7 @@ public class AuthorizationController : Controller
     public AuthorizationController(
         IOpenIddictApplicationManager applicationManager,
         IOpenIddictAuthorizationManager authorizationManager,
+        IConsentApprovalTransactionRunner consentApprovalTransactionRunner,
         IOpenIddictScopeManager scopeManager,
         IUserRepository userRepository,
         IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler,
@@ -80,6 +82,7 @@ public class AuthorizationController : Controller
     {
         this.applicationManager = applicationManager;
         this.authorizationManager = authorizationManager;
+        this.consentApprovalTransactionRunner = consentApprovalTransactionRunner;
         this.userRepository = userRepository;
         this.getUserEffectiveRolesQueryHandler = getUserEffectiveRolesQueryHandler;
         this.getGroupClaimsForUserQueryHandler = getGroupClaimsForUserQueryHandler;
@@ -333,10 +336,15 @@ public class AuthorizationController : Controller
                 return this.RejectConsent(Errors.AccessDenied);
             }
 
-            string authorizationId = await this.CreateConsentAuthorizationAsync(request, client, subject);
+            string authorizationId = await this.consentApprovalTransactionRunner.ExecuteAsync(async cancellationToken =>
+            {
+                string createdAuthorizationId = await this.CreateConsentAuthorizationAsync(
+                    request, client, subject, cancellationToken);
+                await this.auditLog.LogAsync(subject, "Consent.Approved", "Application",
+                    request.ClientId!, $"Subject {subject} approved consent.", cancellationToken);
+                return createdAuthorizationId;
+            }, this.HttpContext.RequestAborted);
             this.HttpContext.Items[consentAuthorizationIdItemKey] = authorizationId;
-            await this.auditLog.LogAsync(subject, "Consent.Approved", "Application",
-                request.ClientId!, $"Subject {subject} approved consent.", this.HttpContext.RequestAborted);
             return null;
         }
 
@@ -412,9 +420,13 @@ public class AuthorizationController : Controller
         return null;
     }
 
-    private async Task<string> CreateConsentAuthorizationAsync(OpenIddictRequest request, object client, string subject)
+    private async Task<string> CreateConsentAuthorizationAsync(
+        OpenIddictRequest request,
+        object client,
+        string subject,
+        CancellationToken cancellationToken)
     {
-        string? applicationId = await this.applicationManager.GetIdAsync(client, this.HttpContext.RequestAborted);
+        string? applicationId = await this.applicationManager.GetIdAsync(client, cancellationToken);
         if (string.IsNullOrWhiteSpace(applicationId))
         {
             throw new InvalidOperationException("The OpenIddict application identifier cannot be resolved for consent persistence.");
@@ -431,8 +443,8 @@ public class AuthorizationController : Controller
         using var claimsDocument = JsonDocument.Parse(JsonSerializer.Serialize(GetRequestedConsentClaims(request)));
         descriptor.Properties[consentedClaimsProperty] = claimsDocument.RootElement.Clone();
 
-        object authorization = await this.authorizationManager.CreateAsync(descriptor, this.HttpContext.RequestAborted);
-        string? authorizationId = await this.authorizationManager.GetIdAsync(authorization, this.HttpContext.RequestAborted);
+        object authorization = await this.authorizationManager.CreateAsync(descriptor, cancellationToken);
+        string? authorizationId = await this.authorizationManager.GetIdAsync(authorization, cancellationToken);
         return authorizationId ?? throw new InvalidOperationException("The consent authorization identifier cannot be resolved.");
     }
 

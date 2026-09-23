@@ -215,6 +215,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<ICredentialTerminationService, CredentialTerminationService>();
         services.AddScoped<ICredentialLifecycleTransactionRunner, CredentialLifecycleTransactionRunner>();
+        services.AddScoped<IConsentApprovalTransactionRunner, ConsentApprovalTransactionRunner>();
         services.AddScoped<IAuthenticationSettingsRepository, AuthenticationSettingsRepository>();
         services.AddScoped<IAuditEntryReader, AuditEntryReader>();
     }

@@ -35,6 +35,7 @@ public class SessionValidationBenchmarks
         var controller = new AuthorizationController(
             applicationManager,
             Substitute.For<IOpenIddictAuthorizationManager>(),
+            Substitute.For<IConsentApprovalTransactionRunner>(),
             scopeManager,
             userRepository,
             getUserEffectiveRolesQueryHandler,

@@ -43,6 +43,7 @@ public class AuthorizationControllerTests : IDisposable
 
     private readonly IOpenIddictApplicationManager _applicationManager;
     private readonly IOpenIddictAuthorizationManager _authorizationManager;
+    private readonly IConsentApprovalTransactionRunner _consentApprovalTransactionRunner;
     private readonly IOpenIddictScopeManager _scopeManager;
     private readonly IUserRepository _userRepository;
     private readonly IGetUserEffectiveRolesQueryHandler _getUserEffectiveRolesQueryHandler;
@@ -61,6 +62,10 @@ public class AuthorizationControllerTests : IDisposable
     {
         this._applicationManager = Substitute.For<IOpenIddictApplicationManager>();
         this._authorizationManager = Substitute.For<IOpenIddictAuthorizationManager>();
+        this._consentApprovalTransactionRunner = Substitute.For<IConsentApprovalTransactionRunner>();
+        this._consentApprovalTransactionRunner.ExecuteAsync(
+                Arg.Any<Func<CancellationToken, Task<string>>>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Func<CancellationToken, Task<string>>>()(call.Arg<CancellationToken>()));
         this._scopeManager = Substitute.For<IOpenIddictScopeManager>();
         this._userRepository = Substitute.For<IUserRepository>();
         this._getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
@@ -85,6 +90,7 @@ public class AuthorizationControllerTests : IDisposable
         this._controller = new AuthorizationController(
             this._applicationManager,
             this._authorizationManager,
+            this._consentApprovalTransactionRunner,
             this._scopeManager,
             this._userRepository,
             this._getUserEffectiveRolesQueryHandler,
