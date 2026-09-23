@@ -16,6 +16,7 @@ Usage:
 import csv
 import json
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from core import search, DATA_DIR
@@ -488,6 +489,131 @@ def generate_design_system(query: str, project_name: str = None, output_format: 
 
 
 # ============ PERSISTENCE FUNCTIONS ============
+def safe_slug(label: str) -> str:
+    """Turn a display label into one portable path component."""
+    if not isinstance(label, str) or not label.strip():
+        raise ValueError("Design-system project and page names must not be empty")
+
+    label = label.strip()
+    if label in (".", "..") or any(character in label for character in ("/", "\\", ":", "\0")):
+        raise ValueError("Design-system project and page names must not contain paths")
+
+    slug = re.sub(
+        r"-+", "-", "".join(character if character.isalnum() else "-" for character in label.casefold())
+    ).strip("-")
+    reserved = {"con", "prn", "aux", "nul"}
+    reserved.update(f"com{number}" for number in range(1, 10))
+    reserved.update(f"lpt{number}" for number in range(1, 10))
+    if not slug or slug in reserved:
+        raise ValueError("Design-system project and page name has no safe filename")
+    return slug
+
+
+def require_contained(path: Path, root: Path) -> None:
+    """Reject escaped paths and existing links before any directory or file write."""
+    resolved_path = path.resolve()
+    if not resolved_path.is_relative_to(root.resolve()) or resolved_path != path:
+        raise ValueError("Design-system output path escapes its intended directory")
+
+
+def _write_open_file(fd: int, content: str) -> None:
+    """Truncate only after the opened file has passed the path checks."""
+    with os.fdopen(fd, "r+", encoding="utf-8") as stream:
+        if os.fstat(stream.fileno()).st_nlink != 1:
+            raise ValueError("Design-system output must not be a hard link")
+        stream.seek(0)
+        stream.truncate()
+        stream.write(content)
+
+
+def _windows_opened_path(fd: int) -> Path:
+    """Get the final path of a Windows file handle, including followed reparse points."""
+    import ctypes
+    import msvcrt
+
+    buffer = ctypes.create_unicode_buffer(32768)
+    get_final_path = ctypes.windll.kernel32.GetFinalPathNameByHandleW
+    get_final_path.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_ulong, ctypes.c_ulong]
+    get_final_path.restype = ctypes.c_ulong
+    length = get_final_path(
+        msvcrt.get_osfhandle(fd), buffer, len(buffer), 0
+    )
+    if not length or length >= len(buffer):
+        raise OSError("Unable to verify opened design-system file path")
+    path = buffer.value
+    if path.startswith("\\\\?\\UNC\\"):
+        path = "\\\\" + path[8:]
+    elif path.startswith("\\\\?\\"):
+        path = path[4:]
+    return Path(path)
+
+
+def _write_windows_file(path: Path, root: Path, content: str) -> None:
+    """Verify the opened object before writing; do not truncate during open."""
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_BINARY)
+    try:
+        if not _windows_opened_path(fd).is_relative_to(root):
+            raise ValueError("Opened design-system output escapes its intended directory")
+    except Exception:
+        os.close(fd)
+        raise
+    _write_open_file(fd, content)
+
+
+def _open_unix_directory(parent_fd: int, name: str) -> int:
+    try:
+        os.mkdir(name, dir_fd=parent_fd)
+    except FileExistsError:
+        pass
+    return os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent_fd)
+
+
+def _write_unix_file(directory_fd: int, name: str, content: str) -> None:
+    fd = os.open(
+        name, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600, dir_fd=directory_fd
+    )
+    _write_open_file(fd, content)
+
+
+def _open_unix_base_directory(base_dir: Path) -> int:
+    """Create and open each base path component without following swapped links."""
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    directory_fd = os.open("/", flags)
+    try:
+        for component in base_dir.parts[1:]:
+            try:
+                os.mkdir(component, dir_fd=directory_fd)
+            except FileExistsError:
+                pass
+            child_fd = os.open(component, flags, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = child_fd
+        return directory_fd
+    except Exception:
+        os.close(directory_fd)
+        raise
+
+
+def _persist_unix(base_fd: int, project_slug: str, page_slug: str, master_content: str,
+                  page_content: str) -> None:
+    """Anchor each directory and file operation to a no-follow directory handle."""
+    root_fd = _open_unix_directory(base_fd, "design-system")
+    try:
+        project_fd = _open_unix_directory(root_fd, project_slug)
+        try:
+            pages_fd = _open_unix_directory(project_fd, "pages")
+            try:
+                _write_unix_file(project_fd, "MASTER.md", master_content)
+                if page_slug:
+                    _write_unix_file(pages_fd, f"{page_slug}.md", page_content)
+            finally:
+                os.close(pages_fd)
+        finally:
+            os.close(project_fd)
+    finally:
+        os.close(root_fd)
+
+
 def persist_design_system(design_system: dict, page: str = None, output_dir: str = None, page_query: str = None) -> dict:
     """
     Persist design system to design-system/<project>/ folder using Master + Overrides pattern.
@@ -501,35 +627,53 @@ def persist_design_system(design_system: dict, page: str = None, output_dir: str
     Returns:
         dict with created file paths and status
     """
-    base_dir = Path(output_dir) if output_dir else Path.cwd()
+    base_dir = (Path(output_dir) if output_dir else Path.cwd()).resolve()
     
     # Use project name for project-specific folder
     project_name = design_system.get("project_name", "default")
-    project_slug = project_name.lower().replace(' ', '-')
+    project_slug = safe_slug(project_name)
+    page_slug = safe_slug(page) if page else None
     
-    design_system_dir = base_dir / "design-system" / project_slug
+    design_system_root = base_dir / "design-system"
+    design_system_dir = design_system_root / project_slug
     pages_dir = design_system_dir / "pages"
+    master_file = design_system_dir / "MASTER.md"
+    page_file = pages_dir / f"{page_slug}.md" if page_slug else None
+
+    if design_system_root.resolve() != design_system_root:
+        raise ValueError("Design-system output root must not be a link")
+    require_contained(design_system_dir, design_system_root)
+    require_contained(pages_dir, design_system_dir)
+    require_contained(master_file, design_system_dir)
+    if page_file:
+        require_contained(page_file, pages_dir)
     
     created_files = []
     
-    # Create directories
-    design_system_dir.mkdir(parents=True, exist_ok=True)
-    pages_dir.mkdir(parents=True, exist_ok=True)
-    
-    master_file = design_system_dir / "MASTER.md"
-    
-    # Generate and write MASTER.md
-    master_content = format_master_md(design_system)
-    with open(master_file, 'w', encoding='utf-8') as f:
-        f.write(master_content)
+    if os.name == "posix":
+        base_fd = _open_unix_base_directory(base_dir)
+        try:
+            master_content = format_master_md(design_system)
+            page_content = format_page_override_md(design_system, page, page_query) if page else None
+            _persist_unix(base_fd, project_slug, page_slug, master_content, page_content)
+        finally:
+            os.close(base_fd)
+    else:
+        base_dir.mkdir(parents=True, exist_ok=True)
+        base_dir = base_dir.resolve(strict=True)
+        # Generate content before opening any destination.
+        master_content = format_master_md(design_system)
+        page_content = format_page_override_md(design_system, page, page_query) if page else None
+        require_contained(design_system_dir, design_system_root)
+        design_system_dir.mkdir(parents=True, exist_ok=True)
+        require_contained(pages_dir, design_system_dir)
+        pages_dir.mkdir(parents=True, exist_ok=True)
+        _write_windows_file(master_file, design_system_dir, master_content)
+        if page_file:
+            _write_windows_file(page_file, pages_dir, page_content)
+
     created_files.append(str(master_file))
-    
-    # If page is specified, create page override file with intelligent content
-    if page:
-        page_file = pages_dir / f"{page.lower().replace(' ', '-')}.md"
-        page_content = format_page_override_md(design_system, page, page_query)
-        with open(page_file, 'w', encoding='utf-8') as f:
-            f.write(page_content)
+    if page_file:
         created_files.append(str(page_file))
     
     return {

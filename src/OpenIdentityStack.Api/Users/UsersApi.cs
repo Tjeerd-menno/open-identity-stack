@@ -59,6 +59,7 @@ internal static class UsersApi
         group.MapPut("{id:guid}", UpdateUser)
             .RequireAuthorization(Permissions.Users.Write)
             .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("UpdateUser")
             .WithSummary("Updates a user");

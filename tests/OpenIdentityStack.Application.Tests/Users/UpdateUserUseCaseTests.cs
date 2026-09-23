@@ -198,7 +198,7 @@ public sealed class UpdateUserUseCaseTests
     {
         // Arrange
         var userId = UserId.Create();
-        User user = CreateVerifiedPhoneUser(userId, "+31612345678");
+        User user = CreateLegacyVerifiedPhoneUser(userId, "+31612345678");
         var command = new UpdateUserCommand(
             userId,
             null,
@@ -217,11 +217,11 @@ public sealed class UpdateUserUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithUnchangedPhoneNumberAndOmittedVerification_KeepsVerification()
+    public async Task ExecuteAsync_WithUnchangedPhoneNumberAndOmittedVerification_ClearsUnprovenLegacyAssertion()
     {
         // Arrange
         var userId = UserId.Create();
-        User user = CreateVerifiedPhoneUser(userId, "+31612345678");
+        User user = CreateLegacyVerifiedPhoneUser(userId, "+31612345678");
         var command = new UpdateUserCommand(
             userId,
             null,
@@ -236,7 +236,7 @@ public sealed class UpdateUserUseCaseTests
 
         // Assert
         user.PhoneNumber.ShouldBe("+31612345678");
-        user.PhoneNumberVerified.ShouldBeTrue();
+        user.PhoneNumberVerified.ShouldBeFalse();
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public sealed class UpdateUserUseCaseTests
     {
         // Arrange
         var userId = UserId.Create();
-        User user = CreateVerifiedPhoneUser(userId, "+31612345678");
+        User user = CreateLegacyVerifiedPhoneUser(userId, "+31612345678");
         var command = new UpdateUserCommand(
             userId,
             null,
@@ -263,11 +263,11 @@ public sealed class UpdateUserUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithChangedPhoneNumberAndExplicitVerification_HonoursCaller()
+    public async Task ExecuteAsync_WithChangedPhoneNumberAndExplicitVerification_RejectsAssertion()
     {
         // Arrange
         var userId = UserId.Create();
-        User user = CreateVerifiedPhoneUser(userId, "+31612345678");
+        User user = CreateUser(userId, "Old Name");
         var command = new UpdateUserCommand(
             userId,
             null,
@@ -278,15 +278,34 @@ public sealed class UpdateUserUseCaseTests
             .Returns(user);
 
         // Act
-        await this._sut.ExecuteAsync(command);
+        Result<UpdateUserResult> result = await this._sut.ExecuteAsync(command);
 
         // Assert
-        user.PhoneNumber.ShouldBe("+32499999999");
-        user.PhoneNumberVerified.ShouldBeTrue();
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.User.PhoneVerificationEvidenceRequired");
+        user.PhoneNumber.ShouldBeNull();
+        user.PhoneNumberVerified.ShouldBeFalse();
+        await this._userRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithExplicitVerificationAndNoPhoneNumber_DoesNotAssertVerification()
+    public async Task ExecuteAsync_WithDisplayNameAndAssertedPhoneVerification_DoesNotChangeDisplayName()
+    {
+        var userId = UserId.Create();
+        User user = CreateUser(userId, "Old Name");
+        this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>()).Returns(user);
+
+        Result<UpdateUserResult> result = await this._sut.ExecuteAsync(new UpdateUserCommand(
+            userId, "New Name", "admin-1",
+            new UserProfileData(PhoneNumber: "+31612345678", PhoneNumberVerified: true)));
+
+        result.IsFailure.ShouldBeTrue();
+        user.DisplayName.ShouldBe("Old Name");
+        await this._userRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithExplicitVerificationAndNoPhoneNumber_RejectsAssertion()
     {
         // Arrange
         var userId = UserId.Create();
@@ -301,19 +320,21 @@ public sealed class UpdateUserUseCaseTests
             .Returns(user);
 
         // Act
-        await this._sut.ExecuteAsync(command);
+        Result<UpdateUserResult> result = await this._sut.ExecuteAsync(command);
 
         // Assert
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.User.PhoneVerificationEvidenceRequired");
         user.PhoneNumber.ShouldBeNull();
         user.PhoneNumberVerified.ShouldBeFalse();
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithExplicitVerificationAndBlankPhoneNumber_DoesNotAssertVerification()
+    public async Task ExecuteAsync_WithExplicitVerificationAndBlankPhoneNumber_RejectsAssertion()
     {
         // Arrange
         var userId = UserId.Create();
-        User user = CreateVerifiedPhoneUser(userId, "+31612345678");
+        User user = CreateLegacyVerifiedPhoneUser(userId, "+31612345678");
         var command = new UpdateUserCommand(
             userId,
             null,
@@ -324,15 +345,17 @@ public sealed class UpdateUserUseCaseTests
             .Returns(user);
 
         // Act
-        await this._sut.ExecuteAsync(command);
+        Result<UpdateUserResult> result = await this._sut.ExecuteAsync(command);
 
         // Assert
-        user.PhoneNumber.ShouldBeNull();
-        user.PhoneNumberVerified.ShouldBeFalse();
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.User.PhoneVerificationEvidenceRequired");
+        user.PhoneNumber.ShouldBe("+31612345678");
+        user.PhoneNumberVerified.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenVerificationIsAsserted_RecordsItInTheAuditTrail()
+    public async Task ExecuteAsync_WhenVerificationIsAsserted_DoesNotSaveOrAudit()
     {
         // Arrange
         var userId = UserId.Create();
@@ -347,19 +370,14 @@ public sealed class UpdateUserUseCaseTests
             .Returns(user);
 
         // Act
-        await this._sut.ExecuteAsync(command);
+        Result<UpdateUserResult> result = await this._sut.ExecuteAsync(command);
 
         // Assert
-        await this._auditLog.Received(1).LogAsync(
-            "admin-1",
-            "User.Updated",
-            "User",
-            userId.Value.ToString(),
-            Arg.Is<string>(details =>
-                details != null
-                && details.Contains("PhoneNumberVerified: asserted", StringComparison.Ordinal)
-                && !details.Contains("+31612345678", StringComparison.Ordinal)),
-            Arg.Any<CancellationToken>());
+        result.IsFailure.ShouldBeTrue();
+        await this._userRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await this._auditLog.DidNotReceive().LogAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -367,7 +385,7 @@ public sealed class UpdateUserUseCaseTests
     {
         // Arrange
         var userId = UserId.Create();
-        User user = CreateVerifiedPhoneUser(userId, "+31612345678");
+        User user = CreateLegacyVerifiedPhoneUser(userId, "+31612345678");
         var command = new UpdateUserCommand(
             userId,
             null,
@@ -416,13 +434,16 @@ public sealed class UpdateUserUseCaseTests
             Arg.Any<CancellationToken>());
     }
 
-    private User CreateVerifiedPhoneUser(UserId userId, string phoneNumber)
+    private User CreateLegacyVerifiedPhoneUser(UserId userId, string phoneNumber)
     {
         User user = CreateUser(userId, "Old Name");
 
         user.UpdateProfile(
-            new UserProfileData(PhoneNumber: phoneNumber, PhoneNumberVerified: true),
+            new UserProfileData(PhoneNumber: phoneNumber),
             this._dateTimeProvider);
+
+        // Simulate a legacy row from before independent evidence was required.
+        typeof(User).GetProperty(nameof(User.PhoneNumberVerified))!.SetValue(user, true);
 
         return user;
     }

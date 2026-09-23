@@ -227,7 +227,7 @@ public sealed class UsersEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
                     Country = "NL",
                 },
                 PhoneNumber = "+31612345678",
-                PhoneNumberVerified = true,
+                PhoneNumberVerified = false,
             },
         };
 
@@ -247,7 +247,7 @@ public sealed class UsersEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
 
         JsonNode profile = json!["profile"].ShouldNotBeNull();
         profile["phoneNumber"]!.GetValue<string>().ShouldBe("+31612345678");
-        profile["phoneNumberVerified"]!.GetValue<bool>().ShouldBeTrue();
+        profile["phoneNumberVerified"]!.GetValue<bool>().ShouldBeFalse();
 
         // address is the codebase's first structured profile value, so the nested
         // shape is what a regression would most likely flatten or drop.
@@ -261,14 +261,49 @@ public sealed class UsersEndpointWorkflowTests(AppHostFixture fixture) : IAsyncL
     }
 
     [Fact]
-    public async Task UpdateUser_ChangingThePhoneNumber_DropsTheVerifiedAssertion()
+    public async Task CreateUser_WithAssertedPhoneVerification_Returns400()
+    {
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Post,
+            "/api/admin/users",
+            new
+            {
+                Email = $"phone-{Guid.NewGuid():N}@example.com",
+                DisplayName = "Phone User",
+                Password = "TestPassword123!",
+                Profile = new { PhoneNumber = "+31612345678", PhoneNumberVerified = true },
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateUser_WithAssertedPhoneVerification_Returns400AndPreservesProfile()
+    {
+        (Guid userId, string _) = await this.CreateUserAsync();
+
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Put,
+            $"/api/admin/users/{userId}",
+            new { Profile = new { PhoneNumber = "+31612345678", PhoneNumberVerified = true } });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        HttpResponseMessage getResponse = await this.SendRequestAsync(HttpMethod.Get, $"/api/admin/users/{userId}");
+        JsonNode? json = await getResponse.Content.ReadFromJsonAsync<JsonNode>();
+        JsonNode profile = json!["profile"].ShouldNotBeNull();
+        profile["phoneNumber"].ShouldBeNull();
+        profile["phoneNumberVerified"]!.GetValue<bool>().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateUser_ChangingThePhoneNumber_KeepsUnverifiedStatus()
     {
         // Arrange
         (Guid userId, string _) = await this.CreateUserAsync();
         await this.SendRequestAsync(
             HttpMethod.Put,
             $"/api/admin/users/{userId}",
-            new { Profile = new { PhoneNumber = "+31612345678", PhoneNumberVerified = true } });
+            new { Profile = new { PhoneNumber = "+31612345678" } });
 
         // Act - a new number, with the caller saying nothing about verification
         HttpResponseMessage response = await this.SendRequestAsync(

@@ -202,9 +202,22 @@ public sealed class ApplicationPermissionManifestUseCases
 
     public async Task<Result<ManifestApplyDto>> ApplyChangesAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken = default)
     {
-        return await this.transactionRunner
-            .ExecuteAsync(token => this.ApplyChangesCoreAsync(command, token), cancellationToken)
+        bool registryRemovalDenied = false;
+        Result<ManifestApplyDto> result = await this.transactionRunner
+            .ExecuteAsync(token => this.ApplyChangesCoreAsync(command, () => registryRemovalDenied = true, token), cancellationToken)
             .ConfigureAwait(false);
+
+        if (registryRemovalDenied)
+        {
+            await this.auditWriter.WriteAsync(
+                "ApplyApplicationPermissionManifest",
+                command.ActorId,
+                command.ApplicationId.ToString(),
+                "Denied",
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        return result;
     }
 
     public async Task<Result<ManifestPreviewDto>> PreviewRemoteChangesAsync(RemoteApplicationPermissionManifestCommand command, CancellationToken cancellationToken = default)
@@ -269,7 +282,10 @@ public sealed class ApplicationPermissionManifestUseCases
             command.ExpectedConcurrencyToken);
     }
 
-    private async Task<Result<ManifestApplyDto>> ApplyChangesCoreAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken)
+    private async Task<Result<ManifestApplyDto>> ApplyChangesCoreAsync(
+        ApplyApplicationPermissionManifestCommand command,
+        Action onRegistryRemovalDenied,
+        CancellationToken cancellationToken)
     {
         Result<ManifestChangePlan> planResult = await this.CreateManifestChangePlanAsync(command, cancellationToken).ConfigureAwait(false);
         if (planResult.IsFailure)
@@ -281,6 +297,12 @@ public sealed class ApplicationPermissionManifestUseCases
         IReadOnlyList<PermissionAssignmentImpactDto> assignmentImpacts = [];
         if (plan.Removals.Count > 0)
         {
+            if (!await this.authorizationService.CanAdministerRegistryAsync(command.ActorId, cancellationToken).ConfigureAwait(false))
+            {
+                onRegistryRemovalDenied();
+                return DomainError.Forbidden("PermissionManifest.Forbidden", "Actor cannot remove application permissions.");
+            }
+
             Result<IReadOnlyList<PermissionAssignmentImpactDto>> assignmentResult = await this.permissionAssignmentStore
                 .RemoveAssignmentsAsync(plan.AssignmentRemovalPlan, command.ActorId, cancellationToken)
                 .ConfigureAwait(false);

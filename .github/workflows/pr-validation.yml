@@ -15,8 +15,6 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -41,8 +39,11 @@ jobs:
           --base-ref "origin/${{ github.base_ref }}"
           --allow-removed-spec identity-boundaries/credential-cutover.openapi.yaml
 
-      - name: Test OpenAPI comparison policy
-        run: python3 -m unittest discover -s scripts/ci/tests -p test_openapi_comparison.py -v
+      - name: Test CI policies
+        run: |
+          python3 -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
+          python3 tests/release_workflow_security_tests.py
+          python3 -m unittest discover -s .agents/skills/ui-ux-pro-max/tests -p 'test_*.py' -v
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -54,54 +55,6 @@ jobs:
         with:
           java-version: "17"
           distribution: zulu
-
-      - name: Cache SonarQube packages
-        if: ${{ env.SONAR_TOKEN != '' }}
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      - name: Cache SonarQube scanner
-        if: ${{ env.SONAR_TOKEN != '' }}
-        id: cache-sonar-scanner
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/scanner
-          key: ${{ runner.os }}-sonar-scanner
-          restore-keys: ${{ runner.os }}-sonar-scanner
-
-      - name: Install SonarQube scanner
-        if: ${{ env.SONAR_TOKEN != '' }}
-        shell: pwsh
-        run: |
-          $scannerPath = "${{ runner.temp }}/scanner"
-          $scannerExecutable = Join-Path $scannerPath "dotnet-sonarscanner"
-
-          New-Item -Path $scannerPath -ItemType Directory -Force | Out-Null
-
-          if (Test-Path $scannerExecutable) {
-            dotnet tool update dotnet-sonarscanner --tool-path $scannerPath
-          }
-          else {
-            dotnet tool install dotnet-sonarscanner --tool-path $scannerPath
-          }
-
-      - name: Begin SonarQube analysis
-        if: ${{ env.SONAR_TOKEN != '' }}
-        id: begin-sonarqube
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          & "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin `
-            /k:"Tjeerd-menno_open-identity-stack" `
-            /o:"tjeerdmenno" `
-            /d:sonar.token="$env:SONAR_TOKEN" `
-            /d:sonar.cs.cobertura.reportsPaths="TestResults/*.cobertura.xml" `
-            /d:sonar.javascript.lcov.reportPaths="src/OpenIdentityStack.ManagementWeb/coverage/lcov.info" `
-            /d:sonar.exclusions="**/.*/**,src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.ManagementWeb/coverage/**,src/OpenIdentityStack.ManagementWeb/dist/**" `
-            /d:sonar.coverage.exclusions="**/.*/**,src/OpenIdentityStack.Infrastructure/Persistence/Migrations/**,src/OpenIdentityStack.DbMigrator/**,src/OpenIdentityStack.AppHost/**,src/OpenIdentityStack.ServiceDefaults/**,src/OpenIdentityStack.ManagementWeb/src/main.tsx"
 
       - name: Restore
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet restore OpenIdentityStack.slnx
@@ -161,10 +114,3 @@ jobs:
       - name: Verify coverage threshold
         shell: bash
         run: bash scripts/ci/verify-coverage.sh --results-dir "$GITHUB_WORKSPACE/TestResults" --minimum-line-rate 0.10 --minimum-overall-line-rate 0.80
-
-      - name: End SonarQube analysis
-        if: ${{ env.SONAR_TOKEN != '' && steps.begin-sonarqube.outcome == 'success' }}
-        shell: pwsh
-        run: |
-          & "${{ runner.temp }}/scanner/dotnet-sonarscanner" end `
-            /d:sonar.token="$env:SONAR_TOKEN"

@@ -7,7 +7,10 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using OpenIddict.Abstractions;
+using OpenIddict.EntityFrameworkCore.Models;
 using OpenIdentityStack.Api.Tests.Fixtures;
+using OpenIdentityStack.Infrastructure.Audit;
 
 namespace OpenIdentityStack.Api.Tests.Authentication;
 
@@ -125,6 +128,137 @@ public sealed class AuthorizationCodeFlowTests
     #endregion
 
     #region Authorization Endpoint
+
+    [Fact]
+    public async Task ExplicitConsent_RequiresDecisionBeforeIssuingAuthorizationCode()
+    {
+        string clientId = $"consent-{Guid.NewGuid():N}";
+        string email = $"consent-{Guid.NewGuid():N}@example.test";
+        const string password = "Password123!@#";
+        const string redirectUri = "https://localhost/callback";
+        Guid userId = await this._fixture.CreateTestUserAsync(email, "Consent user", password);
+        await this._fixture.CreateServiceAccountAsync(clientId, "test-secret", ["openid", "profile", "email"],
+            allowedGrantTypes: ["authorization_code"], redirectUris: [redirectUri]);
+        string codeVerifier = GenerateCodeVerifier();
+        await this._fixture.ExecuteDbContextAsync(async db =>
+        {
+            OpenIddictEntityFrameworkCoreApplication application = await db.Set<OpenIddictEntityFrameworkCoreApplication>()
+                .SingleAsync(value => value.ClientId == clientId);
+            application.ConsentType = OpenIddictConstants.ConsentTypes.Explicit;
+            await db.SaveChangesAsync();
+        });
+
+        string query = await new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["response_type"] = "code", ["client_id"] = clientId, ["redirect_uri"] = redirectUri,
+            ["scope"] = "openid profile", ["state"] = "consent-state",
+            ["code_challenge"] = GenerateCodeChallenge(codeVerifier),
+            ["code_challenge_method"] = "S256"
+        }).ReadAsStringAsync();
+        string authorizeUrl = "/connect/authorize?" + query;
+        using HttpClient browser = this._fixture.CreateClient(allowAutoRedirect: false);
+        HttpResponseMessage start = await browser.GetAsync(authorizeUrl);
+        string loginPage = await browser.GetStringAsync(start.Headers.Location);
+        HttpResponseMessage login = await browser.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email, ["Password"] = password,
+            ["returnUrl"] = QueryHelpers.ParseQuery(GetQuery(start.Headers.Location!))["returnUrl"].Single()!,
+            ["__RequestVerificationToken"] = ExtractAntiForgeryToken(loginPage)
+        }));
+
+        HttpResponseMessage prompt = await browser.GetAsync(login.Headers.Location);
+        prompt.StatusCode.ShouldBe(HttpStatusCode.OK);
+        string consentPage = await prompt.Content.ReadAsStringAsync();
+        consentPage.ShouldContain("Review access request");
+        HttpResponseMessage silent = await browser.GetAsync(authorizeUrl + "&prompt=none");
+        silent.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        QueryHelpers.ParseQuery(silent.Headers.Location!.Query)["error"].Single().ShouldBe("consent_required");
+        string consentTicket = Regex.Match(consentPage, "name=\"consent_ticket\" value=\"([^\"]+)\"").Groups[1].Value;
+        consentTicket.ShouldNotBeNullOrWhiteSpace();
+        string antiforgery = ExtractAntiForgeryToken(consentPage);
+        var decision = QueryHelpers.ParseQuery(query)
+            .ToDictionary(pair => pair.Key, pair => pair.Value.Single()!, StringComparer.Ordinal);
+        decision["consent_ticket"] = consentTicket;
+        decision["consent_action"] = "deny";
+        decision["__RequestVerificationToken"] = antiforgery;
+
+        var withoutAntiforgery = new Dictionary<string, string>(decision, StringComparer.Ordinal);
+        withoutAntiforgery.Remove("__RequestVerificationToken");
+        HttpResponseMessage forgedDecision = await browser.PostAsync("/connect/authorize", new FormUrlEncodedContent(withoutAntiforgery));
+        forgedDecision.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        HttpResponseMessage denial = await browser.PostAsync("/connect/authorize", new FormUrlEncodedContent(decision));
+        denial.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        QueryHelpers.ParseQuery(denial.Headers.Location!.Query)["error"].Single().ShouldBe("access_denied");
+
+        HttpResponseMessage secondPrompt = await browser.GetAsync(authorizeUrl);
+        secondPrompt.StatusCode.ShouldBe(HttpStatusCode.OK);
+        string secondPage = await secondPrompt.Content.ReadAsStringAsync();
+        decision["consent_ticket"] = Regex.Match(secondPage, "name=\"consent_ticket\" value=\"([^\"]+)\"").Groups[1].Value;
+        decision["consent_action"] = "approve";
+        decision["__RequestVerificationToken"] = ExtractAntiForgeryToken(secondPage);
+
+        HttpResponseMessage approval = await browser.PostAsync("/connect/authorize", new FormUrlEncodedContent(decision));
+        approval.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        approval.Headers.Location!.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
+        string authorizationCode = QueryHelpers.ParseQuery(approval.Headers.Location.Query)["code"].Single()!;
+        authorizationCode.ShouldNotBeNullOrWhiteSpace();
+
+        HttpResponseMessage previouslyApprovedSilent = await browser.GetAsync(authorizeUrl + "&prompt=none");
+        previouslyApprovedSilent.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        previouslyApprovedSilent.Headers.Location!.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
+        QueryHelpers.ParseQuery(previouslyApprovedSilent.Headers.Location.Query)["code"].Single().ShouldNotBeNullOrWhiteSpace();
+
+        HttpResponseMessage forcedConsent = await browser.GetAsync(authorizeUrl + "&prompt=consent");
+        forcedConsent.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await forcedConsent.Content.ReadAsStringAsync()).ShouldContain("Review access request");
+
+        var expandedRequest = QueryHelpers.ParseQuery(query)
+            .ToDictionary(pair => pair.Key, pair => pair.Value.Single()!, StringComparer.Ordinal);
+        expandedRequest["scope"] = "openid profile email";
+        string expandedQuery = await new FormUrlEncodedContent(expandedRequest).ReadAsStringAsync();
+        HttpResponseMessage expandedSilent = await browser.GetAsync("/connect/authorize?" + expandedQuery + "&prompt=none");
+        expandedSilent.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        QueryHelpers.ParseQuery(expandedSilent.Headers.Location!.Query)["error"].Single().ShouldBe("consent_required");
+
+        HttpResponseMessage tokenResponse = await browser.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["grant_type"] = "authorization_code",
+            ["client_id"] = clientId,
+            ["client_secret"] = "test-secret",
+            ["code"] = authorizationCode,
+            ["code_verifier"] = codeVerifier,
+            ["redirect_uri"] = redirectUri
+        }));
+        tokenResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        await this._fixture.ExecuteDbContextAsync(async db =>
+        {
+            OpenIddictEntityFrameworkCoreAuthorization consentAuthorization = await db.Set<OpenIddictEntityFrameworkCoreAuthorization>()
+                .SingleAsync(value => value.Subject == userId.ToString());
+            var userTokens = await db.Set<OpenIddictEntityFrameworkCoreToken>()
+                .Where(value => value.Subject == userId.ToString())
+                .Select(value => new
+                {
+                    value.Type,
+                    AuthorizationId = EF.Property<string?>(value, "AuthorizationId")
+                })
+                .ToListAsync();
+            string? accessTokenAuthorizationId = userTokens
+                .Single(value => value.Type?.EndsWith("access_token", StringComparison.Ordinal) == true)
+                .AuthorizationId;
+            accessTokenAuthorizationId.ShouldBe(consentAuthorization.Id);
+        });
+
+        await this._fixture.ExecuteDbContextAsync(async db =>
+        {
+            List<AuditLogEntry> consentAudit = await db.Set<AuditLogEntry>()
+                .Where(entry => entry.Action == "Consent.Denied" || entry.Action == "Consent.Approved")
+                .ToListAsync();
+            consentAudit.Count.ShouldBe(2);
+            consentAudit.All(entry => entry.UserId == userId.ToString()).ShouldBeTrue();
+        });
+    }
 
     [Theory]
     [InlineData(false)]

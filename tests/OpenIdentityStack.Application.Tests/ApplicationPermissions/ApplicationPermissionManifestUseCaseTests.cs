@@ -19,7 +19,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
     private readonly IApplicationPermissionAuthorizationService authorizationService;
     private readonly IApplicationPermissionAuditWriter auditWriter;
     private readonly IPermissionAssignmentStore permissionAssignmentStore;
-    private readonly IApplicationPermissionTransactionRunner transactionRunner;
+    private readonly PassthroughTransactionRunner transactionRunner;
     private readonly IRemotePermissionManifestFetcher remoteManifestFetcher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly ApplicationPermissionManifestUseCases useCases;
@@ -49,11 +49,21 @@ public sealed class ApplicationPermissionManifestUseCaseTests
 
     private sealed class PassthroughTransactionRunner : IApplicationPermissionTransactionRunner
     {
-        public Task<Result<T>> ExecuteAsync<T>(
+        public bool IsExecuting { get; private set; }
+
+        public async Task<Result<T>> ExecuteAsync<T>(
             Func<CancellationToken, Task<Result<T>>> operation,
             CancellationToken cancellationToken = default)
         {
-            return operation(cancellationToken);
+            this.IsExecuting = true;
+            try
+            {
+                return await operation(cancellationToken);
+            }
+            finally
+            {
+                this.IsExecuting = false;
+            }
         }
     }
 
@@ -239,11 +249,76 @@ public sealed class ApplicationPermissionManifestUseCaseTests
     }
 
     [Fact]
+    public async Task ApplyChangesAsync_WithOmittedPermissionAndNoRegistryAdmin_DoesNotRemovePermissionOrAssignments()
+    {
+        RegisteredApplication application = CreateApplication("1.0.0");
+        ApplicationPermission cancelPermission = application.AddPermission("order:cancel", "Cancel order", null, "Orders", "actor-1", this.dateTimeProvider).Value;
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.authorizationService.CanAdministerRegistryAsync("actor-1", Arg.Any<CancellationToken>()).Returns(false);
+        this.permissionAssignmentStore.RemoveAssignmentsAsync(
+                Arg.Any<PermissionAssignmentRemovalPlan>(), "actor-1", Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<PermissionAssignmentImpactDto>>)Array.Empty<PermissionAssignmentImpactDto>());
+        bool auditWasWrittenOutsideTransaction = false;
+        this.auditWriter.WriteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                auditWasWrittenOutsideTransaction = !this.transactionRunner.IsExecuting;
+                return Task.CompletedTask;
+            });
+
+        Result<ManifestApplyDto> result = await this.useCases.ApplyChangesAsync(new ApplyApplicationPermissionManifestCommand(
+            application.Id.Value,
+            ValidManifest("1.1.0"),
+            "actor-1",
+            application.ConcurrencyToken));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Forbidden.PermissionManifest.Forbidden");
+        cancelPermission.IsRemoved.ShouldBeFalse();
+        application.ManifestVersion.ShouldBe("1.0.0");
+        await this.permissionAssignmentStore.DidNotReceive().RemoveAssignmentsAsync(
+            Arg.Any<PermissionAssignmentRemovalPlan>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        auditWasWrittenOutsideTransaction.ShouldBeTrue();
+        await this.auditWriter.Received(1).WriteAsync(
+            "ApplyApplicationPermissionManifest", "actor-1", application.Id.Value.ToString(), "Denied", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ApplyChangesAsync_WithoutRemovals_AllowsWriteOnlyActorToAddAndUpdatePermissions()
+    {
+        RegisteredApplication application = CreateApplication("1.0.0");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+
+        Result<ManifestApplyDto> result = await this.useCases.ApplyChangesAsync(new ApplyApplicationPermissionManifestCommand(
+            application.Id.Value,
+            ValidManifest("1.1.0") with
+            {
+                Permissions =
+                [
+                    new PermissionManifestPermissionDeclaration("order:read", "Read orders", null, "Orders"),
+                    new PermissionManifestPermissionDeclaration("order:cancel", "Cancel order", null, "Orders"),
+                ],
+            },
+            "actor-1",
+            application.ConcurrencyToken));
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Application.Permissions.Select(permission => permission.PermissionKey).ShouldBe(["order:read", "order:cancel"]);
+        result.Value.Application.Permissions.Single(permission => permission.PermissionKey == "order:read").DisplayName.ShouldBe("Read orders");
+        await this.authorizationService.DidNotReceive().CanAdministerRegistryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await this.permissionAssignmentStore.DidNotReceive().RemoveAssignmentsAsync(
+            Arg.Any<PermissionAssignmentRemovalPlan>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await this.repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ApplyAsync_WithOmittedExistingPermission_TombstonesPermissionRemovesAssignmentsAndAdvancesVersion()
     {
         RegisteredApplication application = CreateApplication("1.0.0");
         ApplicationPermission cancelPermission = application.AddPermission("order:cancel", "Cancel order", null, "Orders", "actor-1", this.dateTimeProvider).Value;
         this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.authorizationService.CanAdministerRegistryAsync("actor-1", Arg.Any<CancellationToken>()).Returns(true);
         this.permissionAssignmentStore.RemoveAssignmentsAsync(
                 Arg.Any<PermissionAssignmentRemovalPlan>(),
                 "actor-1",
@@ -279,6 +354,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
     {
         RegisteredApplication application = CreateApplication("1.0.0");
         this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.authorizationService.CanAdministerRegistryAsync("actor-1", Arg.Any<CancellationToken>()).Returns(true);
         this.permissionAssignmentStore.RemoveAssignmentsAsync(
                 Arg.Any<PermissionAssignmentRemovalPlan>(),
                 "actor-1",
@@ -311,6 +387,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         RegisteredApplication application = CreateApplication("1.0.0");
         ApplicationPermission cancelPermission = application.AddPermission("order:cancel", "Cancel order", null, "Orders", "actor-1", this.dateTimeProvider).Value;
         this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.authorizationService.CanAdministerRegistryAsync("actor-1", Arg.Any<CancellationToken>()).Returns(true);
         this.permissionAssignmentStore.RemoveAssignmentsAsync(
                 Arg.Any<PermissionAssignmentRemovalPlan>(),
                 "actor-1",
@@ -344,6 +421,30 @@ public sealed class ApplicationPermissionManifestUseCaseTests
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.RequestedManifestVersion.ShouldBe("1.1.0");
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ApplyRemoteChangesAsync_WithOmittedPermissionAndNoRegistryAdmin_DoesNotRemoveAssignments()
+    {
+        RegisteredApplication application = CreateApplication("1.0.0");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.remoteManifestFetcher.FetchAsync("https://orders.example.com/api", "orders-api", Arg.Any<CancellationToken>())
+            .Returns(EmptyManifest("1.1.0"));
+        this.permissionAssignmentStore.RemoveAssignmentsAsync(
+                Arg.Any<PermissionAssignmentRemovalPlan>(), "actor-1", Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<PermissionAssignmentImpactDto>>)Array.Empty<PermissionAssignmentImpactDto>());
+
+        Result<ManifestApplyDto> result = await this.useCases.ApplyRemoteChangesAsync(new RemoteApplicationPermissionManifestCommand(
+            application.Id.Value,
+            "actor-1",
+            application.ConcurrencyToken));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Forbidden.PermissionManifest.Forbidden");
+        application.Permissions.Single().IsRemoved.ShouldBeFalse();
+        await this.permissionAssignmentStore.DidNotReceive().RemoveAssignmentsAsync(
+            Arg.Any<PermissionAssignmentRemovalPlan>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

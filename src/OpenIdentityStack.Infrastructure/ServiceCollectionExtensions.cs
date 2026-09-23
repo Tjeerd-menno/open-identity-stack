@@ -173,7 +173,7 @@ public static class ServiceCollectionExtensions
         services.AddOpenIddictConfiguration(configuration, environmentName);
 
         AddPlatformServices(services);
-        AddRepositories(services);
+        AddRepositories(services, ManifestDestinationPolicy.AllowsLocalTestFixturesForEnvironment(environmentName));
         AddInfrastructureDomainServices(services, configuration);
         AddInfrastructureUseCases(services);
     }
@@ -191,7 +191,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPasswordPolicyValidator, PasswordPolicyValidator>();
     }
 
-    private static void AddRepositories(IServiceCollection services)
+    private static void AddRepositories(IServiceCollection services, bool allowLocalManifestTestFixtures)
     {
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IJitProvisioningPersistence, JitProvisioningPersistence>();
@@ -203,7 +203,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPermissionAssignmentStore, RolePermissionAssignmentStore>();
         services.AddScoped<IApplicationPermissionTransactionRunner, ApplicationPermissionTransactionRunner>();
         services.AddHttpClient<IRemotePermissionManifestFetcher, RemotePermissionManifestFetcher>()
-            .ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false });
+            .ConfigurePrimaryHttpMessageHandler(() => ManifestDestinationPolicy.CreateHandler(allowLocalManifestTestFixtures));
+        services.AddHttpClient("PermissionManifest")
+            .ConfigurePrimaryHttpMessageHandler(() => ManifestDestinationPolicy.CreateHandler(allowLocalManifestTestFixtures));
         services.AddScoped<IPermissionDiagnosticsReader, PermissionDiagnosticsReader>();
         services.AddScoped<IUpstreamProviderRepository, UpstreamProviderRepository>();
         services.AddScoped<IProviderEmailTrustStore, ProviderEmailTrustStore>();
@@ -213,6 +215,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<ICredentialTerminationService, CredentialTerminationService>();
         services.AddScoped<ICredentialLifecycleTransactionRunner, CredentialLifecycleTransactionRunner>();
+        services.AddScoped<IConsentApprovalTransactionRunner, ConsentApprovalTransactionRunner>();
         services.AddScoped<IAuthenticationSettingsRepository, AuthenticationSettingsRepository>();
         services.AddScoped<IAuditEntryReader, AuditEntryReader>();
     }

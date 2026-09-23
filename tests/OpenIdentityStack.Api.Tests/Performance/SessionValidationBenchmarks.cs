@@ -34,6 +34,8 @@ public class SessionValidationBenchmarks
         
         var controller = new AuthorizationController(
             applicationManager,
+            Substitute.For<IOpenIddictAuthorizationManager>(),
+            Substitute.For<IConsentApprovalTransactionRunner>(),
             scopeManager,
             userRepository,
             getUserEffectiveRolesQueryHandler,
@@ -42,7 +44,9 @@ public class SessionValidationBenchmarks
             validateSessionQueryHandler,
             openIddictRequestService,
             Substitute.For<IAuditLog>(),
-            credentialSessionValidator
+            credentialSessionValidator,
+            Substitute.For<Microsoft.AspNetCore.Antiforgery.IAntiforgery>(),
+            new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider()
         );
 
         var httpContext = new DefaultHttpContext();

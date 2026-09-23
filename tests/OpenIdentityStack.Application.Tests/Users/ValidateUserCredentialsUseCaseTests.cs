@@ -131,6 +131,7 @@ public sealed class ValidateUserCredentialsUseCaseTests
         // Assert
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Unauthorized.User.InvalidCredentials");
+        this._passwordHasher.Received(1).VerifyPassword(Arg.Any<string>(), command.Password);
     }
 
     #endregion
@@ -155,6 +156,8 @@ public sealed class ValidateUserCredentialsUseCaseTests
         // Assert
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Unauthorized.User.InvalidCredentials");
+        await this._permissionChecker.DidNotReceive().HasAnyPermissionAsync(
+            Arg.Any<UserId>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -242,9 +245,67 @@ public sealed class ValidateUserCredentialsUseCaseTests
         // Assert
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Unauthorized.User.InvalidCredentials");
+        this._passwordHasher.Received(1).VerifyPassword(Arg.Any<string>(), command.Password);
     }
 
     #endregion
+
+    [Fact]
+    public async Task ExecuteAsync_WithExternalDefaultAndWrongPassword_DoesNotCheckAdminEligibility()
+    {
+        User user = this.CreateActiveUser("member@example.com", "Member", "hashed_password");
+        var settings = AuthenticationSettings.CreateDefault(this._dateTimeProvider);
+        settings.SetDefaultProvider(OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create(), this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>()).Returns(settings);
+        this._userRepository.GetByEmailAsync(user.Email, Arg.Any<CancellationToken>()).Returns(user);
+        this._passwordHasher.VerifyPassword("hashed_password", "wrong_password").Returns(false);
+
+        Result<ValidateUserCredentialsResult> result = await this._useCase.ExecuteAsync(
+            new ValidateUserCredentialsCommand(user.Email, "wrong_password"));
+
+        result.Error.Code.ShouldBe("Unauthorized.User.InvalidCredentials");
+        await this._permissionChecker.DidNotReceive().HasAnyPermissionAsync(
+            Arg.Any<UserId>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithExternalDefaultAndCorrectPasswordButNoFallbackPermission_ReturnsInvalidCredentials()
+    {
+        User user = this.CreateActiveUser("member@example.com", "Member", "hashed_password");
+        var settings = AuthenticationSettings.CreateDefault(this._dateTimeProvider);
+        settings.SetDefaultProvider(OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create(), this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>()).Returns(settings);
+        this._userRepository.GetByEmailAsync(user.Email, Arg.Any<CancellationToken>()).Returns(user);
+        this._passwordHasher.VerifyPassword("hashed_password", "correct_password").Returns(true);
+        this._permissionChecker.HasAnyPermissionAsync(user.Id, Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        Result<ValidateUserCredentialsResult> result = await this._useCase.ExecuteAsync(
+            new ValidateUserCredentialsCommand(user.Email, "correct_password"));
+
+        result.Error.Code.ShouldBe("Unauthorized.User.InvalidCredentials");
+        await this._userRepository.DidNotReceive().UpdateAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithExternalDefaultAndAdminCredentials_AllowsLocalFallback()
+    {
+        User user = this.CreateActiveUser("admin@example.com", "Admin", "hashed_password");
+        var settings = AuthenticationSettings.CreateDefault(this._dateTimeProvider);
+        settings.SetDefaultProvider(OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create(), this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>()).Returns(settings);
+        this._userRepository.GetByEmailAsync(user.Email, Arg.Any<CancellationToken>()).Returns(user);
+        this._passwordHasher.VerifyPassword("hashed_password", "correct_password").Returns(true);
+        this._permissionChecker.HasAnyPermissionAsync(user.Id, Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        Result<ValidateUserCredentialsResult> result = await this._useCase.ExecuteAsync(
+            new ValidateUserCredentialsCommand(user.Email, "correct_password"));
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.UserId.ShouldBe(user.Id);
+        await this._userRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
 
     #region Cancellation Tests
 

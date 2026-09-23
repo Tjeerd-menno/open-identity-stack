@@ -27,7 +27,6 @@ public class AccountControllerTests : IDisposable
     private readonly ICreateSessionUseCase _createSessionUseCase;
     private readonly IAuthenticationSettingsRepository _authSettingsRepository;
     private readonly IUpstreamProviderRepository _providerRepository;
-    private readonly IPermissionChecker _permissionChecker;
     private readonly IUserRepository _userRepository;
     private readonly IDynamicAuthenticationSchemeService _schemeService;
     private readonly IJitProvisionUserUseCase _jitProvisionUseCase;
@@ -44,7 +43,6 @@ public class AccountControllerTests : IDisposable
         this._authService = Substitute.For<IAuthenticationService>();
         this._authSettingsRepository = Substitute.For<IAuthenticationSettingsRepository>();
         this._providerRepository = Substitute.For<IUpstreamProviderRepository>();
-        this._permissionChecker = Substitute.For<IPermissionChecker>();
         this._userRepository = Substitute.For<IUserRepository>();
         this._schemeService = Substitute.For<IDynamicAuthenticationSchemeService>();
         this._jitProvisionUseCase = Substitute.For<IJitProvisionUserUseCase>();
@@ -64,7 +62,6 @@ public class AccountControllerTests : IDisposable
             this._createSessionUseCase,
             this._authSettingsRepository,
             this._providerRepository,
-            this._permissionChecker,
             this._userRepository,
             this._schemeService,
             this._jitProvisionUseCase,
@@ -433,6 +430,19 @@ public class AccountControllerTests : IDisposable
         ModelErrorCollection errors = this._controller.ModelState[string.Empty]!.Errors;
         Assert.Single(errors);
         Assert.Equal("Invalid email or password.", errors[0].ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Login_Post_WithLocalAuthNotPermitted_ReturnsSameErrorAsUnknownEmail()
+    {
+        var model = new LoginViewModel { Email = "member@example.com", Password = "pass" };
+        this._validateCredentialsUseCase.ExecuteAsync(Arg.Any<ValidateUserCredentialsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AuthenticationSettingsErrors.LocalAuthNotPermitted);
+
+        IActionResult result = await this._controller.Login(model);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.Equal("Invalid email or password.", this._controller.ModelState[string.Empty]!.Errors[0].ErrorMessage);
     }
 
     [Fact]
@@ -947,7 +957,7 @@ public class AccountControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task CanAccessLocalLogin_WithWhitespaceWrappedAdminEmail_TrimsBeforeLookup()
+    public async Task CanAccessLocalLogin_WithExternalDefaultAndFallback_ReturnsSameAccessForEveryEmail()
     {
         // Arrange
         IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
@@ -960,30 +970,32 @@ public class AccountControllerTests : IDisposable
         this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(settings));
 
-        Result<Domain.Users.User> createAdminUserResult = Domain.Users.User.CreateLocal(
-            "admin@example.com",
-            "Admin User",
-            "hashed-password",
-            dateTimeProvider);
-        Assert.True(createAdminUserResult.IsSuccess);
-        Domain.Users.User adminUser = createAdminUserResult.Value;
-        this._userRepository.GetByEmailAsync("admin@example.com", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<Domain.Users.User?>(adminUser));
-        this._permissionChecker.HasAnyPermissionAsync(
-                adminUser.Id,
-                Arg.Any<IReadOnlyCollection<string>>(),
-                Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(true));
+        foreach (string email in new[] { "  admin@example.com  ", "member@example.com", "unknown@example.com" })
+        {
+            IActionResult result = await this._controller.CanAccessLocalLogin(new CanAccessLocalLoginRequest { Email = email });
+            Assert.True(GetCanAccessValue(Assert.IsType<JsonResult>(result)));
+        }
 
-        var request = new CanAccessLocalLoginRequest { Email = "  admin@example.com  " };
+        await this._userRepository.DidNotReceive().GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
 
-        // Act
-        IActionResult result = await this._controller.CanAccessLocalLogin(request);
+    [Fact]
+    public async Task CanAccessLocalLogin_WithFallbackDisabled_ReturnsNoAccessForEveryEmail()
+    {
+        IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
+        dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var settings = AuthenticationSettings.CreateDefault(dateTimeProvider);
+        settings.SetDefaultProvider(OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create(), dateTimeProvider).IsSuccess.ShouldBeTrue();
+        settings.DisableLocalFallback(dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>()).Returns(settings);
 
-        // Assert
-        JsonResult jsonResult = Assert.IsType<JsonResult>(result);
-        Assert.True(GetCanAccessValue(jsonResult));
-        await this._userRepository.Received(1).GetByEmailAsync("admin@example.com", Arg.Any<CancellationToken>());
+        foreach (string email in new[] { "admin@example.com", "unknown@example.com" })
+        {
+            IActionResult result = await this._controller.CanAccessLocalLogin(new CanAccessLocalLoginRequest { Email = email });
+            Assert.False(GetCanAccessValue(Assert.IsType<JsonResult>(result)));
+        }
+
+        await this._userRepository.DidNotReceive().GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     #endregion

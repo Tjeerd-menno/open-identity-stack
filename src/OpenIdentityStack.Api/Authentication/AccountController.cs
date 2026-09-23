@@ -14,7 +14,6 @@ using OpenIdentityStack.Domain.Federation;
 using OpenIdentityStack.Domain.Settings;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using OpenIdentityStack.Infrastructure.Identity;
-using AppPermissions = OpenIdentityStack.Application.Authorization.Permissions;
 
 using SharedKernel;
 namespace OpenIdentityStack.Api.Authentication;
@@ -28,7 +27,6 @@ public class AccountController : Controller
     private readonly ICreateSessionUseCase createSessionUseCase;
     private readonly IAuthenticationSettingsRepository authSettingsRepository;
     private readonly IUpstreamProviderRepository providerRepository;
-    private readonly IPermissionChecker permissionChecker;
     private readonly IUserRepository userRepository;
     private readonly IDynamicAuthenticationSchemeService schemeService;
     private readonly IJitProvisionUserUseCase jitProvisionUseCase;
@@ -41,7 +39,6 @@ public class AccountController : Controller
         ICreateSessionUseCase createSessionUseCase,
         IAuthenticationSettingsRepository authSettingsRepository,
         IUpstreamProviderRepository providerRepository,
-        IPermissionChecker permissionChecker,
         IUserRepository userRepository,
         IDynamicAuthenticationSchemeService schemeService,
         IJitProvisionUserUseCase jitProvisionUseCase,
@@ -53,7 +50,6 @@ public class AccountController : Controller
         this.createSessionUseCase = createSessionUseCase;
         this.authSettingsRepository = authSettingsRepository;
         this.providerRepository = providerRepository;
-        this.permissionChecker = permissionChecker;
         this.userRepository = userRepository;
         this.schemeService = schemeService;
         this.jitProvisionUseCase = jitProvisionUseCase;
@@ -471,11 +467,12 @@ public class AccountController : Controller
     }
 
     /// <summary>
-    /// Checks if the current user can access local login fallback.
-    /// This is called via AJAX to determine if the local login link should be shown.
-    /// Uses POST to avoid exposing email in URL/logs.
+    /// Reports whether the local login form is available in the current configuration.
+    /// This never checks an anonymous email's account or administrator status.
+    /// Uses POST to avoid exposing email in URL/logs for existing callers.
     /// </summary>
     [HttpPost("~/Account/CanAccessLocalLogin")]
+    [EnableRateLimiting("InteractiveLogin")]
     public async Task<IActionResult> CanAccessLocalLogin([FromBody] CanAccessLocalLoginRequest? request)
     {
         if (!this.ModelState.IsValid)
@@ -488,8 +485,6 @@ public class AccountController : Controller
         {
             return this.Json(new { canAccess = false });
         }
-
-        string email = request.Email.Trim();
 
         // Get authentication settings
         AuthenticationSettings settings = await this.authSettingsRepository.GetOrCreateAsync();
@@ -506,19 +501,9 @@ public class AccountController : Controller
             return this.Json(new { canAccess = false });
         }
 
-        // Check if user exists and is an IAM admin
-        Domain.Users.User? user = await this.userRepository.GetByEmailAsync(email);
-        if (user is null)
-        {
-            // Don't reveal user doesn't exist - just say no access
-            return this.Json(new { canAccess = false });
-        }
-
-        bool isAdmin = await this.permissionChecker.HasAnyPermissionAsync(
-            user.Id,
-            [AppPermissions.All, AppPermissions.System.All, AppPermissions.System.ManageSettings]);
-
-        return this.Json(new { canAccess = isAdmin });
+        // The form is available to anyone when fallback is enabled. Eligibility is
+        // checked only after credential verification, never for an anonymous email.
+        return this.Json(new { canAccess = true });
     }
 
     /// <summary>
@@ -551,7 +536,7 @@ public class AccountController : Controller
             "Unauthorized.User.InvalidCredentials" => "Invalid email or password.",
             "Forbidden.User.AccountDisabled" => "Invalid email or password.",
             "Forbidden.User.AccountNotVerified" => "Please verify your email address before logging in.",
-            "Forbidden.AuthenticationSettings.LocalAuthNotPermitted" => "Authentication method not permitted.",
+            "Forbidden.AuthenticationSettings.LocalAuthNotPermitted" => "Invalid email or password.",
             _ => "An error occurred during login. Please try again."
         };
     }

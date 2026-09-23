@@ -303,6 +303,8 @@ public sealed class AuthEndpointLatencyTests
 
         var controller = new AuthorizationController(
             applicationManager,
+            Substitute.For<IOpenIddictAuthorizationManager>(),
+            Substitute.For<IConsentApprovalTransactionRunner>(),
             scopeManager,
             userRepository,
             getUserEffectiveRolesQueryHandler,
@@ -311,7 +313,9 @@ public sealed class AuthEndpointLatencyTests
             validateSessionQueryHandler,
             openIddictRequestService,
             Substitute.For<IAuditLog>(),
-            credentialSessionValidator
+            credentialSessionValidator,
+            Substitute.For<Microsoft.AspNetCore.Antiforgery.IAntiforgery>(),
+            new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider()
         );
 
         var httpContext = new DefaultHttpContext();
