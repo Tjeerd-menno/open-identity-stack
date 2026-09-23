@@ -613,6 +613,8 @@ def persist_design_system(design_system: dict, page: str = None, output_dir: str
         dict with created file paths and status
     """
     base_dir = (Path(output_dir) if output_dir else Path.cwd()).resolve()
+    base_dir.mkdir(parents=True, exist_ok=True)
+    base_dir = base_dir.resolve(strict=True)
     
     # Use project name for project-specific folder
     project_name = design_system.get("project_name", "default")

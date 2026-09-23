@@ -42,6 +42,7 @@ public class AuthorizationControllerTests : IDisposable
     private const string UpdatedAtClaim = "updated_at";
 
     private readonly IOpenIddictApplicationManager _applicationManager;
+    private readonly IOpenIddictAuthorizationManager _authorizationManager;
     private readonly IOpenIddictScopeManager _scopeManager;
     private readonly IUserRepository _userRepository;
     private readonly IGetUserEffectiveRolesQueryHandler _getUserEffectiveRolesQueryHandler;
@@ -59,6 +60,7 @@ public class AuthorizationControllerTests : IDisposable
     public AuthorizationControllerTests()
     {
         this._applicationManager = Substitute.For<IOpenIddictApplicationManager>();
+        this._authorizationManager = Substitute.For<IOpenIddictAuthorizationManager>();
         this._scopeManager = Substitute.For<IOpenIddictScopeManager>();
         this._userRepository = Substitute.For<IUserRepository>();
         this._getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
@@ -82,6 +84,7 @@ public class AuthorizationControllerTests : IDisposable
 
         this._controller = new AuthorizationController(
             this._applicationManager,
+            this._authorizationManager,
             this._scopeManager,
             this._userRepository,
             this._getUserEffectiveRolesQueryHandler,
@@ -211,6 +214,10 @@ public class AuthorizationControllerTests : IDisposable
         this._applicationManager.FindByClientIdAsync("test-client", Arg.Any<CancellationToken>()).Returns(application);
         this._applicationManager.GetConsentTypeAsync(application, Arg.Any<CancellationToken>())
             .Returns(OpenIddictConstants.ConsentTypes.Explicit);
+        this._applicationManager.GetIdAsync(application, Arg.Any<CancellationToken>()).Returns("application-id");
+        this._authorizationManager.CreateAsync(Arg.Any<OpenIddictAuthorizationDescriptor>(), Arg.Any<CancellationToken>())
+            .Returns(new object());
+        this._authorizationManager.GetIdAsync(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns("authorization-id");
 
         ForbidResult result = Assert.IsType<ForbidResult>(await this._controller.Authorize());
         Assert.Equal(OpenIddictConstants.Errors.ConsentRequired,
@@ -255,6 +262,10 @@ public class AuthorizationControllerTests : IDisposable
         this._applicationManager.FindByClientIdAsync("test-client", Arg.Any<CancellationToken>()).Returns(application);
         this._applicationManager.GetConsentTypeAsync(application, Arg.Any<CancellationToken>())
             .Returns(OpenIddictConstants.ConsentTypes.Explicit);
+        this._applicationManager.GetIdAsync(application, Arg.Any<CancellationToken>()).Returns("application-id");
+        this._authorizationManager.CreateAsync(Arg.Any<OpenIddictAuthorizationDescriptor>(), Arg.Any<CancellationToken>())
+            .Returns(new object());
+        this._authorizationManager.GetIdAsync(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns("authorization-id");
 
         ViewResult prompt = Assert.IsType<ViewResult>(await this._controller.Authorize());
         ConsentViewModel model = Assert.IsType<ConsentViewModel>(prompt.Model);

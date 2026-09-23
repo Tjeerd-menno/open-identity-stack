@@ -303,6 +303,7 @@ public sealed class AuthEndpointLatencyTests
 
         var controller = new AuthorizationController(
             applicationManager,
+            Substitute.For<IOpenIddictAuthorizationManager>(),
             scopeManager,
             userRepository,
             getUserEffectiveRolesQueryHandler,

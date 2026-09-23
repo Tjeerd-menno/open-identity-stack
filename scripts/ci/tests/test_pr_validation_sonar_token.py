@@ -26,6 +26,14 @@ class PrValidationSonarTokenTests(unittest.TestCase):
         self.assertIn("      - name: End SonarQube analysis", workflow)
         self.assertEqual(2, workflow.count("SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}"))
 
+    def test_pr_workflow_runs_release_and_design_system_security_tests(self):
+        workflow = PR_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("python3 tests/release_workflow_security_tests.py", workflow)
+        self.assertIn(
+            "python3 -m unittest discover -s .agents/skills/ui-ux-pro-max/tests -p 'test_*.py' -v",
+            workflow,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

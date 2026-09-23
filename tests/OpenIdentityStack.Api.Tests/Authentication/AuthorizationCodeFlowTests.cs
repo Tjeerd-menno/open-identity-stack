@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using OpenIddict.EntityFrameworkCore.Models;
 using OpenIdentityStack.Api.Tests.Fixtures;
+using OpenIdentityStack.Infrastructure.Audit;
 
 namespace OpenIdentityStack.Api.Tests.Authentication;
 
@@ -135,8 +136,8 @@ public sealed class AuthorizationCodeFlowTests
         string email = $"consent-{Guid.NewGuid():N}@example.test";
         const string password = "Password123!@#";
         const string redirectUri = "https://localhost/callback";
-        await this._fixture.CreateTestUserAsync(email, "Consent user", password);
-        await this._fixture.CreateServiceAccountAsync(clientId, "test-secret", ["openid", "profile"],
+        Guid userId = await this._fixture.CreateTestUserAsync(email, "Consent user", password);
+        await this._fixture.CreateServiceAccountAsync(clientId, "test-secret", ["openid", "profile", "email"],
             allowedGrantTypes: ["authorization_code"], redirectUris: [redirectUri]);
         await this._fixture.ExecuteDbContextAsync(async db =>
         {
@@ -200,6 +201,28 @@ public sealed class AuthorizationCodeFlowTests
         approval.StatusCode.ShouldBe(HttpStatusCode.Redirect);
         approval.Headers.Location!.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
         QueryHelpers.ParseQuery(approval.Headers.Location.Query)["code"].Single().ShouldNotBeNullOrWhiteSpace();
+
+        HttpResponseMessage previouslyApprovedSilent = await browser.GetAsync(authorizeUrl + "&prompt=none");
+        previouslyApprovedSilent.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        previouslyApprovedSilent.Headers.Location!.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
+        QueryHelpers.ParseQuery(previouslyApprovedSilent.Headers.Location.Query)["code"].Single().ShouldNotBeNullOrWhiteSpace();
+
+        var expandedRequest = QueryHelpers.ParseQuery(query)
+            .ToDictionary(pair => pair.Key, pair => pair.Value.Single()!, StringComparer.Ordinal);
+        expandedRequest["scope"] = "openid profile email";
+        string expandedQuery = await new FormUrlEncodedContent(expandedRequest).ReadAsStringAsync();
+        HttpResponseMessage expandedSilent = await browser.GetAsync("/connect/authorize?" + expandedQuery + "&prompt=none");
+        expandedSilent.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        QueryHelpers.ParseQuery(expandedSilent.Headers.Location!.Query)["error"].Single().ShouldBe("consent_required");
+
+        await this._fixture.ExecuteDbContextAsync(async db =>
+        {
+            List<AuditLogEntry> consentAudit = await db.Set<AuditLogEntry>()
+                .Where(entry => entry.Action == "Consent.Denied" || entry.Action == "Consent.Approved")
+                .ToListAsync();
+            consentAudit.Count.ShouldBe(2);
+            consentAudit.All(entry => entry.UserId == userId.ToString()).ShouldBeTrue();
+        });
     }
 
     [Theory]

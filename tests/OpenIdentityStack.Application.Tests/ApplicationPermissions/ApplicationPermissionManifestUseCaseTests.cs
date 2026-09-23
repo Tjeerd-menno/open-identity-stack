@@ -19,7 +19,7 @@ public sealed class ApplicationPermissionManifestUseCaseTests
     private readonly IApplicationPermissionAuthorizationService authorizationService;
     private readonly IApplicationPermissionAuditWriter auditWriter;
     private readonly IPermissionAssignmentStore permissionAssignmentStore;
-    private readonly IApplicationPermissionTransactionRunner transactionRunner;
+    private readonly PassthroughTransactionRunner transactionRunner;
     private readonly IRemotePermissionManifestFetcher remoteManifestFetcher;
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly ApplicationPermissionManifestUseCases useCases;
@@ -49,11 +49,21 @@ public sealed class ApplicationPermissionManifestUseCaseTests
 
     private sealed class PassthroughTransactionRunner : IApplicationPermissionTransactionRunner
     {
-        public Task<Result<T>> ExecuteAsync<T>(
+        public bool IsExecuting { get; private set; }
+
+        public async Task<Result<T>> ExecuteAsync<T>(
             Func<CancellationToken, Task<Result<T>>> operation,
             CancellationToken cancellationToken = default)
         {
-            return operation(cancellationToken);
+            this.IsExecuting = true;
+            try
+            {
+                return await operation(cancellationToken);
+            }
+            finally
+            {
+                this.IsExecuting = false;
+            }
         }
     }
 
@@ -248,6 +258,13 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         this.permissionAssignmentStore.RemoveAssignmentsAsync(
                 Arg.Any<PermissionAssignmentRemovalPlan>(), "actor-1", Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<PermissionAssignmentImpactDto>>)Array.Empty<PermissionAssignmentImpactDto>());
+        bool auditWasWrittenOutsideTransaction = false;
+        this.auditWriter.WriteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                auditWasWrittenOutsideTransaction = !this.transactionRunner.IsExecuting;
+                return Task.CompletedTask;
+            });
 
         Result<ManifestApplyDto> result = await this.useCases.ApplyChangesAsync(new ApplyApplicationPermissionManifestCommand(
             application.Id.Value,
@@ -262,6 +279,9 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         await this.permissionAssignmentStore.DidNotReceive().RemoveAssignmentsAsync(
             Arg.Any<PermissionAssignmentRemovalPlan>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        auditWasWrittenOutsideTransaction.ShouldBeTrue();
+        await this.auditWriter.Received(1).WriteAsync(
+            "ApplyApplicationPermissionManifest", "actor-1", application.Id.Value.ToString(), "Denied", Arg.Any<CancellationToken>());
     }
 
     [Fact]

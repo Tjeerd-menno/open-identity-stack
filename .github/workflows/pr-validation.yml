@@ -40,7 +40,10 @@ jobs:
           --allow-removed-spec identity-boundaries/credential-cutover.openapi.yaml
 
       - name: Test CI policies
-        run: python3 -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
+        run: |
+          python3 -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
+          python3 tests/release_workflow_security_tests.py
+          python3 -m unittest discover -s .agents/skills/ui-ux-pro-max/tests -p 'test_*.py' -v
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0

@@ -4,12 +4,15 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 from unittest.mock import patch
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import design_system  # noqa: E402
 from design_system import persist_design_system  # noqa: E402
+import design_system  # noqa: E402
 
 
 class DesignSystemPersistenceTests(unittest.TestCase):
@@ -74,6 +77,14 @@ class DesignSystemPersistenceTests(unittest.TestCase):
         )
         for path in result["created_files"]:
             self.assertTrue(Path(path).is_file())
+
+    def test_missing_nested_output_directory_is_created_before_unix_persistence(self):
+        output_dir = self.output_dir / "new" / "nested" / "output"
+        with patch.object(design_system, "os", SimpleNamespace(name="posix")), patch.object(design_system, "_persist_unix") as persist:
+            persist_design_system({"project_name": "Project"}, output_dir=str(output_dir))
+
+        self.assertTrue(output_dir.is_dir())
+        persist.assert_called_once()
 
     def test_existing_master_symlink_cannot_escape_root(self):
         outside = self.output_dir / "outside.md"
