@@ -157,9 +157,7 @@ public sealed class RemotePermissionManifestFetcher : IRemotePermissionManifestF
         }
 
         return uri.Scheme == Uri.UriSchemeHttp
-            && (string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(uri.Host, "127.0.0.1", StringComparison.Ordinal)
-                || string.Equals(uri.Host, "::1", StringComparison.Ordinal));
+            && ManifestDestinationPolicy.IsSupportedLoopbackFixtureHost(uri.Host);
     }
 
     private static bool IsSupportedContentType(string? mediaType)

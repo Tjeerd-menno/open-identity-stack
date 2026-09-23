@@ -173,7 +173,7 @@ public static class ServiceCollectionExtensions
         services.AddOpenIddictConfiguration(configuration, environmentName);
 
         AddPlatformServices(services);
-        AddRepositories(services, string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase));
+        AddRepositories(services, ManifestDestinationPolicy.AllowsLocalTestFixturesForEnvironment(environmentName));
         AddInfrastructureDomainServices(services, configuration);
         AddInfrastructureUseCases(services);
     }

@@ -8,6 +8,60 @@ namespace OpenIdentityStack.Infrastructure.Tests.ApplicationPermissions;
 public sealed class ManifestDestinationPolicyTests
 {
     [Theory]
+    [InlineData("localhost", true)]
+    [InlineData("127.0.0.1", true)]
+    [InlineData("::1", true)]
+    [InlineData("[::1]", true)]
+    [InlineData("127.0.0.2", false)]
+    [InlineData("manifest.example", false)]
+    [InlineData("manifest.localhost", false)]
+    public void IsSupportedLoopbackFixtureHost_AllowsOnlyDocumentedLoopbackForms(string host, bool expected)
+    {
+        ManifestDestinationPolicy.IsSupportedLoopbackFixtureHost(host).ShouldBe(expected);
+    }
+
+    [Theory]
+    [InlineData("Testing", true)]
+    [InlineData("Development", true)]
+    [InlineData("development", true)]
+    [InlineData("Production", false)]
+    public void AllowsLocalTestFixturesForEnvironment_OptsInOnlyDevelopmentAndTesting(string environment, bool expected)
+    {
+        ManifestDestinationPolicy.AllowsLocalTestFixturesForEnvironment(environment).ShouldBe(expected);
+    }
+
+    [Theory]
+    [InlineData("localhost", "127.0.0.1")]
+    [InlineData("127.0.0.1", "127.0.0.1")]
+    [InlineData("::1", "::1")]
+    public async Task ResolveApprovedAddressesAsync_AllowsOnlyExplicitLoopbackFixtureHosts(string host, string address)
+    {
+        Task<IPAddress[]> Resolve(string resolvedHost, CancellationToken cancellationToken) =>
+            Task.FromResult(new[] { IPAddress.Parse(address) });
+
+        IPAddress[] approved = await ManifestDestinationPolicy.ResolveApprovedAddressesAsync(
+            host,
+            Resolve,
+            ManifestDestinationPolicy.IsSupportedLoopbackFixtureHost(host),
+            CancellationToken.None);
+
+        approved.Single().ShouldBe(IPAddress.Parse(address));
+    }
+
+    [Fact]
+    public async Task ResolveApprovedAddressesAsync_DoesNotAllowArbitraryHostnamesToResolveToLoopbackInDevelopment()
+    {
+        Task<IPAddress[]> Resolve(string resolvedHost, CancellationToken cancellationToken) =>
+            Task.FromResult(new[] { IPAddress.Loopback });
+
+        await Should.ThrowAsync<HttpRequestException>(() => ManifestDestinationPolicy.ResolveApprovedAddressesAsync(
+            "manifest.example",
+            Resolve,
+            ManifestDestinationPolicy.IsSupportedLoopbackFixtureHost("manifest.example"),
+            CancellationToken.None));
+    }
+
+    [Theory]
     [InlineData("8.8.8.8", true)]
     [InlineData("1.1.1.1", true)]
     [InlineData("2001:4860:4860::8888", true)]

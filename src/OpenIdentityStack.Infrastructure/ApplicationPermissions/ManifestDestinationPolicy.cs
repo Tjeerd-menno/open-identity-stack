@@ -9,6 +9,18 @@ namespace OpenIdentityStack.Infrastructure.ApplicationPermissions;
 /// </summary>
 internal static class ManifestDestinationPolicy
 {
+    internal static bool AllowsLocalTestFixturesForEnvironment(string environmentName) =>
+        string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(environmentName, "Development", StringComparison.OrdinalIgnoreCase);
+
+    internal static bool IsSupportedLoopbackFixtureHost(string host)
+    {
+        string normalizedHost = host.Trim('[', ']');
+        return string.Equals(normalizedHost, "localhost", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedHost, "127.0.0.1", StringComparison.Ordinal)
+            || string.Equals(normalizedHost, "::1", StringComparison.Ordinal);
+    }
+
     internal static SocketsHttpHandler CreateHandler(bool allowLocalTestFixtures = false)
     {
         return new SocketsHttpHandler
@@ -27,7 +39,7 @@ internal static class ManifestDestinationPolicy
         IPAddress[] addresses = await ResolveApprovedAddressesAsync(
             endpoint.Host,
             static (host, token) => Dns.GetHostAddressesAsync(host, token),
-            allowLocalTestFixtures && string.Equals(endpoint.Host, "localhost", StringComparison.OrdinalIgnoreCase),
+            allowLocalTestFixtures && IsSupportedLoopbackFixtureHost(endpoint.Host),
             cancellationToken).ConfigureAwait(false);
 
         Exception? lastError = null;
