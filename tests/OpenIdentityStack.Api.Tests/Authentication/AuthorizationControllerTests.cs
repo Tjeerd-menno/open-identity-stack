@@ -4,8 +4,11 @@ using System.Security.Claims;
 using System.Text.Json;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -30,8 +33,9 @@ using OpenIddict.Server.AspNetCore;
 using SharedKernel;
 namespace OpenIdentityStack.Api.Tests.Authentication;
 
-public class AuthorizationControllerTests
+public class AuthorizationControllerTests : IDisposable
 {
+    public void Dispose() => this._controller.Dispose();
     private const string AcrClaim = "acr";
     private const string SupportedAcrValue = "1";
     private const string RequestedUserInfoClaim = "requested_userinfo_claim";
@@ -47,6 +51,7 @@ public class AuthorizationControllerTests
     private readonly IOpenIddictRequestService _requestService;
     private readonly IApplicationPermissionRegistryRepository _applicationPermissionRegistryRepository;
     private readonly ICredentialSessionValidator _credentialSessionValidator;
+    private readonly IAntiforgery _antiforgery;
     private readonly AuthorizationController _controller;
     private readonly IAuditLog audit = Substitute.For<IAuditLog>();
     private readonly IResourcePermissionService resourcePermissions = Substitute.For<IResourcePermissionService>();
@@ -71,6 +76,7 @@ public class AuthorizationControllerTests
         this._requestService = Substitute.For<IOpenIddictRequestService>();
         this._applicationPermissionRegistryRepository = Substitute.For<IApplicationPermissionRegistryRepository>();
         this._credentialSessionValidator = Substitute.For<ICredentialSessionValidator>();
+        this._antiforgery = Substitute.For<IAntiforgery>();
         this._credentialSessionValidator.IsValidAsync(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(true));
 
@@ -85,6 +91,8 @@ public class AuthorizationControllerTests
             this._requestService,
             this.audit,
             this._credentialSessionValidator,
+            this._antiforgery,
+            new EphemeralDataProtectionProvider(),
             this._applicationPermissionRegistryRepository,
             resourcePermissionService: this.resourcePermissions);
         this.resourcePermissions.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>())
@@ -140,6 +148,10 @@ public class AuthorizationControllerTests
 
         IServiceProvider serviceProvider = Substitute.For<IServiceProvider>();
         serviceProvider.GetService(typeof(IAuthenticationService)).Returns(authService);
+        ITempDataDictionaryFactory tempDataFactory = Substitute.For<ITempDataDictionaryFactory>();
+        tempDataFactory.GetTempData(this._controller.HttpContext)
+            .Returns(new TempDataDictionary(this._controller.HttpContext, Substitute.For<ITempDataProvider>()));
+        serviceProvider.GetService(typeof(ITempDataDictionaryFactory)).Returns(tempDataFactory);
         this._controller.HttpContext.RequestServices = serviceProvider;
     }
 
@@ -185,6 +197,112 @@ public class AuthorizationControllerTests
         && !string.IsNullOrWhiteSpace(destinations);
 
     #region Authorize Tests
+
+    [Fact]
+    public async Task Authorize_ExplicitConsentWithPromptNone_ReturnsConsentRequired()
+    {
+        var request = new OpenIddictRequest { ClientId = "test-client", Prompt = "none", Scope = "openid profile" };
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new Claim("sid", Guid.NewGuid().ToString())], "Cookies"));
+        this.SetupMockServices(principal);
+        object application = new();
+        this._applicationManager.FindByClientIdAsync("test-client", Arg.Any<CancellationToken>()).Returns(application);
+        this._applicationManager.GetConsentTypeAsync(application, Arg.Any<CancellationToken>())
+            .Returns(OpenIddictConstants.ConsentTypes.Explicit);
+
+        ForbidResult result = Assert.IsType<ForbidResult>(await this._controller.Authorize());
+        Assert.Equal(OpenIddictConstants.Errors.ConsentRequired,
+            result.Properties!.Items[OpenIddictServerAspNetCoreConstants.Properties.Error]);
+        await this._addClientSessionUseCase.DidNotReceive().ExecuteAsync(
+            Arg.Any<AddClientSessionCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Authorize_ExplicitConsentWithoutDecision_ShowsConsentPrompt()
+    {
+        var request = new OpenIddictRequest { ClientId = "test-client", Scope = "openid profile" };
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new Claim("sid", Guid.NewGuid().ToString())], "Cookies"));
+        this.SetupMockServices(principal);
+        object application = new();
+        this._applicationManager.FindByClientIdAsync("test-client", Arg.Any<CancellationToken>()).Returns(application);
+        this._applicationManager.GetConsentTypeAsync(application, Arg.Any<CancellationToken>())
+            .Returns(OpenIddictConstants.ConsentTypes.Explicit);
+
+        ViewResult result = Assert.IsType<ViewResult>(await this._controller.Authorize());
+        Assert.Equal("~/Authentication/Views/Consent.cshtml", result.ViewName);
+        await this._addClientSessionUseCase.DidNotReceive().ExecuteAsync(
+            Arg.Any<AddClientSessionCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("approve", typeof(SignInResult), null)]
+    [InlineData("deny", typeof(ForbidResult), OpenIddictConstants.Errors.AccessDenied)]
+    public async Task Authorize_ExplicitConsentDecision_RequiresBoundTicket(
+        string action, Type expectedResult, string? error)
+    {
+        var request = new OpenIddictRequest { ClientId = "test-client", Scope = "openid profile" };
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new Claim("sid", Guid.NewGuid().ToString())], "Cookies"));
+        this.SetupMockServices(principal);
+        object application = new();
+        this._applicationManager.FindByClientIdAsync("test-client", Arg.Any<CancellationToken>()).Returns(application);
+        this._applicationManager.GetConsentTypeAsync(application, Arg.Any<CancellationToken>())
+            .Returns(OpenIddictConstants.ConsentTypes.Explicit);
+
+        ViewResult prompt = Assert.IsType<ViewResult>(await this._controller.Authorize());
+        ConsentViewModel model = Assert.IsType<ConsentViewModel>(prompt.Model);
+        this._controller.Request.Method = "POST";
+        this._controller.Request.ContentType = "application/x-www-form-urlencoded";
+        this._controller.Request.Form = new FormCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+        {
+            ["consent_action"] = action,
+            ["consent_ticket"] = model.Ticket
+        });
+
+        IActionResult decision = await this._controller.Authorize();
+        Assert.IsType(expectedResult, decision);
+        if (error is not null)
+        {
+            Assert.Equal(error, Assert.IsType<ForbidResult>(decision).Properties!
+                .Items[OpenIddictServerAspNetCoreConstants.Properties.Error]);
+        }
+    }
+
+    [Fact]
+    public async Task Authorize_ExplicitConsentTicketForDifferentScopes_DeniesAuthorization()
+    {
+        var request = new OpenIddictRequest { ClientId = "test-client", Scope = "openid" };
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new Claim("sid", Guid.NewGuid().ToString())], "Cookies"));
+        this.SetupMockServices(principal);
+        object application = new();
+        this._applicationManager.FindByClientIdAsync("test-client", Arg.Any<CancellationToken>()).Returns(application);
+        this._applicationManager.GetConsentTypeAsync(application, Arg.Any<CancellationToken>())
+            .Returns(OpenIddictConstants.ConsentTypes.Explicit);
+
+        ViewResult prompt = Assert.IsType<ViewResult>(await this._controller.Authorize());
+        string ticket = Assert.IsType<ConsentViewModel>(prompt.Model).Ticket;
+        this._controller.Request.Method = "POST";
+        this._controller.Request.ContentType = "application/x-www-form-urlencoded";
+        this._controller.Request.Form = new FormCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+        {
+            ["consent_action"] = "approve", ["consent_ticket"] = ticket
+        });
+        request.Scope = "openid profile";
+
+        ForbidResult result = Assert.IsType<ForbidResult>(await this._controller.Authorize());
+        Assert.Equal(OpenIddictConstants.Errors.AccessDenied,
+            result.Properties!.Items[OpenIddictServerAspNetCoreConstants.Properties.Error]);
+    }
 
     [Theory]
     [InlineData("authorization", false, "access_denied")]

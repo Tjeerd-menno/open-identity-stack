@@ -21,6 +21,32 @@ public sealed class UserTests
     #region CreateLocal Tests
 
     [Fact]
+    public void CreateLocal_CannotAssertPhoneVerificationFromProfile()
+    {
+        Result<User> result = User.CreateLocal(
+            "alice@example.test", "Alice", "hashed_password", this._dateTimeProvider,
+            new UserProfileData(PhoneNumber: "+31612345678", PhoneNumberVerified: true));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.User.PhoneVerificationEvidenceRequired");
+    }
+
+    [Fact]
+    public void UpdateProfile_CannotAssertPhoneVerificationFromProfile()
+    {
+        User user = User.CreateLocal("alice@example.test", "Alice", "hashed_password", this._dateTimeProvider).Value;
+
+        Result result = user.UpdateProfile(
+            new UserProfileData(PhoneNumber: "+31612345678", PhoneNumberVerified: true),
+            this._dateTimeProvider);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.User.PhoneVerificationEvidenceRequired");
+        user.PhoneNumber.ShouldBeNull();
+        user.PhoneNumberVerified.ShouldBeFalse();
+    }
+
+    [Fact]
     public void CreateBootstrap_ActivatesNewAccountWithoutEmailVerificationEvidence()
     {
         Result<User> result = User.CreateBootstrap("bootstrap@example.com", "Bootstrap", "hashed_password", this._dateTimeProvider);
@@ -542,17 +568,17 @@ public sealed class UserTests
 
         // Act
         Result result = user.UpdateProfile(
-            new UserProfileData(Address: address, PhoneNumber: " +31 20 555 0100 ", PhoneNumberVerified: true),
+            new UserProfileData(Address: address, PhoneNumber: " +31 20 555 0100 "),
             this._dateTimeProvider);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
         user.Address.ShouldBe(address);
         user.PhoneNumber.ShouldBe("+31 20 555 0100");
-        user.PhoneNumberVerified.ShouldBeTrue();
+        user.PhoneNumberVerified.ShouldBeFalse();
         user.GetProfileData().Address.ShouldBe(address);
         user.GetProfileData().PhoneNumber.ShouldBe("+31 20 555 0100");
-        user.GetProfileData().PhoneNumberVerified.ShouldBe(true);
+        user.GetProfileData().PhoneNumberVerified.ShouldBe(false);
     }
 
     [Fact]

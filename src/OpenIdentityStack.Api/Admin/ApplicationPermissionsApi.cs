@@ -320,8 +320,22 @@ internal static class ApplicationPermissionsApi
             return TypedResults.BadRequest(new { error = "PermissionManifest.EndpointInvalid", message = "Endpoint must be an absolute HTTP(S) URL ending in /.well-known/permissions." });
         }
 
-        using HttpClient httpClient = httpClientFactory.CreateClient();
-        using HttpResponseMessage response = await httpClient.GetAsync(endpoint, cancellationToken).ConfigureAwait(false);
+        using HttpClient httpClient = httpClientFactory.CreateClient("PermissionManifest");
+        HttpResponseMessage response;
+        try
+        {
+            response = await httpClient.GetAsync(endpoint, cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException)
+        {
+            return TypedResults.BadRequest(new { error = "PermissionManifest.EndpointFetchFailed", message = "The permissions manifest endpoint could not be fetched." });
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return TypedResults.BadRequest(new { error = "PermissionManifest.EndpointFetchFailed", message = "The permissions manifest endpoint could not be fetched." });
+        }
+
+        using HttpResponseMessage fetchedResponse = response;
         if (!response.IsSuccessStatusCode)
         {
             return TypedResults.BadRequest(new { error = "PermissionManifest.EndpointFetchFailed", message = "The permissions manifest endpoint could not be fetched." });

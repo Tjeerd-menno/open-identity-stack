@@ -1,9 +1,13 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
@@ -30,10 +34,13 @@ namespace OpenIdentityStack.Api.Authentication;
 /// Controller handling OpenIddict authorization and token endpoints.
 /// </summary>
 [ApiController]
-public class AuthorizationController : ControllerBase
+public class AuthorizationController : Controller
 {
     private const string legacySessionIdClaim = "session_id";
     private const string supportedAcrValue = "1";
+    private const string consentPurpose = "OpenIdentityStack.AuthorizationConsent.v1";
+    private const string consentActionField = "consent_action";
+    private const string consentTicketField = "consent_ticket";
 
     private readonly IOpenIddictApplicationManager applicationManager;
     private readonly IUserRepository userRepository;
@@ -46,6 +53,8 @@ public class AuthorizationController : ControllerBase
     private readonly ITokenClaimProjectionService tokenClaimProjectionService;
     private readonly IResourcePermissionService? resourcePermissionService;
     private readonly ICredentialSessionValidator credentialSessionValidator;
+    private readonly IAntiforgery antiforgery;
+    private readonly IDataProtector consentProtector;
 
     public AuthorizationController(
         IOpenIddictApplicationManager applicationManager,
@@ -58,6 +67,8 @@ public class AuthorizationController : ControllerBase
         IOpenIddictRequestService requestService,
         IAuditLog auditLog,
         ICredentialSessionValidator credentialSessionValidator,
+        IAntiforgery antiforgery,
+        IDataProtectionProvider dataProtection,
         IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null,
         IHostEnvironment? environment = null,
         ITokenClaimProjectionService? tokenClaimProjectionService = null,
@@ -72,6 +83,8 @@ public class AuthorizationController : ControllerBase
         this.requestService = requestService;
         this.auditLog = auditLog;
         this.credentialSessionValidator = credentialSessionValidator;
+        this.antiforgery = antiforgery;
+        this.consentProtector = dataProtection.CreateProtector(consentPurpose);
         this.tokenClaimProjectionService = tokenClaimProjectionService ?? new TokenClaimProjectionService();
         this.resourcePermissionService = resourcePermissionService;
     }
@@ -174,6 +187,16 @@ public class AuthorizationController : ControllerBase
             return this.Redirect($"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}&fresh=true");
         }
 
+        if (!string.IsNullOrEmpty(request.ClientId)
+            && await this.applicationManager.FindByClientIdAsync(request.ClientId, this.HttpContext.RequestAborted) is { } client
+            && string.Equals(await this.applicationManager.GetConsentTypeAsync(client, this.HttpContext.RequestAborted),
+                ConsentTypes.Explicit, StringComparison.Ordinal))
+        {
+            IActionResult? consent = await this.HandleExplicitConsentAsync(
+                request, client, userIdString, sessionIdGuid, promptNone);
+            if (consent is not null) { return consent; }
+        }
+
         if (!string.IsNullOrEmpty(request.ClientId))
         {
             Result participation = await this.addClientSessionUseCase.ExecuteAsync(new AddClientSessionCommand(
@@ -240,6 +263,146 @@ public class AuthorizationController : ControllerBase
             CreateOpenIddictAuthenticationProperties(authenticationTime),
             OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
+
+    private async Task<IActionResult?> HandleExplicitConsentAsync(
+        OpenIddictRequest request,
+        object client,
+        string subject,
+        Guid sessionId,
+        bool promptNone)
+    {
+        if (promptNone)
+        {
+            return this.RejectConsent(Errors.ConsentRequired);
+        }
+
+        IFormCollection? form = this.Request.HasFormContentType ? await this.Request.ReadFormAsync() : null;
+        bool submitted = form is not null
+            && (form.ContainsKey(consentActionField) || form.ContainsKey(consentTicketField));
+        if (submitted)
+        {
+            try
+            {
+                await this.antiforgery.ValidateRequestAsync(this.HttpContext);
+            }
+            catch (AntiforgeryValidationException)
+            {
+                return this.BadRequest();
+            }
+
+            if (!TryReadConsentTicket(form![consentTicketField].ToString(), out ConsentTicket? ticket)
+                || ticket is null
+                || ticket.ExpiresUtc <= DateTimeOffset.UtcNow
+                || ticket.Subject != subject
+                || ticket.SessionId != sessionId
+                || ticket.ClientId != request.ClientId
+                || ticket.RequestFingerprint != GetConsentRequestFingerprint(request))
+            {
+                return this.RejectConsent(Errors.AccessDenied);
+            }
+
+            string decision = form[consentActionField].ToString();
+            if (decision == "deny")
+            {
+                await this.auditLog.LogAsync("authorization", "Consent.Denied", "Application",
+                    request.ClientId!, $"Subject {subject} denied consent.", this.HttpContext.RequestAborted);
+                return this.RejectConsent(Errors.AccessDenied);
+            }
+            if (decision != "approve")
+            {
+                return this.RejectConsent(Errors.AccessDenied);
+            }
+
+            await this.auditLog.LogAsync("authorization", "Consent.Approved", "Application",
+                request.ClientId!, $"Subject {subject} approved consent.", this.HttpContext.RequestAborted);
+            return null;
+        }
+
+        string ticketValue = this.consentProtector.Protect(JsonSerializer.Serialize(new ConsentTicket(
+            subject, sessionId, request.ClientId!, GetConsentRequestFingerprint(request),
+            DateTimeOffset.UtcNow.AddMinutes(5))));
+        string clientName = await this.applicationManager.GetDisplayNameAsync(client, this.HttpContext.RequestAborted)
+            ?? request.ClientId!;
+        var parameters = new List<KeyValuePair<string, string>>();
+        foreach (KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues> item in this.Request.Query)
+        {
+            if (item.Key is consentActionField or consentTicketField or "__RequestVerificationToken") { continue; }
+            foreach (string? value in item.Value)
+            {
+                parameters.Add(new KeyValuePair<string, string>(item.Key, value ?? string.Empty));
+            }
+        }
+        if (form is not null)
+        {
+            foreach (KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues> item in form)
+            {
+                if (item.Key is consentActionField or consentTicketField or "__RequestVerificationToken") { continue; }
+                foreach (string? value in item.Value)
+                {
+                    parameters.Add(new KeyValuePair<string, string>(item.Key, value ?? string.Empty));
+                }
+            }
+        }
+        return this.View("~/Authentication/Views/Consent.cshtml", new ConsentViewModel(
+            $"{this.Request.PathBase}/connect/authorize", clientName,
+            request.GetScopes().ToArray(), GetRequestedConsentClaims(request),
+            parameters, ticketValue));
+    }
+
+    private ForbidResult RejectConsent(string error) => this.Forbid(
+        authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
+        properties: new AuthenticationProperties(new Dictionary<string, string?>
+        {
+            [OpenIddictServerAspNetCoreConstants.Properties.Error] = error,
+            [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] =
+                "The user has not consented to this request."
+        }));
+
+    private bool TryReadConsentTicket(string protectedValue, out ConsentTicket? ticket)
+    {
+        ticket = null;
+        if (string.IsNullOrWhiteSpace(protectedValue)) { return false; }
+        try
+        {
+            ticket = JsonSerializer.Deserialize<ConsentTicket>(this.consentProtector.Unprotect(protectedValue));
+            return ticket is not null;
+        }
+        catch (Exception ex) when (ex is CryptographicException or JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static string GetConsentRequestFingerprint(OpenIddictRequest request)
+    {
+        string canonical = JsonSerializer.Serialize(request.GetParameters()
+            .Where(static item => item.Key is not consentActionField and not consentTicketField and not "__RequestVerificationToken")
+            .OrderBy(static item => item.Key, StringComparer.Ordinal)
+            .Select(static item => new KeyValuePair<string, string>(item.Key, item.Value.ToString() ?? string.Empty)));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+    }
+
+    private static string[] GetRequestedConsentClaims(OpenIddictRequest request)
+    {
+        if (!request.TryGetParameter(Parameters.Claims, out OpenIddictParameter parameter)) { return []; }
+        try
+        {
+            using var claims = JsonDocument.Parse(parameter.ToString() ?? string.Empty);
+            if (claims.RootElement.ValueKind != JsonValueKind.Object) { return []; }
+            return claims.RootElement.EnumerateObject()
+                .Where(static item => item.Value.ValueKind == JsonValueKind.Object)
+                .SelectMany(static item => item.Value.EnumerateObject().Select(claim => claim.Name))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private sealed record ConsentTicket(
+        string Subject, Guid SessionId, string ClientId, string RequestFingerprint, DateTimeOffset ExpiresUtc);
 
     /// <summary>
     /// Handles the token endpoint for exchanging authorization codes or client credentials.

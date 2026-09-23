@@ -6,7 +6,7 @@ using OpenIdentityStack.Application;
 using OpenIdentityStack.Api.Configuration;
 using OpenIdentityStack.Api.Authentication;
 using Scalar.AspNetCore;
-using Microsoft.Extensions.Primitives;
+using OpenIdentityStack.Api.Diagnostics;
 using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Api.Admin;
 using OpenIdentityStack.Api.Applications;
@@ -184,29 +184,10 @@ app.UseRateLimiter();
 
 app.UseAuthorizationErrorRedirects();
 
-// Debug logging for authorization headers (development only)
+// Development request diagnostics record header presence without credential values.
 if (app.Environment.IsDevelopment())
 {
-    app.Use(async (context, next) =>
-    {
-#pragma warning disable CA1848, CA1873
-        ILogger<Program> logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-        foreach (KeyValuePair<string, StringValues> header in context.Request.Headers)
-        {
-            logger.LogInformation("Header: {Key}={Value}", header.Key, header.Value);
-        }
-        string authHeader = context.Request.Headers.Authorization.ToString();
-        if (!string.IsNullOrEmpty(authHeader))
-        {
-            logger.LogInformation("Authorization Header found: {HeaderPrefix}...", authHeader.Substring(0, Math.Min(20, authHeader.Length)));
-        }
-        else
-        {
-            logger.LogWarning("Authorization Header MISSING on request to {Path}", context.Request.Path);
-        }
-#pragma warning restore CA1848, CA1873
-        await next();
-    });
+    app.UseMiddleware<DevelopmentRequestDiagnosticsMiddleware>();
 }
 
 // Authentication and Authorization middleware

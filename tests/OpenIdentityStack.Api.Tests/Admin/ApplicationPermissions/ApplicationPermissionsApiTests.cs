@@ -329,6 +329,19 @@ public sealed class ApplicationPermissionsApiTests(AppHostFixture fixture) : IAs
         json["error"]!.GetValue<string>().ShouldBe("PermissionManifest.EndpointInvalid");
     }
 
+    [Fact]
+    public async Task ImportApplicationManifest_WhenEndpointIsLoopbackIp_ReturnsBadRequest()
+    {
+        HttpResponseMessage response = await this.SendRequestAsync(
+            HttpMethod.Post,
+            "/api/admin/application-permissions/applications/import",
+            new { Endpoint = "https://127.0.0.1/.well-known/permissions" });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonNode json = await ReadJsonAsync(response);
+        json["error"]!.GetValue<string>().ShouldBe("PermissionManifest.EndpointFetchFailed");
+    }
+
     private async Task<Guid> CreateApplicationAsync(string applicationIdentifier)
     {
         HttpResponseMessage response = await this.SendRequestAsync(

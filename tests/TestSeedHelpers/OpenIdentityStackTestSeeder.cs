@@ -201,6 +201,7 @@ public sealed class OpenIdentityStackTestSeeder : IAsyncDisposable
             ClientId = clientId,
             ClientSecret = clientSecret,
             DisplayName = $"Test Service Account - {clientId[..Math.Min(clientId.Length, 160)]}",
+            ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
             Permissions =
             {
                 OpenIddictConstants.Permissions.Endpoints.Token,

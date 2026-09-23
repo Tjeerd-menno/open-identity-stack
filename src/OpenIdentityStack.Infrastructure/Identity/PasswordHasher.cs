@@ -12,6 +12,8 @@ public sealed class PasswordHasher : IPasswordHasher
 {
     private readonly PasswordHasher<object> hasher = new();
     private static readonly object dummyUser = new();
+    private static readonly string dummyHash = new PasswordHasher<object>()
+        .HashPassword(dummyUser, Guid.NewGuid().ToString());
 
     /// <inheritdoc />
     public string HashPassword(string password)
@@ -29,6 +31,13 @@ public sealed class PasswordHasher : IPasswordHasher
     {
         if (string.IsNullOrEmpty(hashedPassword))
         {
+            // Spend the normal password-verification work for unknown and passwordless
+            // accounts, without allowing the dummy credential to authenticate.
+            if (!string.IsNullOrEmpty(providedPassword))
+            {
+                this.hasher.VerifyHashedPassword(dummyUser, dummyHash, providedPassword);
+            }
+
             return false;
         }
 

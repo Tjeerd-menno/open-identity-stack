@@ -281,6 +281,12 @@ public sealed class ApplicationPermissionManifestUseCases
         IReadOnlyList<PermissionAssignmentImpactDto> assignmentImpacts = [];
         if (plan.Removals.Count > 0)
         {
+            if (!await this.authorizationService.CanAdministerRegistryAsync(command.ActorId, cancellationToken).ConfigureAwait(false))
+            {
+                await this.auditWriter.WriteAsync("ApplyApplicationPermissionManifest", command.ActorId, plan.Application.Id.Value.ToString(), "Denied", cancellationToken).ConfigureAwait(false);
+                return DomainError.Forbidden("PermissionManifest.Forbidden", "Actor cannot remove application permissions.");
+            }
+
             Result<IReadOnlyList<PermissionAssignmentImpactDto>> assignmentResult = await this.permissionAssignmentStore
                 .RemoveAssignmentsAsync(plan.AssignmentRemovalPlan, command.ActorId, cancellationToken)
                 .ConfigureAwait(false);

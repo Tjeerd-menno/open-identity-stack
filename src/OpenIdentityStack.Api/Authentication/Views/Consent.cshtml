@@ -1,0 +1,34 @@
+@model OpenIdentityStack.Api.Authentication.ConsentViewModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>Review access request</title></head>
+<body>
+    <main>
+        <h1>Allow @Model.ClientName to access your account?</h1>
+        <p>Review the access requested by this application.</p>
+        @if (Model.Scopes.Count > 0)
+        {
+            <h2>Scopes</h2>
+            <ul>@foreach (string scope in Model.Scopes) { <li>@scope</li> }</ul>
+        }
+        @if (Model.Claims.Count > 0)
+        {
+            <h2>Claims</h2>
+            <ul>@foreach (string claim in Model.Claims) { <li>@claim</li> }</ul>
+        }
+        <form method="post" action="@Model.ActionUrl">
+            @Html.AntiForgeryToken()
+            @foreach (KeyValuePair<string, string> parameter in Model.RequestParameters)
+            {
+                <input type="hidden" name="@parameter.Key" value="@parameter.Value" />
+            }
+            <input type="hidden" name="consent_ticket" value="@Model.Ticket" />
+            <button type="submit" name="consent_action" value="approve">Allow</button>
+            <button type="submit" name="consent_action" value="deny">Deny</button>
+        </form>
+    </main>
+</body>
+</html>

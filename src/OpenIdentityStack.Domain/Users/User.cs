@@ -158,8 +158,8 @@ public sealed partial class User : AggregateRoot<UserId>
     public string? PhoneNumber { get; private set; }
 
     /// <summary>
-    /// Gets whether the phone number has been verified. Nothing verifies it today, so it
-    /// is stored and defaults to <see langword="false"/> rather than being asserted true.
+    /// Gets whether the phone number has been verified. Phone verification is not currently
+    /// supported, so profile writes cannot assert this value.
     /// </summary>
     public bool PhoneNumberVerified { get; private set; }
 
@@ -655,6 +655,11 @@ public sealed partial class User : AggregateRoot<UserId>
             return Result.Success();
         }
 
+        if (profile.PhoneNumberVerified == true)
+        {
+            return UserErrors.PhoneVerificationEvidenceRequired;
+        }
+
         Result validationResult = ValidateMaxLength(profile.GivenName, nameof(User.GivenName), 256);
         if (validationResult.IsFailure)
         {
@@ -938,6 +943,9 @@ public static class UserErrors
 
     public static readonly DomainError DisplayNameTooLong =
         DomainError.Validation("User.DisplayNameTooLong", "Display name cannot exceed 256 characters.");
+
+    public static readonly DomainError PhoneVerificationEvidenceRequired =
+        DomainError.Validation("User.PhoneVerificationEvidenceRequired", "Phone verification requires independently verified evidence.");
 
     public static DomainError ProfileFieldTooLong(string fieldName, int maxLength) =>
         DomainError.Validation($"User.{fieldName}TooLong", $"{fieldName} cannot exceed {maxLength} characters.");

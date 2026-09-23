@@ -149,7 +149,8 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             principal.Claims.Where(claim =>
                 !string.Equals(claim.Type, LegacySessionIdClaim, StringComparison.Ordinal)
                 && !string.Equals(claim.Type, Claims.AuthenticationTime, StringComparison.Ordinal)
-                && !string.Equals(claim.Type, Claims.EmailVerified, StringComparison.Ordinal)),
+                && !string.Equals(claim.Type, Claims.EmailVerified, StringComparison.Ordinal)
+                && !string.Equals(claim.Type, Claims.PhoneNumberVerified, StringComparison.Ordinal)),
             authenticationType: OpenIddict.Server.AspNetCore.OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
             nameType: Claims.Name,
             roleType: Claims.Role);
@@ -160,6 +161,10 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
         projected.SetClaim(Claims.Email, persistedUser?.Email ?? principal.GetClaim(Claims.Email));
         identity.AddClaim(new Claim(Claims.EmailVerified, persistedUser?.EmailVerified == true ? "true" : "false", ClaimValueTypes.Boolean));
+        if (principal.GetClaim(Claims.PhoneNumberVerified) is not null)
+        {
+            identity.AddClaim(new Claim(Claims.PhoneNumberVerified, "false", ClaimValueTypes.Boolean));
+        }
 
         if (principal.GetClaim(UserCredentialClaims.Revision) is null
             && persistedUser?.CredentialRevision == Guid.Empty)
@@ -435,9 +440,11 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
         }
 
         AddStringClaim(identity, Claims.PhoneNumber, user.PhoneNumber);
+        // Legacy stored flags have no independent phone verification evidence.
+        // Until a proof-backed verification flow exists, never assert this claim.
         identity.AddClaim(new Claim(
             Claims.PhoneNumberVerified,
-            user.PhoneNumberVerified ? "true" : "false",
+            "false",
             ClaimValueTypes.Boolean));
 
         DateTimeOffset updatedAt = user.ModifiedAt ?? user.CreatedAt;

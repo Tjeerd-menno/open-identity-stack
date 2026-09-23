@@ -48,6 +48,7 @@ public sealed class ValidateUserCredentialsUseCase : IValidateUserCredentialsUse
         User? user = await this.userRepository.GetByEmailAsync(command.Email, cancellationToken);
         if (user is null)
         {
+            this.passwordHasher.VerifyPassword(string.Empty, command.Password);
             this.logger.LogCredentialsValidationFailed(command.Email, "UserNotFound");
             return UserErrors.InvalidCredentials;
         }
@@ -55,7 +56,15 @@ public sealed class ValidateUserCredentialsUseCase : IValidateUserCredentialsUse
         // Check if user has a password (not federated-only)
         if (!user.HasPassword())
         {
+            this.passwordHasher.VerifyPassword(string.Empty, command.Password);
             this.logger.LogCredentialsValidationFailed(command.Email, "NoPassword");
+            return UserErrors.InvalidCredentials;
+        }
+
+        // Verify credentials before querying local fallback eligibility.
+        if (!this.passwordHasher.VerifyPassword(user.PasswordHash!, command.Password))
+        {
+            this.logger.LogCredentialsValidationFailed(command.Email, "InvalidPassword");
             return UserErrors.InvalidCredentials;
         }
 
@@ -80,16 +89,8 @@ public sealed class ValidateUserCredentialsUseCase : IValidateUserCredentialsUse
 
                 this.logger.LogCredentialsValidationFailed(command.Email, "LocalAuthNotPermitted");
                 
-                // Return a generic error to avoid disclosing role membership (NFR-050)
-                return AuthenticationSettingsErrors.LocalAuthNotPermitted;
+                return UserErrors.InvalidCredentials;
             }
-        }
-
-        // Verify the password
-        if (!this.passwordHasher.VerifyPassword(user.PasswordHash!, command.Password))
-        {
-            this.logger.LogCredentialsValidationFailed(command.Email, "InvalidPassword");
-            return UserErrors.InvalidCredentials;
         }
 
         // Check user status

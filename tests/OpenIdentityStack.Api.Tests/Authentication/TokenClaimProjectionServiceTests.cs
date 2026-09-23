@@ -18,10 +18,12 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 public sealed class TokenClaimProjectionServiceTests
 {
     [Fact]
-    public void GroupClaimsCannotReplacePersistedVerifiedPhoneOrStandardProfile()
+    public void GroupClaimsCannotReplacePersistedPhoneOrStandardProfile()
     {
         User user = User.CreateFederated("profile@example.test", "Persisted name", this.dateTimeProvider,
-            new UserProfileData(GivenName: "Persisted", PhoneNumber: "+31205550100", PhoneNumberVerified: true)).Value;
+            new UserProfileData(GivenName: "Persisted", PhoneNumber: "+31205550100")).Value;
+        // Simulate a row written before phone assertions required evidence.
+        typeof(User).GetProperty(nameof(User.PhoneNumberVerified))!.SetValue(user, true);
         string[] profileTypes = ["phone_number", "phone_number_verified", "name", "given_name", "family_name", "middle_name",
             "nickname", "preferred_username", "profile", "picture", "website", "gender", "birthdate", "zoneinfo", "locale", "address", "updated_at"];
         var request = new TokenClaimProjectionRequest(CreateCookiePrincipal(user.Id.Value), user, [], [], [],
@@ -37,10 +39,10 @@ public sealed class TokenClaimProjectionServiceTests
             projected.FindAll(type).Select(claim => claim.Value).ShouldBe(expected.FindAll(type).Select(claim => claim.Value));
         }
         projected.GetClaim("phone_number").ShouldBe("+31205550100");
-        projected.GetClaim("phone_number_verified").ShouldBe("true");
+        projected.GetClaim("phone_number_verified").ShouldBe("false");
         IReadOnlyDictionary<string, object> userInfo = this.service.CreateUserInfoResponse(projected);
         userInfo["phone_number"].ShouldBe("+31205550100");
-        userInfo["phone_number_verified"].ShouldBe(true);
+        userInfo["phone_number_verified"].ShouldBe(false);
     }
 
     [Fact]
@@ -186,6 +188,24 @@ public sealed class TokenClaimProjectionServiceTests
         ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: hasPersistedUser ? user : null);
 
         projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExistingPrincipalCannotCarryUnsupportedPhoneVerificationIntoUserInfo(bool hasPersistedUser)
+    {
+        User user = CreateUser();
+        ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
+        principal.SetScopes(OpenIddictConstants.Scopes.Phone);
+        principal.SetClaim(OpenIddictConstants.Claims.PhoneNumberVerified, "true");
+
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(
+            principal, persistedUser: hasPersistedUser ? user : null);
+
+        projected.GetClaim(OpenIddictConstants.Claims.PhoneNumberVerified).ShouldBe("false");
+        this.service.CreateUserInfoResponse(projected)[OpenIddictConstants.Claims.PhoneNumberVerified]
+            .ShouldBe(false);
     }
 
     [Theory]

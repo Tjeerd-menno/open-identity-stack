@@ -311,7 +311,9 @@ public sealed class AuthEndpointLatencyTests
             validateSessionQueryHandler,
             openIddictRequestService,
             Substitute.For<IAuditLog>(),
-            credentialSessionValidator
+            credentialSessionValidator,
+            Substitute.For<Microsoft.AspNetCore.Antiforgery.IAntiforgery>(),
+            new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider()
         );
 
         var httpContext = new DefaultHttpContext();
