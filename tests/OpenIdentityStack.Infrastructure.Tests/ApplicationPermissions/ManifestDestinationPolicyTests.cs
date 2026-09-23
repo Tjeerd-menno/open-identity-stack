@@ -21,6 +21,18 @@ public sealed class ManifestDestinationPolicyTests
     }
 
     [Theory]
+    [InlineData("http://localhost", "localhost", true)]
+    [InlineData("http://127.0.0.1", "127.0.0.1", true)]
+    [InlineData("http://[::1]", "::1", true)]
+    [InlineData("https://127.0.0.1", "127.0.0.1", false)]
+    [InlineData("http://manifest.example", "manifest.example", false)]
+    public void IsLoopbackFixtureRequestAllowed_RequiresExplicitHttpLoopbackUrl(string url, string host, bool expected)
+    {
+        ManifestDestinationPolicy.IsLoopbackFixtureRequestAllowed(
+            new Uri(url), host, allowLocalTestFixtures: true).ShouldBe(expected);
+    }
+
+    [Theory]
     [InlineData("Testing", true)]
     [InlineData("Development", true)]
     [InlineData("development", true)]

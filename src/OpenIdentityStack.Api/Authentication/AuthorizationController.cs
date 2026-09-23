@@ -623,6 +623,11 @@ public class AuthorizationController : Controller
                 result.Principal!.FindAll(TokenClaimProjectionService.RequestedUserInfoClaim).Select(static claim => claim.Value).ToImmutableHashSet(StringComparer.Ordinal),
                 authenticationTime, result.Principal.GetClaim(TokenClaimProjectionService.AuthenticationContextClassReferenceClaim), sessionIdStr));
             ApplyResourceAccess(projectedPrincipal, request.ClientId!, ResourceTokenActorTypes.User, resourceAccess.Value);
+            if (result.Principal.GetAuthorizationId() is { Length: > 0 } authorizationId)
+            {
+                projectedPrincipal.SetAuthorizationId(authorizationId);
+            }
+
             return this.SignIn(
                 projectedPrincipal,
                 CreateOpenIddictAuthenticationProperties(authenticationTime),

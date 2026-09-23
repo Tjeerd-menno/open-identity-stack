@@ -36,7 +36,7 @@ public sealed class RemotePermissionManifestFetcher : IRemotePermissionManifestF
         Uri uri = manifestUri!;
         if (!IsTrustedScheme(uri))
         {
-            return Error("RemoteBaseUrlUntrusted", "Remote import requires HTTPS except for localhost development fixtures.");
+            return Error("RemoteBaseUrlUntrusted", "Remote import requires HTTPS except for explicit loopback HTTP development fixtures.");
         }
 
         try

@@ -21,13 +21,24 @@ internal static class ManifestDestinationPolicy
             || string.Equals(normalizedHost, "::1", StringComparison.Ordinal);
     }
 
+    internal static bool IsLoopbackFixtureRequestAllowed(Uri? requestUri, string host, bool allowLocalTestFixtures) =>
+        allowLocalTestFixtures
+        && string.Equals(requestUri?.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+        && IsSupportedLoopbackFixtureHost(host);
+
     internal static SocketsHttpHandler CreateHandler(bool allowLocalTestFixtures = false)
     {
         return new SocketsHttpHandler
         {
             AllowAutoRedirect = false,
             UseProxy = false,
-            ConnectCallback = (context, cancellationToken) => ConnectAsync(context.DnsEndPoint, allowLocalTestFixtures, cancellationToken),
+            ConnectCallback = (context, cancellationToken) => ConnectAsync(
+                context.DnsEndPoint,
+                IsLoopbackFixtureRequestAllowed(
+                    context.InitialRequestMessage.RequestUri,
+                    context.DnsEndPoint.Host,
+                    allowLocalTestFixtures),
+                cancellationToken),
         };
     }
 
@@ -39,7 +50,7 @@ internal static class ManifestDestinationPolicy
         IPAddress[] addresses = await ResolveApprovedAddressesAsync(
             endpoint.Host,
             static (host, token) => Dns.GetHostAddressesAsync(host, token),
-            allowLocalTestFixtures && IsSupportedLoopbackFixtureHost(endpoint.Host),
+            allowLocalTestFixtures,
             cancellationToken).ConfigureAwait(false);
 
         Exception? lastError = null;
