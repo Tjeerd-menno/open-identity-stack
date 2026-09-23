@@ -575,28 +575,43 @@ def _write_unix_file(directory_fd: int, name: str, content: str) -> None:
     _write_open_file(fd, content)
 
 
-def _persist_unix(base_dir: Path, project_slug: str, page_slug: str, master_content: str,
+def _open_unix_base_directory(base_dir: Path) -> int:
+    """Create and open each base path component without following swapped links."""
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    directory_fd = os.open("/", flags)
+    try:
+        for component in base_dir.parts[1:]:
+            try:
+                os.mkdir(component, dir_fd=directory_fd)
+            except FileExistsError:
+                pass
+            child_fd = os.open(component, flags, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = child_fd
+        return directory_fd
+    except Exception:
+        os.close(directory_fd)
+        raise
+
+
+def _persist_unix(base_fd: int, project_slug: str, page_slug: str, master_content: str,
                   page_content: str) -> None:
     """Anchor each directory and file operation to a no-follow directory handle."""
-    base_fd = os.open(base_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    root_fd = _open_unix_directory(base_fd, "design-system")
     try:
-        root_fd = _open_unix_directory(base_fd, "design-system")
+        project_fd = _open_unix_directory(root_fd, project_slug)
         try:
-            project_fd = _open_unix_directory(root_fd, project_slug)
+            pages_fd = _open_unix_directory(project_fd, "pages")
             try:
-                pages_fd = _open_unix_directory(project_fd, "pages")
-                try:
-                    _write_unix_file(project_fd, "MASTER.md", master_content)
-                    if page_slug:
-                        _write_unix_file(pages_fd, f"{page_slug}.md", page_content)
-                finally:
-                    os.close(pages_fd)
+                _write_unix_file(project_fd, "MASTER.md", master_content)
+                if page_slug:
+                    _write_unix_file(pages_fd, f"{page_slug}.md", page_content)
             finally:
-                os.close(project_fd)
+                os.close(pages_fd)
         finally:
-            os.close(root_fd)
+            os.close(project_fd)
     finally:
-        os.close(base_fd)
+        os.close(root_fd)
 
 
 def persist_design_system(design_system: dict, page: str = None, output_dir: str = None, page_query: str = None) -> dict:
@@ -613,8 +628,6 @@ def persist_design_system(design_system: dict, page: str = None, output_dir: str
         dict with created file paths and status
     """
     base_dir = (Path(output_dir) if output_dir else Path.cwd()).resolve()
-    base_dir.mkdir(parents=True, exist_ok=True)
-    base_dir = base_dir.resolve(strict=True)
     
     # Use project name for project-specific folder
     project_name = design_system.get("project_name", "default")
@@ -637,15 +650,20 @@ def persist_design_system(design_system: dict, page: str = None, output_dir: str
     
     created_files = []
     
-    # Generate content before opening any destination.
-    master_content = format_master_md(design_system)
-    page_content = None
-    if page:
-        page_content = format_page_override_md(design_system, page, page_query)
-
     if os.name == "posix":
-        _persist_unix(base_dir, project_slug, page_slug, master_content, page_content)
+        base_fd = _open_unix_base_directory(base_dir)
+        try:
+            master_content = format_master_md(design_system)
+            page_content = format_page_override_md(design_system, page, page_query) if page else None
+            _persist_unix(base_fd, project_slug, page_slug, master_content, page_content)
+        finally:
+            os.close(base_fd)
     else:
+        base_dir.mkdir(parents=True, exist_ok=True)
+        base_dir = base_dir.resolve(strict=True)
+        # Generate content before opening any destination.
+        master_content = format_master_md(design_system)
+        page_content = format_page_override_md(design_system, page, page_query) if page else None
         require_contained(design_system_dir, design_system_root)
         design_system_dir.mkdir(parents=True, exist_ok=True)
         require_contained(pages_dir, design_system_dir)

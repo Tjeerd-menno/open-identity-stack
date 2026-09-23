@@ -207,6 +207,10 @@ public sealed class AuthorizationCodeFlowTests
         previouslyApprovedSilent.Headers.Location!.GetLeftPart(UriPartial.Path).ShouldBe(redirectUri);
         QueryHelpers.ParseQuery(previouslyApprovedSilent.Headers.Location.Query)["code"].Single().ShouldNotBeNullOrWhiteSpace();
 
+        HttpResponseMessage forcedConsent = await browser.GetAsync(authorizeUrl + "&prompt=consent");
+        forcedConsent.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await forcedConsent.Content.ReadAsStringAsync()).ShouldContain("Review access request");
+
         var expandedRequest = QueryHelpers.ParseQuery(query)
             .ToDictionary(pair => pair.Key, pair => pair.Value.Single()!, StringComparer.Ordinal);
         expandedRequest["scope"] = "openid profile email";

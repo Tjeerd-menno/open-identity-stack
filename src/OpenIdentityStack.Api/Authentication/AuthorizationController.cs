@@ -281,8 +281,10 @@ public class AuthorizationController : Controller
         Guid sessionId,
         bool promptNone)
     {
-        string? existingAuthorizationId = await this.FindExistingConsentAuthorizationIdAsync(
-            request, client, subject, this.HttpContext.RequestAborted);
+        string? existingAuthorizationId = request.HasPromptValue("consent")
+            ? null
+            : await this.FindExistingConsentAuthorizationIdAsync(
+                request, client, subject, this.HttpContext.RequestAborted);
         if (existingAuthorizationId is not null)
         {
             this.HttpContext.Items[consentAuthorizationIdItemKey] = existingAuthorizationId;

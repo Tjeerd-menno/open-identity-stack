@@ -6,11 +6,9 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
-from unittest.mock import patch
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-import design_system  # noqa: E402
 from design_system import persist_design_system  # noqa: E402
 import design_system  # noqa: E402
 
@@ -80,11 +78,42 @@ class DesignSystemPersistenceTests(unittest.TestCase):
 
     def test_missing_nested_output_directory_is_created_before_unix_persistence(self):
         output_dir = self.output_dir / "new" / "nested" / "output"
-        with patch.object(design_system, "os", SimpleNamespace(name="posix")), patch.object(design_system, "_persist_unix") as persist:
+        def open_base(path):
+            path.mkdir(parents=True, exist_ok=True)
+            return object()
+
+        fake_os = SimpleNamespace(name="posix", close=lambda _fd: None)
+        with patch.object(design_system, "os", fake_os), \
+             patch.object(design_system, "_open_unix_base_directory", side_effect=open_base), \
+             patch.object(design_system, "_persist_unix") as persist:
             persist_design_system({"project_name": "Project"}, output_dir=str(output_dir))
 
         self.assertTrue(output_dir.is_dir())
         persist.assert_called_once()
+
+    def test_unix_base_directory_is_opened_before_content_generation(self):
+        opened_base = object()
+        events = []
+        fake_os = SimpleNamespace(name="posix", close=lambda _fd: events.append("close"))
+
+        def format_master(_design_system):
+            events.append("format")
+            return "master"
+
+        def open_base(_path):
+            events.append("open")
+            return opened_base
+
+        with patch.object(design_system, "os", fake_os), \
+             patch.object(design_system, "_open_unix_base_directory", create=True, side_effect=open_base) as open_base_mock, \
+             patch.object(design_system, "_persist_unix") as persist, \
+             patch.object(design_system, "format_master_md", side_effect=format_master):
+            persist_design_system({"project_name": "Project"}, output_dir=str(self.output_dir))
+
+        self.assertEqual(events, ["open", "format", "close"])
+        open_base_mock.assert_called_once_with(self.output_dir)
+        persist.assert_called_once()
+        self.assertIs(persist.call_args.args[0], opened_base)
 
     def test_existing_master_symlink_cannot_escape_root(self):
         outside = self.output_dir / "outside.md"
