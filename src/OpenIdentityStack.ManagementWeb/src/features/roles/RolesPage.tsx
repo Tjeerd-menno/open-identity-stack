@@ -2,7 +2,7 @@ import { Badge, Box, Button, Group, Modal, Stack, Text, TextInput, Textarea, The
 import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { RoleListItem } from '@openidentitystack/admin-api-client';
@@ -31,6 +31,7 @@ export function RolesPage() {
   const query = useQuery({
     queryKey: ['roles', { page, pageSize, search }],
     queryFn: () => api.roles.getRoles({ page, pageSize, search: search || undefined }),
+    placeholderData: keepPreviousData,
   });
 
   const remove = useMutation({
@@ -129,6 +130,7 @@ export function RolesPage() {
             getRowKey={(role) => role.id}
             onRowClick={(role) => navigate(`/roles/${role.id}`)}
             isLoading={query.isLoading}
+            isRefreshing={query.isPlaceholderData}
             emptyIcon="shield"
             emptyTitle="No roles"
             emptyText="Adjust your search or create a role."

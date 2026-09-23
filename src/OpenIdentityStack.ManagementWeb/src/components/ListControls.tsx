@@ -1,4 +1,5 @@
 import { Group, Pagination, Select, TextInput, Text } from '@mantine/core';
+import { useDebouncedSearch } from '@/lib/useDebouncedSearch';
 import { Icon } from './Icon';
 
 export function SearchInput({
@@ -12,14 +13,15 @@ export function SearchInput({
   placeholder?: string;
   width?: number | string;
 }) {
+  const [draft, setDraft] = useDebouncedSearch(value, onChange);
   return (
     <TextInput
       aria-label={placeholder}
       leftSection={<Icon name="search" size={16} />}
       placeholder={placeholder}
-      value={value}
+      value={draft}
       w={width}
-      onChange={(event) => onChange(event.currentTarget.value)}
+      onChange={(event) => setDraft(event.currentTarget.value)}
     />
   );
 }

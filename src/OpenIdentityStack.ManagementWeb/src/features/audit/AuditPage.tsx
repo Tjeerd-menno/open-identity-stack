@@ -1,5 +1,5 @@
 import { Badge, Box, Button, Code, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { AuditEntry } from '@openidentitystack/admin-api-client';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -39,6 +39,7 @@ export function AuditPage() {
         action: applied.action || undefined,
         entityId: applied.entityId || undefined,
       }),
+    placeholderData: keepPreviousData,
   });
 
   const applyAdvanced = () => {
@@ -175,6 +176,7 @@ export function AuditPage() {
             getRowKey={(entry) => entry.id}
             onRowClick={(entry) => setSelected(entry)}
             isLoading={query.isLoading}
+            isRefreshing={query.isPlaceholderData}
             emptyIcon="scroll-text"
             emptyTitle="No audit entries"
             emptyText="There are no audit entries matching your search."

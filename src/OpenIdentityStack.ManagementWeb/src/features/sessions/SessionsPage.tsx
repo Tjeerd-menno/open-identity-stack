@@ -1,6 +1,6 @@
 import { Box, Group, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { Session, SessionStatus } from '@openidentitystack/admin-api-client';
@@ -43,6 +43,7 @@ export function SessionsPage() {
         search: search || undefined,
         status: status === 'All' ? undefined : (status as SessionStatus),
       }),
+    placeholderData: keepPreviousData,
   });
 
   const revoke = useMutation({
@@ -139,6 +140,7 @@ export function SessionsPage() {
             getRowKey={(session) => session.id}
             onRowClick={(session) => navigate(`/sessions/${session.id}`)}
             isLoading={query.isLoading}
+            isRefreshing={query.isPlaceholderData}
             emptyIcon="activity"
             emptyTitle="No sessions"
             emptyText="There are no sessions matching your filters."

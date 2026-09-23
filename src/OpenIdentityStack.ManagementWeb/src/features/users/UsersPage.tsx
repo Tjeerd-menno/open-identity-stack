@@ -2,7 +2,7 @@ import { Avatar, Box, Button, Group, Modal, PasswordInput, Stack, Text, TextInpu
 import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { UserListItem } from '@openidentitystack/admin-api-client';
@@ -34,6 +34,7 @@ export function UsersPage() {
   const query = useQuery({
     queryKey: ['users', { page, pageSize, search }],
     queryFn: () => api.users.getUsers({ page, pageSize, search: search || undefined }),
+    placeholderData: keepPreviousData,
   });
 
   const deletionIdentities = useQuery({
@@ -165,6 +166,7 @@ export function UsersPage() {
             getRowKey={(user) => user.id}
             onRowClick={(user) => navigate(`/users/${user.id}`)}
             isLoading={query.isLoading}
+            isRefreshing={query.isPlaceholderData}
             emptyIcon="users"
             emptyTitle="No users found"
             emptyText="Adjust your search or add a user."

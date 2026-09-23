@@ -1,7 +1,7 @@
 import { Badge, Box, Button, Group, Text, ThemeIcon } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import type {
@@ -65,6 +65,7 @@ export function ApplicationsPage() {
         profile: profile === 'All' ? undefined : (profile as ApplicationProfile),
         status: status === 'All' ? undefined : (status as ApplicationStatus),
       }),
+    placeholderData: keepPreviousData,
   });
 
   const toggle = useMutation({
@@ -197,6 +198,7 @@ export function ApplicationsPage() {
             getRowKey={(app) => app.id}
             onRowClick={(app) => navigate(`/applications/${app.id}`)}
             isLoading={query.isLoading}
+            isRefreshing={query.isPlaceholderData}
             emptyIcon="app-window"
             emptyTitle="No applications"
             emptyText="Adjust your filters or register an application."
