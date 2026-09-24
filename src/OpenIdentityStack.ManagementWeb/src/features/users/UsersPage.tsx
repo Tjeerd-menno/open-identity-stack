@@ -43,20 +43,16 @@ export function UsersPage() {
     enabled: pendingDelete !== null,
   });
   const retainsQuarantine = deletionIdentities.data?.some((identity) => identity.isQuarantined !== false) ?? false;
-  const deletionBlocked = !deletionIdentities.isSuccess || deletionIdentities.isFetching || retainsQuarantine;
-  const deletionMessage = deletionIdentities.isError
-    ? 'Unable to verify identity retention. Close this dialog and try again.'
-    : !deletionIdentities.isSuccess || deletionIdentities.isFetching
-      ? 'Checking identity retention before deletion.'
-      : retainsQuarantine
-        ? 'Quarantined identity evidence must be retained. This user cannot be deleted until a proof-based disposition is available.'
-        : `Permanently delete ${pendingDelete?.displayName ?? 'this user'}? This cannot be undone.`;
+  const deletionStatus = getDeletionStatus({
+    isError: deletionIdentities.isError,
+    isSuccess: deletionIdentities.isSuccess,
+    isFetching: deletionIdentities.isFetching,
+    retainsQuarantine,
+    userName: pendingDelete?.displayName,
+  });
 
   const setStatus = useMutation({
-    mutationFn: (user: UserListItem) =>
-      user.status === 'Disabled'
-        ? api.users.enableUser(user.id)
-        : api.users.disableUser(user.id, { reason: 'Disabled from Management Web' }),
+    mutationFn: updateUserStatus,
     onSuccess: () => {
       notifications.show({ message: 'User status updated', color: 'green' });
       void queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -74,58 +70,14 @@ export function UsersPage() {
     onError: (error) => notifications.show({ message: getApiErrorMessage(error), color: 'red' }),
   });
 
-  const columns: Column<UserListItem>[] = [
-    {
-      key: 'user',
-      header: 'User',
-      render: (user) => (
-        <Group gap="sm" wrap="nowrap">
-          <Avatar color="blue" name={user.displayName} size={36} radius="xl">
-            {getInitials(user.displayName)}
-          </Avatar>
-          <Box style={{ minWidth: 0 }}>
-            <Text fw={600} size="sm" truncate>
-              {user.displayName}
-            </Text>
-            <Text c="dimmed" size="xs" truncate>
-              {user.email}
-            </Text>
-          </Box>
-        </Group>
-      ),
-    },
-    { key: 'status', header: 'Status', render: (user) => <StatusBadge status={user.status} /> },
-    {
-      key: 'created',
-      header: 'Created',
-      render: (user) => (
-        <Text c="dimmed" size="sm">
-          {formatRelativeTime(user.createdAt)}
-        </Text>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      align: 'right',
-      width: 48,
-      render: (user) => (
-        <RowMenu
-          items={[
-            { label: 'Open', icon: 'arrow-up-right', onClick: () => navigate(`/users/${user.id}`) },
-            {
-              label: user.status === 'Disabled' ? 'Enable user' : 'Disable user',
-              icon: 'ban',
-              disabled: user.status === 'Disabled' ? !canWrite : !canDisable,
-              onClick: () => setStatus.mutate(user),
-            },
-            { separator: true },
-            { label: 'Delete user', icon: 'trash-2', danger: true, disabled: !canDelete, onClick: () => setPendingDelete(user) },
-          ]}
-        />
-      ),
-    },
-  ];
+  const columns = createUserColumns({
+    navigate,
+    canWrite,
+    canDisable,
+    canDelete,
+    onSetStatus: (user) => setStatus.mutate(user),
+    onDelete: setPendingDelete,
+  });
 
   return (
     <div>
@@ -189,15 +141,110 @@ export function UsersPage() {
       <ConfirmModal
         opened={pendingDelete !== null}
         title="Delete user"
-        message={deletionMessage}
+        message={deletionStatus.message}
         confirmLabel="Delete user"
         loading={deleteUser.isPending}
-        disabled={deletionBlocked}
-        onConfirm={() => pendingDelete && !deletionBlocked && deleteUser.mutate(pendingDelete)}
+        disabled={deletionStatus.blocked}
+        onConfirm={() => pendingDelete && !deletionStatus.blocked && deleteUser.mutate(pendingDelete)}
         onClose={() => setPendingDelete(null)}
       />
     </div>
   );
+}
+
+function updateUserStatus(user: UserListItem) {
+  return user.status === 'Disabled'
+    ? api.users.enableUser(user.id)
+    : api.users.disableUser(user.id, { reason: 'Disabled from Management Web' });
+}
+
+function getDeletionStatus({
+  isError,
+  isSuccess,
+  isFetching,
+  retainsQuarantine,
+  userName,
+}: {
+  isError: boolean;
+  isSuccess: boolean;
+  isFetching: boolean;
+  retainsQuarantine: boolean;
+  userName: string | undefined;
+}) {
+  const blocked = !isSuccess || isFetching || retainsQuarantine;
+  const message = isError
+    ? 'Unable to verify identity retention. Close this dialog and try again.'
+    : !isSuccess || isFetching
+      ? 'Checking identity retention before deletion.'
+      : retainsQuarantine
+        ? 'Quarantined identity evidence must be retained. This user cannot be deleted until a proof-based disposition is available.'
+        : `Permanently delete ${userName ?? 'this user'}? This cannot be undone.`;
+  return { blocked, message };
+}
+
+function createUserColumns({
+  navigate,
+  canWrite,
+  canDisable,
+  canDelete,
+  onSetStatus,
+  onDelete,
+}: {
+  navigate: ReturnType<typeof useNavigate>;
+  canWrite: boolean;
+  canDisable: boolean;
+  canDelete: boolean;
+  onSetStatus: (user: UserListItem) => void;
+  onDelete: (user: UserListItem) => void;
+}): Column<UserListItem>[] {
+  return [
+    {
+      key: 'user',
+      header: 'User',
+      render: (user) => (
+        <Group gap="sm" wrap="nowrap">
+          <Avatar color="blue" name={user.displayName} size={36} radius="xl">
+            {getInitials(user.displayName)}
+          </Avatar>
+          <Box style={{ minWidth: 0 }}>
+            <Text fw={600} size="sm" truncate>
+              {user.displayName}
+            </Text>
+            <Text c="dimmed" size="xs" truncate>
+              {user.email}
+            </Text>
+          </Box>
+        </Group>
+      ),
+    },
+    { key: 'status', header: 'Status', render: (user) => <StatusBadge status={user.status} /> },
+    {
+      key: 'created',
+      header: 'Created',
+      render: (user) => <Text c="dimmed" size="sm">{formatRelativeTime(user.createdAt)}</Text>,
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      width: 48,
+      render: (user) => (
+        <RowMenu
+          items={[
+            { label: 'Open', icon: 'arrow-up-right', onClick: () => navigate(`/users/${user.id}`) },
+            {
+              label: user.status === 'Disabled' ? 'Enable user' : 'Disable user',
+              icon: 'ban',
+              disabled: user.status === 'Disabled' ? !canWrite : !canDisable,
+              onClick: () => onSetStatus(user),
+            },
+            { separator: true },
+            { label: 'Delete user', icon: 'trash-2', danger: true, disabled: !canDelete, onClick: () => onDelete(user) },
+          ]}
+        />
+      ),
+    },
+  ];
 }
 
 function CreateUserModal({ onClose }: { onClose: () => void }) {

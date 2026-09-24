@@ -90,76 +90,6 @@ export function PermissionsDetailPage() {
 
   const app = query.data;
 
-  const permissionColumns: Column<RegisteredApplicationPermission>[] = [
-    {
-      key: 'key',
-      header: 'Permission',
-      render: (permission) => (
-        <Text className="mw-mono" fw={600} size="sm">
-          {permission.fullPermissionKey}
-        </Text>
-      ),
-    },
-    {
-      key: 'name',
-      header: 'Display name',
-      render: (permission) => <Text size="sm">{permission.displayName ?? '—'}</Text>,
-    },
-    {
-      key: 'category',
-      header: 'Category',
-      render: (permission) =>
-        permission.category ? (
-          <Badge color="gray" variant="outline">
-            {permission.category}
-          </Badge>
-        ) : (
-          <Text c="dimmed" size="sm">
-            —
-          </Text>
-        ),
-    },
-  ];
-
-  const maintainerColumns: Column<DelegatedMaintainer>[] = [
-    {
-      key: 'principal',
-      header: 'Principal',
-      render: (maintainer) => (
-        <Text className="mw-mono" size="sm">
-          {maintainer.principalId}
-        </Text>
-      ),
-    },
-    {
-      key: 'type',
-      header: 'Type',
-      render: (maintainer) => (
-        <Badge color={maintainer.principalType === 'Group' ? 'grape' : 'blue'} variant="light">
-          {maintainer.principalType}
-        </Badge>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      align: 'right',
-      width: 110,
-      render: (maintainer) =>
-        canAdmin ? (
-          <Button
-            color="red"
-            size="xs"
-            variant="subtle"
-            loading={removeMaintainer.isPending && removeMaintainer.variables?.id === maintainer.id}
-            onClick={() => removeMaintainer.mutate(maintainer)}
-          >
-            Remove
-          </Button>
-        ) : null,
-    },
-  ];
-
   return (
     <div>
       <BackLink label="Back to permissions" to="/application-permissions" />
@@ -168,18 +98,7 @@ export function PermissionsDetailPage() {
         title={app.displayName}
         description={app.applicationIdentifier}
         badge={<StatusBadge status={app.status} />}
-        actions={
-          canWrite ? (
-            <Button
-              variant="default"
-              loading={lifecycle.isPending}
-              leftSection={<Icon name={app.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
-              onClick={() => lifecycle.mutate(app)}
-            >
-              {app.status === 'Disabled' ? 'Enable' : 'Disable'}
-            </Button>
-          ) : undefined
-        }
+        actions={<LifecycleAction app={app} canWrite={canWrite} isPending={lifecycle.isPending} onToggle={() => lifecycle.mutate(app)} />}
       />
 
       <MetaStrip
@@ -190,6 +109,72 @@ export function PermissionsDetailPage() {
         ]}
       />
 
+      <PermissionsDetailTabs
+        app={app}
+        canWrite={canWrite}
+        canAdmin={canAdmin}
+        historyData={historyQuery.data}
+        historyLoading={historyQuery.isLoading}
+        diagnosticsData={diagnosticsQuery.data}
+        diagnosticsLoading={diagnosticsQuery.isLoading}
+        addPermissionOpened={addPermissionOpened}
+        onOpenAddPermission={addPermissionControls.open}
+        onCloseAddPermission={addPermissionControls.close}
+        pendingMaintainerId={removeMaintainer.isPending ? removeMaintainer.variables?.id : undefined}
+        onRemoveMaintainer={(maintainer) => removeMaintainer.mutate(maintainer)}
+        onChanged={invalidate}
+      />
+    </div>
+  );
+}
+
+function LifecycleAction({ app, canWrite, isPending, onToggle }: { app: RegisteredApplication; canWrite: boolean; isPending: boolean; onToggle: () => void }) {
+  if (!canWrite) return undefined;
+
+  const isDisabled = app.status === 'Disabled';
+  return (
+    <Button
+      variant="default"
+      loading={isPending}
+      leftSection={<Icon name={isDisabled ? 'power' : 'ban'} size={16} />}
+      onClick={onToggle}
+    >
+      {isDisabled ? 'Enable' : 'Disable'}
+    </Button>
+  );
+}
+
+function PermissionsDetailTabs({
+  app,
+  canWrite,
+  canAdmin,
+  historyData,
+  historyLoading,
+  diagnosticsData,
+  diagnosticsLoading,
+  addPermissionOpened,
+  onOpenAddPermission,
+  onCloseAddPermission,
+  pendingMaintainerId,
+  onRemoveMaintainer,
+  onChanged,
+}: {
+  app: RegisteredApplication;
+  canWrite: boolean;
+  canAdmin: boolean;
+  historyData: ApplicationPermissionHistory | undefined;
+  historyLoading: boolean;
+  diagnosticsData: PermissionDiagnostics | undefined;
+  diagnosticsLoading: boolean;
+  addPermissionOpened: boolean;
+  onOpenAddPermission: () => void;
+  onCloseAddPermission: () => void;
+  pendingMaintainerId: string | undefined;
+  onRemoveMaintainer: (maintainer: DelegatedMaintainer) => void;
+  onChanged: () => void;
+}) {
+  return (
+    <>
       <Tabs defaultValue="permissions" color="blue" keepMounted={false}>
         <Tabs.List mb="lg">
           <Tabs.Tab value="permissions">Permissions ({app.permissions.length})</Tabs.Tab>
@@ -198,86 +183,22 @@ export function PermissionsDetailPage() {
           {canAdmin && <Tabs.Tab value="history">History</Tabs.Tab>}
           {canAdmin && <Tabs.Tab value="diagnostics">Diagnostics</Tabs.Tab>}
         </Tabs.List>
-
-        <Tabs.Panel value="permissions">
-          <SectionCard
-            title="Declared permissions"
-            description="Scopes this application declares for roles to grant."
-            right={
-              canWrite ? (
-                <Button size="xs" leftSection={<Icon name="plus" size={14} />} onClick={addPermissionControls.open}>
-                  Add permission
-                </Button>
-              ) : undefined
-            }
-          >
-            {app.description && (
-              <Text c="dimmed" mb="md" size="sm">
-                {app.description}
-              </Text>
-            )}
-            <DataTable
-              columns={permissionColumns}
-              rows={app.permissions}
-              getRowKey={(permission) => permission.id}
-              emptyIcon="list-checks"
-              emptyTitle="No permissions declared"
-              emptyText="This application has not declared any permissions yet."
-              minWidth={560}
-            />
-          </SectionCard>
-        </Tabs.Panel>
-
+        <Tabs.Panel value="permissions"><DeclaredPermissionsPanel app={app} canWrite={canWrite} onAdd={onOpenAddPermission} /></Tabs.Panel>
         <Tabs.Panel value="maintainers">
-          <Stack gap="lg">
-            <SectionCard title="Delegated maintainers" description="Principals allowed to manage this application's permission manifest.">
-              <Box mb={app.maintainers.length === 0 ? 0 : 'md'}>
-                <Text c="dimmed" size="xs">
-                  Owner: {app.ownerType} · <Text component="span" className="mw-mono">{app.ownerId}</Text>
-                </Text>
-              </Box>
-              {app.maintainers.length === 0 ? (
-                <Text c="dimmed" size="sm">
-                  No delegated maintainers. The owner manages this application.
-                </Text>
-              ) : (
-                <DataTable
-                  columns={maintainerColumns}
-                  rows={app.maintainers}
-                  getRowKey={(maintainer) => maintainer.id}
-                  minWidth={400}
-                />
-              )}
-            </SectionCard>
-
-            {canAdmin && <AddMaintainerCard app={app} onChanged={invalidate} />}
-          </Stack>
+          <MaintainersPanel
+            app={app}
+            canAdmin={canAdmin}
+            pendingMaintainerId={pendingMaintainerId}
+            onRemove={onRemoveMaintainer}
+            onChanged={onChanged}
+          />
         </Tabs.Panel>
-
-        <Tabs.Panel value="settings">
-          <Stack gap="lg">
-            <RegistrationSettings app={app} canWrite={canWrite} onSaved={invalidate} />
-            {canAdmin && <TransferOwnershipCard app={app} onChanged={invalidate} />}
-          </Stack>
-        </Tabs.Panel>
-
-        {canAdmin && (
-          <Tabs.Panel value="history">
-            <PermissionHistoryPanel data={historyQuery.data} isLoading={historyQuery.isLoading} />
-          </Tabs.Panel>
-        )}
-
-        {canAdmin && (
-          <Tabs.Panel value="diagnostics">
-            <PermissionDiagnosticsPanel data={diagnosticsQuery.data} isLoading={diagnosticsQuery.isLoading} />
-          </Tabs.Panel>
-        )}
+        <Tabs.Panel value="settings"><PermissionSettingsPanel app={app} canWrite={canWrite} canAdmin={canAdmin} onChanged={onChanged} /></Tabs.Panel>
+        {canAdmin && <Tabs.Panel value="history"><PermissionHistoryPanel data={historyData} isLoading={historyLoading} /></Tabs.Panel>}
+        {canAdmin && <Tabs.Panel value="diagnostics"><PermissionDiagnosticsPanel data={diagnosticsData} isLoading={diagnosticsLoading} /></Tabs.Panel>}
       </Tabs>
-
-      {addPermissionOpened && (
-        <AddPermissionModal app={app} onAdded={invalidate} onClose={addPermissionControls.close} />
-      )}
-    </div>
+      {addPermissionOpened && <AddPermissionModal app={app} onAdded={onChanged} onClose={onCloseAddPermission} />}
+    </>
   );
 }
 
@@ -339,6 +260,128 @@ function RegistrationSettings({ app, canWrite, onSaved }: { app: RegisteredAppli
         </Stack>
       </form>
     </SectionCard>
+  );
+}
+
+function DeclaredPermissionsPanel({ app, canWrite, onAdd }: { app: RegisteredApplication; canWrite: boolean; onAdd: () => void }) {
+  const columns: Column<RegisteredApplicationPermission>[] = [
+    {
+      key: 'key',
+      header: 'Permission',
+      render: (permission) => <Text className="mw-mono" fw={600} size="sm">{permission.fullPermissionKey}</Text>,
+    },
+    {
+      key: 'name',
+      header: 'Display name',
+      render: (permission) => <Text size="sm">{permission.displayName ?? '—'}</Text>,
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (permission) => permission.category
+        ? <Badge color="gray" variant="outline">{permission.category}</Badge>
+        : <Text c="dimmed" size="sm">—</Text>,
+    },
+  ];
+
+  return (
+    <SectionCard
+      title="Declared permissions"
+      description="Scopes this application declares for roles to grant."
+      right={canWrite ? <Button size="xs" leftSection={<Icon name="plus" size={14} />} onClick={onAdd}>Add permission</Button> : undefined}
+    >
+      {app.description && <Text c="dimmed" mb="md" size="sm">{app.description}</Text>}
+      <DataTable
+        columns={columns}
+        rows={app.permissions}
+        getRowKey={(permission) => permission.id}
+        emptyIcon="list-checks"
+        emptyTitle="No permissions declared"
+        emptyText="This application has not declared any permissions yet."
+        minWidth={560}
+      />
+    </SectionCard>
+  );
+}
+
+function MaintainersPanel({
+  app,
+  canAdmin,
+  pendingMaintainerId,
+  onRemove,
+  onChanged,
+}: {
+  app: RegisteredApplication;
+  canAdmin: boolean;
+  pendingMaintainerId: string | undefined;
+  onRemove: (maintainer: DelegatedMaintainer) => void;
+  onChanged: () => void;
+}) {
+  const columns: Column<DelegatedMaintainer>[] = [
+    {
+      key: 'principal',
+      header: 'Principal',
+      render: (maintainer) => <Text className="mw-mono" size="sm">{maintainer.principalId}</Text>,
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      render: (maintainer) => <Badge color={maintainer.principalType === 'Group' ? 'grape' : 'blue'} variant="light">{maintainer.principalType}</Badge>,
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      width: 110,
+      render: (maintainer) => canAdmin ? (
+        <Button
+          color="red"
+          size="xs"
+          variant="subtle"
+          loading={pendingMaintainerId === maintainer.id}
+          onClick={() => onRemove(maintainer)}
+        >
+          Remove
+        </Button>
+      ) : null,
+    },
+  ];
+
+  return (
+    <Stack gap="lg">
+      <SectionCard title="Delegated maintainers" description="Principals allowed to manage this application's permission manifest.">
+        <Box mb={app.maintainers.length === 0 ? 0 : 'md'}>
+          <Text c="dimmed" size="xs">
+            Owner: {app.ownerType} · <Text component="span" className="mw-mono">{app.ownerId}</Text>
+          </Text>
+        </Box>
+        {app.maintainers.length === 0 ? (
+          <Text c="dimmed" size="sm">No delegated maintainers. The owner manages this application.</Text>
+        ) : (
+          <DataTable columns={columns} rows={app.maintainers} getRowKey={(maintainer) => maintainer.id} minWidth={400} />
+        )}
+      </SectionCard>
+      {canAdmin && <AddMaintainerCard app={app} onChanged={onChanged} />}
+    </Stack>
+  );
+}
+
+function PermissionSettingsPanel({
+  app,
+  canWrite,
+  canAdmin,
+  onChanged,
+}: {
+  app: RegisteredApplication;
+  canWrite: boolean;
+  canAdmin: boolean;
+  onChanged: () => void;
+}) {
+  return (
+    <Stack gap="lg">
+      <RegistrationSettings app={app} canWrite={canWrite} onSaved={onChanged} />
+      {canAdmin && <TransferOwnershipCard app={app} onChanged={onChanged} />}
+    </Stack>
   );
 }
 

@@ -103,7 +103,247 @@ export function ApplicationDetailPage() {
   const app = appQuery.data;
   const credentials = credentialsQuery.data ?? [];
 
-  const credentialColumns: Column<ApplicationCredential>[] = [
+  return (
+    <div>
+      <BackLink label="Back to applications" to="/applications" />
+      <DetailHeader
+        icon={app.allowedGrantTypes.includes('client_credentials') ? 'server' : 'app-window'}
+        title={app.displayName}
+        description={app.clientId}
+        badge={<StatusBadge status={app.status} />}
+        actions={
+          canWrite ? (
+            <>
+              <Button variant="default" leftSection={<Icon name="pencil" size={16} />} onClick={editOAuthControls.open}>
+                Edit configuration
+              </Button>
+              <Button
+                variant="default"
+                loading={toggleStatus.isPending}
+                leftSection={<Icon name={app.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
+                onClick={() => toggleStatus.mutate(app)}
+              >
+                {app.status === 'Disabled' ? 'Enable' : 'Disable'}
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
+
+      <MetaStrip
+        items={[
+          { label: 'Profile', value: app.profile },
+          { label: 'Client type', value: app.clientType },
+          { label: 'Scopes', value: app.allowedScopes.length },
+          { label: 'Created', value: formatDateTime(app.createdAt) },
+        ]}
+      />
+
+      <ApplicationDetailTabs
+        app={app}
+        applicationId={applicationId}
+        credentials={credentials}
+        credentialsLoading={credentialsQuery.isLoading}
+        canWrite={canWrite}
+        canManageCredentials={canManageCredentials}
+        canManageCertificates={canManageCertificates}
+        canDelete={canDelete}
+        onRevokeCredential={setPendingRevoke}
+        onAddSecret={addSecretControls.open}
+        onAddCertificate={addCertControls.open}
+        onEdited={invalidateApp}
+        onDelete={deleteControls.open}
+      />
+
+      {addSecretOpened && (
+        <AddSecretModal
+          applicationId={applicationId}
+          onAdded={() => void queryClient.invalidateQueries({ queryKey: ['application', applicationId, 'credentials'] })}
+          onClose={addSecretControls.close}
+        />
+      )}
+      {addCertOpened && (
+        <AddCertificateModal
+          applicationId={applicationId}
+          onAdded={() => void queryClient.invalidateQueries({ queryKey: ['application', applicationId, 'credentials'] })}
+          onClose={addCertControls.close}
+        />
+      )}
+      {editOAuthOpened && <EditOAuthModal app={app} onSaved={invalidateApp} onClose={editOAuthControls.close} />}
+      <ConfirmModal
+        opened={pendingRevoke !== null}
+        title="Revoke credential"
+        message="Revoking this credential immediately stops it from working. Clients using it must switch to a new one."
+        confirmLabel="Revoke"
+        loading={revokeCredential.isPending}
+        onConfirm={() => pendingRevoke && revokeCredential.mutate(pendingRevoke)}
+        onClose={() => setPendingRevoke(null)}
+      />
+      <ConfirmModal
+        opened={confirmDelete}
+        title="Delete application"
+        message={`Permanently delete ${app.displayName}? Tokens issued to it will stop working.`}
+        confirmLabel="Delete application"
+        loading={deleteApp.isPending}
+        onConfirm={() => deleteApp.mutate()}
+        onClose={deleteControls.close}
+      />
+    </div>
+  );
+}
+
+type ApplicationDetailTabsProps = {
+  app: Application;
+  applicationId: string;
+  credentials: ApplicationCredential[];
+  credentialsLoading: boolean;
+  canWrite: boolean;
+  canManageCredentials: boolean;
+  canManageCertificates: boolean;
+  canDelete: boolean;
+  onRevokeCredential: (credential: ApplicationCredential) => void;
+  onAddSecret: () => void;
+  onAddCertificate: () => void;
+  onEdited: () => void;
+  onDelete: () => void;
+};
+
+function ApplicationDetailTabs({
+  app,
+  applicationId,
+  credentials,
+  credentialsLoading,
+  canWrite,
+  canManageCredentials,
+  canManageCertificates,
+  canDelete,
+  onRevokeCredential,
+  onAddSecret,
+  onAddCertificate,
+  onEdited,
+  onDelete,
+}: ApplicationDetailTabsProps) {
+  return (
+    <Tabs defaultValue="config" color="blue" keepMounted={false}>
+      <Tabs.List mb="lg">
+        <Tabs.Tab value="config">Configuration</Tabs.Tab>
+        <Tabs.Tab value="oauth">Scopes &amp; grants</Tabs.Tab>
+        <Tabs.Tab value="resources">Resource access</Tabs.Tab>
+        <Tabs.Tab value="uris">Redirect URIs</Tabs.Tab>
+        <Tabs.Tab value="credentials">Credentials ({credentials.length})</Tabs.Tab>
+        <Tabs.Tab value="settings">Settings</Tabs.Tab>
+        <Tabs.Tab value="administrative-access">Administrative access</Tabs.Tab>
+      </Tabs.List>
+
+      <Tabs.Panel value="config"><ApplicationConfiguration app={app} /></Tabs.Panel>
+      <Tabs.Panel value="oauth"><ApplicationOAuthSettings app={app} /></Tabs.Panel>
+      <Tabs.Panel value="resources"><ResourceAccessPanel applicationId={applicationId} canWrite={canWrite} /></Tabs.Panel>
+      <Tabs.Panel value="uris"><ApplicationRedirectUris app={app} /></Tabs.Panel>
+      <Tabs.Panel value="credentials">
+        <ApplicationCredentials
+          app={app}
+          credentials={credentials}
+          isLoading={credentialsLoading}
+          canManageCredentials={canManageCredentials}
+          canManageCertificates={canManageCertificates}
+          onRevoke={onRevokeCredential}
+          onAddSecret={onAddSecret}
+          onAddCertificate={onAddCertificate}
+        />
+      </Tabs.Panel>
+      <Tabs.Panel value="settings">
+        <AppSettings app={app} canWrite={canWrite} canDelete={canDelete} onEdited={onEdited} onDelete={onDelete} />
+      </Tabs.Panel>
+      <Tabs.Panel value="administrative-access">
+        <AdministrativeAccessPanel applicationId={applicationId} canWrite={canWrite} />
+      </Tabs.Panel>
+    </Tabs>
+  );
+}
+
+function ApplicationConfiguration({ app }: { app: Application }) {
+  return <SectionCard title="Configuration">
+    <FieldRow label="Client ID" value={app.clientId} mono />
+    <FieldRow label="Profile" value={app.profile} />
+    <FieldRow label="Client type" value={app.clientType} />
+    <FieldRow label="PKCE" value={app.requirePkce ? 'Required' : 'Not required'} />
+    <FieldRow label="Consent" value={app.requireConsent ? 'Required' : 'Not required'} />
+    <FieldRow label="Created" value={formatDateTime(app.createdAt)} last />
+  </SectionCard>;
+}
+
+function ApplicationOAuthSettings({ app }: { app: Application }) {
+  return <Stack gap="lg">
+    <SectionCard title="Grant types" description="OAuth flows this client is permitted to use.">
+      <Group gap="xs">
+        {app.allowedGrantTypes.length === 0 ? (
+          <Text c="dimmed" size="sm">None configured.</Text>
+        ) : (
+          app.allowedGrantTypes.map((grant) => (
+            <Badge key={grant} color="gray" variant="outline" style={{ fontFamily: 'var(--mw-mono)' }}>
+              {grant}
+            </Badge>
+          ))
+        )}
+      </Group>
+    </SectionCard>
+    <SectionCard title="Allowed scopes" description="Scopes this client may request at the token endpoint.">
+      <Group gap="xs">
+        {app.allowedScopes.length === 0 ? (
+          <Text c="dimmed" size="sm">No scopes.</Text>
+        ) : (
+          app.allowedScopes.map((scope) => (
+            <Badge key={scope} color="blue" variant="light" style={{ fontFamily: 'var(--mw-mono)' }}>
+              {scope}
+            </Badge>
+          ))
+        )}
+      </Group>
+    </SectionCard>
+  </Stack>;
+}
+
+function ApplicationRedirectUris({ app }: { app: Application }) {
+  return <Stack gap="lg">
+    <RedirectUriSection title="Redirect URIs" uris={app.redirectUris} emptyText="None — this client does not redirect a user." />
+    <RedirectUriSection title="Post-logout redirect URIs" uris={app.postLogoutRedirectUris} emptyText="None configured." />
+  </Stack>;
+}
+
+function RedirectUriSection({ title, uris, emptyText }: { title: string; uris: string[]; emptyText: string }) {
+  return <SectionCard title={title}>
+    {uris.length === 0 ? (
+      <Text c="dimmed" size="sm">{emptyText}</Text>
+    ) : (
+      <Stack gap={0}>
+        {uris.map((uri, index) => (
+          <FieldRow key={uri} label={`URI ${index + 1}`} value={uri} mono last={index === uris.length - 1} />
+        ))}
+      </Stack>
+    )}
+  </SectionCard>;
+}
+
+function ApplicationCredentials({
+  app,
+  credentials,
+  isLoading,
+  canManageCredentials,
+  canManageCertificates,
+  onRevoke,
+  onAddSecret,
+  onAddCertificate,
+}: {
+  app: Application;
+  credentials: ApplicationCredential[];
+  isLoading: boolean;
+  canManageCredentials: boolean;
+  canManageCertificates: boolean;
+  onRevoke: (credential: ApplicationCredential) => void;
+  onAddSecret: () => void;
+  onAddCertificate: () => void;
+}) {
+  const columns: Column<ApplicationCredential>[] = [
     {
       key: 'type',
       header: 'Type',
@@ -142,213 +382,38 @@ export function ApplicationDetailPage() {
       width: 110,
       render: (credential) =>
         canManageCredentials && !credential.revokedAt ? (
-          <Button color="red" size="xs" variant="subtle" onClick={() => setPendingRevoke(credential)}>
+          <Button color="red" size="xs" variant="subtle" onClick={() => onRevoke(credential)}>
             Revoke
           </Button>
         ) : null,
     },
   ];
 
-  return (
-    <div>
-      <BackLink label="Back to applications" to="/applications" />
-      <DetailHeader
-        icon={app.allowedGrantTypes.includes('client_credentials') ? 'server' : 'app-window'}
-        title={app.displayName}
-        description={app.clientId}
-        badge={<StatusBadge status={app.status} />}
-        actions={
-          canWrite ? (
-            <>
-              <Button variant="default" leftSection={<Icon name="pencil" size={16} />} onClick={editOAuthControls.open}>
-                Edit configuration
-              </Button>
-              <Button
-                variant="default"
-                loading={toggleStatus.isPending}
-                leftSection={<Icon name={app.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
-                onClick={() => toggleStatus.mutate(app)}
-              >
-                {app.status === 'Disabled' ? 'Enable' : 'Disable'}
-              </Button>
-            </>
-          ) : undefined
-        }
+  return <SectionCard
+    title="Credentials"
+    description="Client secrets and certificates registered to this application."
+    right={app.clientType === 'Confidential' && (canManageCredentials || canManageCertificates) ? (
+      <Group gap="xs">
+        {canManageCredentials && <Button size="xs" leftSection={<Icon name="plus" size={14} />} onClick={onAddSecret}>Add secret</Button>}
+        {canManageCertificates && <Button size="xs" variant="default" leftSection={<Icon name="plus" size={14} />} onClick={onAddCertificate}>Add certificate</Button>}
+      </Group>
+    ) : undefined}
+  >
+    {app.clientType !== 'Confidential' ? (
+      <Text c="dimmed" size="sm">Public clients have no client secret — they authenticate with PKCE.</Text>
+    ) : (
+      <DataTable
+        columns={columns}
+        rows={credentials}
+        getRowKey={(credential) => credential.id}
+        isLoading={isLoading}
+        emptyIcon="key-round"
+        emptyTitle="No credentials"
+        emptyText="Add a client secret to let this confidential client authenticate."
+        minWidth={560}
       />
-
-      <MetaStrip
-        items={[
-          { label: 'Profile', value: app.profile },
-          { label: 'Client type', value: app.clientType },
-          { label: 'Scopes', value: app.allowedScopes.length },
-          { label: 'Created', value: formatDateTime(app.createdAt) },
-        ]}
-      />
-
-      <Tabs defaultValue="config" color="blue" keepMounted={false}>
-        <Tabs.List mb="lg">
-          <Tabs.Tab value="config">Configuration</Tabs.Tab>
-          <Tabs.Tab value="oauth">Scopes &amp; grants</Tabs.Tab>
-          <Tabs.Tab value="resources">Resource access</Tabs.Tab>
-          <Tabs.Tab value="uris">Redirect URIs</Tabs.Tab>
-          <Tabs.Tab value="credentials">Credentials ({credentials.length})</Tabs.Tab>
-          <Tabs.Tab value="settings">Settings</Tabs.Tab>
-          <Tabs.Tab value="administrative-access">Administrative access</Tabs.Tab>
-        </Tabs.List>
-
-        <Tabs.Panel value="config">
-          <SectionCard title="Configuration">
-            <FieldRow label="Client ID" value={app.clientId} mono />
-            <FieldRow label="Profile" value={app.profile} />
-            <FieldRow label="Client type" value={app.clientType} />
-            <FieldRow label="PKCE" value={app.requirePkce ? 'Required' : 'Not required'} />
-            <FieldRow label="Consent" value={app.requireConsent ? 'Required' : 'Not required'} />
-            <FieldRow label="Created" value={formatDateTime(app.createdAt)} last />
-          </SectionCard>
-        </Tabs.Panel>
-
-        <Tabs.Panel value="oauth">
-          <Stack gap="lg">
-            <SectionCard title="Grant types" description="OAuth flows this client is permitted to use.">
-              <Group gap="xs">
-                {app.allowedGrantTypes.length === 0 ? (
-                  <Text c="dimmed" size="sm">None configured.</Text>
-                ) : (
-                  app.allowedGrantTypes.map((grant) => (
-                    <Badge key={grant} color="gray" variant="outline" style={{ fontFamily: 'var(--mw-mono)' }}>
-                      {grant}
-                    </Badge>
-                  ))
-                )}
-              </Group>
-            </SectionCard>
-            <SectionCard title="Allowed scopes" description="Scopes this client may request at the token endpoint.">
-              <Group gap="xs">
-                {app.allowedScopes.length === 0 ? (
-                  <Text c="dimmed" size="sm">No scopes.</Text>
-                ) : (
-                  app.allowedScopes.map((scope) => (
-                    <Badge key={scope} color="blue" variant="light" style={{ fontFamily: 'var(--mw-mono)' }}>
-                      {scope}
-                    </Badge>
-                  ))
-                )}
-              </Group>
-            </SectionCard>
-          </Stack>
-        </Tabs.Panel>
-
-        <Tabs.Panel value="uris">
-          <Stack gap="lg">
-            <SectionCard title="Redirect URIs">
-              {app.redirectUris.length === 0 ? (
-                <Text c="dimmed" size="sm">None — this client does not redirect a user.</Text>
-              ) : (
-                <Stack gap={0}>
-                  {app.redirectUris.map((uri, index) => (
-                    <FieldRow key={uri} label={`URI ${index + 1}`} value={uri} mono last={index === app.redirectUris.length - 1} />
-                  ))}
-                </Stack>
-              )}
-            </SectionCard>
-            <SectionCard title="Post-logout redirect URIs">
-              {app.postLogoutRedirectUris.length === 0 ? (
-                <Text c="dimmed" size="sm">None configured.</Text>
-              ) : (
-                <Stack gap={0}>
-                  {app.postLogoutRedirectUris.map((uri, index) => (
-                    <FieldRow key={uri} label={`URI ${index + 1}`} value={uri} mono last={index === app.postLogoutRedirectUris.length - 1} />
-                  ))}
-                </Stack>
-              )}
-            </SectionCard>
-          </Stack>
-        </Tabs.Panel>
-
-        <Tabs.Panel value="credentials">
-          <SectionCard
-            title="Credentials"
-            description="Client secrets and certificates registered to this application."
-            right={
-              app.clientType === 'Confidential' && (canManageCredentials || canManageCertificates) ? (
-                <Group gap="xs">
-                  {canManageCredentials && (
-                    <Button size="xs" leftSection={<Icon name="plus" size={14} />} onClick={addSecretControls.open}>
-                      Add secret
-                    </Button>
-                  )}
-                  {canManageCertificates && (
-                    <Button size="xs" variant="default" leftSection={<Icon name="plus" size={14} />} onClick={addCertControls.open}>
-                      Add certificate
-                    </Button>
-                  )}
-                </Group>
-              ) : undefined
-            }
-          >
-            {app.clientType !== 'Confidential' ? (
-              <Text c="dimmed" size="sm">
-                Public clients have no client secret — they authenticate with PKCE.
-              </Text>
-            ) : (
-              <DataTable
-                columns={credentialColumns}
-                rows={credentials}
-                getRowKey={(credential) => credential.id}
-                isLoading={credentialsQuery.isLoading}
-                emptyIcon="key-round"
-                emptyTitle="No credentials"
-                emptyText="Add a client secret to let this confidential client authenticate."
-                minWidth={560}
-              />
-            )}
-          </SectionCard>
-        </Tabs.Panel>
-
-        <Tabs.Panel value="settings">
-          <AppSettings app={app} canWrite={canWrite} canDelete={canDelete} onEdited={invalidateApp} onDelete={deleteControls.open} />
-        </Tabs.Panel>
-        <Tabs.Panel value="resources"><ResourceAccessPanel applicationId={applicationId} canWrite={canWrite} /></Tabs.Panel>
-        <Tabs.Panel value="administrative-access">
-          <AdministrativeAccessPanel applicationId={applicationId} canWrite={canWrite} />
-        </Tabs.Panel>
-      </Tabs>
-
-      {addSecretOpened && (
-        <AddSecretModal
-          applicationId={applicationId}
-          onAdded={() => void queryClient.invalidateQueries({ queryKey: ['application', applicationId, 'credentials'] })}
-          onClose={addSecretControls.close}
-        />
-      )}
-      {addCertOpened && (
-        <AddCertificateModal
-          applicationId={applicationId}
-          onAdded={() => void queryClient.invalidateQueries({ queryKey: ['application', applicationId, 'credentials'] })}
-          onClose={addCertControls.close}
-        />
-      )}
-      {editOAuthOpened && <EditOAuthModal app={app} onSaved={invalidateApp} onClose={editOAuthControls.close} />}
-      <ConfirmModal
-        opened={pendingRevoke !== null}
-        title="Revoke credential"
-        message="Revoking this credential immediately stops it from working. Clients using it must switch to a new one."
-        confirmLabel="Revoke"
-        loading={revokeCredential.isPending}
-        onConfirm={() => pendingRevoke && revokeCredential.mutate(pendingRevoke)}
-        onClose={() => setPendingRevoke(null)}
-      />
-      <ConfirmModal
-        opened={confirmDelete}
-        title="Delete application"
-        message={`Permanently delete ${app.displayName}? Tokens issued to it will stop working.`}
-        confirmLabel="Delete application"
-        loading={deleteApp.isPending}
-        onConfirm={() => deleteApp.mutate()}
-        onClose={deleteControls.close}
-      />
-    </div>
-  );
+    )}
+  </SectionCard>;
 }
 
 function AppSettings({

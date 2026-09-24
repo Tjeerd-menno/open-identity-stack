@@ -13,8 +13,8 @@ export function AdministrativeAccessPanel({ applicationId, canWrite }: { applica
 }
 
 function AdministrativeAccessForm({ applicationId, canWrite, access }: { applicationId: string; canWrite: boolean; access: AdministrativeAccess }) {
-  const [delegated, setDelegated] = useState(access.delegatedPermissions.join('\n'));
-  const [machine, setMachine] = useState(access.applicationPermissions.join('\n'));
+  const [delegated, setDelegated] = useState(() => access.delegatedPermissions.join('\n'));
+  const [machine, setMachine] = useState(() => access.applicationPermissions.join('\n'));
   const queryClient = useQueryClient();
   const save = useMutation({
     mutationFn: () => api.administrativeAccess.save(applicationId, {

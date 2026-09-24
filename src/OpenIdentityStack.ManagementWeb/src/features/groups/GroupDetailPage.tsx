@@ -103,7 +103,105 @@ export function GroupDetailPage() {
   const memberCount = group.memberCount;
   const hasNextPage = (membersQuery.data?.items.length ?? 0) === pageSize;
 
-  const memberColumns: Column<GroupMember>[] = [
+  return (
+    <div>
+      <BackLink label="Back to groups" to="/groups" />
+      <DetailHeader
+        icon="users-round"
+        title={group.name}
+        description={group.description ?? undefined}
+        actions={
+          canManageMembers ? (
+            <Button variant="default" leftSection={<Icon name="user-plus" size={16} />} onClick={addMemberControls.open}>
+              Add members
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <MetaStrip
+        items={[
+          { label: 'Members', value: memberCount ?? '—' },
+          { label: 'Mappings', value: group.mappingCount ?? mappings.length },
+          { label: 'Created', value: formatDateTime(group.createdAt) },
+        ]}
+      />
+
+      <Tabs defaultValue="members" color="blue" keepMounted={false}>
+        <Tabs.List mb="lg">
+          <Tabs.Tab value="members">Members{memberCount !== undefined ? ` (${memberCount})` : ''}</Tabs.Tab>
+          <Tabs.Tab value="mappings">Mappings ({mappings.length})</Tabs.Tab>
+          <Tabs.Tab value="settings">Settings</Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="members">
+          <GroupMembersPanel
+            members={membersQuery.data?.items ?? []}
+            isLoading={membersQuery.isLoading}
+            isRefreshing={membersQuery.isPlaceholderData}
+            isFetching={membersQuery.isFetching}
+            page={page}
+            hasNextPage={hasNextPage}
+            onPageChange={setPage}
+            navigate={navigate}
+            canManageMembers={canManageMembers}
+            onRemoveMember={(member) => removeMember.mutate(member)}
+          />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="mappings">
+          <GroupMappingsPanel
+            mappings={mappings}
+            canWrite={canWrite}
+            onAdd={addMappingControls.open}
+            onRemove={(mapping) => removeMapping.mutate(mapping)}
+          />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="settings">
+          <GroupSettings group={group} canWrite={canWrite} canDelete={canDelete} onDeleted={() => navigate('/groups')} />
+        </Tabs.Panel>
+      </Tabs>
+
+      {addMemberOpened && (
+        <AddMembersModal groupId={groupId} onAdded={invalidateMembers} onClose={addMemberControls.close} />
+      )}
+      {addMappingOpened && (
+        <AddMappingModal
+          groupId={groupId}
+          canReadRoles={canReadRoles}
+          onAdded={invalidateMappings}
+          onClose={addMappingControls.close}
+        />
+      )}
+    </div>
+  );
+}
+
+function GroupMembersPanel({
+  members,
+  isLoading,
+  isRefreshing,
+  isFetching,
+  page,
+  hasNextPage,
+  onPageChange,
+  navigate,
+  canManageMembers,
+  onRemoveMember,
+}: {
+  members: GroupMember[];
+  isLoading: boolean;
+  isRefreshing: boolean;
+  isFetching: boolean;
+  page: number;
+  hasNextPage: boolean;
+  onPageChange: (page: number | ((current: number) => number)) => void;
+  navigate: ReturnType<typeof useNavigate>;
+  canManageMembers: boolean;
+  onRemoveMember: (member: GroupMember) => void;
+}) {
+  const columns: Column<GroupMember>[] = [
     {
       key: 'member',
       header: 'User',
@@ -142,7 +240,7 @@ export function GroupDetailPage() {
           items={[
             { label: 'Open user', icon: 'arrow-up-right', onClick: () => navigate(`/users/${member.userId}`) },
             { separator: true },
-            { label: 'Remove from group', icon: 'user-minus', danger: true, disabled: !canManageMembers, onClick: () => removeMember.mutate(member) },
+            { label: 'Remove from group', icon: 'user-minus', danger: true, disabled: !canManageMembers, onClick: () => onRemoveMember(member) },
           ]}
         />
       ),
@@ -150,133 +248,81 @@ export function GroupDetailPage() {
   ];
 
   return (
-    <div>
-      <BackLink label="Back to groups" to="/groups" />
-      <DetailHeader
-        icon="users-round"
-        title={group.name}
-        description={group.description ?? undefined}
-        actions={
-          canManageMembers ? (
-            <Button variant="default" leftSection={<Icon name="user-plus" size={16} />} onClick={addMemberControls.open}>
-              Add members
+    <>
+      <DataTable
+        columns={columns}
+        rows={members}
+        getRowKey={(member) => member.userId}
+        isLoading={isLoading}
+        isRefreshing={isRefreshing}
+        emptyIcon="users"
+        emptyTitle="No members"
+        emptyText="Add users to this group to grant them its delegated access."
+      />
+      {(page > 1 || hasNextPage) && (
+        <Group justify="space-between" mt="md">
+          <Text c="dimmed" size="sm">
+            Page {page}
+          </Text>
+          <Group gap="sm">
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<Icon name="arrow-left" size={14} />}
+              disabled={page <= 1 || isFetching}
+              onClick={() => onPageChange((current) => Math.max(1, current - 1))}
+            >
+              Previous
             </Button>
-          ) : undefined
-        }
-      />
+            <Button
+              variant="default"
+              size="xs"
+              rightSection={<Icon name="arrow-right" size={14} />}
+              disabled={!hasNextPage || isFetching}
+              onClick={() => onPageChange((current) => current + 1)}
+            >
+              Next
+            </Button>
+          </Group>
+        </Group>
+      )}
+    </>
+  );
+}
 
-      <MetaStrip
-        items={[
-          { label: 'Members', value: memberCount ?? '—' },
-          { label: 'Mappings', value: group.mappingCount ?? mappings.length },
-          { label: 'Created', value: formatDateTime(group.createdAt) },
-        ]}
-      />
-
-      <Tabs defaultValue="members" color="blue" keepMounted={false}>
-        <Tabs.List mb="lg">
-          <Tabs.Tab value="members">Members{memberCount !== undefined ? ` (${memberCount})` : ''}</Tabs.Tab>
-          <Tabs.Tab value="mappings">Mappings ({mappings.length})</Tabs.Tab>
-          <Tabs.Tab value="settings">Settings</Tabs.Tab>
-        </Tabs.List>
-
-        <Tabs.Panel value="members">
-          <DataTable
-            columns={memberColumns}
-            rows={membersQuery.data?.items ?? []}
-            getRowKey={(member) => member.userId}
-            isLoading={membersQuery.isLoading}
-            isRefreshing={membersQuery.isPlaceholderData}
-            emptyIcon="users"
-            emptyTitle="No members"
-            emptyText="Add users to this group to grant them its delegated access."
-          />
-          {(page > 1 || hasNextPage) && (
-            <Group justify="space-between" mt="md">
-              <Text c="dimmed" size="sm">
-                Page {page}
-              </Text>
-              <Group gap="sm">
-                <Button
-                  variant="default"
-                  size="xs"
-                  leftSection={<Icon name="arrow-left" size={14} />}
-                  disabled={page <= 1 || membersQuery.isFetching}
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="default"
-                  size="xs"
-                  rightSection={<Icon name="arrow-right" size={14} />}
-                  disabled={!hasNextPage || membersQuery.isFetching}
-                  onClick={() => setPage((current) => current + 1)}
-                >
-                  Next
-                </Button>
+function GroupMappingsPanel({
+  mappings,
+  canWrite,
+  onAdd,
+  onRemove,
+}: {
+  mappings: GroupMapping[];
+  canWrite: boolean;
+  onAdd: () => void;
+  onRemove: (mapping: GroupMapping) => void;
+}) {
+  return (
+    <SectionCard
+      title="External mappings"
+      description="Role and claim mappings that grant access based on upstream group membership."
+      right={canWrite ? <Button size="xs" leftSection={<Icon name="plus" size={14} />} onClick={onAdd}>Add mapping</Button> : undefined}
+    >
+      {mappings.length === 0 ? (
+        <Text c="dimmed" size="sm">No mappings configured.</Text>
+      ) : (
+        <Stack gap="xs">
+          {mappings.map((mapping) => (
+            <Group key={mapping.id} justify="space-between" wrap="nowrap" gap="md">
+              <Group gap="sm" wrap="nowrap">
+                <Badge color={mapping.type === 'Role' ? 'blue' : 'grape'} variant="light">{mapping.type}</Badge>
+                <Text className="mw-mono" size="sm">{mapping.value}</Text>
               </Group>
+              {canWrite && <Button color="red" size="xs" variant="subtle" onClick={() => onRemove(mapping)}>Remove</Button>}
             </Group>
-          )}
-        </Tabs.Panel>
-
-        <Tabs.Panel value="mappings">
-          <SectionCard
-            title="External mappings"
-            description="Role and claim mappings that grant access based on upstream group membership."
-            right={
-              canWrite ? (
-                <Button size="xs" leftSection={<Icon name="plus" size={14} />} onClick={addMappingControls.open}>
-                  Add mapping
-                </Button>
-              ) : undefined
-            }
-          >
-            {mappings.length === 0 ? (
-              <Text c="dimmed" size="sm">
-                No mappings configured.
-              </Text>
-            ) : (
-              <Stack gap="xs">
-                {mappings.map((mapping) => (
-                  <Group key={mapping.id} justify="space-between" wrap="nowrap" gap="md">
-                    <Group gap="sm" wrap="nowrap">
-                      <Badge color={mapping.type === 'Role' ? 'blue' : 'grape'} variant="light">
-                        {mapping.type}
-                      </Badge>
-                      <Text className="mw-mono" size="sm">
-                        {mapping.value}
-                      </Text>
-                    </Group>
-                    {canWrite && (
-                      <Button color="red" size="xs" variant="subtle" onClick={() => removeMapping.mutate(mapping)}>
-                        Remove
-                      </Button>
-                    )}
-                  </Group>
-                ))}
-              </Stack>
-            )}
-          </SectionCard>
-        </Tabs.Panel>
-
-        <Tabs.Panel value="settings">
-          <GroupSettings group={group} canWrite={canWrite} canDelete={canDelete} onDeleted={() => navigate('/groups')} />
-        </Tabs.Panel>
-      </Tabs>
-
-      {addMemberOpened && (
-        <AddMembersModal groupId={groupId} onAdded={invalidateMembers} onClose={addMemberControls.close} />
+          ))}
+        </Stack>
       )}
-      {addMappingOpened && (
-        <AddMappingModal
-          groupId={groupId}
-          canReadRoles={canReadRoles}
-          onAdded={invalidateMappings}
-          onClose={addMappingControls.close}
-        />
-      )}
-    </div>
+    </SectionCard>
   );
 }
 

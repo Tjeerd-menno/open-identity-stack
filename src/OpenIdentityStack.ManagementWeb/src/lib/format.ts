@@ -11,6 +11,7 @@ const RELATIVE_UNITS: Array<{ limit: number; divisor: number; unit: Intl.Relativ
 ];
 
 const relativeFormatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+const dateTimeFormatter = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' });
 
 export function formatRelativeTime(value: string | number | Date | null | undefined): string {
   if (value === null || value === undefined || value === '') {
@@ -38,7 +39,7 @@ export function formatDateTime(value: string | number | Date | null | undefined)
     return '—';
   }
 
-  return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+  return dateTimeFormatter.format(date);
 }
 
 export function formatCount(value: number): string {
