@@ -127,8 +127,9 @@ function RolePermissions({ role, canEdit }: { role: Role; canEdit: boolean }) {
     save.mutate([...role.permissions, permission]);
   };
 
+  const assignedPermissions = new Set(role.permissions);
   const assignable = (catalogQuery.data?.items ?? [])
-    .filter((item) => item.assignable && !role.permissions.includes(item.permission))
+    .filter((item) => item.assignable && !assignedPermissions.has(item.permission))
     .map((item) => ({ value: item.permission, label: `${item.permission} — ${item.displayName}` }));
 
   return (

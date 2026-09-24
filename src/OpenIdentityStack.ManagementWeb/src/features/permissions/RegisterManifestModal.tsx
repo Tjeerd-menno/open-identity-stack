@@ -12,20 +12,26 @@ import {
   TextInput,
 } from '@mantine/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { OwnerType, PermissionManifestPermission } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
 import { api, getApiErrorMessage } from '@/lib/api';
 
-type DraftPermission = { key: string; displayName: string; category: string };
-
-const emptyPermission = (): DraftPermission => ({ key: '', displayName: '', category: '' });
+type DraftPermission = { id: string; key: string; displayName: string; category: string };
 
 export function RegisterManifestModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<'import' | 'manual'>('import');
+  const initialPermissionId = useId();
+  const nextPermissionId = useRef(1);
+  const createEmptyPermission = () => ({
+    id: `${initialPermissionId}-${nextPermissionId.current++}`,
+    key: '',
+    displayName: '',
+    category: '',
+  });
 
   const [endpoint, setEndpoint] = useState('');
   const [appId, setAppId] = useState('');
@@ -33,7 +39,12 @@ export function RegisterManifestModal({ onClose }: { onClose: () => void }) {
   const [version, setVersion] = useState('1.0.0');
   const [ownerType, setOwnerType] = useState<OwnerType>('group');
   const [ownerId, setOwnerId] = useState('');
-  const [permissions, setPermissions] = useState<DraftPermission[]>([emptyPermission()]);
+  const [permissions, setPermissions] = useState<DraftPermission[]>(() => [{
+    id: `${initialPermissionId}-0`,
+    key: '',
+    displayName: '',
+    category: '',
+  }]);
   const [error, setError] = useState<string | null>(null);
 
   const finish = (id: string) => {
@@ -75,8 +86,10 @@ export function RegisterManifestModal({ onClose }: { onClose: () => void }) {
 
   const setPermissionAt = (index: number, patch: Partial<DraftPermission>) =>
     setPermissions((list) => list.map((item, i) => (i === index ? { ...item, ...patch } : item)));
-  const removePermissionAt = (index: number) =>
-    setPermissions((list) => (list.length <= 1 ? [emptyPermission()] : list.filter((_, i) => i !== index)));
+  const removePermissionAt = (index: number) => {
+    const replacement = createEmptyPermission();
+    setPermissions((list) => (list.length <= 1 ? [replacement] : list.filter((_, i) => i !== index)));
+  };
 
   const submit = () => {
     setError(null);
@@ -178,7 +191,7 @@ export function RegisterManifestModal({ onClose }: { onClose: () => void }) {
               </Text>
               <Stack gap="xs">
                 {permissions.map((permission, index) => (
-                  <Group key={index} gap="xs" wrap="nowrap" align="flex-start">
+                  <Group key={permission.id} gap="xs" wrap="nowrap" align="flex-start">
                     <TextInput
                       aria-label={`Permission key ${index + 1}`}
                       placeholder="orders:read"
@@ -218,7 +231,10 @@ export function RegisterManifestModal({ onClose }: { onClose: () => void }) {
                 variant="subtle"
                 leftSection={<Icon name="plus" size={14} />}
                 mt={6}
-                onClick={() => setPermissions((list) => [...list, emptyPermission()])}
+                onClick={() => {
+                  const permission = createEmptyPermission();
+                  setPermissions((list) => [...list, permission]);
+                }}
               >
                 Add permission
               </Button>

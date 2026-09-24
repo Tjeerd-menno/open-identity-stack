@@ -5,7 +5,7 @@ import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import type { User } from '@openidentitystack/admin-api-client';
+import type { RoleListItem, UpstreamIdentity, User, UserGroup, UserRoleListItem } from '@openidentitystack/admin-api-client';
 import { Icon } from '@/components/Icon';
 import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
@@ -108,28 +108,71 @@ export function UserDetailPage() {
   const groups = groupsQuery.data ?? [];
   const identities = identitiesQuery.data ?? [];
 
+  return (
+    <UserDetailView
+      user={user}
+      userId={userId}
+      canWrite={canWrite}
+      canResetPassword={canResetPassword}
+      canDisableUser={canDisableUser}
+      canReadRoles={canReadRoles}
+      canReadGroups={canReadGroups}
+      canAssignRoles={canAssignRoles}
+      roles={roles}
+      groups={groups}
+      identities={identities}
+      availableRoles={allRolesQuery.data?.items ?? []}
+      roleToAssign={roleToAssign}
+      onRoleToAssign={setRoleToAssign}
+      isAssigningRole={assignRole.isPending}
+      onAssignRole={() => roleToAssign && assignRole.mutate(roleToAssign)}
+      pendingRoleId={unassignRole.isPending ? unassignRole.variables : undefined}
+      onUnassignRole={(roleId) => unassignRole.mutate(roleId)}
+      isUnlinkingIdentity={unlinkIdentity.isPending}
+      unlinkingProviderId={unlinkIdentity.isPending ? unlinkIdentity.variables : undefined}
+      onUnlinkIdentity={(providerId) => unlinkIdentity.mutate(providerId)}
+      isTogglingStatus={toggleStatus.isPending}
+      onToggleStatus={() => toggleStatus.mutate()}
+      resetOpened={resetOpened}
+      onOpenReset={resetControls.open}
+      onCloseReset={resetControls.close}
+    />
+  );
+}
+
+type UserDetailViewProps = {
+  user: User;
+  userId: string;
+  canWrite: boolean;
+  canResetPassword: boolean;
+  canDisableUser: boolean;
+  canReadRoles: boolean;
+  canReadGroups: boolean;
+  canAssignRoles: boolean;
+  roles: UserRoleListItem[];
+  groups: UserGroup[];
+  identities: UpstreamIdentity[];
+  availableRoles: RoleListItem[];
+  roleToAssign: string | null;
+  onRoleToAssign: (roleId: string | null) => void;
+  isAssigningRole: boolean;
+  onAssignRole: () => void;
+  pendingRoleId: string | undefined;
+  onUnassignRole: (roleId: string) => void;
+  isUnlinkingIdentity: boolean;
+  unlinkingProviderId: string | undefined;
+  onUnlinkIdentity: (providerId: string) => void;
+  isTogglingStatus: boolean;
+  onToggleStatus: () => void;
+  resetOpened: boolean;
+  onOpenReset: () => void;
+  onCloseReset: () => void;
+};
+
+function UserDetailView(props: UserDetailViewProps) {
+  const { user, canWrite, canDisableUser, canReadRoles, canReadGroups, roles, groups } = props;
   // Enabling a disabled account is authorized with users:write; disabling needs users:disable.
   const canToggleStatus = user.status === 'Disabled' ? canWrite : canDisableUser;
-  const headerActions =
-    canResetPassword || canToggleStatus ? (
-      <>
-        {canResetPassword && (
-          <Button variant="default" leftSection={<Icon name="key-round" size={16} />} onClick={resetControls.open}>
-            Reset password
-          </Button>
-        )}
-        {canToggleStatus && (
-          <Button
-            variant="default"
-            loading={toggleStatus.isPending}
-            leftSection={<Icon name={user.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
-            onClick={() => toggleStatus.mutate()}
-          >
-            {user.status === 'Disabled' ? 'Enable user' : 'Disable user'}
-          </Button>
-        )}
-      </>
-    ) : undefined;
 
   return (
     <div>
@@ -139,172 +182,186 @@ export function UserDetailPage() {
         title={user.displayName}
         description={user.email}
         badge={<StatusBadge status={user.status} />}
-        actions={headerActions}
+        actions={<UserHeaderActions {...props} canToggleStatus={canToggleStatus} />}
       />
-
-      <MetaStrip
-        items={[
-          ...(canReadRoles ? [{ label: 'Roles', value: roles.length }] : []),
-          ...(canReadGroups ? [{ label: 'Groups', value: groups.length }] : []),
-          { label: 'MFA', value: user.mfaEnabled ? 'On' : 'Off' },
-          { label: 'Created', value: formatDateTime(user.createdAt) },
-        ]}
-      />
-
-      <Tabs defaultValue="profile" color="blue" keepMounted={false}>
-        <Tabs.List mb="lg">
-          <Tabs.Tab value="profile">Profile</Tabs.Tab>
-          {canReadRoles && <Tabs.Tab value="roles">Roles ({roles.length})</Tabs.Tab>}
-          {canReadGroups && <Tabs.Tab value="groups">Groups ({groups.length})</Tabs.Tab>}
-          <Tabs.Tab value="identities">Upstream identities ({identities.length})</Tabs.Tab>
-        </Tabs.List>
-
-        <Tabs.Panel value="profile">
-          <ProfileCard user={user} canWrite={canWrite} />
-        </Tabs.Panel>
-
-        {canReadRoles && (
-        <Tabs.Panel value="roles">
-          <SectionCard
-            title="Assigned roles"
-            description="Platform roles assigned directly to this user. Members inherit the permissions of every assigned role."
-            right={
-              canAssignRoles ? (
-                <Group gap="xs" wrap="nowrap">
-                  <Select
-                    placeholder="Select a role"
-                    searchable
-                    w={200}
-                    data={(allRolesQuery.data?.items ?? [])
-                      .filter((role) => !roles.some((assigned) => assigned.id === role.id))
-                      .map((role) => ({ value: role.id, label: role.displayName }))}
-                    value={roleToAssign}
-                    onChange={setRoleToAssign}
-                  />
-                  <Button
-                    disabled={!roleToAssign}
-                    loading={assignRole.isPending}
-                    onClick={() => roleToAssign && assignRole.mutate(roleToAssign)}
-                  >
-                    Assign
-                  </Button>
-                </Group>
-              ) : undefined
-            }
-          >
-            {roles.length === 0 ? (
-              <Text c="dimmed" size="sm">
-                No roles assigned.
-              </Text>
-            ) : (
-              <Stack gap={0}>
-                {roles.map((role, index) => (
-                  <Group
-                    key={role.id}
-                    justify="space-between"
-                    wrap="nowrap"
-                    py="sm"
-                    style={{ borderBottom: index === roles.length - 1 ? undefined : '1px solid var(--mw-border)' }}
-                  >
-                    <Group gap="sm" wrap="nowrap">
-                      <Badge color="blue" variant="light">
-                        {role.displayName}
-                      </Badge>
-                      {role.isSystemRole && (
-                        <Text c="dimmed" size="xs">
-                          System role
-                        </Text>
-                      )}
-                    </Group>
-                    {canAssignRoles && (
-                      <ActionIcon
-                        aria-label={`Remove ${role.displayName}`}
-                        color="red"
-                        variant="subtle"
-                        loading={unassignRole.isPending && unassignRole.variables === role.id}
-                        onClick={() => unassignRole.mutate(role.id)}
-                      >
-                        <Icon name="x" size={16} />
-                      </ActionIcon>
-                    )}
-                  </Group>
-                ))}
-              </Stack>
-            )}
-          </SectionCard>
-        </Tabs.Panel>
-        )}
-
-        {canReadGroups && (
-        <Tabs.Panel value="groups">
-          <SectionCard title="Group membership">
-            {groups.length === 0 ? (
-              <Text c="dimmed" size="sm">
-                Not a member of any group.
-              </Text>
-            ) : (
-              <Stack gap={0}>
-                {groups.map((group, index) => (
-                  <FieldRow key={group.id} label={group.name} value={group.description ?? '—'} last={index === groups.length - 1} />
-                ))}
-              </Stack>
-            )}
-          </SectionCard>
-        </Tabs.Panel>
-        )}
-
-        <Tabs.Panel value="identities">
-          <SectionCard title="Upstream identities" description="Federated accounts linked to this user.">
-            <Text c="dimmed" size="sm" mb="md">
-              Linking an existing account requires proof of account ownership. This workflow is not yet available.
-            </Text>
-            {identities.length === 0 ? (
-              <Text c="dimmed" size="sm">
-                No linked upstream identities.
-              </Text>
-            ) : (
-              <Stack gap={0}>
-                {identities.map((identity, index) => (
-                  <Group
-                    key={`${identity.providerId}-${identity.subjectId ?? identity.subject}`}
-                    justify="space-between"
-                    wrap="nowrap"
-                    py="sm"
-                    style={{ borderBottom: index === identities.length - 1 ? undefined : '1px solid var(--mw-border)' }}
-                  >
-                    <Box style={{ minWidth: 0 }}>
-                      <Text fw={600} size="sm">
-                        {identity.providerName ?? identity.providerId}
-                      </Text>
-                      <Text c="dimmed" className="mw-mono" size="xs" truncate>
-                        {identity.subjectId ?? identity.subject}
-                      </Text>
-                      <Text size="xs" c={identity.isQuarantined !== false ? 'red' : 'dimmed'}>
-                        {identity.isQuarantined !== false ? 'Quarantined — authentication and migration blocked' : 'Association evidence recorded'}
-                      </Text>
-                      <Text size="xs" c="dimmed">Evidence: {identity.associationEvidence ?? 'Unknown'}</Text>
-                    </Box>
-                    {canWrite && identity.isQuarantined === false && (
-                      <ActionIcon
-                        aria-label={`Unlink ${identity.providerName ?? identity.providerId}`}
-                        color="red"
-                        variant="subtle"
-                        loading={unlinkIdentity.isPending && unlinkIdentity.variables === identity.providerId}
-                        onClick={() => unlinkIdentity.mutate(identity.providerId)}
-                      >
-                        <Icon name="unlink" size={16} />
-                      </ActionIcon>
-                    )}
-                  </Group>
-                ))}
-              </Stack>
-            )}
-          </SectionCard>
-        </Tabs.Panel>
-      </Tabs>
-
-      {resetOpened && <ResetPasswordModal userId={userId} userName={user.displayName} onClose={resetControls.close} />}
+      <MetaStrip items={getUserMetaItems(user, canReadRoles, canReadGroups, roles.length, groups.length)} />
+      <UserDetailTabs {...props} />
+      {props.resetOpened && <ResetPasswordModal userId={props.userId} userName={user.displayName} onClose={props.onCloseReset} />}
     </div>
+  );
+}
+
+function UserHeaderActions({
+  user,
+  canResetPassword,
+  canToggleStatus,
+  isTogglingStatus,
+  onOpenReset,
+  onToggleStatus,
+}: UserDetailViewProps & { canToggleStatus: boolean }) {
+  if (!canResetPassword && !canToggleStatus) return undefined;
+
+  return (
+    <>
+      {canResetPassword && <Button variant="default" leftSection={<Icon name="key-round" size={16} />} onClick={onOpenReset}>Reset password</Button>}
+      {canToggleStatus && (
+        <Button
+          variant="default"
+          loading={isTogglingStatus}
+          leftSection={<Icon name={user.status === 'Disabled' ? 'power' : 'ban'} size={16} />}
+          onClick={onToggleStatus}
+        >
+          {user.status === 'Disabled' ? 'Enable user' : 'Disable user'}
+        </Button>
+      )}
+    </>
+  );
+}
+
+function getUserMetaItems(user: User, canReadRoles: boolean, canReadGroups: boolean, roleCount: number, groupCount: number) {
+  return [
+    ...(canReadRoles ? [{ label: 'Roles', value: roleCount }] : []),
+    ...(canReadGroups ? [{ label: 'Groups', value: groupCount }] : []),
+    { label: 'MFA', value: user.mfaEnabled ? 'On' : 'Off' },
+    { label: 'Created', value: formatDateTime(user.createdAt) },
+  ];
+}
+
+function UserDetailTabs(props: UserDetailViewProps) {
+  const { user, canWrite, canReadRoles, canReadGroups, roles, groups, identities } = props;
+
+  return (
+    <Tabs defaultValue="profile" color="blue" keepMounted={false}>
+      <Tabs.List mb="lg">
+        <Tabs.Tab value="profile">Profile</Tabs.Tab>
+        {canReadRoles && <Tabs.Tab value="roles">Roles ({roles.length})</Tabs.Tab>}
+        {canReadGroups && <Tabs.Tab value="groups">Groups ({groups.length})</Tabs.Tab>}
+        <Tabs.Tab value="identities">Upstream identities ({identities.length})</Tabs.Tab>
+      </Tabs.List>
+      <Tabs.Panel value="profile"><ProfileCard user={user} canWrite={canWrite} /></Tabs.Panel>
+      {canReadRoles && <Tabs.Panel value="roles"><UserRolesPanel {...props} /></Tabs.Panel>}
+      {canReadGroups && <Tabs.Panel value="groups"><UserGroupsPanel groups={groups} /></Tabs.Panel>}
+      <Tabs.Panel value="identities"><UserIdentitiesPanel {...props} /></Tabs.Panel>
+    </Tabs>
+  );
+}
+
+function UserRolesPanel({
+  canAssignRoles,
+  roles,
+  availableRoles,
+  roleToAssign,
+  onRoleToAssign,
+  isAssigningRole,
+  onAssignRole,
+  pendingRoleId,
+  onUnassignRole,
+}: UserDetailViewProps) {
+  const assignableRoles = availableRoles.filter((role) => !roles.some((assigned) => assigned.id === role.id));
+
+  return (
+    <SectionCard
+      title="Assigned roles"
+      description="Platform roles assigned directly to this user. Members inherit the permissions of every assigned role."
+      right={canAssignRoles ? (
+        <Group gap="xs" wrap="nowrap">
+          <Select
+            placeholder="Select a role"
+            searchable
+            w={200}
+            data={assignableRoles.map((role) => ({ value: role.id, label: role.displayName }))}
+            value={roleToAssign}
+            onChange={onRoleToAssign}
+          />
+          <Button disabled={!roleToAssign} loading={isAssigningRole} onClick={onAssignRole}>Assign</Button>
+        </Group>
+      ) : undefined}
+    >
+      {roles.length === 0 ? (
+        <Text c="dimmed" size="sm">No roles assigned.</Text>
+      ) : (
+        <Stack gap={0}>
+          {roles.map((role, index) => (
+            <Group key={role.id} justify="space-between" wrap="nowrap" py="sm" style={{ borderBottom: index === roles.length - 1 ? undefined : '1px solid var(--mw-border)' }}>
+              <Group gap="sm" wrap="nowrap">
+                <Badge color="blue" variant="light">{role.displayName}</Badge>
+                {role.isSystemRole && <Text c="dimmed" size="xs">System role</Text>}
+              </Group>
+              {canAssignRoles && (
+                <ActionIcon
+                  aria-label={`Remove ${role.displayName}`}
+                  color="red"
+                  variant="subtle"
+                  loading={pendingRoleId === role.id}
+                  onClick={() => onUnassignRole(role.id)}
+                >
+                  <Icon name="x" size={16} />
+                </ActionIcon>
+              )}
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </SectionCard>
+  );
+}
+
+function UserGroupsPanel({ groups }: { groups: UserGroup[] }) {
+  return (
+    <SectionCard title="Group membership">
+      {groups.length === 0 ? (
+        <Text c="dimmed" size="sm">Not a member of any group.</Text>
+      ) : (
+        <Stack gap={0}>
+          {groups.map((group, index) => (
+            <FieldRow key={group.id} label={group.name} value={group.description ?? '—'} last={index === groups.length - 1} />
+          ))}
+        </Stack>
+      )}
+    </SectionCard>
+  );
+}
+
+function UserIdentitiesPanel({ identities, canWrite, isUnlinkingIdentity, unlinkingProviderId, onUnlinkIdentity }: UserDetailViewProps) {
+  return (
+    <SectionCard title="Upstream identities" description="Federated accounts linked to this user.">
+      <Text c="dimmed" size="sm" mb="md">Linking an existing account requires proof of account ownership. This workflow is not yet available.</Text>
+      {identities.length === 0 ? (
+        <Text c="dimmed" size="sm">No linked upstream identities.</Text>
+      ) : (
+        <Stack gap={0}>
+          {identities.map((identity, index) => (
+            <Group
+              key={JSON.stringify([identity.providerId, identity.subjectId ?? identity.subject])}
+              justify="space-between"
+              wrap="nowrap"
+              py="sm"
+              style={{ borderBottom: index === identities.length - 1 ? undefined : '1px solid var(--mw-border)' }}
+            >
+              <Box style={{ minWidth: 0 }}>
+                <Text fw={600} size="sm">{identity.providerName ?? identity.providerId}</Text>
+                <Text c="dimmed" className="mw-mono" size="xs" truncate>{identity.subjectId ?? identity.subject}</Text>
+                <Text size="xs" c={identity.isQuarantined !== false ? 'red' : 'dimmed'}>
+                  {identity.isQuarantined !== false ? 'Quarantined — authentication and migration blocked' : 'Association evidence recorded'}
+                </Text>
+                <Text size="xs" c="dimmed">Evidence: {identity.associationEvidence ?? 'Unknown'}</Text>
+              </Box>
+              {canWrite && identity.isQuarantined === false && (
+                <ActionIcon
+                  aria-label={`Unlink ${identity.providerName ?? identity.providerId}`}
+                  color="red"
+                  variant="subtle"
+                  loading={isUnlinkingIdentity && unlinkingProviderId === identity.providerId}
+                  onClick={() => onUnlinkIdentity(identity.providerId)}
+                >
+                  <Icon name="unlink" size={16} />
+                </ActionIcon>
+              )}
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </SectionCard>
   );
 }
 
@@ -345,8 +402,8 @@ function ProfileCard({ user, canWrite }: { user: User; canWrite: boolean }) {
         <FieldRow label="User ID" value={user.id} mono />
         <FieldRow label="Email" value={user.email} />
         <FieldRow label="Email verification" value={user.emailVerified ? 'Verified' : 'No current verification evidence'} />
-        {(user.emailVerificationEvidence ?? []).map((evidence, index) => (
-          <FieldRow key={`${evidence.providerId ?? 'local'}-${evidence.verifiedAt}-${index}`}
+        {(user.emailVerificationEvidence ?? []).map((evidence) => (
+          <FieldRow key={JSON.stringify([evidence.providerId, evidence.issuer, evidence.email, evidence.verifiedAt])}
             label={evidence.providerId ? 'Provider evidence' : 'Independent evidence'}
             value={`${evidence.providerId ? `Provider ${evidence.providerId} · ` : ''}${evidence.issuer ?? 'Local email verification'} · ${formatDateTime(evidence.verifiedAt)}${evidence.withdrawnAt ? ' · Withdrawn' : ''}`} />
         ))}

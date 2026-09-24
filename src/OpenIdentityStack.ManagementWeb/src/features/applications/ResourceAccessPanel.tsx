@@ -56,19 +56,20 @@ function ResourceAccessPanelForApplication({ applicationId, canWrite }: { applic
       {canWrite && <Button variant="light" onClick={() => setEditing('new')}>Add protected resource</Button>}
       <Select label="Protected resource" placeholder="Choose a resource" value={selected} onChange={choose}
         disabled={resources.isPending || grants.isPending || save.isPending || revoke.isPending} data={(resources.data ?? []).map((item) => ({ value: item.id, label: `${item.displayName} — ${item.audience} — ${item.scope}` }))} />
-      {resource && <>
-        <Text size="sm">Audience: {resource.audience}</Text>
-        <Text size="sm">Request scope: {resource.scope}. Namespaces: {resource.permissionNamespaces.join(', ')}</Text>
-        {!resource.enabled && <Alert color="yellow">This resource is disabled. Token requests will be rejected.</Alert>}
-        {resource.isAdministrative ? <Alert>Administrative access requires its dedicated approval workflow.</Alert> : <>
-          {canWrite && <Button variant="subtle" onClick={() => setEditing(resource)}>Edit resource mapping</Button>}
-          <Textarea label="Delegated permission ceiling" description="One permission or terminal wildcard per line. An empty ceiling withdraws delegated token approval." value={delegated} onChange={(event) => setDelegated(event.currentTarget.value)} readOnly={!canWrite} minRows={3} />
-          <Textarea label="Application permissions" description="Explicit permissions for client credentials. An empty list withdraws client-credentials token approval." value={machine} onChange={(event) => setMachine(event.currentTarget.value)} readOnly={!canWrite} minRows={3} />
-          {canWrite && <Button onClick={() => save.mutate()} loading={save.isPending}>Save resource grant</Button>}
-          {canWrite && expectedRevision !== undefined && <Button color="red" variant="light" onClick={() => setConfirmRevoke(true)}>Revoke resource grant</Button>}
-          {save.isSuccess && <Text role="status">Resource grant saved.</Text>}
-        </>}
-      </>}
+      {resource && <SelectedResourceGrant
+        resource={resource}
+        canWrite={canWrite}
+        delegated={delegated}
+        machine={machine}
+        canRevoke={expectedRevision !== undefined}
+        savePending={save.isPending}
+        saveSucceeded={save.isSuccess}
+        onDelegatedChange={setDelegated}
+        onMachineChange={setMachine}
+        onEdit={() => setEditing(resource)}
+        onSave={() => save.mutate()}
+        onRevoke={() => setConfirmRevoke(true)}
+      />}
       {editing && <ResourceEditor key={editing === 'new' ? 'new' : editing.id} resource={editing === 'new' ? null : editing} close={() => setEditing(null)} />}
       <Modal opened={confirmRevoke} onClose={() => setConfirmRevoke(false)} title="Revoke resource grant">
         <Stack>
@@ -88,7 +89,7 @@ function ResourceEditor({ resource, close }: { resource: ProtectedResource | nul
   const [name, setName] = useState(resource?.displayName ?? '');
   const [audience, setAudience] = useState(resource?.audience ?? '');
   const [scope, setScope] = useState(resource?.scope ?? '');
-  const [namespaces, setNamespaces] = useState(resource?.permissionNamespaces.join('\n') ?? '');
+  const [namespaces, setNamespaces] = useState(() => resource?.permissionNamespaces.join('\n') ?? '');
   const [enabled, setEnabled] = useState(resource?.enabled ?? true);
   const save = useMutation({
     mutationFn: () => {
@@ -108,4 +109,46 @@ function ResourceEditor({ resource, close }: { resource: ProtectedResource | nul
       <Group justify="flex-end"><Button variant="default" onClick={close}>Cancel</Button><Button type="submit" loading={save.isPending}>Save resource</Button></Group>
     </Stack></form>
   </Modal>;
+}
+
+function SelectedResourceGrant({
+  resource,
+  canWrite,
+  delegated,
+  machine,
+  canRevoke,
+  savePending,
+  saveSucceeded,
+  onDelegatedChange,
+  onMachineChange,
+  onEdit,
+  onSave,
+  onRevoke,
+}: {
+  resource: ProtectedResource;
+  canWrite: boolean;
+  delegated: string;
+  machine: string;
+  canRevoke: boolean;
+  savePending: boolean;
+  saveSucceeded: boolean;
+  onDelegatedChange: (value: string) => void;
+  onMachineChange: (value: string) => void;
+  onEdit: () => void;
+  onSave: () => void;
+  onRevoke: () => void;
+}) {
+  return <>
+    <Text size="sm">Audience: {resource.audience}</Text>
+    <Text size="sm">Request scope: {resource.scope}. Namespaces: {resource.permissionNamespaces.join(', ')}</Text>
+    {!resource.enabled && <Alert color="yellow">This resource is disabled. Token requests will be rejected.</Alert>}
+    {resource.isAdministrative ? <Alert>Administrative access requires its dedicated approval workflow.</Alert> : <>
+      {canWrite && <Button variant="subtle" onClick={onEdit}>Edit resource mapping</Button>}
+      <Textarea label="Delegated permission ceiling" description="One permission or terminal wildcard per line. An empty ceiling withdraws delegated token approval." value={delegated} onChange={(event) => onDelegatedChange(event.currentTarget.value)} readOnly={!canWrite} minRows={3} />
+      <Textarea label="Application permissions" description="Explicit permissions for client credentials. An empty list withdraws client-credentials token approval." value={machine} onChange={(event) => onMachineChange(event.currentTarget.value)} readOnly={!canWrite} minRows={3} />
+      {canWrite && <Button onClick={onSave} loading={savePending}>Save resource grant</Button>}
+      {canWrite && canRevoke && <Button color="red" variant="light" onClick={onRevoke}>Revoke resource grant</Button>}
+      {saveSucceeded && <Text role="status">Resource grant saved.</Text>}
+    </>}
+  </>;
 }
