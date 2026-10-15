@@ -16,17 +16,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '@/lib/auth-context';
-import {
-  applicationPermissionsRead,
-  applicationsRead,
-  auditLogsRead,
-  groupsRead,
-  providersRead,
-  rolesRead,
-  sessionsRead,
-  systemManageSettings,
-  usersRead,
-} from '@/lib/generated-permissions';
+import { crudRoutePolicies } from '@/lib/generated-crud-route-policies';
 import { hasAnyPermission } from '@/lib/permissions';
 import { getInitials } from '@/lib/format';
 import { useThemePreference } from './ThemeProvider';
@@ -42,27 +32,27 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { label: 'Overview', to: '/', icon: 'layout-dashboard', match: ['/'] },
-  { label: 'Users', to: '/users', icon: 'users', match: ['/users'], permissions: [usersRead] },
-  { label: 'Groups', to: '/groups', icon: 'users-round', match: ['/groups'], permissions: [groupsRead] },
-  { label: 'Roles', to: '/roles', icon: 'shield', match: ['/roles'], permissions: [rolesRead] },
+  { label: 'Users', to: '/users', icon: 'users', match: ['/users'], permissions: [crudRoutePolicies.users] },
+  { label: 'Groups', to: '/groups', icon: 'users-round', match: ['/groups'], permissions: [crudRoutePolicies.groups] },
+  { label: 'Roles', to: '/roles', icon: 'shield', match: ['/roles'], permissions: [crudRoutePolicies.roles] },
   {
     label: 'Permissions',
     to: '/application-permissions',
     icon: 'list-checks',
     match: ['/application-permissions'],
-    permissions: [applicationPermissionsRead],
+    permissions: [crudRoutePolicies.applicationPermissions],
   },
-  { label: 'Applications', to: '/applications', icon: 'app-window', match: ['/applications'], permissions: [applicationsRead] },
-  { label: 'Sessions', to: '/sessions', icon: 'activity', match: ['/sessions'], permissions: [sessionsRead] },
-  { label: 'Identity providers', to: '/providers', icon: 'globe', match: ['/providers'], permissions: [providersRead] },
+  { label: 'Applications', to: '/applications', icon: 'app-window', match: ['/applications'], permissions: [crudRoutePolicies.applications] },
+  { label: 'Sessions', to: '/sessions', icon: 'activity', match: ['/sessions'], permissions: [crudRoutePolicies.sessions] },
+  { label: 'Identity providers', to: '/providers', icon: 'globe', match: ['/providers'], permissions: [crudRoutePolicies.providers] },
   {
     label: 'Authentication settings',
     to: '/providers/settings',
     icon: 'settings',
     match: ['/providers/settings'],
-    permissions: [systemManageSettings],
+    permissions: [crudRoutePolicies.authenticationSettings],
   },
-  { label: 'Audit', to: '/audit-entries', icon: 'scroll-text', match: ['/audit-entries'], permissions: [auditLogsRead] },
+  { label: 'Audit', to: '/audit-entries', icon: 'scroll-text', match: ['/audit-entries'], permissions: [crudRoutePolicies.auditEntries] },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {

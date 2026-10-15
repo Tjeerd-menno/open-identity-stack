@@ -25,6 +25,9 @@ jobs:
       - name: Check generated permission constants
         run: python3 scripts/ci/generate-permission-constants.py --check
 
+      - name: Check generated CRUD route policies
+        run: python3 scripts/ci/generate-crud-route-policies.py --check
+
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:

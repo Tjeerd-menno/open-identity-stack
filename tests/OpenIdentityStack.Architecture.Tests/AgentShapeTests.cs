@@ -218,7 +218,8 @@ public sealed class AgentShapeTests
 
     private static bool IsHandSyncedPermissionScan(string path)
     {
-        if (path.EndsWith($"{Path.DirectorySeparatorChar}generated-permissions.ts", StringComparison.Ordinal))
+        if (path.EndsWith($"{Path.DirectorySeparatorChar}generated-permissions.ts", StringComparison.Ordinal)
+            || path.EndsWith($"{Path.DirectorySeparatorChar}generated-crud-route-policies.ts", StringComparison.Ordinal))
         {
             return false;
         }
