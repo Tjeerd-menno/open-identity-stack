@@ -4,7 +4,7 @@ namespace OpenIdentityStack.Application.Groups.Queries;
 /// <summary>
 /// Handler interface for getting groups a user belongs to.
 /// </summary>
-public interface IGetUserGroupsQueryHandler
+internal interface IGetUserGroupsQueryHandler
 {
     /// <summary>
     /// Gets all groups a user belongs to.

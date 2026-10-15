@@ -4,7 +4,7 @@ using OpenIdentityStack.Domain.Groups;
 using SharedKernel;
 namespace OpenIdentityStack.Application.Groups.Queries;
 
-public class ListGroupMappingsQueryHandler : IListGroupMappingsQueryHandler
+internal class ListGroupMappingsQueryHandler : IListGroupMappingsQueryHandler
 {
     private readonly IGroupRepository repository;
 

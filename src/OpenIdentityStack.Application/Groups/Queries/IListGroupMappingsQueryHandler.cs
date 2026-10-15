@@ -4,7 +4,7 @@ namespace OpenIdentityStack.Application.Groups.Queries;
 /// <summary>
 /// Handler interface for listing group mappings.
 /// </summary>
-public interface IListGroupMappingsQueryHandler
+internal interface IListGroupMappingsQueryHandler
 {
     /// <summary>
     /// Lists mappings for a group.

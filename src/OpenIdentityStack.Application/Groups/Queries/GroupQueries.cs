@@ -3,7 +3,7 @@ using OpenIdentityStack.Domain.Groups;
 
 namespace OpenIdentityStack.Application.Groups.Queries;
 
-public class GetGroupQueryHandler : IGetGroupQueryHandler
+internal class GetGroupQueryHandler : IGetGroupQueryHandler
 {
     private readonly IGroupRepository repository;
 

@@ -6,12 +6,12 @@ namespace OpenIdentityStack.Application.Groups.Commands;
 
 public sealed record UpdateGroupCommand(GroupId Id, string? Name, string? Description);
 
-public interface IUpdateGroupUseCase
+internal interface IUpdateGroupUseCase
 {
     Task<Result> ExecuteAsync(UpdateGroupCommand command, CancellationToken cancellationToken = default);
 }
 
-public sealed class UpdateGroupUseCase : IUpdateGroupUseCase
+internal sealed class UpdateGroupUseCase : IUpdateGroupUseCase
 {
     private readonly IGroupRepository repository;
     private readonly IDateTimeProvider dateTimeProvider;

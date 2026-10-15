@@ -5,12 +5,12 @@ using OpenIdentityStack.Domain.Groups;
 using SharedKernel;
 namespace OpenIdentityStack.Application.Groups.Commands;
 
-public interface IAddGroupMappingUseCase
+internal interface IAddGroupMappingUseCase
 {
     Task<Result> ExecuteAsync(AddGroupMappingCommand command, CancellationToken cancellationToken = default);
 }
 
-public sealed class AddGroupMappingUseCase : IAddGroupMappingUseCase
+internal sealed class AddGroupMappingUseCase : IAddGroupMappingUseCase
 {
     private readonly IGroupRepository groupRepository;
     private readonly IAdministrativeApproval approval;

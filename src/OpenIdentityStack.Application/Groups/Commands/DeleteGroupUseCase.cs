@@ -6,12 +6,12 @@ namespace OpenIdentityStack.Application.Groups.Commands;
 
 public sealed record DeleteGroupCommand(GroupId Id);
 
-public interface IDeleteGroupUseCase
+internal interface IDeleteGroupUseCase
 {
     Task<Result> ExecuteAsync(DeleteGroupCommand command, CancellationToken cancellationToken = default);
 }
 
-public sealed class DeleteGroupUseCase : IDeleteGroupUseCase
+internal sealed class DeleteGroupUseCase : IDeleteGroupUseCase
 {
     private readonly IGroupRepository repository;
 

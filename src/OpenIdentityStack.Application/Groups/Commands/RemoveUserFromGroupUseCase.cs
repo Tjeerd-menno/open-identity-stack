@@ -4,12 +4,12 @@ using OpenIdentityStack.Domain.Groups;
 using SharedKernel;
 namespace OpenIdentityStack.Application.Groups.Commands;
 
-public interface IRemoveUserFromGroupUseCase
+internal interface IRemoveUserFromGroupUseCase
 {
     Task<Result> ExecuteAsync(RemoveUserFromGroupCommand command, CancellationToken cancellationToken = default);
 }
 
-public sealed class RemoveUserFromGroupUseCase : IRemoveUserFromGroupUseCase
+internal sealed class RemoveUserFromGroupUseCase : IRemoveUserFromGroupUseCase
 {
     private readonly IGroupRepository groupRepository;
     private readonly IDateTimeProvider dateTimeProvider;

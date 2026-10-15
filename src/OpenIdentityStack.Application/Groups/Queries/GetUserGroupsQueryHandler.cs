@@ -4,7 +4,7 @@ using OpenIdentityStack.Domain.Groups;
 using SharedKernel;
 namespace OpenIdentityStack.Application.Groups.Queries;
 
-public class GetUserGroupsQueryHandler : IGetUserGroupsQueryHandler
+internal class GetUserGroupsQueryHandler : IGetUserGroupsQueryHandler
 {
     private readonly IGroupRepository repository;
 

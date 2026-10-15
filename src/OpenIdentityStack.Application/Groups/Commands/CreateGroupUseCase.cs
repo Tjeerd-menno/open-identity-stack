@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Groups.Commands;
 /// <summary>
 /// Use case interface for creating groups.
 /// </summary>
-public interface ICreateGroupUseCase
+internal interface ICreateGroupUseCase
 {
     /// <summary>
     /// Executes the create group command.
@@ -21,7 +21,7 @@ public interface ICreateGroupUseCase
 /// <summary>
 /// Use case for creating a new group.
 /// </summary>
-public sealed class CreateGroupUseCase : ICreateGroupUseCase
+internal sealed class CreateGroupUseCase : ICreateGroupUseCase
 {
     private readonly IGroupRepository groupRepository;
     private readonly IDateTimeProvider dateTimeProvider;

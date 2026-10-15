@@ -41,3 +41,8 @@ public record GroupMappingResponse(
     string? ClaimType,
     string? ClaimValue,
     TokenTarget TokenTarget);
+
+/// <summary>
+/// One group mapping prepared for the admin list, with role mappings shown by role name.
+/// </summary>
+public sealed record ListedGroupMapping(Guid Id, MappingType MappingType, string Value);
