@@ -9,7 +9,7 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <summary>
 /// Use case interface for adding a single permission to a role.
 /// </summary>
-public interface IAddRolePermissionUseCase
+internal interface IAddRolePermissionUseCase
 {
     /// <summary>
     /// Executes the add role permission command.
@@ -23,7 +23,7 @@ public interface IAddRolePermissionUseCase
 /// <summary>
 /// Use case for adding a single permission to a role.
 /// </summary>
-public sealed class AddRolePermissionUseCase : IAddRolePermissionUseCase
+internal sealed class AddRolePermissionUseCase : IAddRolePermissionUseCase
 {
     private readonly IRoleRepository roleRepository;
     private readonly IAdministrativeApproval approval;

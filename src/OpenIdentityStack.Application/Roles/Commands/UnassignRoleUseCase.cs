@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <summary>
 /// Use case interface for unassigning roles.
 /// </summary>
-public interface IUnassignRoleUseCase
+internal interface IUnassignRoleUseCase
 {
     /// <summary>
     /// Executes the unassign role command.
@@ -21,7 +21,7 @@ public interface IUnassignRoleUseCase
 /// <summary>
 /// Use case for unassigning a role from a user.
 /// </summary>
-public sealed class UnassignRoleUseCase : IUnassignRoleUseCase
+internal sealed class UnassignRoleUseCase : IUnassignRoleUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IRoleRepository roleRepository;

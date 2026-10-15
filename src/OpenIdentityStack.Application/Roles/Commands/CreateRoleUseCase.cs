@@ -8,7 +8,7 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <summary>
 /// Use case interface for creating roles.
 /// </summary>
-public interface ICreateRoleUseCase
+internal interface ICreateRoleUseCase
 {
     /// <summary>
     /// Executes the create role command.
@@ -22,7 +22,7 @@ public interface ICreateRoleUseCase
 /// <summary>
 /// Use case for creating a new role.
 /// </summary>
-public sealed class CreateRoleUseCase : ICreateRoleUseCase
+internal sealed class CreateRoleUseCase : ICreateRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
     private readonly IAdministrativeApproval approval;

@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Roles.Queries;
 /// <summary>
 /// Use case interface for retrieving a single role.
 /// </summary>
-public interface IGetRoleQueryHandler
+internal interface IGetRoleQueryHandler
 {
     /// <summary>
     /// Executes the get role query.
@@ -21,7 +21,7 @@ public interface IGetRoleQueryHandler
 /// <summary>
 /// Handler for the <see cref="GetRoleQuery"/>.
 /// </summary>
-public sealed class GetRoleQueryHandler : IGetRoleQueryHandler
+internal sealed class GetRoleQueryHandler : IGetRoleQueryHandler
 {
     private readonly IRoleRepository roleRepository;
 

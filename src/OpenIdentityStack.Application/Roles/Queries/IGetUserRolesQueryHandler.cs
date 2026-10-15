@@ -4,7 +4,7 @@ namespace OpenIdentityStack.Application.Roles.Queries;
 /// <summary>
 /// Handler interface for getting roles assigned to a user.
 /// </summary>
-public interface IGetUserRolesQueryHandler
+internal interface IGetUserRolesQueryHandler
 {
     /// <summary>
     /// Gets roles assigned to a user.

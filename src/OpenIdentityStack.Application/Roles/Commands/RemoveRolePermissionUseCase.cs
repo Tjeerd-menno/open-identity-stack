@@ -8,7 +8,7 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <summary>
 /// Use case interface for removing a single permission from a role.
 /// </summary>
-public interface IRemoveRolePermissionUseCase
+internal interface IRemoveRolePermissionUseCase
 {
     /// <summary>
     /// Executes the remove role permission command.
@@ -22,7 +22,7 @@ public interface IRemoveRolePermissionUseCase
 /// <summary>
 /// Use case for removing a single permission from a role.
 /// </summary>
-public sealed class RemoveRolePermissionUseCase : IRemoveRolePermissionUseCase
+internal sealed class RemoveRolePermissionUseCase : IRemoveRolePermissionUseCase
 {
     private readonly IRoleRepository roleRepository;
 

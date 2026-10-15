@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Roles.Queries;
 /// <summary>
 /// Handler for getting user roles.
 /// </summary>
-public sealed class GetUserRolesQueryHandler : IGetUserRolesQueryHandler
+internal sealed class GetUserRolesQueryHandler : IGetUserRolesQueryHandler
 {
     private readonly IUserRepository userRepository;
     private readonly IRoleRepository roleRepository;
