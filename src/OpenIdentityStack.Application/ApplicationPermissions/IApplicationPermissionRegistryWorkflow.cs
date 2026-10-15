@@ -69,4 +69,11 @@ public interface IApplicationPermissionRegistryWorkflow
         UpdateRemovedPermissionReplacementRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<Result<ApplicationPermissionHistoryDto>> ListHistoryAsync(
+        ListApplicationPermissionHistoryQuery query,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<PermissionDiagnosticsDto>> ListDiagnosticsAsync(
+        ListApplicationPermissionDiagnosticsQuery query,
+        CancellationToken cancellationToken = default);
 }

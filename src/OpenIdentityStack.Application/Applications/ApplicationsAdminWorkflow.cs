@@ -11,7 +11,7 @@ public sealed class ApplicationsAdminWorkflow : IApplicationsAdminWorkflow
     private readonly ApplicationLifecycleUseCases lifecycleUseCases;
     private readonly ApplicationCredentialUseCases credentialUseCases;
 
-    public ApplicationsAdminWorkflow(
+    internal ApplicationsAdminWorkflow(
         ApplicationLifecycleUseCases lifecycleUseCases,
         ApplicationCredentialUseCases credentialUseCases)
     {

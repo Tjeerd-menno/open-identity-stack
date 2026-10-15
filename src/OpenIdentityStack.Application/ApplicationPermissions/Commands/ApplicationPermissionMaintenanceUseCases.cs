@@ -6,7 +6,7 @@ using OpenIdentityStack.Domain.ApplicationPermissions;
 
 namespace OpenIdentityStack.Application.ApplicationPermissions.Commands;
 
-public sealed class ApplicationPermissionMaintenanceUseCases
+internal sealed class ApplicationPermissionMaintenanceUseCases
 {
     public static readonly DomainError ManifestBackedApplicationReadOnly = DomainError.Conflict(
         "RegisteredApplication.ManifestBackedApplicationReadOnly",

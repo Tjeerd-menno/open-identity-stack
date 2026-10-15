@@ -15,7 +15,7 @@ public sealed class ApplicationPermissionRegistryWorkflow : IApplicationPermissi
     private readonly ApplicationPermissionManifestUseCases manifestUseCases;
     private readonly ApplicationPermissionMaintenanceUseCases maintenanceUseCases;
 
-    public ApplicationPermissionRegistryWorkflow(
+    internal ApplicationPermissionRegistryWorkflow(
         RegisterApplicationUseCase registerApplicationUseCase,
         ApplicationPermissionManifestUseCases manifestUseCases,
         ApplicationPermissionMaintenanceUseCases maintenanceUseCases)
@@ -271,4 +271,13 @@ public sealed class ApplicationPermissionRegistryWorkflow : IApplicationPermissi
             cancellationToken).ConfigureAwait(false);
     }
 
+    public Task<Result<ApplicationPermissionHistoryDto>> ListHistoryAsync(
+        ListApplicationPermissionHistoryQuery query,
+        CancellationToken cancellationToken = default) =>
+        this.maintenanceUseCases.ListHistoryAsync(query, cancellationToken);
+
+    public Task<Result<PermissionDiagnosticsDto>> ListDiagnosticsAsync(
+        ListApplicationPermissionDiagnosticsQuery query,
+        CancellationToken cancellationToken = default) =>
+        this.maintenanceUseCases.HandleAsync(query, cancellationToken);
 }
