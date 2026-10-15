@@ -2,14 +2,12 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using OpenIdentityStack.Api.Common;
 using OpenIddict.Validation.AspNetCore;
-using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.Groups.Commands;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Groups;
-using OpenIdentityStack.Domain.Roles;
 
 using SharedKernel;
 namespace OpenIdentityStack.Api.Groups;
@@ -127,26 +125,26 @@ internal static class GroupsApi
     }
 
     private static async Task<IResult> ListGroups(
-        [FromServices] IListGroupsQueryHandler listGroupsQueryHandler,
+        [FromServices] IGroupsAdmin groups,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null)
     {
-        Result<GroupListResponse> result = await listGroupsQueryHandler.HandleAsync(page, pageSize, search);
+        Result<GroupListResponse> result = await groups.ListAsync(page, pageSize, search);
         return result.IsSuccess
             ? TypedResults.Ok(result.Value)
             : TypedResults.BadRequest(result.Error);
     }
 
     private static async Task<IResult> CreateGroup(
-        [FromServices] ICreateGroupUseCase createGroupUseCase,
+        [FromServices] IGroupsAdmin groups,
         [FromBody] CreateGroupRequest request)
     {
         var command = new CreateGroupCommand(
             request.Name,
             request.Description);
 
-        Result<CreateGroupResponse> result = await createGroupUseCase.ExecuteAsync(command);
+        Result<CreateGroupResponse> result = await groups.CreateAsync(command);
 
         if (result.IsSuccess)
         {
@@ -156,10 +154,10 @@ internal static class GroupsApi
     }
 
     private static async Task<IResult> GetGroup(
-        [FromServices] IGetGroupQueryHandler getGroupQueryHandler,
+        [FromServices] IGroupsAdmin groups,
         Guid id)
     {
-        Group? group = await getGroupQueryHandler.HandleAsync(new GroupId(id));
+        Group? group = await groups.GetAsync(new GroupId(id));
         if (group is null)
         {
             return TypedResults.NotFound();
@@ -176,18 +174,17 @@ internal static class GroupsApi
     }
 
     private static async Task<IResult> UpdateGroup(
-        [FromServices] IUpdateGroupUseCase updateGroupUseCase,
-        [FromServices] IGetGroupQueryHandler getGroupQueryHandler,
+        [FromServices] IGroupsAdmin groups,
         Guid id,
         [FromBody] UpdateGroupRequest request)
     {
-        Result result = await updateGroupUseCase.ExecuteAsync(new UpdateGroupCommand(new GroupId(id), request.Name, request.Description));
+        Result result = await groups.UpdateAsync(new UpdateGroupCommand(new GroupId(id), request.Name, request.Description));
         if (!result.IsSuccess)
         {
             return MapFailure(result.Error);
         }
 
-        Group? group = await getGroupQueryHandler.HandleAsync(new GroupId(id));
+        Group? group = await groups.GetAsync(new GroupId(id));
         if (group is null)
         {
             return TypedResults.NotFound();
@@ -204,10 +201,10 @@ internal static class GroupsApi
     }
 
     private static async Task<IResult> DeleteGroup(
-        [FromServices] IDeleteGroupUseCase deleteGroupUseCase,
+        [FromServices] IGroupsAdmin groups,
         Guid id)
     {
-        Result result = await deleteGroupUseCase.ExecuteAsync(new DeleteGroupCommand(new GroupId(id)));
+        Result result = await groups.DeleteAsync(new DeleteGroupCommand(new GroupId(id)));
         if (!result.IsSuccess)
         {
             return MapFailure(result.Error);
@@ -216,12 +213,12 @@ internal static class GroupsApi
     }
 
     private static async Task<IResult> ListGroupMembers(
-        [FromServices] IListGroupMembersQueryHandler listGroupMembersQueryHandler,
+        [FromServices] IGroupsAdmin groups,
         Guid id,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
-        Result<UserListResponse> result = await listGroupMembersQueryHandler.HandleAsync(new GroupId(id), page, pageSize);
+        Result<UserListResponse> result = await groups.ListMembersAsync(new GroupId(id), page, pageSize);
         if (!result.IsSuccess)
         {
             return MapFailure(result.Error);
@@ -245,12 +242,12 @@ internal static class GroupsApi
     }
 
     private static async Task<IResult> AddGroupMember(
-        [FromServices] IAddUserToGroupUseCase addUserToGroupUseCase,
+        [FromServices] IGroupsAdmin groups,
         HttpContext httpContext,
         Guid id,
         Guid userId)
     {
-        Result result = await addUserToGroupUseCase.ExecuteAsync(
+        Result result = await groups.AddMemberAsync(
             new AddUserToGroupCommand(new GroupId(id), new UserId(userId), GetCurrentUserId(httpContext)),
             httpContext.RequestAborted);
         if (!result.IsSuccess)
@@ -261,11 +258,11 @@ internal static class GroupsApi
     }
 
     private static async Task<IResult> RemoveGroupMember(
-        [FromServices] IRemoveUserFromGroupUseCase removeUserFromGroupUseCase,
+        [FromServices] IGroupsAdmin groups,
         Guid id,
         Guid userId)
     {
-        Result result = await removeUserFromGroupUseCase.ExecuteAsync(new RemoveUserFromGroupCommand(new GroupId(id), new UserId(userId)));
+        Result result = await groups.RemoveMemberAsync(new RemoveUserFromGroupCommand(new GroupId(id), new UserId(userId)));
         if (!result.IsSuccess)
         {
             return MapFailure(result.Error);
@@ -297,58 +294,20 @@ internal static class GroupsApi
         List<GroupMappingItem> Items);
 
     private static async Task<IResult> ListGroupMappings(
-        [FromServices] IListGroupMappingsQueryHandler listGroupMappingsQueryHandler,
-        [FromServices] IRoleRepository roleRepository,
+        [FromServices] IGroupsAdmin groups,
         Guid id)
     {
-        Result<List<GroupMappingResponse>> result = await listGroupMappingsQueryHandler.HandleAsync(new GroupId(id));
+        Result<IReadOnlyList<ListedGroupMapping>> result = await groups.ListMappingsAsync(new GroupId(id));
         if (!result.IsSuccess)
         {
             return TypedResults.NotFound();
         }
 
-        // Build a dictionary of role IDs to role names for role mappings
-        var roleIds = result.Value
-            .Where(m => m.MappingType == MappingType.Role && m.TargetRoleId.HasValue)
-            .Select(m => m.TargetRoleId!.Value)
-            .Distinct()
-            .ToList();
-
-        Dictionary<Guid, string> roleNames = [];
-        if (roleIds.Count > 0)
-        {
-            IReadOnlyList<Role> roles = await roleRepository.GetByIdsAsync(roleIds.Select(id => new RoleId(id)));
-            foreach (Role role in roles)
-            {
-                roleNames[role.Id.Value] = role.Name;
-            }
-        }
-
-        // Transform to frontend-compatible format
-        var items = result.Value.Select(m =>
-        {
-            // Build value based on mapping type
-            string value;
-            if (m.MappingType == MappingType.Role && m.TargetRoleId.HasValue)
-            {
-                // Use role name if found, otherwise fall back to ID
-                value = roleNames.TryGetValue(m.TargetRoleId.Value, out string? roleName)
-                    ? roleName
-                    : m.TargetRoleId.Value.ToString();
-            }
-            else
-            {
-                value = string.IsNullOrEmpty(m.ClaimValue)
-                    ? m.ClaimType ?? string.Empty
-                    : $"{m.ClaimType}:{m.ClaimValue}";
-            }
-
-            return new GroupMappingItem(
-                m.Id.ToString(),
-                m.MappingType.ToString(),
-                value,
-                CreatedAt: null);
-        }).ToList();
+        var items = result.Value.Select(mapping => new GroupMappingItem(
+            mapping.Id.ToString(),
+            mapping.MappingType.ToString(),
+            mapping.Value,
+            CreatedAt: null)).ToList();
 
         return TypedResults.Ok(new GroupMappingsListResponse(items));
     }
@@ -362,7 +321,7 @@ internal static class GroupsApi
         string Value);
 
     private static async Task<IResult> AddGroupMapping(
-        [FromServices] IAddGroupMappingUseCase addGroupMappingUseCase,
+        [FromServices] IGroupsAdmin groups,
         Guid id,
         [FromBody] AddMappingRequest request)
     {
@@ -388,7 +347,7 @@ internal static class GroupsApi
             value = parts.Length > 1 ? parts[1] : null;
         }
 
-        Result result = await addGroupMappingUseCase.ExecuteAsync(new AddGroupMappingCommand(
+        Result result = await groups.AddMappingAsync(new AddGroupMappingCommand(
             new GroupId(id),
             mappingType,
             target,
@@ -404,11 +363,11 @@ internal static class GroupsApi
     }
 
     private static async Task<IResult> RemoveGroupMapping(
-        [FromServices] IRemoveGroupMappingUseCase removeGroupMappingUseCase,
+        [FromServices] IGroupsAdmin groups,
         Guid id,
         Guid mappingId)
     {
-        Result result = await removeGroupMappingUseCase.ExecuteAsync(new RemoveGroupMappingCommand(new GroupId(id), mappingId));
+        Result result = await groups.RemoveMappingAsync(new RemoveGroupMappingCommand(new GroupId(id), mappingId));
         if (!result.IsSuccess)
         {
             return MapFailure(result.Error);

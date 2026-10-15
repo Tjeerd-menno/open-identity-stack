@@ -5,7 +5,7 @@ namespace OpenIdentityStack.Application.Groups.Queries;
 /// <summary>
 /// Handler interface for getting a group by ID.
 /// </summary>
-public interface IGetGroupQueryHandler
+internal interface IGetGroupQueryHandler
 {
     /// <summary>
     /// Gets a group by its ID.

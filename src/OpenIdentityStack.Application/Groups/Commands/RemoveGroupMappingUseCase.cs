@@ -6,12 +6,12 @@ namespace OpenIdentityStack.Application.Groups.Commands;
 
 public sealed record RemoveGroupMappingCommand(GroupId GroupId, Guid MappingId);
 
-public interface IRemoveGroupMappingUseCase
+internal interface IRemoveGroupMappingUseCase
 {
     Task<Result> ExecuteAsync(RemoveGroupMappingCommand command, CancellationToken cancellationToken = default);
 }
 
-public sealed class RemoveGroupMappingUseCase : IRemoveGroupMappingUseCase
+internal sealed class RemoveGroupMappingUseCase : IRemoveGroupMappingUseCase
 {
     private readonly IGroupRepository repository;
     private readonly IDateTimeProvider dateTimeProvider;

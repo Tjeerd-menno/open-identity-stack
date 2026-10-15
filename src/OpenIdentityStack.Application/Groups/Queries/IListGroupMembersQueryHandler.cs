@@ -4,7 +4,7 @@ namespace OpenIdentityStack.Application.Groups.Queries;
 /// <summary>
 /// Handler interface for listing group members.
 /// </summary>
-public interface IListGroupMembersQueryHandler
+internal interface IListGroupMembersQueryHandler
 {
     /// <summary>
     /// Lists members of a group with pagination.

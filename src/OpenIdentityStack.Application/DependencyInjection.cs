@@ -153,7 +153,23 @@ public static class DependencyInjection
         services.AddScoped<IGetUserGroupsQueryHandler, GetUserGroupsQueryHandler>();
         services.AddScoped<IUserGroupsProvider, RequestScopedUserGroupsProvider>();
         services.AddScoped<IGetGroupClaimsForUserQueryHandler, GetGroupClaimsForUserQueryHandler>();
+        services.AddScoped<IGroupsAdmin>(CreateGroupsAdmin);
     }
+
+    private static IGroupsAdmin CreateGroupsAdmin(IServiceProvider services) =>
+        new GroupsAdmin(
+            services.GetRequiredService<IListGroupsQueryHandler>(),
+            services.GetRequiredService<ICreateGroupUseCase>(),
+            services.GetRequiredService<IGetGroupQueryHandler>(),
+            services.GetRequiredService<IUpdateGroupUseCase>(),
+            services.GetRequiredService<IDeleteGroupUseCase>(),
+            services.GetRequiredService<IListGroupMembersQueryHandler>(),
+            services.GetRequiredService<IAddUserToGroupUseCase>(),
+            services.GetRequiredService<IRemoveUserFromGroupUseCase>(),
+            services.GetRequiredService<IListGroupMappingsQueryHandler>(),
+            services.GetRequiredService<IAddGroupMappingUseCase>(),
+            services.GetRequiredService<IRemoveGroupMappingUseCase>(),
+            services.GetRequiredService<IRoleRepository>());
 
     private static void AddApplicationUseCases(IServiceCollection services)
     {

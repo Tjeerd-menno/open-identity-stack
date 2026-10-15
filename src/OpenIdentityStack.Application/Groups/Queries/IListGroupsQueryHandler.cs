@@ -4,7 +4,7 @@ namespace OpenIdentityStack.Application.Groups.Queries;
 /// <summary>
 /// Handler interface for listing groups.
 /// </summary>
-public interface IListGroupsQueryHandler
+internal interface IListGroupsQueryHandler
 {
     /// <summary>
     /// Lists groups with pagination and optional search.

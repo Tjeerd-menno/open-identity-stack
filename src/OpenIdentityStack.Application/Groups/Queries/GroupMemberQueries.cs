@@ -9,7 +9,7 @@ namespace OpenIdentityStack.Application.Groups.Queries;
 // For simplicity, reusing a standard UserListResponse if available, or creating DTO
 public record UserListResponse(IEnumerable<UserListItem> Items, string? NextPageToken);
 
-public class ListGroupMembersQueryHandler : IListGroupMembersQueryHandler
+internal class ListGroupMembersQueryHandler : IListGroupMembersQueryHandler
 {
     private readonly IGroupRepository groupRepository;
     private readonly IUserRepository userRepository; // Need to fetch user details

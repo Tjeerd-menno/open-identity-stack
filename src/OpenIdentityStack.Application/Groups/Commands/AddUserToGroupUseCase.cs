@@ -6,12 +6,12 @@ using OpenIdentityStack.Domain.Users;
 using SharedKernel;
 namespace OpenIdentityStack.Application.Groups.Commands;
 
-public interface IAddUserToGroupUseCase
+internal interface IAddUserToGroupUseCase
 {
     Task<Result> ExecuteAsync(AddUserToGroupCommand command, CancellationToken cancellationToken = default);
 }
 
-public sealed class AddUserToGroupUseCase : IAddUserToGroupUseCase
+internal sealed class AddUserToGroupUseCase : IAddUserToGroupUseCase
 {
     private readonly IGroupRepository groupRepository;
     private readonly IAdministrativeApproval approval;
