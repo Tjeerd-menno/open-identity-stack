@@ -20,4 +20,13 @@
   <ItemGroup>
     <Using Include="System.Threading.Tasks" />
   </ItemGroup>
+
+  <!-- string.Equals and string.Contains without StringComparison fail the build.
+       Infrastructure search Contains is an EF translation, so the analyzer stays on
+       Domain, Application, and Api. -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'OpenIdentityStack.Domain' OR '$(MSBuildProjectName)' == 'OpenIdentityStack.Application' OR '$(MSBuildProjectName)' == 'OpenIdentityStack.Api'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/OpenIdentityStack.Analyzers/OpenIdentityStack.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
 </Project>

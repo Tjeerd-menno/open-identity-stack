@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="xunit.v3.mtp-v2" />
@@ -20,6 +21,12 @@
   <!-- Referenced so the layering tests can inspect each layer's assembly metadata. Api is
        intentionally absent: it is the outermost layer and nothing asserts anything about it. -->
   <ItemGroup>
+    <Compile Remove="Fixtures/historical-error-code-contains.cs" />
+    <None Include="Fixtures/historical-error-code-contains.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenIdentityStack.Analyzers\OpenIdentityStack.Analyzers.csproj" />
     <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.csproj" />
     <ProjectReference Include="..\..\src\OpenIdentityStack.Domain\OpenIdentityStack.Domain.csproj" />
     <ProjectReference Include="..\..\src\OpenIdentityStack.Application\OpenIdentityStack.Application.csproj" />
