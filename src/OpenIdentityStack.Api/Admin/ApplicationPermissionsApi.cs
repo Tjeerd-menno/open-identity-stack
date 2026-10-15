@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using OpenIdentityStack.Api.Common;
 using OpenIdentityStack.Application.ApplicationPermissions;
 using OpenIdentityStack.Application.ApplicationPermissions.Commands;
 using OpenIdentityStack.Api.Admin.Requests.ApplicationPermissions;
@@ -232,7 +233,7 @@ internal static class ApplicationPermissionsApi
         Result<RegisteredApplicationDto> result = await workflow.ImportManifestAsync(workflowRequest, cancellationToken);
         if (result.IsFailure)
         {
-            return ToErrorResult(result.Error);
+            return MapPermissionError(result.Error);
         }
 
         return TypedResults.Created($"/api/admin/application-permissions/applications/{result.Value.Id}", result.Value);
@@ -359,7 +360,7 @@ internal static class ApplicationPermissionsApi
         Result<RegisteredApplicationDto> result = await workflow.ImportManifestAsync(workflowRequest, cancellationToken);
         if (result.IsFailure)
         {
-            return ToErrorResult(result.Error);
+            return MapPermissionError(result.Error);
         }
 
         return TypedResults.Created($"/api/admin/application-permissions/applications/{result.Value.Id}", result.Value);
@@ -402,7 +403,7 @@ internal static class ApplicationPermissionsApi
         CancellationToken cancellationToken)
     {
         Result<RegisteredApplicationDto> result = await handler.HandleAsync(new GetRegisteredApplicationQuery(id), cancellationToken);
-        return result.IsSuccess ? TypedResults.Ok(result.Value) : ToErrorResult(result.Error);
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : MapPermissionError(result.Error);
     }
 
     private static async Task<IResult> ListCatalog(
@@ -683,28 +684,20 @@ internal static class ApplicationPermissionsApi
         return true;
     }
 
-    private static IResult ToErrorResult(DomainError error)
+    private static IResult MapPermissionError(DomainError error)
     {
-        if (error.Code.StartsWith("NotFound.", StringComparison.Ordinal))
-        {
-            return TypedResults.NotFound(new { error = error.Code, message = error.Description });
-        }
-
-        if (error.Code.StartsWith("Conflict.", StringComparison.Ordinal))
-        {
-            return TypedResults.Conflict(new { error = error.Code, message = error.Description });
-        }
-
+        // Forbidden stays Problem Details with the error code as the title.
+        // NotFound, Conflict, and validation already match ErrorResponse.
         if (error.Code.StartsWith("Forbidden.", StringComparison.Ordinal))
         {
             return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, title: error.Code, detail: error.Description);
         }
 
-        return TypedResults.BadRequest(new { error = error.Code, message = error.Description });
+        return ErrorResultMapper.ToErrorResult(error);
     }
 
     private static IResult ToResult<T>(Result<T> result)
     {
-        return result.IsSuccess ? TypedResults.Ok(result.Value) : ToErrorResult(result.Error);
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : MapPermissionError(result.Error);
     }
 }

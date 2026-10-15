@@ -65,7 +65,9 @@ public sealed class AdministrativeAccessManagementTests(ManagementWebAppHostFixt
         cancelled["approved"]!.GetValue<bool>().ShouldBeFalse();
 
         await Page.GetByRole(AriaRole.Button, new() { Name = "Save administrative access", Exact = true }).ClickAsync();
-        await approval.GetByRole(AriaRole.Checkbox).CheckAsync();
+        ILocator acknowledgement = approval.GetByRole(AriaRole.Checkbox, new() { Name = "I acknowledge the effects of this operation.", Exact = true });
+        await acknowledgement.ClickAsync();
+        (await acknowledgement.IsCheckedAsync()).ShouldBeTrue();
         await approval.GetByRole(AriaRole.Button, new() { Name = "Approve operation", Exact = true }).ClickAsync();
         await Page.GetByText("Approved", new() { Exact = true }).WaitForAsync();
         JsonNode approved = await ApiGetAsync($"/api/admin/applications/{clientId}/administrative-access");
