@@ -65,6 +65,7 @@ public static class DependencyInjection
         services.AddScoped<IResetPasswordUseCase, ResetPasswordUseCase>();
         services.AddScoped<IDeleteUserUseCase, DeleteUserUseCase>();
         services.AddScoped<IGetUserQueryHandler, GetUserQueryHandler>();
+        services.AddScoped<IGetPublicProfileQueryHandler, GetPublicProfileQueryHandler>();
         services.AddScoped<IListUsersQueryHandler, ListUsersQueryHandler>();
         services.AddScoped<IGetUserEffectiveRolesQueryHandler, GetUserEffectiveRolesQueryHandler>();
     }
@@ -159,6 +160,7 @@ public static class DependencyInjection
         services.AddScoped<IRevokeSessionUseCase, RevokeSessionUseCase>();
         services.AddScoped<IRevokeAllUserSessionsUseCase, RevokeAllUserSessionsUseCase>();
         services.AddScoped<IListSessionsQueryHandler, ListSessionsQueryHandler>();
+        services.AddScoped<IGetSessionQueryHandler, GetSessionQueryHandler>();
         services.AddScoped<IValidateSessionQueryHandler, ValidateSessionQueryHandler>();
 
         services.AddScoped<IProcessLogoutUseCase, ProcessLogoutUseCase>();
