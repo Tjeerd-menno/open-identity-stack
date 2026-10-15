@@ -31,7 +31,7 @@ public sealed record FindUserByUpstreamIdentityResult(
 /// <summary>
 /// Interface for finding user by upstream identity query handler.
 /// </summary>
-public interface IFindUserByUpstreamIdentityQueryHandler
+internal interface IFindUserByUpstreamIdentityQueryHandler
 {
     /// <summary>
     /// Finds a user by their upstream identity.

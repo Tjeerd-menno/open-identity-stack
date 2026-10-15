@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// <summary>
 /// Implementation of the update user use case.
 /// </summary>
-public sealed class UpdateUserUseCase : IUpdateUserUseCase
+internal sealed class UpdateUserUseCase : IUpdateUserUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IDateTimeProvider dateTimeProvider;

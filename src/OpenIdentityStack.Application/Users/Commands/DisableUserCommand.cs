@@ -19,7 +19,7 @@ public sealed record DisableUserResult(UserId UserId, DateTimeOffset DisabledAt)
 /// <summary>
 /// Interface for the disable user use case.
 /// </summary>
-public interface IDisableUserUseCase
+internal interface IDisableUserUseCase
 {
     /// <summary>
     /// Disables a user account.

@@ -31,7 +31,7 @@ public sealed record CreateUserResult(
 /// <summary>
 /// Use case interface for creating a user.
 /// </summary>
-public interface ICreateUserUseCase
+internal interface ICreateUserUseCase
 {
     /// <summary>
     /// Creates a new local user.

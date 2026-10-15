@@ -19,6 +19,7 @@ using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
+using OpenIdentityStack.Application.Users;
 using OpenIdentityStack.Application.Users.Commands;
 using OpenIdentityStack.Application.Users.Queries;
 
@@ -79,7 +80,28 @@ public static class DependencyInjection
         services.AddScoped<IFindUserByUpstreamIdentityQueryHandler, FindUserByUpstreamIdentityQueryHandler>();
         services.AddScoped<IListUserUpstreamIdentitiesQueryHandler, ListUserUpstreamIdentitiesQueryHandler>();
         services.AddScoped<IIdentityMigrationInventoryQueryHandler, IdentityMigrationInventoryQueryHandler>();
+        services.AddScoped<IUsersAdmin>(CreateUsersAdmin);
     }
+
+    private static IUsersAdmin CreateUsersAdmin(IServiceProvider services) =>
+        new UsersAdmin(
+            services.GetRequiredService<ICreateUserUseCase>(),
+            services.GetRequiredService<IGetUserQueryHandler>(),
+            services.GetRequiredService<IListUsersQueryHandler>(),
+            services.GetRequiredService<IUpdateUserUseCase>(),
+            services.GetRequiredService<IDeleteUserUseCase>(),
+            services.GetRequiredService<IDisableUserUseCase>(),
+            services.GetRequiredService<IEnableUserUseCase>(),
+            services.GetRequiredService<IResetPasswordUseCase>(),
+            services.GetRequiredService<IGetUserRolesQueryHandler>(),
+            services.GetRequiredService<IGetUserGroupsQueryHandler>(),
+            services.GetRequiredService<IAssignRoleUseCase>(),
+            services.GetRequiredService<IUnassignRoleUseCase>(),
+            services.GetRequiredService<IIdentityMigrationInventoryQueryHandler>(),
+            services.GetRequiredService<IListUserUpstreamIdentitiesQueryHandler>(),
+            services.GetRequiredService<ILinkUpstreamIdentityUseCase>(),
+            services.GetRequiredService<IUnlinkUpstreamIdentityUseCase>(),
+            services.GetRequiredService<IGetPublicProfileQueryHandler>());
 
     private static void AddRoleUseCases(IServiceCollection services)
     {

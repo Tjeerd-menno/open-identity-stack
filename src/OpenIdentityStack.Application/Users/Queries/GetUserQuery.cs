@@ -41,7 +41,7 @@ public sealed record EmailVerificationEvidenceDto(string Email, Guid? ProviderId
 /// <summary>
 /// Interface for the get user query handler.
 /// </summary>
-public interface IGetUserQueryHandler
+internal interface IGetUserQueryHandler
 {
     /// <summary>
     /// Gets a user by ID.

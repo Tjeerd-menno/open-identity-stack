@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Users.Queries;
 /// <summary>
 /// Implementation of the get user query handler.
 /// </summary>
-public sealed class GetUserQueryHandler : IGetUserQueryHandler
+internal sealed class GetUserQueryHandler : IGetUserQueryHandler
 {
     private readonly IUserRepository userRepository;
 

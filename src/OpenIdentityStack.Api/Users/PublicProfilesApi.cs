@@ -3,6 +3,7 @@ using System.Text.Encodings.Web;
 
 using Microsoft.AspNetCore.Mvc;
 
+using OpenIdentityStack.Application.Users;
 using OpenIdentityStack.Application.Users.Queries;
 
 namespace OpenIdentityStack.Api.Users;
@@ -26,11 +27,11 @@ internal static class PublicProfilesApi
     }
 
     private static async Task<IResult> GetProfile(
-        [FromServices] IGetPublicProfileQueryHandler profiles,
+        [FromServices] IUsersAdmin users,
         string preferredUsername,
         CancellationToken cancellationToken)
     {
-        PublicProfileResult? user = await profiles.HandleAsync(new GetPublicProfileQuery(preferredUsername), cancellationToken);
+        PublicProfileResult? user = await users.GetPublicProfileAsync(new GetPublicProfileQuery(preferredUsername), cancellationToken);
         if (user is null)
         {
             return Results.NotFound();
@@ -98,11 +99,11 @@ internal static class PublicProfilesApi
     }
 
     private static async Task<IResult> GetAvatar(
-        [FromServices] IGetPublicProfileQueryHandler profiles,
+        [FromServices] IUsersAdmin users,
         string preferredUsername,
         CancellationToken cancellationToken)
     {
-        PublicProfileResult? user = await profiles.HandleAsync(new GetPublicProfileQuery(preferredUsername), cancellationToken);
+        PublicProfileResult? user = await users.GetPublicProfileAsync(new GetPublicProfileQuery(preferredUsername), cancellationToken);
         if (user is null)
         {
             return Results.NotFound();

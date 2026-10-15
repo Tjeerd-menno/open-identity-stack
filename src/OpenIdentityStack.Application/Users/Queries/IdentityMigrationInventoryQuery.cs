@@ -14,12 +14,12 @@ public sealed record IdentityMigrationUser(Guid UserId, string DisplayName, stri
 
 public sealed record IdentityMigrationInventoryResult(IReadOnlyList<IdentityMigrationUser> Items, int TotalCount, int Page, int PageSize);
 
-public interface IIdentityMigrationInventoryQueryHandler
+internal interface IIdentityMigrationInventoryQueryHandler
 {
     Task<Result<IdentityMigrationInventoryResult>> ExecuteAsync(IdentityMigrationInventoryQuery query, CancellationToken cancellationToken = default);
 }
 
-public sealed class IdentityMigrationInventoryQueryHandler(IUserRepository users, IUpstreamProviderRepository providers) : IIdentityMigrationInventoryQueryHandler
+internal sealed class IdentityMigrationInventoryQueryHandler(IUserRepository users, IUpstreamProviderRepository providers) : IIdentityMigrationInventoryQueryHandler
 {
     public async Task<Result<IdentityMigrationInventoryResult>> ExecuteAsync(IdentityMigrationInventoryQuery query, CancellationToken cancellationToken = default)
     {

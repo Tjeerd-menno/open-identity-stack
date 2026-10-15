@@ -11,7 +11,7 @@ public sealed record DeleteUserCommand(UserId UserId, string ActorId);
 /// <summary>
 /// Interface for the delete user use case.
 /// </summary>
-public interface IDeleteUserUseCase
+internal interface IDeleteUserUseCase
 {
     /// <summary>
     /// Deletes a user.

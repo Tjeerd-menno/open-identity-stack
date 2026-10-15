@@ -41,7 +41,7 @@ public sealed record ListUserUpstreamIdentitiesResult(
 /// <summary>
 /// Interface for the list user upstream identities query handler.
 /// </summary>
-public interface IListUserUpstreamIdentitiesQueryHandler
+internal interface IListUserUpstreamIdentitiesQueryHandler
 {
     /// <summary>
     /// Executes the query to list user upstream identities.
@@ -54,7 +54,7 @@ public interface IListUserUpstreamIdentitiesQueryHandler
 /// <summary>
 /// Handler for listing user upstream identities.
 /// </summary>
-public sealed class ListUserUpstreamIdentitiesQueryHandler : IListUserUpstreamIdentitiesQueryHandler
+internal sealed class ListUserUpstreamIdentitiesQueryHandler : IListUserUpstreamIdentitiesQueryHandler
 {
     private readonly IUserRepository userRepository;
 

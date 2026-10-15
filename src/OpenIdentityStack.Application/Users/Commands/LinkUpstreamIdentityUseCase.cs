@@ -6,7 +6,7 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// <summary>
 /// Rejects identifier-only linking until a proof-based account linking flow exists.
 /// </summary>
-public sealed class LinkUpstreamIdentityUseCase(IAuditLog auditLog) : ILinkUpstreamIdentityUseCase
+internal sealed class LinkUpstreamIdentityUseCase(IAuditLog auditLog) : ILinkUpstreamIdentityUseCase
 {
     public async Task<Result<LinkUpstreamIdentityResult>> ExecuteAsync(
         LinkUpstreamIdentityCommand command,

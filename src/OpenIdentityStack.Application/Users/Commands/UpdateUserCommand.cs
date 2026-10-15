@@ -25,7 +25,7 @@ public sealed record UpdateUserResult(UserId UserId, DateTimeOffset UpdatedAt);
 /// <summary>
 /// Interface for the update user use case.
 /// </summary>
-public interface IUpdateUserUseCase
+internal interface IUpdateUserUseCase
 {
     /// <summary>
     /// Updates a user's details.
