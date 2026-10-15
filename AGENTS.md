@@ -13,7 +13,7 @@ Use .NET 10 and restore from the solution root:
 - `dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Api.Tests.dll" --max-parallel-test-modules 1 --no-build --no-restore` matches the CI pattern for sequential API-style modules.
 - `cd src/OpenIdentityStack.ManagementWeb; npm install; npm run dev` starts the management UI.
 - `cd src/OpenIdentityStack.ManagementWeb; npm run build && npm run lint && npm test` validates the frontend.
-- `python -m mkdocs build --strict` verifies the docs site.
+- `mkdocs build --strict` verifies the docs site.
 
 ## Coding Style & Naming Conventions
 `.editorconfig` is authoritative. Use spaces, 4-space indentation in `*.cs`, and 2 spaces in project/XML files. C# warnings are treated as errors; prefer file-scoped namespaces, braces, nullable-enabled code, PascalCase for types/members, `I`-prefixed interfaces, and camelCase private fields without underscores. In the frontend, keep React components in PascalCase files (`UserDetail.tsx`) and hooks in `useXxx.ts`.
