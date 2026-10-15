@@ -138,6 +138,20 @@ public sealed class ApplicationPermissionRegistryContractTests : ApplicationPerm
         contract.ShouldContain("enum: [malformed, unknown, orphaned, deletedApplication, tombstonedPermission, collapsedWildcard]");
     }
 
+    [Fact]
+    public void Contract_DefinesForbiddenAsProblemDetails()
+    {
+        string contract = ReadContract();
+        int forbidden = contract.IndexOf("    Forbidden:", StringComparison.Ordinal);
+        int notFound = contract.IndexOf("    NotFound:", forbidden, StringComparison.Ordinal);
+        forbidden.ShouldBeGreaterThanOrEqualTo(0);
+        notFound.ShouldBeGreaterThan(forbidden);
+        string response = contract[forbidden..notFound];
+
+        response.ShouldContain("application/problem+json:");
+        response.ShouldContain("#/components/schemas/ProblemDetails");
+    }
+
     private static string ReadContract()
     {
         string directory = AppContext.BaseDirectory;

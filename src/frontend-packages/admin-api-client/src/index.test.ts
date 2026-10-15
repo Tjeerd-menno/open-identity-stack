@@ -228,6 +228,30 @@ describe('admin api client', () => {
     });
   });
 
+  it('keeps an application-permission forbidden Problem Details body readable', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          title: 'Forbidden.ApplicationPermission.Forbidden',
+          status: 403,
+          detail: 'Actor cannot manage this registered application.',
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/problem+json' } }
+      )
+    );
+    const client = createAdminApiClient({ baseUrl: 'https://admin.example' });
+
+    const rejected = client.patch('/api/admin/application-permissions/applications/app-1', {});
+    await expect(rejected).rejects.toMatchObject({
+      status: 403,
+      title: 'Forbidden.ApplicationPermission.Forbidden',
+      detail: 'Actor cannot manage this registered application.',
+    });
+    await expect(rejected).rejects.toSatisfy(
+      (error: unknown) => formatApiError(error) === 'Actor cannot manage this registered application.'
+    );
+  });
+
   it('formats ApiError instances', () => {
     const error: ApiError = Object.assign(new Error('Check the request.'), {
       type: 'validation',
