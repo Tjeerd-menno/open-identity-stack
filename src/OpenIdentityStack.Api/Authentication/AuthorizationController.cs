@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Primitives;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
@@ -47,7 +48,7 @@ public class AuthorizationController : Controller
     private readonly IOpenIddictApplicationManager applicationManager;
     private readonly IOpenIddictAuthorizationManager authorizationManager;
     private readonly IConsentApprovalTransactionRunner consentApprovalTransactionRunner;
-    private readonly IUserRepository userRepository;
+    private readonly IInteractiveSignIn interactiveSignIn;
     private readonly IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler;
     private readonly IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler;
     private readonly IAddClientSessionUseCase addClientSessionUseCase;
@@ -65,7 +66,7 @@ public class AuthorizationController : Controller
         IOpenIddictAuthorizationManager authorizationManager,
         IConsentApprovalTransactionRunner consentApprovalTransactionRunner,
         IOpenIddictScopeManager scopeManager,
-        IUserRepository userRepository,
+        IInteractiveSignIn interactiveSignIn,
         IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler,
         IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler,
         IAddClientSessionUseCase addClientSessionUseCase,
@@ -75,7 +76,6 @@ public class AuthorizationController : Controller
         ICredentialSessionValidator credentialSessionValidator,
         IAntiforgery antiforgery,
         IDataProtectionProvider dataProtection,
-        IApplicationPermissionRegistryRepository? applicationPermissionRegistryRepository = null,
         IHostEnvironment? environment = null,
         ITokenClaimProjectionService? tokenClaimProjectionService = null,
         IResourcePermissionService? resourcePermissionService = null)
@@ -83,7 +83,7 @@ public class AuthorizationController : Controller
         this.applicationManager = applicationManager;
         this.authorizationManager = authorizationManager;
         this.consentApprovalTransactionRunner = consentApprovalTransactionRunner;
-        this.userRepository = userRepository;
+        this.interactiveSignIn = interactiveSignIn;
         this.getUserEffectiveRolesQueryHandler = getUserEffectiveRolesQueryHandler;
         this.getGroupClaimsForUserQueryHandler = getGroupClaimsForUserQueryHandler;
         this.addClientSessionUseCase = addClientSessionUseCase;
@@ -168,7 +168,7 @@ public class AuthorizationController : Controller
 
         UserId? userId = TryParseUserId(userIdString);
         Domain.Users.User? persistedUser = userId is { } parsedUserId
-            ? await this.userRepository.GetByIdAsync(parsedUserId)
+            ? await this.interactiveSignIn.GetUserAsync(parsedUserId)
             : null;
 
         if (persistedUser?.Status == Domain.Users.UserStatus.Disabled)
@@ -566,7 +566,7 @@ public class AuthorizationController : Controller
             Domain.Users.User? tokenUser = null;
             if (TryParseUserId(subject ?? string.Empty) is { } tokenUserId)
             {
-                tokenUser = await this.userRepository.GetByIdAsync(tokenUserId, this.HttpContext.RequestAborted);
+                tokenUser = await this.interactiveSignIn.GetUserAsync(tokenUserId, this.HttpContext.RequestAborted);
                 if (tokenUser?.Status == Domain.Users.UserStatus.Disabled)
                 {
                     await this.AuditDisabledAccountAsync(tokenUser.Id, request.IsAuthorizationCodeGrantType() ? GrantTypes.AuthorizationCode : GrantTypes.RefreshToken);
@@ -681,7 +681,7 @@ public class AuthorizationController : Controller
         if (legacyApplicationSubject)
         {
             if (TryParseUserId(subject!) is { } possibleUserId
-                && await this.userRepository.GetByIdAsync(possibleUserId, this.HttpContext.RequestAborted) is not null)
+                && await this.interactiveSignIn.GetUserAsync(possibleUserId, this.HttpContext.RequestAborted) is not null)
             {
                 return this.InvalidUserInfoToken();
             }
@@ -698,7 +698,7 @@ public class AuthorizationController : Controller
                 return this.InvalidUserInfoToken();
             }
 
-            emailEvidenceUser = await this.userRepository.GetByIdAsync(userId, this.HttpContext.RequestAborted);
+            emailEvidenceUser = await this.interactiveSignIn.GetUserAsync(userId, this.HttpContext.RequestAborted);
         }
 
         ClaimsPrincipal projected = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, persistedUser: emailEvidenceUser);

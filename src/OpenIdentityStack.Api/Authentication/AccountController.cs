@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Federation.Commands;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Users.Commands;
@@ -25,9 +26,7 @@ public class AccountController : Controller
 {
     private readonly IValidateUserCredentialsUseCase validateCredentialsUseCase;
     private readonly ICreateSessionUseCase createSessionUseCase;
-    private readonly IAuthenticationSettingsRepository authSettingsRepository;
-    private readonly IUpstreamProviderRepository providerRepository;
-    private readonly IUserRepository userRepository;
+    private readonly IInteractiveSignIn interactiveSignIn;
     private readonly IDynamicAuthenticationSchemeService schemeService;
     private readonly IJitProvisionUserUseCase jitProvisionUseCase;
     private readonly IAuditLog audit;
@@ -37,9 +36,7 @@ public class AccountController : Controller
     public AccountController(
         IValidateUserCredentialsUseCase validateCredentialsUseCase,
         ICreateSessionUseCase createSessionUseCase,
-        IAuthenticationSettingsRepository authSettingsRepository,
-        IUpstreamProviderRepository providerRepository,
-        IUserRepository userRepository,
+        IInteractiveSignIn interactiveSignIn,
         IDynamicAuthenticationSchemeService schemeService,
         IJitProvisionUserUseCase jitProvisionUseCase,
         IAuditLog audit,
@@ -48,9 +45,7 @@ public class AccountController : Controller
     {
         this.validateCredentialsUseCase = validateCredentialsUseCase;
         this.createSessionUseCase = createSessionUseCase;
-        this.authSettingsRepository = authSettingsRepository;
-        this.providerRepository = providerRepository;
-        this.userRepository = userRepository;
+        this.interactiveSignIn = interactiveSignIn;
         this.schemeService = schemeService;
         this.jitProvisionUseCase = jitProvisionUseCase;
         this.audit = audit;
@@ -82,7 +77,7 @@ public class AccountController : Controller
         this.ViewData["Fresh"] = fresh;
 
         // Get authentication settings
-        AuthenticationSettings settings = await this.authSettingsRepository.GetOrCreateAsync();
+        AuthenticationSettings settings = await this.interactiveSignIn.GetOrCreateAuthenticationSettingsAsync();
         
         this.ViewData["IsLocalDefault"] = settings.IsLocalDefault;
         this.ViewData["LocalFallbackEnabled"] = settings.LocalFallbackEnabled;
@@ -92,7 +87,7 @@ public class AccountController : Controller
             // Get the default provider information
             if (Guid.TryParse(settings.DefaultProviderId, out Guid providerId))
             {
-                UpstreamProvider? provider = await this.providerRepository.GetByIdAsync(
+                UpstreamProvider? provider = await this.interactiveSignIn.GetUpstreamProviderAsync(
                     UpstreamProviderId.From(providerId));
                 
                 if (provider is not null && provider.IsActive)
@@ -138,7 +133,7 @@ public class AccountController : Controller
         await this.HttpContext.SignOutAsync("ExternalCookie");
 
         // Validate the provider exists and is active
-        UpstreamProvider? upstreamProvider = await this.providerRepository.GetByNameAsync(provider);
+        UpstreamProvider? upstreamProvider = await this.interactiveSignIn.GetUpstreamProviderByNameAsync(provider);
         if (upstreamProvider is null || !upstreamProvider.IsActive)
         {
             // Provider not found or disabled, redirect to login with error
@@ -238,7 +233,7 @@ public class AccountController : Controller
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
-        Domain.Users.User? user = await this.userRepository.GetByIdAsync(jitResult.Value.UserId);
+        Domain.Users.User? user = await this.interactiveSignIn.GetUserAsync(jitResult.Value.UserId);
         if (user is null)
         {
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
@@ -487,7 +482,7 @@ public class AccountController : Controller
         }
 
         // Get authentication settings
-        AuthenticationSettings settings = await this.authSettingsRepository.GetOrCreateAsync();
+        AuthenticationSettings settings = await this.interactiveSignIn.GetOrCreateAuthenticationSettingsAsync();
 
         // If local is default, anyone can access local login
         if (settings.IsLocalDefault)

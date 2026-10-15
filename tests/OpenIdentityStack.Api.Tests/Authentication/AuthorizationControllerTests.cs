@@ -17,6 +17,7 @@ using OpenIdentityStack.Infrastructure.Audit;
 using OpenIdentityStack.Infrastructure.Persistence;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Roles.Queries;
@@ -45,13 +46,12 @@ public class AuthorizationControllerTests : IDisposable
     private readonly IOpenIddictAuthorizationManager _authorizationManager;
     private readonly IConsentApprovalTransactionRunner _consentApprovalTransactionRunner;
     private readonly IOpenIddictScopeManager _scopeManager;
-    private readonly IUserRepository _userRepository;
+    private readonly IInteractiveSignIn interactiveSignIn;
     private readonly IGetUserEffectiveRolesQueryHandler _getUserEffectiveRolesQueryHandler;
     private readonly IGetGroupClaimsForUserQueryHandler _getGroupClaimsForUserQueryHandler;
     private readonly IAddClientSessionUseCase _addClientSessionUseCase;
     private readonly IValidateSessionQueryHandler _validateSessionQueryHandler;
     private readonly IOpenIddictRequestService _requestService;
-    private readonly IApplicationPermissionRegistryRepository _applicationPermissionRegistryRepository;
     private readonly ICredentialSessionValidator _credentialSessionValidator;
     private readonly IAntiforgery _antiforgery;
     private readonly AuthorizationController _controller;
@@ -67,7 +67,7 @@ public class AuthorizationControllerTests : IDisposable
                 Arg.Any<Func<CancellationToken, Task<string>>>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<Func<CancellationToken, Task<string>>>()(call.Arg<CancellationToken>()));
         this._scopeManager = Substitute.For<IOpenIddictScopeManager>();
-        this._userRepository = Substitute.For<IUserRepository>();
+        this.interactiveSignIn = Substitute.For<IInteractiveSignIn>();
         this._getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
         this._getGroupClaimsForUserQueryHandler = Substitute.For<IGetGroupClaimsForUserQueryHandler>();
         this._addClientSessionUseCase = Substitute.For<IAddClientSessionUseCase>();
@@ -81,7 +81,6 @@ public class AuthorizationControllerTests : IDisposable
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._requestService = Substitute.For<IOpenIddictRequestService>();
-        this._applicationPermissionRegistryRepository = Substitute.For<IApplicationPermissionRegistryRepository>();
         this._credentialSessionValidator = Substitute.For<ICredentialSessionValidator>();
         this._antiforgery = Substitute.For<IAntiforgery>();
         this._credentialSessionValidator.IsValidAsync(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<CancellationToken>())
@@ -92,7 +91,7 @@ public class AuthorizationControllerTests : IDisposable
             this._authorizationManager,
             this._consentApprovalTransactionRunner,
             this._scopeManager,
-            this._userRepository,
+            this.interactiveSignIn,
             this._getUserEffectiveRolesQueryHandler,
             this._getGroupClaimsForUserQueryHandler,
             this._addClientSessionUseCase,
@@ -102,7 +101,6 @@ public class AuthorizationControllerTests : IDisposable
             this._credentialSessionValidator,
             this._antiforgery,
             new EphemeralDataProtectionProvider(),
-            this._applicationPermissionRegistryRepository,
             resourcePermissionService: this.resourcePermissions);
         this.resourcePermissions.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>())
             .Returns((Result<ResourceTokenProjection>)new ResourceTokenProjection([], [], new Dictionary<Guid, long>()));
@@ -178,7 +176,7 @@ public class AuthorizationControllerTests : IDisposable
         IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         User user = User.CreateLocal($"token-user-{Guid.NewGuid():N}@example.test", "Token User", "fixture-hash", clock).Value;
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this.interactiveSignIn.GetUserAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         return user;
     }
 
@@ -369,7 +367,7 @@ public class AuthorizationControllerTests : IDisposable
         IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         user.Disable("Local administrative decision", clock).IsSuccess.ShouldBeTrue();
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this.interactiveSignIn.GetUserAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>()).Returns(AsyncEnumerable.Empty<string>());
@@ -772,21 +770,6 @@ public class AuthorizationControllerTests : IDisposable
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
             .Returns(AsyncEnumerable.Empty<string>());
-
-        IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
-        dateTimeProvider.UtcNow.Returns(new DateTimeOffset(2026, 1, 18, 12, 0, 0, TimeSpan.Zero));
-        Result<OpenIdentityStack.Domain.ApplicationPermissions.RegisteredApplication> applicationResult =
-            OpenIdentityStack.Domain.ApplicationPermissions.RegisteredApplication.Register(
-                "orders-api",
-                "Orders API",
-                null,
-                "owner-1",
-                OpenIdentityStack.Domain.ApplicationPermissions.OwnerType.User,
-                [("order:read", "Read orders", null, null), ("order:write", "Write orders", null, null)],
-                "actor-1",
-                dateTimeProvider);
-        this._applicationPermissionRegistryRepository.GetByIdentifierAsync("orders-api", Arg.Any<CancellationToken>())
-            .Returns(applicationResult.Value);
 
         IActionResult result = await this._controller.Authorize();
 
@@ -1290,7 +1273,7 @@ public class AuthorizationControllerTests : IDisposable
         this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(principal);
 
-        this._userRepository.GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+        this.interactiveSignIn.GetUserAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns(persistedUser);
         this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
@@ -1615,7 +1598,7 @@ public class AuthorizationControllerTests : IDisposable
             new Claim(OpenIddictConstants.Claims.Email, "stale@example.test")
         ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
         principal.SetScopes(OpenIddictConstants.Scopes.Email);
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this.interactiveSignIn.GetUserAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         this.SetupMockServices(principal);
 
         OkObjectResult result = (await this._controller.UserInfo()).ShouldBeOfType<OkObjectResult>();
@@ -1646,8 +1629,8 @@ public class AuthorizationControllerTests : IDisposable
         (await this._controller.UserInfo()).ShouldBeOfType<OkObjectResult>();
         if (!useGuidSubject)
         {
-            await this._userRepository.DidNotReceive()
-                .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+            await this.interactiveSignIn.DidNotReceive()
+                .GetUserAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
         }
     }
 
@@ -1668,12 +1651,12 @@ public class AuthorizationControllerTests : IDisposable
         this._applicationManager.FindByClientIdAsync(clientId, Arg.Any<CancellationToken>())
             .Returns(new ValueTask<object?>(application));
 #pragma warning restore CA2012
-        this._userRepository.GetByIdAsync(collidingUser.Id, Arg.Any<CancellationToken>()).Returns(collidingUser);
+        this.interactiveSignIn.GetUserAsync(collidingUser.Id, Arg.Any<CancellationToken>()).Returns(collidingUser);
         this.SetupMockServices(principal);
 
         (await this._controller.UserInfo()).ShouldBeOfType<ChallengeResult>();
-        await this._userRepository.Received(1)
-            .GetByIdAsync(collidingUser.Id, Arg.Any<CancellationToken>());
+        await this.interactiveSignIn.Received(1)
+            .GetUserAsync(collidingUser.Id, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -1689,8 +1672,8 @@ public class AuthorizationControllerTests : IDisposable
         this.SetupMockServices(principal);
 
         (await this._controller.UserInfo()).ShouldBeOfType<OkObjectResult>();
-        await this._userRepository.DidNotReceive()
-            .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+        await this.interactiveSignIn.DidNotReceive()
+            .GetUserAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -1714,8 +1697,8 @@ public class AuthorizationControllerTests : IDisposable
             claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)));
 
         (await this._controller.UserInfo()).ShouldBeOfType<ChallengeResult>();
-        await this._userRepository.DidNotReceive()
-            .GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+        await this.interactiveSignIn.DidNotReceive()
+            .GetUserAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
