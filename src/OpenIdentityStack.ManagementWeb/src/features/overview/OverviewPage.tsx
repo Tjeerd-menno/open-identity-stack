@@ -5,18 +5,27 @@ import { Icon, type IconName } from '@/components/Icon';
 import { PageHeader, SectionCard, StatCard } from '@/components/primitives';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import {
+  applicationsRead,
+  auditLogsRead,
+  groupsRead,
+  providersRead,
+  rolesRead,
+  sessionsRead,
+  usersRead,
+} from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { formatRelativeTime } from '@/lib/format';
 
 type DomainLink = { label: string; to: string; icon: IconName; permission: string; description: string };
 
 const DOMAINS: DomainLink[] = [
-  { label: 'Users', to: '/users', icon: 'users', permission: 'users:read', description: 'Accounts, status, roles and upstream identities.' },
-  { label: 'Roles', to: '/roles', icon: 'shield', permission: 'roles:read', description: 'Role catalog and platform permission grants.' },
-  { label: 'Groups', to: '/groups', icon: 'users-round', permission: 'groups:read', description: 'Membership and external mappings.' },
-  { label: 'Applications', to: '/applications', icon: 'app-window', permission: 'applications:read', description: 'OAuth/OIDC client registrations.' },
-  { label: 'Sessions', to: '/sessions', icon: 'activity', permission: 'sessions:read', description: 'Active, expired and revoked sessions.' },
-  { label: 'Identity providers', to: '/providers', icon: 'globe', permission: 'providers:read', description: 'Upstream provider configuration.' },
+  { label: 'Users', to: '/users', icon: 'users', permission: usersRead, description: 'Accounts, status, roles and upstream identities.' },
+  { label: 'Roles', to: '/roles', icon: 'shield', permission: rolesRead, description: 'Role catalog and platform permission grants.' },
+  { label: 'Groups', to: '/groups', icon: 'users-round', permission: groupsRead, description: 'Membership and external mappings.' },
+  { label: 'Applications', to: '/applications', icon: 'app-window', permission: applicationsRead, description: 'OAuth/OIDC client registrations.' },
+  { label: 'Sessions', to: '/sessions', icon: 'activity', permission: sessionsRead, description: 'Active, expired and revoked sessions.' },
+  { label: 'Identity providers', to: '/providers', icon: 'globe', permission: providersRead, description: 'Upstream provider configuration.' },
 ];
 
 export function OverviewPage() {
@@ -26,27 +35,27 @@ export function OverviewPage() {
   const usersQuery = useQuery({
     queryKey: ['overview', 'users'],
     queryFn: () => api.users.getUsers({ page: 1, pageSize: 1 }),
-    enabled: can('users:read'),
+    enabled: can(usersRead),
   });
   const appsQuery = useQuery({
     queryKey: ['overview', 'applications'],
     queryFn: () => api.applications.getApplications({ page: 1, pageSize: 1 }),
-    enabled: can('applications:read'),
+    enabled: can(applicationsRead),
   });
   const sessionsQuery = useQuery({
     queryKey: ['overview', 'sessions'],
     queryFn: () => api.sessions.getSessions({ page: 1, pageSize: 1, status: 'Active' }),
-    enabled: can('sessions:read'),
+    enabled: can(sessionsRead),
   });
   const providersQuery = useQuery({
     queryKey: ['overview', 'providers'],
     queryFn: () => api.providers.getProviders(true),
-    enabled: can('providers:read'),
+    enabled: can(providersRead),
   });
   const auditQuery = useQuery({
     queryKey: ['overview', 'audit'],
     queryFn: () => api.audit.getAuditEntries({ page: 1, pageSize: 6 }),
-    enabled: can('audit-logs:read'),
+    enabled: can(auditLogsRead),
   });
 
   const stat = (value: number | undefined, can: boolean) => (can ? (value ?? '—') : '—');
@@ -60,17 +69,17 @@ export function OverviewPage() {
       />
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} mb="lg">
-        <StatCard label="Users" value={stat(usersQuery.data?.totalCount, can('users:read'))} icon="users" color="blue" />
-        <StatCard label="Applications" value={stat(appsQuery.data?.totalCount, can('applications:read'))} icon="app-window" color="teal" />
+        <StatCard label="Users" value={stat(usersQuery.data?.totalCount, can(usersRead))} icon="users" color="blue" />
+        <StatCard label="Applications" value={stat(appsQuery.data?.totalCount, can(applicationsRead))} icon="app-window" color="teal" />
         <StatCard
           label="Active sessions"
-          value={stat(sessionsQuery.data?.totalCount, can('sessions:read'))}
+          value={stat(sessionsQuery.data?.totalCount, can(sessionsRead))}
           icon="activity"
           color="violet"
         />
         <StatCard
           label="Identity providers"
-          value={stat(providersQuery.data?.length, can('providers:read'))}
+          value={stat(providersQuery.data?.length, can(providersRead))}
           icon="globe"
           color="green"
         />
@@ -109,7 +118,7 @@ export function OverviewPage() {
         </SectionCard>
 
         <SectionCard title="Recent activity" description="The latest entries from the administrative audit trail.">
-          {can('audit-logs:read') ? (
+          {can(auditLogsRead) ? (
               <Stack gap={0}>
                 {(auditQuery.data?.items ?? []).map((entry, index, array) => (
                   <Group
@@ -147,7 +156,7 @@ export function OverviewPage() {
           </SectionCard>
       </SimpleGrid>
 
-      {can('audit-logs:read') === false && providersQuery.data === undefined && (
+      {can(auditLogsRead) === false && providersQuery.data === undefined && (
         <Card mt="lg" padding="lg">
           <Text c="dimmed" size="sm">
             Your operator scope is limited. Areas you can access appear in the sidebar.

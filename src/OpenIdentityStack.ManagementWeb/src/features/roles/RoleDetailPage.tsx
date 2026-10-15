@@ -11,6 +11,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, MetaStrip, SectionCard } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { rolesWrite } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { useSyncedForm } from '@/lib/use-synced-form';
 
@@ -30,7 +31,7 @@ export function RoleDetailPage() {
   const { roleId = '' } = useParams();
   const navigate = useNavigate();
   const auth = useAuth();
-  const canWrite = hasPermission(auth.permissions, 'roles:write');
+  const canWrite = hasPermission(auth.permissions, rolesWrite);
 
   const roleQuery = useQuery({ queryKey: ['role', roleId], queryFn: () => api.roles.getRole(roleId) });
 

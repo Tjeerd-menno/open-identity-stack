@@ -27,6 +27,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, MetaStrip, SectionCard } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { groupsDelete, groupsManageMembers, groupsWrite, rolesRead } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { formatDateTime, getInitials } from '@/lib/format';
 import { useSyncedForm } from '@/lib/use-synced-form';
@@ -36,12 +37,12 @@ export function GroupDetailPage() {
   const navigate = useNavigate();
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const canWrite = hasPermission(auth.permissions, 'groups:write');
+  const canWrite = hasPermission(auth.permissions, groupsWrite);
   // Membership endpoints require groups:manage-members; deletion requires groups:delete —
   // both are authorized independently of groups:write.
-  const canManageMembers = hasPermission(auth.permissions, 'groups:manage-members');
-  const canDelete = hasPermission(auth.permissions, 'groups:delete');
-  const canReadRoles = hasPermission(auth.permissions, 'roles:read');
+  const canManageMembers = hasPermission(auth.permissions, groupsManageMembers);
+  const canDelete = hasPermission(auth.permissions, groupsDelete);
+  const canReadRoles = hasPermission(auth.permissions, rolesRead);
   const [page, setPage] = useState(1);
   const pageSize = 25;
   const [addMemberOpened, addMemberControls] = useDisclosure(false);

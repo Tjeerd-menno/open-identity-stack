@@ -19,6 +19,7 @@ import { ErrorState, PageHeader, StatusBadge } from '@/components/primitives';
 import { CreateApplicationModal } from './CreateApplicationModal';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { applicationsDelete, applicationsWrite } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { formatRelativeTime } from '@/lib/format';
 
@@ -44,9 +45,9 @@ export function ApplicationsPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canWrite = hasPermission(auth.permissions, 'applications:write');
+  const canWrite = hasPermission(auth.permissions, applicationsWrite);
   // Deletion is authorized with applications:delete, independent of applications:write.
-  const canDelete = hasPermission(auth.permissions, 'applications:delete');
+  const canDelete = hasPermission(auth.permissions, applicationsDelete);
   const [search, setSearch] = useState('');
   const [profile, setProfile] = useState('All');
   const [status, setStatus] = useState('All');
