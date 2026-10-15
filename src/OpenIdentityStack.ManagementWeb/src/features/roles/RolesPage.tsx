@@ -15,13 +15,14 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { ErrorState, PageHeader } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { rolesWrite } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 
 export function RolesPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canWrite = hasPermission(auth.permissions, 'roles:write');
+  const canWrite = hasPermission(auth.permissions, rolesWrite);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);

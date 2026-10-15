@@ -11,6 +11,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { providersDelete, providersWrite, usersRead } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { formatDateTime } from '@/lib/format';
 import { useSyncedForm } from '@/lib/use-synced-form';
@@ -20,9 +21,9 @@ export function ProviderDetailPage() {
   const navigate = useNavigate();
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const canWrite = hasPermission(auth.permissions, 'providers:write');
+  const canWrite = hasPermission(auth.permissions, providersWrite);
   // Deletion is authorized with providers:delete, independent of providers:write.
-  const canDelete = hasPermission(auth.permissions, 'providers:delete');
+  const canDelete = hasPermission(auth.permissions, providersDelete);
   const [confirmDeleteOpened, confirmDeleteControls] = useDisclosure(false);
   const [confirmEmailTrustWithdrawalOpened, confirmEmailTrustWithdrawalControls] = useDisclosure(false);
 
@@ -88,7 +89,7 @@ export function ProviderDetailPage() {
         providerId={providerId}
         canWrite={canWrite}
         canDelete={canDelete}
-        canReadUsers={hasPermission(auth.permissions, 'users:read')}
+        canReadUsers={hasPermission(auth.permissions, usersRead)}
         togglePending={toggle.isPending}
         onToggle={() => toggle.mutate(provider)}
         onSave={invalidate}

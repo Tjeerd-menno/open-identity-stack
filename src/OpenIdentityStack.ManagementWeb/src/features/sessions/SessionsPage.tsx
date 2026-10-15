@@ -13,6 +13,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { sessionsRevoke } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { formatRelativeTime } from '@/lib/format';
 
@@ -27,7 +28,7 @@ export function SessionsPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canRevoke = hasPermission(auth.permissions, 'sessions:revoke');
+  const canRevoke = hasPermission(auth.permissions, sessionsRevoke);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('All');
   const [page, setPage] = useState(1);

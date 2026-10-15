@@ -11,13 +11,14 @@ import { RowMenu } from '@/components/RowMenu';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { providersWrite } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 
 export function ProvidersPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canWrite = hasPermission(auth.permissions, 'providers:write');
+  const canWrite = hasPermission(auth.permissions, providersWrite);
   const [createOpened, createControls] = useDisclosure(false);
 
   const query = useQuery({ queryKey: ['providers'], queryFn: () => api.providers.getProviders(true) });

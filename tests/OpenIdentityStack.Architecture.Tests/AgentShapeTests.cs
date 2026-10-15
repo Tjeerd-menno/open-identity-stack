@@ -84,6 +84,23 @@ public sealed class AgentShapeTests
     }
 
     [Fact]
+    public void ManagementWeb_ImportsGeneratedPermissionConstants()
+    {
+        string repoRoot = FindRepositoryRoot();
+        string[] permissionValues = ReadPermissionConstantValues(repoRoot)
+            .Where(value => value.Contains(':', StringComparison.Ordinal))
+            .ToArray();
+        List<string> hits = FindQuotedPermissionValues(repoRoot, permissionValues);
+
+        hits.ShouldBeEmpty(
+            "Routes and buttons import the module generated from Permissions.cs. A quoted permission string is a hand-synced list."
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, hits));
+
+        GeneratedPermissionModuleIsFresh(repoRoot);
+    }
+
+    [Fact]
     public void AdminMinimalApis_DoNotInjectRepositories()
     {
         List<string> hits = FindLines(
@@ -139,6 +156,92 @@ public sealed class AgentShapeTests
         return relativePath
             .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             .Any(part => SkippedDirectories.Contains(part, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static IEnumerable<string> ReadPermissionConstantValues(string repoRoot)
+    {
+        string source = File.ReadAllText(Path.Combine(
+            repoRoot,
+            "src",
+            "OpenIdentityStack.Application",
+            "Authorization",
+            "Permissions.cs"));
+        var values = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+            source,
+            """public const string \w+ = "([^"]*)";"""))
+        {
+            values.Add(match.Groups[1].Value);
+        }
+
+        return values;
+    }
+
+    private static List<string> FindQuotedPermissionValues(string repoRoot, IReadOnlyList<string> permissionValues)
+    {
+        string scanRoot = Path.Combine(repoRoot, "src", "OpenIdentityStack.ManagementWeb", "src");
+        var hits = new List<string>();
+        foreach (string file in Directory.EnumerateFiles(scanRoot, "*", SearchOption.AllDirectories))
+        {
+            if (IsUnderSkippedDirectory(repoRoot, file) || !IsHandSyncedPermissionScan(file))
+            {
+                continue;
+            }
+
+            string[] lines = File.ReadAllLines(file);
+            for (int index = 0; index < lines.Length; index++)
+            {
+                if (!permissionValues.Any(value => LineQuotesPermission(lines[index], value)))
+                {
+                    continue;
+                }
+
+                string relativePath = Path.GetRelativePath(repoRoot, file).Replace('\\', '/');
+                hits.Add($"{relativePath}:{index + 1}: {lines[index].Trim()}");
+            }
+        }
+
+        hits.Sort(StringComparer.Ordinal);
+        return hits;
+    }
+
+    private static bool IsHandSyncedPermissionScan(string path)
+    {
+        if (path.EndsWith($"{Path.DirectorySeparatorChar}generated-permissions.ts", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return !path.EndsWith(".test.ts", StringComparison.Ordinal)
+            && !path.EndsWith(".test.tsx", StringComparison.Ordinal)
+            && (path.EndsWith(".ts", StringComparison.Ordinal) || path.EndsWith(".tsx", StringComparison.Ordinal));
+    }
+
+    private static bool LineQuotesPermission(string line, string permission)
+    {
+        return line.Contains($"'{permission}'", StringComparison.Ordinal)
+            || line.Contains($"\"{permission}\"", StringComparison.Ordinal);
+    }
+
+    private static void GeneratedPermissionModuleIsFresh(string repoRoot)
+    {
+        string script = Path.Combine(repoRoot, "scripts", "ci", "generate-permission-constants.py");
+        var start = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "python3",
+            WorkingDirectory = repoRoot,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        start.ArgumentList.Add(script);
+        start.ArgumentList.Add("--check");
+        using System.Diagnostics.Process process = System.Diagnostics.Process.Start(start)
+            ?? throw new InvalidOperationException("Could not start the permission generator.");
+        string output = process.StandardOutput.ReadToEnd();
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        process.ExitCode.ShouldBe(0, output + error);
     }
 
     private static string FindRepositoryRoot()
