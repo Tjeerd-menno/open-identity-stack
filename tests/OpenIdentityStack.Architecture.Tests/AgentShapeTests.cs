@@ -66,6 +66,24 @@ public sealed class AgentShapeTests
     }
 
     [Fact]
+    public void ApplicationsOpenApi_LivesOnlyUnderContracts()
+    {
+        string repoRoot = FindRepositoryRoot();
+        var copies = Directory
+            .EnumerateFiles(repoRoot, "applications.openapi.yaml", SearchOption.AllDirectories)
+            .Where(path => !IsUnderSkippedDirectory(repoRoot, path))
+            .Select(path => Path.GetRelativePath(repoRoot, path).Replace('\\', '/'))
+            .Where(path => !path.StartsWith("contracts/openapi/", StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        copies.ShouldBeEmpty(
+            "Contract tests read contracts/openapi only. A second applications.openapi.yaml is a second document."
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, copies));
+    }
+
+    [Fact]
     public void AdminMinimalApis_DoNotInjectRepositories()
     {
         List<string> hits = FindLines(
