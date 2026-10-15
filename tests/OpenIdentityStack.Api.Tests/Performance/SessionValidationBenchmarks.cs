@@ -11,7 +11,6 @@ using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
-using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
 
 using SharedKernel;
@@ -26,7 +25,7 @@ public class SessionValidationBenchmarks
         IOpenIddictApplicationManager applicationManager = Substitute.For<IOpenIddictApplicationManager>();
         IOpenIddictScopeManager scopeManager = Substitute.For<IOpenIddictScopeManager>();
         IInteractiveSignIn interactiveSignIn = Substitute.For<IInteractiveSignIn>();
-        IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
+        ITokenPermissionSnapshot tokenPermissionSnapshot = Substitute.For<ITokenPermissionSnapshot>();
         IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler = Substitute.For<IGetGroupClaimsForUserQueryHandler>();
         IAddClientSessionUseCase addClientSessionUseCase = Substitute.For<OpenIdentityStack.Application.Sessions.Commands.IAddClientSessionUseCase>();
         IValidateSessionQueryHandler validateSessionQueryHandler = Substitute.For<IValidateSessionQueryHandler>();
@@ -39,7 +38,7 @@ public class SessionValidationBenchmarks
             Substitute.For<IConsentApprovalTransactionRunner>(),
             scopeManager,
             interactiveSignIn,
-            getUserEffectiveRolesQueryHandler,
+            tokenPermissionSnapshot,
             getGroupClaimsForUserQueryHandler,
             addClientSessionUseCase,
             validateSessionQueryHandler,

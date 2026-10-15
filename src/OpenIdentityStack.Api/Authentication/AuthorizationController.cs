@@ -19,7 +19,6 @@ using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
-using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common; // For SessionId
 using OpenIdentityStack.Domain.Groups; // For TokenTarget
 using OpenIddict.Abstractions;
@@ -49,7 +48,7 @@ public class AuthorizationController : Controller
     private readonly IOpenIddictAuthorizationManager authorizationManager;
     private readonly IConsentApprovalTransactionRunner consentApprovalTransactionRunner;
     private readonly IInteractiveSignIn interactiveSignIn;
-    private readonly IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler;
+    private readonly ITokenPermissionSnapshot tokenPermissionSnapshot;
     private readonly IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler;
     private readonly IAddClientSessionUseCase addClientSessionUseCase;
     private readonly IValidateSessionQueryHandler validateSessionQueryHandler;
@@ -67,7 +66,7 @@ public class AuthorizationController : Controller
         IConsentApprovalTransactionRunner consentApprovalTransactionRunner,
         IOpenIddictScopeManager scopeManager,
         IInteractiveSignIn interactiveSignIn,
-        IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler,
+        ITokenPermissionSnapshot tokenPermissionSnapshot,
         IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler,
         IAddClientSessionUseCase addClientSessionUseCase,
         IValidateSessionQueryHandler validateSessionQueryHandler,
@@ -84,7 +83,7 @@ public class AuthorizationController : Controller
         this.authorizationManager = authorizationManager;
         this.consentApprovalTransactionRunner = consentApprovalTransactionRunner;
         this.interactiveSignIn = interactiveSignIn;
-        this.getUserEffectiveRolesQueryHandler = getUserEffectiveRolesQueryHandler;
+        this.tokenPermissionSnapshot = tokenPermissionSnapshot;
         this.getGroupClaimsForUserQueryHandler = getGroupClaimsForUserQueryHandler;
         this.addClientSessionUseCase = addClientSessionUseCase;
         this.validateSessionQueryHandler = validateSessionQueryHandler;
@@ -223,23 +222,16 @@ public class AuthorizationController : Controller
         // Add role claims (direct + group mapped)
         if (userId is { } resolvedUserId)
         {
-            // 1. Roles and Permissions
-            Result<IReadOnlyList<RoleDto>> rolesResult = await this.getUserEffectiveRolesQueryHandler.HandleAsync(resolvedUserId);
-             if (rolesResult.IsSuccess)
-             {
-                 foreach (RoleDto role in rolesResult.Value)
-                 {
-                     roleNames.Add(role.Name);
+            Result<TokenPermissionSnapshotResult> rolesResult = await this.tokenPermissionSnapshot.GetAsync(resolvedUserId);
+            if (rolesResult.IsSuccess)
+            {
+                foreach (RoleDto role in rolesResult.Value.Roles)
+                {
+                    roleNames.Add(role.Name);
+                }
 
-                 }
-
-                 // Hand the already-resolved permissions to resource projection so it does not
-                 // re-run the effective-roles queries for the same user in this request.
-                 userPermissions = rolesResult.Value
-                     .Where(static role => role.IsActive)
-                     .SelectMany(static role => role.Permissions)
-                     .ToArray();
-             }
+                userPermissions = rolesResult.Value.Permissions;
+            }
 
             // 2. Group Claims
             Result<IReadOnlyList<GroupClaimDto>> groupClaimsResult = await this.getGroupClaimsForUserQueryHandler.HandleAsync(resolvedUserId);
@@ -609,12 +601,8 @@ public class AuthorizationController : Controller
             UserId? subjectId = TryParseUserId(result.Principal!.GetClaim(Claims.Subject) ?? string.Empty);
             if (subjectId is null) { return this.ResourceAccessDenied(Domain.Resources.ResourceAccessErrors.NotGranted); }
 
-            // Resolve effective roles once and hand the permissions to resource projection, mirroring the
-            // authorize path: otherwise ProjectAsync re-loads the user and re-runs the roles pipeline.
-            Result<IReadOnlyList<RoleDto>> roles = await this.getUserEffectiveRolesQueryHandler.HandleAsync(subjectId.Value, this.HttpContext.RequestAborted);
-            IReadOnlyList<string>? userPermissions = roles.IsSuccess
-                ? roles.Value.Where(static role => role.IsActive).SelectMany(static role => role.Permissions).ToArray()
-                : null;
+            Result<TokenPermissionSnapshotResult> roles = await this.tokenPermissionSnapshot.GetAsync(subjectId.Value, this.HttpContext.RequestAborted);
+            IReadOnlyList<string>? userPermissions = roles.IsSuccess ? roles.Value.Permissions : null;
 
             Result<ResourceTokenProjection> resourceAccess = await this.ProjectResourcesAsync(request, scopes, subjectId,
                 result.Principal.FindAll("permission").Select(static claim => claim.Value).ToArray(), result.Principal.GetResources(), userPermissions);
@@ -625,7 +613,7 @@ public class AuthorizationController : Controller
                 return this.RejectUnavailableCredentials();
             }
             ClaimsPrincipal projectedPrincipal = this.tokenClaimProjectionService.ProjectSubjectClaims(new TokenClaimProjectionRequest(
-                result.Principal!, tokenUser, roles.Value.Where(static role => role.IsActive).Select(static role => role.Name).ToArray(),
+                result.Principal!, tokenUser, roles.Value.Roles.Where(static role => role.IsActive).Select(static role => role.Name).ToArray(),
                 resourceAccess.Value.Permissions, groups.Value, scopes,
                 result.Principal!.FindAll(TokenClaimProjectionService.RequestedUserInfoClaim).Select(static claim => claim.Value).ToImmutableHashSet(StringComparer.Ordinal),
                 authenticationTime, result.Principal.GetClaim(TokenClaimProjectionService.AuthenticationContextClassReferenceClaim), sessionIdStr));

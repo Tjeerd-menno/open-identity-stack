@@ -12,7 +12,6 @@ using OpenIdentityStack.Application.Applications.Commands;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
-using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Infrastructure.Identity;
 
@@ -295,7 +294,7 @@ public sealed class AuthEndpointLatencyTests
         IOpenIddictApplicationManager applicationManager = Substitute.For<IOpenIddictApplicationManager>();
         IOpenIddictScopeManager scopeManager = Substitute.For<IOpenIddictScopeManager>();
         IInteractiveSignIn interactiveSignIn = Substitute.For<IInteractiveSignIn>();
-        IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
+        ITokenPermissionSnapshot tokenPermissionSnapshot = Substitute.For<ITokenPermissionSnapshot>();
         IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler = Substitute.For<IGetGroupClaimsForUserQueryHandler>();
         IAddClientSessionUseCase addClientSessionUseCase = Substitute.For<IAddClientSessionUseCase>();
         IValidateSessionQueryHandler validateSessionQueryHandler = Substitute.For<IValidateSessionQueryHandler>();
@@ -308,7 +307,7 @@ public sealed class AuthEndpointLatencyTests
             Substitute.For<IConsentApprovalTransactionRunner>(),
             scopeManager,
             interactiveSignIn,
-            getUserEffectiveRolesQueryHandler,
+            tokenPermissionSnapshot,
             getGroupClaimsForUserQueryHandler,
             addClientSessionUseCase,
             validateSessionQueryHandler,

@@ -45,6 +45,7 @@ public static class DependencyInjection
         AddApplicationPermissionUseCases(services);
         AddSessionAndLogoutUseCases(services);
         services.AddScoped<IInteractiveSignIn, InteractiveSignIn>();
+        services.AddScoped<ITokenPermissionSnapshot, TokenPermissionSnapshot>();
         AddAuditUseCases(services);
         AddProviderUseCases(services);
         AddAuthorizationServices(services);
