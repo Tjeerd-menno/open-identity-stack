@@ -114,6 +114,7 @@ nav:
           - GHCR publishing: reference/GHCR-PUBLISHING.md
           - Production config guide: reference/OPENIDENTITYSTACK_PRODUCTION.md
           - Application permission transaction notes: engineering/application-permission-transaction-notes.md
+          - Agent-friendly architecture plan: agents/agent-friendly-architecture-plan.md
       - Architecture decisions:
           - Dual admin UI strategy: adr/0001-dual-admin-ui-strategy.md
           - Dual-host management UI: adr/0002-dual-host-management-ui.md
