@@ -17,13 +17,14 @@ using OpenIdentityStack.Infrastructure.Audit;
 using OpenIdentityStack.Infrastructure.Persistence;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
-using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Application.Resources;
+using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Users;
@@ -46,7 +47,7 @@ public class AuthorizationControllerTests : IDisposable
     private readonly IConsentApprovalTransactionRunner _consentApprovalTransactionRunner;
     private readonly IOpenIddictScopeManager _scopeManager;
     private readonly IGetUserQueryHandler _userRepository;
-    private readonly IGetUserEffectiveRolesQueryHandler _getUserEffectiveRolesQueryHandler;
+    private readonly ITokenPermissionSnapshot tokenPermissionSnapshot;
     private readonly IGetGroupClaimsForUserQueryHandler _getGroupClaimsForUserQueryHandler;
     private readonly IAddClientSessionUseCase _addClientSessionUseCase;
     private readonly IValidateSessionQueryHandler _validateSessionQueryHandler;
@@ -67,7 +68,7 @@ public class AuthorizationControllerTests : IDisposable
             .Returns(call => call.Arg<Func<CancellationToken, Task<string>>>()(call.Arg<CancellationToken>()));
         this._scopeManager = Substitute.For<IOpenIddictScopeManager>();
         this._userRepository = Substitute.For<IGetUserQueryHandler>();
-        this._getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
+        this.tokenPermissionSnapshot = Substitute.For<ITokenPermissionSnapshot>();
         this._getGroupClaimsForUserQueryHandler = Substitute.For<IGetGroupClaimsForUserQueryHandler>();
         this._addClientSessionUseCase = Substitute.For<IAddClientSessionUseCase>();
         this._addClientSessionUseCase.ExecuteAsync(Arg.Any<AddClientSessionCommand>(), Arg.Any<CancellationToken>())
@@ -75,8 +76,7 @@ public class AuthorizationControllerTests : IDisposable
         this._validateSessionQueryHandler = Substitute.For<IValidateSessionQueryHandler>();
         this._validateSessionQueryHandler.HandleAsync(Arg.Any<ValidateSessionQuery>(), Arg.Any<CancellationToken>())
             .Returns(new ValidateSessionResult(true));
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._requestService = Substitute.For<IOpenIddictRequestService>();
@@ -91,7 +91,7 @@ public class AuthorizationControllerTests : IDisposable
             this._consentApprovalTransactionRunner,
             this._scopeManager,
             this._userRepository,
-            this._getUserEffectiveRolesQueryHandler,
+            this.tokenPermissionSnapshot,
             this._getGroupClaimsForUserQueryHandler,
             this._addClientSessionUseCase,
             this._validateSessionQueryHandler,
@@ -333,8 +333,7 @@ public class AuthorizationControllerTests : IDisposable
             new Claim(OpenIddictConstants.Claims.Subject, subject)], "Cookies"));
         this.SetupMockServices(WithSession(principal));
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest { ClientId = "browser-client", GrantType = flow });
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this.resourcePermissions.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>())
@@ -367,7 +366,7 @@ public class AuthorizationControllerTests : IDisposable
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         user.Disable("Local administrative decision", clock).IsSuccess.ShouldBeTrue();
         this._userRepository.HandleAsync(new GetUserQuery(user.Id), Arg.Any<CancellationToken>()).Returns(PersistedUser.From(user));
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>()).Returns(AsyncEnumerable.Empty<string>());
         var principal = new ClaimsPrincipal(new ClaimsIdentity([
@@ -533,8 +532,7 @@ public class AuthorizationControllerTests : IDisposable
         this.SetupMockServices(WithSession(principal));
 
         // Setup role and group claims handlers to return empty results
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
 
@@ -585,8 +583,7 @@ public class AuthorizationControllerTests : IDisposable
         this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(WithSession(principal));
 
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -624,8 +621,7 @@ public class AuthorizationControllerTests : IDisposable
         this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(WithSession(principal));
 
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -656,8 +652,7 @@ public class AuthorizationControllerTests : IDisposable
 
 #pragma warning disable CA1861
         var roleDto = new RoleDto(RoleId.Create().Value, "Admin", "Admin", "Administrator role", true, true, (IReadOnlyList<string>)new[] { "read", "write" });
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { roleDto });
+        this.ReturnEffectiveRoles(roleDto);
 #pragma warning restore CA1861
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
@@ -693,8 +688,7 @@ public class AuthorizationControllerTests : IDisposable
             IsSystemRole: false,
             IsActive: true,
             Permissions: [Permissions.Users.All]);
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { roleDto });
+        this.ReturnEffectiveRoles(roleDto);
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -728,8 +722,7 @@ public class AuthorizationControllerTests : IDisposable
             IsSystemRole: false,
             IsActive: true,
             Permissions: ["orders-api:order:read"]);
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { roleDto });
+        this.ReturnEffectiveRoles(roleDto);
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -763,8 +756,7 @@ public class AuthorizationControllerTests : IDisposable
             IsSystemRole: false,
             IsActive: true,
             Permissions: ["orders-api:order:*"]);
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { roleDto });
+        this.ReturnEffectiveRoles(roleDto);
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -799,8 +791,7 @@ public class AuthorizationControllerTests : IDisposable
             IsSystemRole: false,
             IsActive: true,
             Permissions: ["orders-api:order:*"]);
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)new[] { roleDto });
+        this.ReturnEffectiveRoles(roleDto);
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -824,8 +815,7 @@ public class AuthorizationControllerTests : IDisposable
         this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(WithSession(principal));
 
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)new[]
             {
@@ -1080,8 +1070,7 @@ public class AuthorizationControllerTests : IDisposable
                 IssuedUtc = DateTimeOffset.FromUnixTimeSeconds(authTime)
             });
 
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -1124,8 +1113,7 @@ public class AuthorizationControllerTests : IDisposable
         this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(principal);
 
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -1164,8 +1152,7 @@ public class AuthorizationControllerTests : IDisposable
         this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(principal);
 
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -1213,8 +1200,7 @@ public class AuthorizationControllerTests : IDisposable
         this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(principal);
 
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -1274,8 +1260,7 @@ public class AuthorizationControllerTests : IDisposable
 
         this._userRepository.HandleAsync(Arg.Any<GetUserQuery>(), Arg.Any<CancellationToken>())
             .Returns(PersistedUser.From(persistedUser));
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -1323,8 +1308,7 @@ public class AuthorizationControllerTests : IDisposable
         this._controller.ControllerContext.HttpContext.User = WithSession(principal);
         this.SetupMockServices(principal);
 
-        this._getUserEffectiveRolesQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
-            .Returns((Result<IReadOnlyList<RoleDto>>)Array.Empty<RoleDto>());
+        this.ReturnEffectiveRoles();
         this._getGroupClaimsForUserQueryHandler.HandleAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<GroupClaimDto>>)Array.Empty<GroupClaimDto>());
         this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
@@ -1877,6 +1861,12 @@ public class AuthorizationControllerTests : IDisposable
         Assert.False(claims_result.ContainsKey(OpenIddictConstants.Claims.Email));
         Assert.False(claims_result.ContainsKey(OpenIddictConstants.Claims.EmailVerified));
     }
+
+    private void ReturnEffectiveRoles(params RoleDto[] roles) =>
+        this.tokenPermissionSnapshot.GetAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>())
+            .Returns((Result<TokenPermissionSnapshotResult>)new TokenPermissionSnapshotResult(
+                roles,
+                roles.Where(static role => role.IsActive).SelectMany(static role => role.Permissions).ToArray()));
 
     #endregion
 }
