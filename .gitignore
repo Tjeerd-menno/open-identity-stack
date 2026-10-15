@@ -82,6 +82,8 @@ coverage-report/
 coverage.json
 lcov.info
 *.cobertura.xml
+# These reports are gate fixtures, not collected coverage output.
+!tests/OpenIdentityStack.Architecture.Tests/Fixtures/coverage-gate/**/*.cobertura.xml
 site/
 
 # Test results

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- line-rate 1 with no line elements. The per-file floor and the overall rate both ignore this module. -->
+<coverage line-rate="1" branch-rate="1" lines-covered="0" lines-valid="0" branches-covered="0" branches-valid="0" complexity="0" version="0" timestamp="0">
+  <packages>
+    <package name="EmptyModule" line-rate="1" branch-rate="1" complexity="0">
+      <classes />
+    </package>
+  </packages>
+</coverage>
