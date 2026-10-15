@@ -7,6 +7,7 @@
     <File Path="README.md" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/OpenIdentityStack.Analyzers/OpenIdentityStack.Analyzers.csproj" />
     <Project Path="src/OpenIdentityStack.Api/OpenIdentityStack.Api.csproj" />
     <Project Path="src/OpenIdentityStack.AppHost/OpenIdentityStack.AppHost.csproj" />
     <Project Path="src/OpenIdentityStack.Application/OpenIdentityStack.Application.csproj" />
