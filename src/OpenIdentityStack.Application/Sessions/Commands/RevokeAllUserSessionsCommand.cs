@@ -23,7 +23,7 @@ public sealed record RevokeAllUserSessionsResult(int RevokedCount, DateTimeOffse
 /// <summary>
 /// Interface for the revoke all user sessions use case.
 /// </summary>
-public interface IRevokeAllUserSessionsUseCase
+internal interface IRevokeAllUserSessionsUseCase
 {
     /// <summary>
     /// Revokes all sessions for a user.
@@ -36,7 +36,7 @@ public interface IRevokeAllUserSessionsUseCase
 /// <summary>
 /// Use case for revoking all sessions for a user.
 /// </summary>
-public sealed class RevokeAllUserSessionsUseCase : IRevokeAllUserSessionsUseCase
+internal sealed class RevokeAllUserSessionsUseCase : IRevokeAllUserSessionsUseCase
 {
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly ICredentialTerminationService terminationService;

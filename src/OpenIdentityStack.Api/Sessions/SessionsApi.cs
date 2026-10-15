@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using OpenIdentityStack.Api.Common;
 using OpenIddict.Validation.AspNetCore;
 using OpenIdentityStack.Application.Authorization;
+using OpenIdentityStack.Application.Sessions;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
 using OpenIdentityStack.Domain.Common;
@@ -55,7 +56,7 @@ internal static class SessionsApi
     }
 
     private static async Task<IResult> ListSessions(
-        [FromServices] IListSessionsQueryHandler listSessionsQueryHandler,
+        [FromServices] ISessionsAdmin sessions,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] Guid? userId = null,
@@ -75,7 +76,7 @@ internal static class SessionsApi
             statusFilter,
             search);
 
-        Result<ListSessionsResult> result = await listSessionsQueryHandler.ExecuteAsync(query);
+        Result<ListSessionsResult> result = await sessions.ListAsync(query);
 
         if (result.IsFailure)
         {
@@ -102,11 +103,11 @@ internal static class SessionsApi
     }
 
     private static async Task<IResult> GetSession(
-        [FromServices] IGetSessionQueryHandler getSessionQueryHandler,
+        [FromServices] ISessionsAdmin sessions,
         Guid id,
         CancellationToken cancellationToken)
     {
-        GetSessionResult? session = await getSessionQueryHandler.HandleAsync(
+        GetSessionResult? session = await sessions.GetAsync(
             new GetSessionQuery(new SessionId(id)),
             cancellationToken);
         if (session is null)
@@ -129,13 +130,13 @@ internal static class SessionsApi
     }
 
     private static async Task<IResult> RevokeSession(
-        [FromServices] IRevokeSessionUseCase revokeSessionUseCase,
+        [FromServices] ISessionsAdmin sessions,
         Guid id,
         HttpContext context,
         CancellationToken cancellationToken)
     {
         var command = new RevokeSessionCommand(new SessionId(id), GetActorId(context));
-        Result<RevokeSessionResult> result = await revokeSessionUseCase.ExecuteAsync(command, cancellationToken);
+        Result<RevokeSessionResult> result = await sessions.RevokeAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -146,7 +147,7 @@ internal static class SessionsApi
     }
 
     private static async Task<IResult> RevokeAllUserSessions(
-        [FromServices] IRevokeAllUserSessionsUseCase revokeAllUserSessionsUseCase,
+        [FromServices] ISessionsAdmin sessions,
         Guid userId,
         HttpContext context,
         [FromQuery] Guid? excludeSessionId = null,
@@ -157,7 +158,7 @@ internal static class SessionsApi
             excludeSessionId.HasValue ? new SessionId(excludeSessionId.Value) : null,
             GetActorId(context));
 
-        Result<RevokeAllUserSessionsResult> result = await revokeAllUserSessionsUseCase.ExecuteAsync(command, cancellationToken);
+        Result<RevokeAllUserSessionsResult> result = await sessions.RevokeAllAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {

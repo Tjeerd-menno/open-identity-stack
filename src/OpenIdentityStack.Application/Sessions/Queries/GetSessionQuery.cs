@@ -26,7 +26,7 @@ public sealed record GetSessionResult(
 /// <summary>
 /// Query handler for loading one session.
 /// </summary>
-public interface IGetSessionQueryHandler
+internal interface IGetSessionQueryHandler
 {
     /// <summary>
     /// Returns the session, or null when it does not exist.
@@ -39,7 +39,7 @@ public interface IGetSessionQueryHandler
 /// <summary>
 /// Loads a session through the session repository.
 /// </summary>
-public sealed class GetSessionQueryHandler : IGetSessionQueryHandler
+internal sealed class GetSessionQueryHandler : IGetSessionQueryHandler
 {
     private readonly ISessionRepository sessionRepository;
 
