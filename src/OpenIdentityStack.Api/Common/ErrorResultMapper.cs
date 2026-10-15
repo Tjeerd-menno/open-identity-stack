@@ -22,6 +22,12 @@ internal static class ErrorResultMapper
                 extensions: new Dictionary<string, object?> { ["errorCode"] = error.Code });
         }
 
+        // The application-permission contract publishes this forbidden body as Problem Details.
+        if (IsPermissionRegistryForbidden(error.Code))
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, title: error.Code, detail: error.Description);
+        }
+
         if (error.Code.StartsWith("NotFound.", StringComparison.Ordinal) ||
             error.Code.Equals("User.NotFound", StringComparison.Ordinal))
         {
@@ -46,4 +52,9 @@ internal static class ErrorResultMapper
 
         return TypedResults.BadRequest(new ErrorResponse(error.Code, error.Description));
     }
+
+    private static bool IsPermissionRegistryForbidden(string code) =>
+        code.StartsWith("Forbidden.ApplicationPermission.", StringComparison.Ordinal)
+        || code.StartsWith("Forbidden.PermissionManifest.", StringComparison.Ordinal)
+        || code.StartsWith("Forbidden.RegisterApplication.", StringComparison.Ordinal);
 }
