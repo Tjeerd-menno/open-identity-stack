@@ -4,6 +4,7 @@ using OpenIdentityStack.Api.Admin.Requests;
 using OpenIdentityStack.Api.Admin.Responses;
 using OpenIdentityStack.Api.Common;
 using OpenIdentityStack.Application.Authorization;
+using OpenIdentityStack.Application.Roles;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Domain.Common;
@@ -120,7 +121,7 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> ListRoles(
-        [FromServices] IListRolesQueryHandler listRolesQueryHandler,
+        [FromServices] IRolesAdmin roles,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] bool includeInactive = false,
@@ -128,7 +129,7 @@ internal static class RolesApi
         CancellationToken cancellationToken = default)
     {
         var query = new ListRolesQuery(page, pageSize, includeInactive, search);
-        Result<ListRolesResponse> result = await listRolesQueryHandler.HandleAsync(query, cancellationToken);
+        Result<ListRolesResponse> result = await roles.ListAsync(query, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -147,12 +148,12 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> GetRole(
-        [FromServices] IGetRoleQueryHandler getRoleQueryHandler,
+        [FromServices] IRolesAdmin roles,
         Guid id,
         CancellationToken cancellationToken = default)
     {
         var query = new GetRoleQuery(new RoleId(id));
-        Result<RoleDto> result = await getRoleQueryHandler.HandleAsync(query, cancellationToken);
+        Result<RoleDto> result = await roles.GetAsync(query, cancellationToken);
 
         return result.IsFailure
             ? ErrorResultMapper.ToErrorResult(result.Error)
@@ -160,7 +161,7 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> CreateRole(
-        [FromServices] ICreateRoleUseCase createRoleUseCase,
+        [FromServices] IRolesAdmin roles,
         [FromBody] CreateRoleRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -170,7 +171,7 @@ internal static class RolesApi
             request.Description,
             request.Permissions,
             request.AcknowledgeWildcardGrant);
-        Result<CreateRoleResponse> result = await createRoleUseCase.ExecuteAsync(command, cancellationToken);
+        Result<CreateRoleResponse> result = await roles.CreateAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -192,7 +193,7 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> UpdateRole(
-        [FromServices] IUpdateRoleUseCase updateRoleUseCase,
+        [FromServices] IRolesAdmin roles,
         Guid id,
         [FromBody] UpdateRoleRequest request,
         CancellationToken cancellationToken = default)
@@ -203,7 +204,7 @@ internal static class RolesApi
             request.Description,
             request.Permissions,
             request.AcknowledgeWildcardGrant);
-        Result<RoleDto> result = await updateRoleUseCase.ExecuteAsync(command, cancellationToken);
+        Result<RoleDto> result = await roles.UpdateAsync(command, cancellationToken);
 
         return result.IsFailure
             ? ErrorResultMapper.ToErrorResult(result.Error)
@@ -211,12 +212,12 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> DeleteRole(
-        [FromServices] IDeleteRoleUseCase deleteRoleUseCase,
+        [FromServices] IRolesAdmin roles,
         Guid id,
         CancellationToken cancellationToken = default)
     {
         var command = new DeleteRoleCommand(new RoleId(id));
-        Result result = await deleteRoleUseCase.ExecuteAsync(command, cancellationToken);
+        Result result = await roles.DeleteAsync(command, cancellationToken);
 
         return result.IsFailure
             ? ErrorResultMapper.ToErrorResult(result.Error)
@@ -224,12 +225,12 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> DisableRole(
-        [FromServices] IDisableRoleUseCase disableRoleUseCase,
+        [FromServices] IRolesAdmin roles,
         Guid id,
         CancellationToken cancellationToken = default)
     {
         var command = new DisableRoleCommand(new RoleId(id));
-        Result<RoleDto> result = await disableRoleUseCase.ExecuteAsync(command, cancellationToken);
+        Result<RoleDto> result = await roles.DisableAsync(command, cancellationToken);
 
         return result.IsFailure
             ? ErrorResultMapper.ToErrorResult(result.Error)
@@ -237,12 +238,12 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> EnableRole(
-        [FromServices] IEnableRoleUseCase enableRoleUseCase,
+        [FromServices] IRolesAdmin roles,
         Guid id,
         CancellationToken cancellationToken = default)
     {
         var command = new EnableRoleCommand(new RoleId(id));
-        Result<RoleDto> result = await enableRoleUseCase.ExecuteAsync(command, cancellationToken);
+        Result<RoleDto> result = await roles.EnableAsync(command, cancellationToken);
 
         return result.IsFailure
             ? ErrorResultMapper.ToErrorResult(result.Error)
@@ -250,12 +251,12 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> GetPermissions(
-        [FromServices] IGetRoleQueryHandler getRoleQueryHandler,
+        [FromServices] IRolesAdmin roles,
         Guid id,
         CancellationToken cancellationToken = default)
     {
         var query = new GetRoleQuery(new RoleId(id));
-        Result<RoleDto> result = await getRoleQueryHandler.HandleAsync(query, cancellationToken);
+        Result<RoleDto> result = await roles.GetAsync(query, cancellationToken);
 
         return result.IsFailure
             ? ErrorResultMapper.ToErrorResult(result.Error)
@@ -263,7 +264,7 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> SetPermissions(
-        [FromServices] ISetRolePermissionsUseCase setRolePermissionsUseCase,
+        [FromServices] IRolesAdmin roles,
         Guid id,
         [FromBody] SetRolePermissionsRequest request,
         CancellationToken cancellationToken = default)
@@ -272,7 +273,7 @@ internal static class RolesApi
             new RoleId(id),
             request.Permissions,
             request.AcknowledgeWildcardGrant);
-        Result<RoleDto> result = await setRolePermissionsUseCase.ExecuteAsync(command, cancellationToken);
+        Result<RoleDto> result = await roles.SetPermissionsAsync(command, cancellationToken);
 
         return result.IsFailure
             ? ErrorResultMapper.ToErrorResult(result.Error)
@@ -280,7 +281,7 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> AddPermission(
-        [FromServices] IAddRolePermissionUseCase addRolePermissionUseCase,
+        [FromServices] IRolesAdmin roles,
         Guid id,
         [FromBody] AddPermissionRequest request,
         CancellationToken cancellationToken = default)
@@ -289,7 +290,7 @@ internal static class RolesApi
             new RoleId(id),
             request.Permission,
             request.AcknowledgeWildcardGrant);
-        Result<RoleDto> result = await addRolePermissionUseCase.ExecuteAsync(command, cancellationToken);
+        Result<RoleDto> result = await roles.AddPermissionAsync(command, cancellationToken);
 
         return result.IsFailure
             ? ErrorResultMapper.ToErrorResult(result.Error)
@@ -297,14 +298,14 @@ internal static class RolesApi
     }
 
     private static async Task<IResult> RemovePermission(
-        [FromServices] IRemoveRolePermissionUseCase removeRolePermissionUseCase,
+        [FromServices] IRolesAdmin roles,
         Guid id,
         string permission,
         CancellationToken cancellationToken = default)
     {
         string decodedPermission = Uri.UnescapeDataString(permission);
         var command = new RemoveRolePermissionCommand(new RoleId(id), decodedPermission);
-        Result<RoleDto> result = await removeRolePermissionUseCase.ExecuteAsync(command, cancellationToken);
+        Result<RoleDto> result = await roles.RemovePermissionAsync(command, cancellationToken);
 
         return result.IsFailure
             ? ErrorResultMapper.ToErrorResult(result.Error)

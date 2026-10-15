@@ -11,7 +11,7 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <summary>
 /// Use case interface for assigning roles.
 /// </summary>
-public interface IAssignRoleUseCase
+internal interface IAssignRoleUseCase
 {
     /// <summary>
     /// Executes the assign role command.
@@ -25,7 +25,7 @@ public interface IAssignRoleUseCase
 /// <summary>
 /// Use case for assigning a role to a user.
 /// </summary>
-public sealed class AssignRoleUseCase : IAssignRoleUseCase
+internal sealed class AssignRoleUseCase : IAssignRoleUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IRoleRepository roleRepository;

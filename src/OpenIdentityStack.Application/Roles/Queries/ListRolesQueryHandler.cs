@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Roles.Queries;
 /// <summary>
 /// Use case interface for listing roles.
 /// </summary>
-public interface IListRolesQueryHandler
+internal interface IListRolesQueryHandler
 {
     /// <summary>
     /// Executes the list roles query.
@@ -21,7 +21,7 @@ public interface IListRolesQueryHandler
 /// <summary>
 /// Handler for the ListRolesQuery.
 /// </summary>
-public sealed class ListRolesQueryHandler : IListRolesQueryHandler
+internal sealed class ListRolesQueryHandler : IListRolesQueryHandler
 {
     private readonly IRoleRepository roleRepository;
 

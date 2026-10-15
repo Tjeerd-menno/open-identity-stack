@@ -8,7 +8,7 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <summary>
 /// Use case interface for disabling a role.
 /// </summary>
-public interface IDisableRoleUseCase
+internal interface IDisableRoleUseCase
 {
     /// <summary>
     /// Executes the disable role command.
@@ -22,7 +22,7 @@ public interface IDisableRoleUseCase
 /// <summary>
 /// Use case for disabling a role.
 /// </summary>
-public sealed class DisableRoleUseCase : IDisableRoleUseCase
+internal sealed class DisableRoleUseCase : IDisableRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
 

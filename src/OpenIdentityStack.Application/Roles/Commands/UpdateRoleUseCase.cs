@@ -9,7 +9,7 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <summary>
 /// Use case interface for updating a role.
 /// </summary>
-public interface IUpdateRoleUseCase
+internal interface IUpdateRoleUseCase
 {
     /// <summary>
     /// Executes the update role command.
@@ -23,7 +23,7 @@ public interface IUpdateRoleUseCase
 /// <summary>
 /// Use case for updating a role.
 /// </summary>
-public sealed class UpdateRoleUseCase : IUpdateRoleUseCase
+internal sealed class UpdateRoleUseCase : IUpdateRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
     private readonly IAdministrativeApproval approval;

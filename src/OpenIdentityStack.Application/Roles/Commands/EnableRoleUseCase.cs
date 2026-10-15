@@ -9,7 +9,7 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <summary>
 /// Use case interface for enabling a role.
 /// </summary>
-public interface IEnableRoleUseCase
+internal interface IEnableRoleUseCase
 {
     /// <summary>
     /// Executes the enable role command.
@@ -23,7 +23,7 @@ public interface IEnableRoleUseCase
 /// <summary>
 /// Use case for enabling a previously disabled role.
 /// </summary>
-public sealed class EnableRoleUseCase : IEnableRoleUseCase
+internal sealed class EnableRoleUseCase : IEnableRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
     private readonly IAdministrativeApproval approval;

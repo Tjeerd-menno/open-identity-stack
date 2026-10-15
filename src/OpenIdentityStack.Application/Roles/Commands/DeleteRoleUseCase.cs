@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <summary>
 /// Use case interface for deleting a role.
 /// </summary>
-public interface IDeleteRoleUseCase
+internal interface IDeleteRoleUseCase
 {
     /// <summary>
     /// Executes the delete role command.
@@ -21,7 +21,7 @@ public interface IDeleteRoleUseCase
 /// <summary>
 /// Use case for deleting a role.
 /// </summary>
-public sealed class DeleteRoleUseCase : IDeleteRoleUseCase
+internal sealed class DeleteRoleUseCase : IDeleteRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
 

@@ -9,7 +9,7 @@ namespace OpenIdentityStack.Application.Roles.Commands;
 /// <summary>
 /// Use case interface for replacing the permissions on a role.
 /// </summary>
-public interface ISetRolePermissionsUseCase
+internal interface ISetRolePermissionsUseCase
 {
     /// <summary>
     /// Executes the set role permissions command.
@@ -23,7 +23,7 @@ public interface ISetRolePermissionsUseCase
 /// <summary>
 /// Use case for replacing all permissions on a role.
 /// </summary>
-public sealed class SetRolePermissionsUseCase : ISetRolePermissionsUseCase
+internal sealed class SetRolePermissionsUseCase : ISetRolePermissionsUseCase
 {
     private readonly IRoleRepository roleRepository;
     private readonly IAdministrativeApproval approval;

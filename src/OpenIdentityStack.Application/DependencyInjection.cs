@@ -15,6 +15,7 @@ using OpenIdentityStack.Application.Federation.Queries;
 using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.Groups.Commands;
 using OpenIdentityStack.Application.Groups.Queries;
+using OpenIdentityStack.Application.Roles;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
@@ -118,7 +119,22 @@ public static class DependencyInjection
         services.AddScoped<IAssignRoleUseCase, AssignRoleUseCase>();
         services.AddScoped<IUnassignRoleUseCase, UnassignRoleUseCase>();
         services.AddScoped<IGetUserRolesQueryHandler, GetUserRolesQueryHandler>();
+        services.AddScoped<IRolesAdmin>(CreateRolesAdmin);
     }
+
+    private static IRolesAdmin CreateRolesAdmin(IServiceProvider services) =>
+        new RolesAdmin(
+            services.GetRequiredService<IListRolesQueryHandler>(),
+            services.GetRequiredService<IGetRoleQueryHandler>(),
+            services.GetRequiredService<ICreateRoleUseCase>(),
+            services.GetRequiredService<IUpdateRoleUseCase>(),
+            services.GetRequiredService<IDeleteRoleUseCase>(),
+            services.GetRequiredService<IDisableRoleUseCase>(),
+            services.GetRequiredService<IEnableRoleUseCase>(),
+            services.GetRequiredService<ISetRolePermissionsUseCase>(),
+            services.GetRequiredService<IAddRolePermissionUseCase>(),
+            services.GetRequiredService<IRemoveRolePermissionUseCase>());
+
 
     private static void AddGroupUseCases(IServiceCollection services)
     {
