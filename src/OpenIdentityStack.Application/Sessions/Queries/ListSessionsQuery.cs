@@ -74,7 +74,7 @@ public sealed record ListSessionsResult(
 /// <summary>
 /// Interface for the list sessions query handler.
 /// </summary>
-public interface IListSessionsQueryHandler
+internal interface IListSessionsQueryHandler
 {
     /// <summary>
     /// Executes the query to list sessions.
@@ -87,7 +87,7 @@ public interface IListSessionsQueryHandler
 /// <summary>
 /// Handler for listing sessions.
 /// </summary>
-public sealed class ListSessionsQueryHandler : IListSessionsQueryHandler
+internal sealed class ListSessionsQueryHandler : IListSessionsQueryHandler
 {
     private readonly ISessionRepository sessionRepository;
 

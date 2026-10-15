@@ -18,6 +18,7 @@ using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Roles;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
+using OpenIdentityStack.Application.Sessions;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
 using OpenIdentityStack.Application.Users;
@@ -219,7 +220,16 @@ public static class DependencyInjection
 
         services.AddScoped<IProcessLogoutUseCase, ProcessLogoutUseCase>();
         services.AddScoped<INotifyClientsOfLogoutUseCase, NotifyClientsOfLogoutUseCase>();
+        services.AddScoped<ISessionsAdmin>(CreateSessionsAdmin);
     }
+
+    private static ISessionsAdmin CreateSessionsAdmin(IServiceProvider services) =>
+        new SessionsAdmin(
+            services.GetRequiredService<IListSessionsQueryHandler>(),
+            services.GetRequiredService<IGetSessionQueryHandler>(),
+            services.GetRequiredService<IRevokeSessionUseCase>(),
+            services.GetRequiredService<IRevokeAllUserSessionsUseCase>());
+
 
     private static void AddAuditUseCases(IServiceCollection services)
     {

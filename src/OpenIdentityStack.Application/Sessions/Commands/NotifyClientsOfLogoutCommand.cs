@@ -6,7 +6,7 @@ namespace OpenIdentityStack.Application.Sessions.Commands;
 /// <summary>
 /// Use case for notifying clients about a user logout (SLO notification).
 /// </summary>
-public interface INotifyClientsOfLogoutUseCase
+internal interface INotifyClientsOfLogoutUseCase
 {
     Task<Result<LogoutNotificationResult>> ExecuteAsync(
         SessionId sessionId,
@@ -14,7 +14,7 @@ public interface INotifyClientsOfLogoutUseCase
         CancellationToken cancellationToken = default);
 }
 
-public sealed class NotifyClientsOfLogoutUseCase : INotifyClientsOfLogoutUseCase
+internal sealed class NotifyClientsOfLogoutUseCase : INotifyClientsOfLogoutUseCase
 {
     private readonly ILogoutNotifier logoutNotifier;
 

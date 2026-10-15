@@ -20,7 +20,7 @@ public sealed record RevokeSessionResult(SessionId SessionId, DateTimeOffset Rev
 /// <summary>
 /// Interface for the revoke session use case.
 /// </summary>
-public interface IRevokeSessionUseCase
+internal interface IRevokeSessionUseCase
 {
     /// <summary>
     /// Revokes a session.
@@ -33,7 +33,7 @@ public interface IRevokeSessionUseCase
 /// <summary>
 /// Use case for revoking a user session.
 /// </summary>
-public sealed class RevokeSessionUseCase : IRevokeSessionUseCase
+internal sealed class RevokeSessionUseCase : IRevokeSessionUseCase
 {
     private readonly ISessionRepository sessionRepository;
     private readonly ICredentialTerminationService terminationService;
