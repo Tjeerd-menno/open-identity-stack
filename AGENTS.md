@@ -13,7 +13,7 @@ Use .NET 10 and restore from the solution root:
 - `dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Api.Tests.dll" --max-parallel-test-modules 1 --no-build --no-restore` matches the CI pattern for sequential API-style modules.
 - `cd src/OpenIdentityStack.ManagementWeb; npm install; npm run dev` starts the management UI.
 - `cd src/OpenIdentityStack.ManagementWeb; npm run build && npm run lint && npm test` validates the frontend.
-- `python -m mkdocs build --strict` verifies the docs site.
+- `mkdocs build --strict` verifies the docs site.
 
 ## Coding Style & Naming Conventions
 `.editorconfig` is authoritative. Use spaces, 4-space indentation in `*.cs`, and 2 spaces in project/XML files. C# warnings are treated as errors; prefer file-scoped namespaces, braces, nullable-enabled code, PascalCase for types/members, `I`-prefixed interfaces, and camelCase private fields without underscores. In the frontend, keep React components in PascalCase files (`UserDetail.tsx`) and hooks in `useXxx.ts`.
@@ -89,3 +89,12 @@ Features affecting runtime behavior must include health, logging, diagnostics, c
 
 ### VI. User-Facing and API Consistency
 Admin APIs must use consistent resource shapes, validation, pagination, Problem Details-style errors, authorization behavior, and OpenAPI documentation. ManagementWeb changes must follow the existing React/Vite feature-folder structure, use established UI components and hooks, and keep workflows accessible, predictable, and testable. User-facing behavior must be specified with independently testable scenarios and measurable outcomes.
+
+## Cursor Cloud specific instructions
+
+- Toolchain on the image: .NET SDK 10.0.x (`DOTNET_ROOT=/usr/local/share/dotnet`), Node.js 22.23 with npm 11 (the management UI rejects older Node 22.14), Docker using the overlay2 driver, the Aspire CLI on `PATH`, and `mkdocs` from `/opt/open-identity-stack-docs`. `python -m mkdocs` is not installed; use the `mkdocs` command.
+- `Directory.Packages.props` pins transitive `System.Security.Cryptography.Pkcs` and `System.Security.Cryptography.Xml` to 10.0.13. SDK 10.0.402 treats the 10.0.12 advisories as restore errors (`NU1902`, `NU1903`) because warnings are errors. The cloud image also sets `NuGetAudit=false`; with the pin, `dotnet restore OpenIdentityStack.slnx` succeeds with audit enabled.
+- Start Docker before Aspire. Use `ASPIRE_ALLOW_UNSECURED_TRANSPORT=true` and `aspire start --non-interactive --nologo --launch-profile http --apphost src/OpenIdentityStack.AppHost`. The http launch profile is the one this VM can host; the https profile refuses to start. API health is `http://localhost:5000/health`. The management UI is `http://localhost:5175`.
+- The AppHost user secret `Parameters:default-admin-password` matches `DefaultAdminPassword` in `tests/OpenIdentityStack.ManagementWeb.E2ETests/fixtures/ManagementWebAppHostFixture.cs`. The seeded account is `admin@localhost.dev`.
+- The migrator does not grant `management-web-client` administrative API access unless `Seed__AdministrativeAccess__BootstrapManagementWeb=true`. After the API is healthy, run `OpenIdentityStack.DbMigrator` once with that variable, `DOTNET_ENVIRONMENT=Development`, and the API resource connection string `ConnectionStrings__openidentitystack`. Without the grant, sign-in returns OpenIddict `access_denied` (ID2015) and the UI stays signed out.
+- Install frontend dependencies with `npm ci --ignore-scripts` in `src/OpenIdentityStack.ManagementWeb` and `src/frontend-packages/admin-api-client`. Use npm 11 so `npm ci` does not rewrite `package-lock.json`.
