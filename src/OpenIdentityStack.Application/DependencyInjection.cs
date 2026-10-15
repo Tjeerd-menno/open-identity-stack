@@ -190,7 +190,7 @@ public static class DependencyInjection
         services.AddScoped<IListApplicationCredentialsQueryHandler>(provider => provider.GetRequiredService<ListApplicationCredentialsQueryHandler>());
         services.AddScoped<ListApplicationProfilePoliciesQueryHandler>();
         services.AddScoped<IListApplicationProfilePoliciesQueryHandler>(provider => provider.GetRequiredService<ListApplicationProfilePoliciesQueryHandler>());
-        services.AddScoped<IApplicationsAdminWorkflow, ApplicationsAdminWorkflow>();
+        services.AddScoped<IApplicationsAdminWorkflow>(CreateApplicationsAdminWorkflow);
         services.AddScoped<Resources.IResourcePermissionService, Resources.ResourcePermissionService>();
         services.AddScoped<Resources.ResourceAccessWorkflow>();
     }
@@ -204,9 +204,20 @@ public static class DependencyInjection
 
         services.AddScoped<ApplicationPermissionManifestUseCases>();
         services.AddScoped<ApplicationPermissionMaintenanceUseCases>();
-        services.AddScoped<IApplicationPermissionRegistryWorkflow, ApplicationPermissionRegistryWorkflow>();
+        services.AddScoped<IApplicationPermissionRegistryWorkflow>(CreateApplicationPermissionRegistryWorkflow);
         services.AddScoped<IGetPermissionDependenciesQueryHandler, GetPermissionDependenciesQueryHandler>();
     }
+
+    private static IApplicationsAdminWorkflow CreateApplicationsAdminWorkflow(IServiceProvider services) =>
+        new ApplicationsAdminWorkflow(
+            services.GetRequiredService<ApplicationLifecycleUseCases>(),
+            services.GetRequiredService<ApplicationCredentialUseCases>());
+
+    private static IApplicationPermissionRegistryWorkflow CreateApplicationPermissionRegistryWorkflow(IServiceProvider services) =>
+        new ApplicationPermissionRegistryWorkflow(
+            services.GetRequiredService<RegisterApplicationUseCase>(),
+            services.GetRequiredService<ApplicationPermissionManifestUseCases>(),
+            services.GetRequiredService<ApplicationPermissionMaintenanceUseCases>());
 
     private static void AddSessionAndLogoutUseCases(IServiceCollection services)
     {

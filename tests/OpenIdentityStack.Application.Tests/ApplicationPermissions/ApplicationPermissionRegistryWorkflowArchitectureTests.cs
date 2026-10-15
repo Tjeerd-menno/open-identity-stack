@@ -44,10 +44,10 @@ public sealed class ApplicationPermissionRegistryWorkflowArchitectureTests
         dependencyInjectionSource.ShouldNotContain("IListApplicationPermissionDiagnosticsQueryHandler");
         dependencyInjectionSource.ShouldNotContain("IRegisterApplicationUseCase");
         dependencyInjectionSource.ShouldNotContain("IRegisterPermissionManifestUseCase");
-        interfaceSource.ShouldNotContain("Task<Result<ApplicationPermissionHistoryDto>> ListHistoryAsync(");
-        interfaceSource.ShouldNotContain("Task<Result<PermissionDiagnosticsDto>> ListDiagnosticsAsync(");
-        workflowSource.ShouldNotContain("public async Task<Result<ApplicationPermissionHistoryDto>> ListHistoryAsync(");
-        workflowSource.ShouldNotContain("public async Task<Result<PermissionDiagnosticsDto>> ListDiagnosticsAsync(");
+        interfaceSource.ShouldContain("Task<Result<ApplicationPermissionHistoryDto>> ListHistoryAsync(");
+        interfaceSource.ShouldContain("Task<Result<PermissionDiagnosticsDto>> ListDiagnosticsAsync(");
+        workflowSource.ShouldContain("ListHistoryAsync(");
+        workflowSource.ShouldContain("ListDiagnosticsAsync(");
     }
 
     private static string ReadSource(params string[] pathParts)

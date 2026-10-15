@@ -581,25 +581,25 @@ internal static class ApplicationPermissionsApi
     }
 
     private static async Task<IResult> ListApplicationPermissionHistory(
-        [FromServices] ApplicationPermissionMaintenanceUseCases maintenanceUseCases,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         [FromQuery] string? applicationIdentifier = null,
         [FromQuery] bool includeApplications = true,
         [FromQuery] bool includePermissions = true,
         CancellationToken cancellationToken = default)
     {
-        Result<ApplicationPermissionHistoryDto> result = await maintenanceUseCases.HandleAsync(
+        Result<ApplicationPermissionHistoryDto> result = await workflow.ListHistoryAsync(
             new ListApplicationPermissionHistoryQuery(applicationIdentifier, includeApplications, includePermissions, GetActorId(context)),
             cancellationToken);
         return ToResult(result);
     }
 
     private static async Task<IResult> ListApplicationPermissionDiagnostics(
-        [FromServices] ApplicationPermissionMaintenanceUseCases maintenanceUseCases,
+        [FromServices] IApplicationPermissionRegistryWorkflow workflow,
         HttpContext context,
         CancellationToken cancellationToken)
     {
-        Result<PermissionDiagnosticsDto> result = await maintenanceUseCases.HandleAsync(
+        Result<PermissionDiagnosticsDto> result = await workflow.ListDiagnosticsAsync(
             new ListApplicationPermissionDiagnosticsQuery(GetActorId(context)),
             cancellationToken);
         return ToResult(result);

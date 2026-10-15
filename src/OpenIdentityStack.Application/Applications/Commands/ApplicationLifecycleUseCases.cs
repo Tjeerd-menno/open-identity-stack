@@ -7,7 +7,7 @@ using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 
 namespace OpenIdentityStack.Application.Applications.Commands;
 
-public sealed class ApplicationLifecycleUseCases
+internal sealed class ApplicationLifecycleUseCases
 {
     private readonly IApplicationRepository repository;
     private readonly IApplicationProtocolProjection projection;
@@ -444,7 +444,7 @@ public sealed class ApplicationLifecycleUseCases
             "Application creation could not be completed.");
 }
 
-public sealed class ApplicationCredentialUseCases
+internal sealed class ApplicationCredentialUseCases
 {
     private readonly IApplicationRepository repository;
     private readonly IApplicationProtocolProjection projection;

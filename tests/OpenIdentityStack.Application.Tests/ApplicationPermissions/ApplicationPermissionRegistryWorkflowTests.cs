@@ -180,7 +180,7 @@ public sealed class ApplicationPermissionRegistryWorkflowTests
         services.AddApplication();
 
         ServiceDescriptor descriptor = services.Single(service => service.ServiceType == typeof(IApplicationPermissionRegistryWorkflow));
-        descriptor.ImplementationType.ShouldBe(typeof(ApplicationPermissionRegistryWorkflow));
+        descriptor.ImplementationFactory.ShouldNotBeNull();
         descriptor.Lifetime.ShouldBe(ServiceLifetime.Scoped);
     }
 
