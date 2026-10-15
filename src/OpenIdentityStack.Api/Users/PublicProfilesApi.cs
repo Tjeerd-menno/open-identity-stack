@@ -3,7 +3,7 @@ using System.Text.Encodings.Web;
 
 using Microsoft.AspNetCore.Mvc;
 
-using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Users.Queries;
 
 namespace OpenIdentityStack.Api.Users;
 
@@ -25,26 +25,12 @@ internal static class PublicProfilesApi
         return app;
     }
 
-    private static async Task<Domain.Users.User?> GetPublicUserByPreferredUsernameAsync(
-        IUserRepository userRepository,
-        string preferredUsername,
-        CancellationToken cancellationToken)
-    {
-        Domain.Users.User? user = await userRepository.GetByPreferredUsernameAsync(preferredUsername, cancellationToken);
-        if (user is null || !user.CanAuthenticate())
-        {
-            return null;
-        }
-
-        return user;
-    }
-
     private static async Task<IResult> GetProfile(
-        [FromServices] IUserRepository userRepository,
+        [FromServices] IGetPublicProfileQueryHandler profiles,
         string preferredUsername,
         CancellationToken cancellationToken)
     {
-        Domain.Users.User? user = await GetPublicUserByPreferredUsernameAsync(userRepository, preferredUsername, cancellationToken);
+        PublicProfileResult? user = await profiles.HandleAsync(new GetPublicProfileQuery(preferredUsername), cancellationToken);
         if (user is null)
         {
             return Results.NotFound();
@@ -112,11 +98,11 @@ internal static class PublicProfilesApi
     }
 
     private static async Task<IResult> GetAvatar(
-        [FromServices] IUserRepository userRepository,
+        [FromServices] IGetPublicProfileQueryHandler profiles,
         string preferredUsername,
         CancellationToken cancellationToken)
     {
-        Domain.Users.User? user = await GetPublicUserByPreferredUsernameAsync(userRepository, preferredUsername, cancellationToken);
+        PublicProfileResult? user = await profiles.HandleAsync(new GetPublicProfileQuery(preferredUsername), cancellationToken);
         if (user is null)
         {
             return Results.NotFound();
@@ -135,7 +121,7 @@ internal static class PublicProfilesApi
         return Results.Content(svg, "image/svg+xml; charset=utf-8");
     }
 
-    private static string GetInitials(Domain.Users.User user)
+    private static string GetInitials(PublicProfileResult user)
     {
         var builder = new StringBuilder(2);
 
