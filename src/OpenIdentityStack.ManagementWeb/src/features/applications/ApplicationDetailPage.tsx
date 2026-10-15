@@ -30,6 +30,12 @@ import { ResourceAccessPanel } from './ResourceAccessPanel';
 import { AdministrativeAccessPanel } from './AdministrativeAccessPanel';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import {
+  applicationsDelete,
+  applicationsManageCertificates,
+  applicationsManageCredentials,
+  applicationsWrite,
+} from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { formatDateTime } from '@/lib/format';
 import { useSyncedForm } from '@/lib/use-synced-form';
@@ -39,11 +45,11 @@ export function ApplicationDetailPage() {
   const navigate = useNavigate();
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const canWrite = hasPermission(auth.permissions, 'applications:write');
+  const canWrite = hasPermission(auth.permissions, applicationsWrite);
   // Secret/certificate add/revoke requires specific permissions independent of applications:write.
-  const canManageCredentials = hasPermission(auth.permissions, 'applications:manage-credentials');
-  const canManageCertificates = hasPermission(auth.permissions, 'applications:manage-certificates');
-  const canDelete = hasPermission(auth.permissions, 'applications:delete');
+  const canManageCredentials = hasPermission(auth.permissions, applicationsManageCredentials);
+  const canManageCertificates = hasPermission(auth.permissions, applicationsManageCertificates);
+  const canDelete = hasPermission(auth.permissions, applicationsDelete);
 
   const appQuery = useQuery({
     queryKey: ['application', applicationId],
