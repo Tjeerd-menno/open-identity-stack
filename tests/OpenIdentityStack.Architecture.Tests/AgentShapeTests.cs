@@ -56,10 +56,11 @@ public sealed class AgentShapeTests
         List<string> hits = FindLines(
             Path.Combine("src", "OpenIdentityStack.Api"),
             path => !path.EndsWith($"{Path.DirectorySeparatorChar}ErrorResultMapper.cs", StringComparison.Ordinal),
-            static line => line.Contains("IResult ToErrorResult", StringComparison.Ordinal));
+            static line => line.Contains("IResult ToErrorResult", StringComparison.Ordinal)
+                || line.Contains("title: error.Code", StringComparison.Ordinal));
 
         hits.ShouldBeEmpty(
-            "Map HTTP errors through ErrorResultMapper.ToErrorResult. A second ToErrorResult is a second response body."
+            "Map HTTP errors through ErrorResultMapper.ToErrorResult. A second mapper, including a forbidden Problem Details body whose title is the error code, is a second response body."
             + Environment.NewLine
             + string.Join(Environment.NewLine, hits));
     }
