@@ -45,19 +45,28 @@ if not coverage_files:
 failed = []
 unique_line_covered_by_key: dict[str, bool] = {}
 
+empty_modules = []
+
 for file in coverage_files:
     root = ET.parse(file).getroot()
     line_rate = float(root.attrib.get("line-rate", "0"))
+    measured_lines = 0
 
     for class_node in root.findall("./packages/package/classes/class"):
         source_file_identifier = class_node.attrib.get("filename") or class_node.attrib.get("name") or ""
         for line_node in class_node.findall("./lines/line"):
+            measured_lines += 1
             key = f"{source_file_identifier}|{line_node.attrib['number']}"
             is_covered = int(line_node.attrib.get("hits", "0")) > 0
             unique_line_covered_by_key[key] = unique_line_covered_by_key.get(key, False) or is_covered
 
     percent = round(line_rate * 100, 2)
     print(f"{file.name}: {percent}%")
+
+    # line-rate 1 with zero line elements passes the per-file floor and adds nothing
+    # to the overall rate, so an empty module used to be ignored.
+    if measured_lines == 0:
+        empty_modules.append(file.name)
 
     if line_rate < minimum_line_rate:
         failed.append(f"{file.name} ({percent}%)")
@@ -67,6 +76,9 @@ total_lines_covered = sum(1 for is_covered in unique_line_covered_by_key.values(
 overall = (total_lines_covered / total_lines_valid) if total_lines_valid > 0 else 0
 overall_percent = round(overall * 100, 2)
 print(f"Overall line coverage: {overall_percent}%")
+
+if empty_modules:
+    raise SystemExit("Coverage report has no measured lines: " + ", ".join(empty_modules))
 
 if overall < minimum_overall_line_rate:
     raise SystemExit(

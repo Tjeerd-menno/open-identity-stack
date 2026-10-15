@@ -1,6 +1,8 @@
+using NSubstitute.Exceptions;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Groups;
+using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Groups;
@@ -12,7 +14,8 @@ namespace OpenIdentityStack.Application.Tests.Authentication;
 /// Authorize and refresh resolve effective permissions once, through ITokenPermissionSnapshot.
 /// At 119d7d7028a703286a610e66ec5b577dc1bf6ca0, Authorize calls the roles handler and then
 /// ProjectResourcesAsync without those permissions, so projection resolves them again.
-/// Name-over-GUID precedence from 88eac46 stays.
+/// A second HandleAsync inside one snapshot read fails the query count. A source scan of
+/// AuthorizationController cannot see that loop. Name-over-GUID precedence from 88eac46 stays.
 /// </summary>
 public sealed class TokenPermissionSnapshotTests
 {
@@ -57,7 +60,26 @@ public sealed class TokenPermissionSnapshotTests
 
         result.Value.Roles.Single().Id.ShouldBe(named.Id.Value);
         result.Value.Permissions.ShouldBe(["*"]);
+        await roles.Received(1).GetUserRolesAsync(userId, true, Arg.Any<CancellationToken>());
+        await groups.Received(1).GetGroupsForUserAsync(userId, Arg.Any<CancellationToken>());
         await roles.DidNotReceive().GetByIdsAsync(Arg.Any<IEnumerable<RoleId>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ForcedSecondEffectiveRoleQuery_FailsTheQueryCount()
+    {
+        IRoleRepository roles = Substitute.For<IRoleRepository>();
+        IGroupRepository groups = Substitute.For<IGroupRepository>();
+        roles.GetUserRolesAsync(Arg.Any<UserId>(), true, Arg.Any<CancellationToken>()).Returns(Array.Empty<Role>());
+        groups.GetGroupsForUserAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<Group>());
+        var snapshot = new DoubleQueryTokenPermissionSnapshot(
+            new GetUserEffectiveRolesQueryHandler(roles, new RequestScopedUserGroupsProvider(groups)));
+        var userId = new UserId(Guid.NewGuid());
+
+        await snapshot.GetAsync(userId);
+
+        await Should.ThrowAsync<ReceivedCallsException>(() =>
+            roles.Received(1).GetUserRolesAsync(userId, true, Arg.Any<CancellationToken>()));
     }
 
     private static List<string> ResolutionSites(string source, string startSignature, string endSignature)
@@ -192,6 +214,31 @@ public sealed class TokenPermissionSnapshotTests
         }
 
         return line;
+    }
+
+    /// <summary>
+    /// One snapshot read that resolves effective roles twice. The query-count assertion rejects it.
+    /// </summary>
+    private sealed class DoubleQueryTokenPermissionSnapshot : ITokenPermissionSnapshot
+    {
+        private readonly IGetUserEffectiveRolesQueryHandler roles;
+
+        public DoubleQueryTokenPermissionSnapshot(IGetUserEffectiveRolesQueryHandler roles)
+        {
+            this.roles = roles;
+        }
+
+        public async Task<Result<TokenPermissionSnapshotResult>> GetAsync(UserId userId, CancellationToken cancellationToken = default)
+        {
+            await this.roles.HandleAsync(userId, cancellationToken);
+            Result<IReadOnlyList<RoleDto>> result = await this.roles.HandleAsync(userId, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.Error;
+            }
+
+            return new TokenPermissionSnapshotResult(result.Value, Array.Empty<string>());
+        }
     }
 
     private static string FindRepositoryRoot()
