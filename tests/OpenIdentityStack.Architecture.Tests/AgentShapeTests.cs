@@ -90,12 +90,21 @@ public sealed class AgentShapeTests
         string[] permissionValues = ReadPermissionConstantValues(repoRoot)
             .Where(value => value.Contains(':', StringComparison.Ordinal))
             .ToArray();
-        List<string> hits = FindQuotedPermissionValues(repoRoot, permissionValues);
+        List<string> hits = FindQuotedPermissionValues(
+            repoRoot,
+            Path.Combine(repoRoot, "src", "OpenIdentityStack.ManagementWeb", "src"),
+            permissionValues);
 
         hits.ShouldBeEmpty(
-            "Routes and buttons import the module generated from Permissions.cs. A quoted permission string is a hand-synced list."
+            "Routes and buttons import the module generated from Permissions.cs. A quoted or template-literal permission string is a hand-synced list."
             + Environment.NewLine
             + string.Join(Environment.NewLine, hits));
+
+        List<string> fixtureHits = FindQuotedPermissionValues(
+            repoRoot,
+            Path.Combine(repoRoot, "tests", "OpenIdentityStack.Architecture.Tests", "Fixtures"),
+            permissionValues);
+        fixtureHits.ShouldContain(hit => hit.Contains("`users:read`", StringComparison.Ordinal));
 
         GeneratedPermissionModuleIsFresh(repoRoot);
     }
@@ -177,9 +186,11 @@ public sealed class AgentShapeTests
         return values;
     }
 
-    private static List<string> FindQuotedPermissionValues(string repoRoot, IReadOnlyList<string> permissionValues)
+    private static List<string> FindQuotedPermissionValues(
+        string repoRoot,
+        string scanRoot,
+        IReadOnlyList<string> permissionValues)
     {
-        string scanRoot = Path.Combine(repoRoot, "src", "OpenIdentityStack.ManagementWeb", "src");
         var hits = new List<string>();
         foreach (string file in Directory.EnumerateFiles(scanRoot, "*", SearchOption.AllDirectories))
         {
@@ -220,7 +231,8 @@ public sealed class AgentShapeTests
     private static bool LineQuotesPermission(string line, string permission)
     {
         return line.Contains($"'{permission}'", StringComparison.Ordinal)
-            || line.Contains($"\"{permission}\"", StringComparison.Ordinal);
+            || line.Contains($"\"{permission}\"", StringComparison.Ordinal)
+            || line.Contains($"`{permission}`", StringComparison.Ordinal);
     }
 
     private static void GeneratedPermissionModuleIsFresh(string repoRoot)
