@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.ApplicationPermissions;
 using OpenIdentityStack.Application.ApplicationPermissions.Commands;
 using OpenIdentityStack.Application.ApplicationPermissions.Queries;
@@ -43,6 +44,7 @@ public static class DependencyInjection
         AddApplicationUseCases(services);
         AddApplicationPermissionUseCases(services);
         AddSessionAndLogoutUseCases(services);
+        services.AddScoped<IInteractiveSignIn, InteractiveSignIn>();
         AddAuditUseCases(services);
         AddProviderUseCases(services);
         AddAuthorizationServices(services);

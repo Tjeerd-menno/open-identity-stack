@@ -7,6 +7,7 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
@@ -24,7 +25,7 @@ public class SessionValidationBenchmarks
         // 1. Arrange - Setup minimal mocks for the "Hot Path" (Token Exchange)
         IOpenIddictApplicationManager applicationManager = Substitute.For<IOpenIddictApplicationManager>();
         IOpenIddictScopeManager scopeManager = Substitute.For<IOpenIddictScopeManager>();
-        IUserRepository userRepository = Substitute.For<IUserRepository>();
+        IInteractiveSignIn interactiveSignIn = Substitute.For<IInteractiveSignIn>();
         IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
         IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler = Substitute.For<IGetGroupClaimsForUserQueryHandler>();
         IAddClientSessionUseCase addClientSessionUseCase = Substitute.For<OpenIdentityStack.Application.Sessions.Commands.IAddClientSessionUseCase>();
@@ -37,7 +38,7 @@ public class SessionValidationBenchmarks
             Substitute.For<IOpenIddictAuthorizationManager>(),
             Substitute.For<IConsentApprovalTransactionRunner>(),
             scopeManager,
-            userRepository,
+            interactiveSignIn,
             getUserEffectiveRolesQueryHandler,
             getGroupClaimsForUserQueryHandler,
             addClientSessionUseCase,

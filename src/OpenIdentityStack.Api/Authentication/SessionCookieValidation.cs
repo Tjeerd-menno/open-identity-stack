@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Infrastructure.Identity;
@@ -19,8 +19,9 @@ public static class SessionCookieValidation
         bool valid;
         if (Guid.TryParse(subject, out Guid userId) && Guid.TryParse(session, out Guid sessionId))
         {
-            OpenIdentityStack.Domain.Users.User? user = await services.GetRequiredService<IUserRepository>().GetByIdAsync(new UserId(userId), context.HttpContext.RequestAborted);
-            UserSession? persisted = await services.GetRequiredService<ISessionRepository>().GetByIdAsync(new SessionId(sessionId), context.HttpContext.RequestAborted);
+            IInteractiveSignIn signIn = services.GetRequiredService<IInteractiveSignIn>();
+            OpenIdentityStack.Domain.Users.User? user = await signIn.GetUserAsync(new UserId(userId), context.HttpContext.RequestAborted);
+            UserSession? persisted = await signIn.GetSessionAsync(new SessionId(sessionId), context.HttpContext.RequestAborted);
             valid = user?.CanAuthenticate() == true && persisted?.UserId.Value == userId && persisted.Status == SessionStatus.Active
                 && !persisted.IsExpired(services.GetRequiredService<IDateTimeProvider>());
         }

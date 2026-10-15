@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
-using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Api.Serialization;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Sessions;
@@ -23,19 +23,16 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
     private const int currentVersion = 1;
     private const string protectorPurpose = "OpenIdentityStack.SessionManagement.op_session.v1";
     private readonly IDataProtector protector;
-    private readonly IUserRepository users;
-    private readonly ISessionRepository sessions;
+    private readonly IInteractiveSignIn signIn;
     private readonly IDateTimeProvider clock;
 
     public SessionMonitoringCookieService(
         IDataProtectionProvider dataProtection,
-        IUserRepository users,
-        ISessionRepository sessions,
+        IInteractiveSignIn signIn,
         IDateTimeProvider clock)
     {
         this.protector = dataProtection.CreateProtector(protectorPurpose);
-        this.users = users;
-        this.sessions = sessions;
+        this.signIn = signIn;
         this.clock = clock;
     }
 
@@ -81,8 +78,8 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
 
         var userId = new UserId(payload.UserId);
         var sessionId = new SessionId(payload.SessionId);
-        Domain.Users.User? user = await this.users.GetByIdAsync(userId, cancellationToken);
-        UserSession? session = await this.sessions.GetByIdAsync(sessionId, cancellationToken);
+        Domain.Users.User? user = await this.signIn.GetUserAsync(userId, cancellationToken);
+        UserSession? session = await this.signIn.GetSessionAsync(sessionId, cancellationToken);
         return user?.CanAuthenticate() == true
             && session?.UserId == userId
             && session.Status == SessionStatus.Active

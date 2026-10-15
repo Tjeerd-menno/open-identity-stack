@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Federation.Commands;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Users.Commands;
@@ -25,9 +26,7 @@ public class AccountControllerTests : IDisposable
 {
     private readonly IValidateUserCredentialsUseCase _validateCredentialsUseCase;
     private readonly ICreateSessionUseCase _createSessionUseCase;
-    private readonly IAuthenticationSettingsRepository _authSettingsRepository;
-    private readonly IUpstreamProviderRepository _providerRepository;
-    private readonly IUserRepository _userRepository;
+    private readonly IInteractiveSignIn interactiveSignIn;
     private readonly IDynamicAuthenticationSchemeService _schemeService;
     private readonly IJitProvisionUserUseCase _jitProvisionUseCase;
     private readonly ICredentialTerminationService _credentialTerminationService;
@@ -41,9 +40,7 @@ public class AccountControllerTests : IDisposable
         this._validateCredentialsUseCase = Substitute.For<IValidateUserCredentialsUseCase>();
         this._createSessionUseCase = Substitute.For<ICreateSessionUseCase>();
         this._authService = Substitute.For<IAuthenticationService>();
-        this._authSettingsRepository = Substitute.For<IAuthenticationSettingsRepository>();
-        this._providerRepository = Substitute.For<IUpstreamProviderRepository>();
-        this._userRepository = Substitute.For<IUserRepository>();
+        this.interactiveSignIn = Substitute.For<IInteractiveSignIn>();
         this._schemeService = Substitute.For<IDynamicAuthenticationSchemeService>();
         this._jitProvisionUseCase = Substitute.For<IJitProvisionUserUseCase>();
         this._credentialTerminationService = Substitute.For<ICredentialTerminationService>();
@@ -52,7 +49,7 @@ public class AccountControllerTests : IDisposable
         IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(DateTimeOffset.UtcNow);
         var defaultSettings = AuthenticationSettings.CreateDefault(dateTimeProvider);
-        this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>())
+        this.interactiveSignIn.GetOrCreateAuthenticationSettingsAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(defaultSettings));
 
         this.sessionMonitoringCookies.Create(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<DateTimeOffset>())
@@ -60,9 +57,7 @@ public class AccountControllerTests : IDisposable
         this._controller = new AccountController(
             this._validateCredentialsUseCase,
             this._createSessionUseCase,
-            this._authSettingsRepository,
-            this._providerRepository,
-            this._userRepository,
+            this.interactiveSignIn,
             this._schemeService,
             this._jitProvisionUseCase,
             this.audit,
@@ -80,7 +75,7 @@ public class AccountControllerTests : IDisposable
             "Provider",
             "https://issuer.example",
             "client-id").Value;
-        this._providerRepository.GetByNameAsync("provider", Arg.Any<CancellationToken>()).Returns(provider);
+        this.interactiveSignIn.GetUpstreamProviderByNameAsync("provider", Arg.Any<CancellationToken>()).Returns(provider);
         this._controller.Url.Action(Arg.Any<UrlActionContext>()).Returns("/Account/ExternalLoginCallback");
 
         IActionResult result = await this._controller.ExternalLogin("provider", "/", fresh: true);
@@ -113,7 +108,7 @@ public class AccountControllerTests : IDisposable
             .Returns(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "ExternalCookie")));
         this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
             .Returns(new JitProvisionUserResult(user.Id, provisioned, user.Email, user.DisplayName));
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this.interactiveSignIn.GetUserAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
 
         this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
             .Returns(new CreateSessionResult(SessionId.Create()));
@@ -147,7 +142,7 @@ public class AccountControllerTests : IDisposable
             .Returns(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "ExternalCookie")));
         this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
             .Returns(new JitProvisionUserResult(user.Id, false, user.Email, user.DisplayName));
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this.interactiveSignIn.GetUserAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         var sessionId = SessionId.Create();
         this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
             .Returns(new CreateSessionResult(sessionId));
@@ -269,7 +264,7 @@ public class AccountControllerTests : IDisposable
         this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie").Returns(AuthenticateResult.Success(ticket));
         this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
             .Returns(new JitProvisionUserResult(user.Id, false, user.Email, user.DisplayName));
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this.interactiveSignIn.GetUserAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>()).Returns(new CreateSessionResult(SessionId.Create()));
         await this._controller.ExternalLoginCallback("validated-provider");
         await this._authService.Received(1).SignInAsync(Arg.Any<HttpContext>(), "Cookies",
@@ -285,7 +280,7 @@ public class AccountControllerTests : IDisposable
         this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie").Returns(AuthenticateResult.Success(ticket));
         IActionResult result = await this._controller.ExternalLoginCallback("query-controlled-provider");
         Assert.IsType<RedirectToActionResult>(result);
-        await this._providerRepository.DidNotReceive().GetByNameAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await this.interactiveSignIn.DidNotReceive().GetUpstreamProviderByNameAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await this._jitProvisionUseCase.DidNotReceive().ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>());
         await this._authService.DidNotReceive().SignInAsync(Arg.Any<HttpContext>(), Arg.Any<string>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
     }
@@ -748,7 +743,7 @@ public class AccountControllerTests : IDisposable
             .Returns(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "ExternalCookie")));
         this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
             .Returns(new JitProvisionUserResult(user.Id, false, user.Email, user.DisplayName));
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        this.interactiveSignIn.GetUserAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
             .Returns(DomainError.Failure("Session.CreateFailed", "Failed to create session"));
 
@@ -953,7 +948,7 @@ public class AccountControllerTests : IDisposable
         // Assert
         JsonResult jsonResult = Assert.IsType<JsonResult>(result);
         Assert.False(GetCanAccessValue(jsonResult));
-        await this._authSettingsRepository.DidNotReceive().GetOrCreateAsync(Arg.Any<CancellationToken>());
+        await this.interactiveSignIn.DidNotReceive().GetOrCreateAuthenticationSettingsAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -967,7 +962,7 @@ public class AccountControllerTests : IDisposable
             OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create(),
             dateTimeProvider);
         Assert.True(setDefaultProviderResult.IsSuccess);
-        this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>())
+        this.interactiveSignIn.GetOrCreateAuthenticationSettingsAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(settings));
 
         foreach (string email in new[] { "  admin@example.com  ", "member@example.com", "unknown@example.com" })
@@ -976,7 +971,7 @@ public class AccountControllerTests : IDisposable
             Assert.True(GetCanAccessValue(Assert.IsType<JsonResult>(result)));
         }
 
-        await this._userRepository.DidNotReceive().GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await this.interactiveSignIn.DidNotReceive().GetUserAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -987,7 +982,7 @@ public class AccountControllerTests : IDisposable
         var settings = AuthenticationSettings.CreateDefault(dateTimeProvider);
         settings.SetDefaultProvider(OpenIdentityStack.Domain.Federation.UpstreamProviderId.Create(), dateTimeProvider).IsSuccess.ShouldBeTrue();
         settings.DisableLocalFallback(dateTimeProvider).IsSuccess.ShouldBeTrue();
-        this._authSettingsRepository.GetOrCreateAsync(Arg.Any<CancellationToken>()).Returns(settings);
+        this.interactiveSignIn.GetOrCreateAuthenticationSettingsAsync(Arg.Any<CancellationToken>()).Returns(settings);
 
         foreach (string email in new[] { "admin@example.com", "unknown@example.com" })
         {
@@ -995,7 +990,7 @@ public class AccountControllerTests : IDisposable
             Assert.False(GetCanAccessValue(Assert.IsType<JsonResult>(result)));
         }
 
-        await this._userRepository.DidNotReceive().GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await this.interactiveSignIn.DidNotReceive().GetUserAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
     }
 
     #endregion
