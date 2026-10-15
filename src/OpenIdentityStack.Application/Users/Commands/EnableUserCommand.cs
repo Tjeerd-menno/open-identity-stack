@@ -18,7 +18,7 @@ public sealed record EnableUserResult(UserId UserId, DateTimeOffset EnabledAt);
 /// <summary>
 /// Interface for the enable user use case.
 /// </summary>
-public interface IEnableUserUseCase
+internal interface IEnableUserUseCase
 {
     /// <summary>
     /// Enables a disabled user account.

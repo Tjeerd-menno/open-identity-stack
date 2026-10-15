@@ -9,7 +9,7 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// <summary>
 /// Implementation of the create user use case.
 /// </summary>
-public sealed class CreateUserUseCase : ICreateUserUseCase
+internal sealed class CreateUserUseCase : ICreateUserUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IPasswordHasher passwordHasher;

@@ -5,9 +5,9 @@ using OpenIddict.Validation.AspNetCore;
 using OpenIdentityStack.Api.Admin.Responses;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Groups;
-using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
+using OpenIdentityStack.Application.Users;
 using OpenIdentityStack.Application.Users.Commands;
 using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
@@ -158,7 +158,7 @@ internal static class UsersApi
 
     private static async Task<IResult> CreateUser(
         HttpContext context,
-        [FromServices] ICreateUserUseCase createUserUseCase,
+        [FromServices] IUsersAdmin users,
         [FromBody] CreateUserRequest request)
     {
         var command = new CreateUserCommand(
@@ -167,7 +167,7 @@ internal static class UsersApi
             request.Password,
             GetActorId(context),
             request.Profile is null ? null : ToUserProfileData(request.Profile));
-        Result<CreateUserResult> result = await createUserUseCase.ExecuteAsync(command, context.RequestAborted);
+        Result<CreateUserResult> result = await users.CreateAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -185,11 +185,11 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> GetUser(
-        [FromServices] IGetUserQueryHandler getUserQueryHandler,
+        [FromServices] IUsersAdmin users,
         Guid id)
     {
         var query = new GetUserQuery(new UserId(id));
-        Result<GetUserResult> result = await getUserQueryHandler.HandleAsync(query);
+        Result<GetUserResult> result = await users.GetAsync(query);
 
         if (result.IsFailure)
         {
@@ -217,13 +217,13 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> ListUsers(
-        [FromServices] IListUsersQueryHandler listUsersQueryHandler,
+        [FromServices] IUsersAdmin users,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null)
     {
         var query = new ListUsersQuery(page, pageSize, search);
-        Result<ListUsersResult> result = await listUsersQueryHandler.HandleAsync(query);
+        Result<ListUsersResult> result = await users.ListAsync(query);
 
         if (result.IsFailure)
         {
@@ -249,7 +249,7 @@ internal static class UsersApi
 
     private static async Task<IResult> UpdateUser(
         HttpContext context,
-        [FromServices] IUpdateUserUseCase updateUserUseCase,
+        [FromServices] IUsersAdmin users,
         Guid id,
         [FromBody] UpdateUserRequest request)
     {
@@ -258,7 +258,7 @@ internal static class UsersApi
         {
             command = command with { Profile = ToUserProfileData(request.Profile) };
         }
-        Result<UpdateUserResult> result = await updateUserUseCase.ExecuteAsync(command, context.RequestAborted);
+        Result<UpdateUserResult> result = await users.UpdateAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -270,11 +270,11 @@ internal static class UsersApi
 
     private static async Task<IResult> DeleteUser(
         HttpContext context,
-        [FromServices] IDeleteUserUseCase deleteUserUseCase,
+        [FromServices] IUsersAdmin users,
         Guid id)
     {
         var command = new DeleteUserCommand(new UserId(id), GetActorId(context));
-        Result result = await deleteUserUseCase.ExecuteAsync(command, context.RequestAborted);
+        Result result = await users.DeleteAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -286,12 +286,12 @@ internal static class UsersApi
 
     private static async Task<IResult> DisableUser(
         HttpContext context,
-        [FromServices] IDisableUserUseCase disableUserUseCase,
+        [FromServices] IUsersAdmin users,
         Guid id,
         [FromBody] DisableUserRequest request)
     {
         var command = new DisableUserCommand(new UserId(id), request.Reason, GetActorId(context));
-        Result<DisableUserResult> result = await disableUserUseCase.ExecuteAsync(command, context.RequestAborted);
+        Result<DisableUserResult> result = await users.DisableAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -303,11 +303,11 @@ internal static class UsersApi
 
     private static async Task<IResult> EnableUser(
         HttpContext context,
-        [FromServices] IEnableUserUseCase enableUserUseCase,
+        [FromServices] IUsersAdmin users,
         Guid id)
     {
         var command = new EnableUserCommand(new UserId(id), GetActorId(context));
-        Result<EnableUserResult> result = await enableUserUseCase.ExecuteAsync(command, context.RequestAborted);
+        Result<EnableUserResult> result = await users.EnableAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -319,12 +319,12 @@ internal static class UsersApi
 
     private static async Task<IResult> ResetPassword(
         HttpContext context,
-        [FromServices] IResetPasswordUseCase resetPasswordUseCase,
+        [FromServices] IUsersAdmin users,
         Guid id,
         [FromBody] ResetPasswordRequest request)
     {
         var command = new ResetPasswordCommand(new UserId(id), request.NewPassword, GetActorId(context));
-        Result<ResetPasswordResult> result = await resetPasswordUseCase.ExecuteAsync(command, context.RequestAborted);
+        Result<ResetPasswordResult> result = await users.ResetPasswordAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -335,11 +335,11 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> GetUserRoles(
-        [FromServices] IGetUserRolesQueryHandler getUserRolesQueryHandler,
+        [FromServices] IUsersAdmin users,
         Guid id,
         [FromQuery] bool activeOnly = true)
     {
-        Result<GetUserRolesResponse> result = await getUserRolesQueryHandler.HandleAsync(new UserId(id), activeOnly);
+        Result<GetUserRolesResponse> result = await users.GetRolesAsync(new UserId(id), activeOnly);
 
         if (result.IsFailure)
         {
@@ -364,10 +364,10 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> GetUserGroups(
-        [FromServices] IGetUserGroupsQueryHandler getUserGroupsQueryHandler,
+        [FromServices] IUsersAdmin users,
         Guid id)
     {
-        Result<List<GroupResponse>> result = await getUserGroupsQueryHandler.HandleAsync(new UserId(id));
+        Result<List<GroupResponse>> result = await users.GetGroupsAsync(new UserId(id));
         if (result.IsFailure)
         {
             return ErrorResultMapper.ToErrorResult(result.Error);
@@ -377,12 +377,12 @@ internal static class UsersApi
 
     private static async Task<IResult> AssignRole(
         HttpContext context,
-        [FromServices] IAssignRoleUseCase assignRoleUseCase,
+        [FromServices] IUsersAdmin users,
         Guid userId,
         Guid roleId)
     {
         var command = new AssignRoleCommand(new UserId(userId), new RoleId(roleId), GetActorId(context));
-        Result result = await assignRoleUseCase.ExecuteAsync(command, context.RequestAborted);
+        Result result = await users.AssignRoleAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -394,12 +394,12 @@ internal static class UsersApi
 
     private static async Task<IResult> UnassignRole(
         HttpContext context,
-        [FromServices] IUnassignRoleUseCase unassignRoleUseCase,
+        [FromServices] IUsersAdmin users,
         Guid userId,
         Guid roleId)
     {
         var command = new UnassignRoleCommand(new UserId(userId), new RoleId(roleId), GetActorId(context));
-        Result result = await unassignRoleUseCase.ExecuteAsync(command, context.RequestAborted);
+        Result result = await users.UnassignRoleAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -410,21 +410,21 @@ internal static class UsersApi
     }
 
     private static async Task<IResult> GetIdentityMigrationInventory(
-        [FromServices] IIdentityMigrationInventoryQueryHandler handler,
+        [FromServices] IUsersAdmin users,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] Guid? providerId = null,
         CancellationToken cancellationToken = default)
     {
-        Result<IdentityMigrationInventoryResult> result = await handler.ExecuteAsync(new IdentityMigrationInventoryQuery(page, pageSize, providerId), cancellationToken);
+        Result<IdentityMigrationInventoryResult> result = await users.GetIdentityMigrationInventoryAsync(new IdentityMigrationInventoryQuery(page, pageSize, providerId), cancellationToken);
         return result.IsSuccess ? TypedResults.Ok(result.Value) : ErrorResultMapper.ToErrorResult(result.Error);
     }
     private static async Task<IResult> GetUpstreamIdentities(
-        [FromServices] IListUserUpstreamIdentitiesQueryHandler listUpstreamIdentitiesQueryHandler,
+        [FromServices] IUsersAdmin users,
         Guid userId)
     {
         var query = new ListUserUpstreamIdentitiesQuery(new UserId(userId));
-        Result<ListUserUpstreamIdentitiesResult> result = await listUpstreamIdentitiesQueryHandler.ExecuteAsync(query);
+        Result<ListUserUpstreamIdentitiesResult> result = await users.ListUpstreamIdentitiesAsync(query);
 
         if (result.IsFailure)
         {
@@ -445,7 +445,7 @@ internal static class UsersApi
 
     private static async Task<IResult> LinkUpstreamIdentity(
         HttpContext context,
-        [FromServices] ILinkUpstreamIdentityUseCase linkUpstreamIdentityUseCase,
+        [FromServices] IUsersAdmin users,
         Guid userId,
         [FromBody] LinkUpstreamIdentityRequest request)
     {
@@ -457,7 +457,7 @@ internal static class UsersApi
             Email: request.Email,
             ActorId: GetActorId(context));
 
-        Result<LinkUpstreamIdentityResult> result = await linkUpstreamIdentityUseCase.ExecuteAsync(command, context.RequestAborted);
+        Result<LinkUpstreamIdentityResult> result = await users.LinkUpstreamIdentityAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {
@@ -484,7 +484,7 @@ internal static class UsersApi
 
     private static async Task<IResult> UnlinkUpstreamIdentity(
         HttpContext context,
-        [FromServices] IUnlinkUpstreamIdentityUseCase unlinkUpstreamIdentityUseCase,
+        [FromServices] IUsersAdmin users,
         Guid userId,
         Guid providerId)
     {
@@ -493,7 +493,7 @@ internal static class UsersApi
             new UpstreamProviderId(providerId),
             GetActorId(context));
 
-        Result<UnlinkUpstreamIdentityResult> result = await unlinkUpstreamIdentityUseCase.ExecuteAsync(command, context.RequestAborted);
+        Result<UnlinkUpstreamIdentityResult> result = await users.UnlinkUpstreamIdentityAsync(command, context.RequestAborted);
 
         if (result.IsFailure)
         {

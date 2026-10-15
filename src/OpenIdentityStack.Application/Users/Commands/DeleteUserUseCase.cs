@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// <summary>
 /// Implementation of the delete user use case.
 /// </summary>
-public sealed class DeleteUserUseCase : IDeleteUserUseCase
+internal sealed class DeleteUserUseCase : IDeleteUserUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IAuditLog auditLog;

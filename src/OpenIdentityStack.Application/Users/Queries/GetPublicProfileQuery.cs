@@ -24,7 +24,7 @@ public sealed record PublicProfileResult(
 /// <summary>
 /// Query handler for a public profile lookup.
 /// </summary>
-public interface IGetPublicProfileQueryHandler
+internal interface IGetPublicProfileQueryHandler
 {
     /// <summary>
     /// Returns the public profile, or null when the account is missing or cannot authenticate.
@@ -37,7 +37,7 @@ public interface IGetPublicProfileQueryHandler
 /// <summary>
 /// Loads a public profile through the user repository.
 /// </summary>
-public sealed class GetPublicProfileQueryHandler : IGetPublicProfileQueryHandler
+internal sealed class GetPublicProfileQueryHandler : IGetPublicProfileQueryHandler
 {
     private readonly IUserRepository userRepository;
 

@@ -28,7 +28,7 @@ public sealed record UnlinkUpstreamIdentityResult(
 /// <summary>
 /// Interface for unlinking upstream identity use case.
 /// </summary>
-public interface IUnlinkUpstreamIdentityUseCase
+internal interface IUnlinkUpstreamIdentityUseCase
 {
     /// <summary>
     /// Unlinks an upstream identity from a user.
@@ -41,7 +41,7 @@ public interface IUnlinkUpstreamIdentityUseCase
 /// <summary>
 /// Implementation of unlinking upstream identity use case.
 /// </summary>
-public sealed class UnlinkUpstreamIdentityUseCase : IUnlinkUpstreamIdentityUseCase
+internal sealed class UnlinkUpstreamIdentityUseCase : IUnlinkUpstreamIdentityUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IAuditLog auditLog;

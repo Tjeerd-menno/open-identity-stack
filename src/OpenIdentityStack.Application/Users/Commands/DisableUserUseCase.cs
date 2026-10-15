@@ -8,7 +8,7 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// <summary>
 /// Implementation of the disable user use case.
 /// </summary>
-public sealed class DisableUserUseCase : IDisableUserUseCase
+internal sealed class DisableUserUseCase : IDisableUserUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IDateTimeProvider dateTimeProvider;

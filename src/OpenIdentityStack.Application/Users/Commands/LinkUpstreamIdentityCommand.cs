@@ -34,7 +34,7 @@ public sealed record LinkUpstreamIdentityResult(
 /// <summary>
 /// Interface for linking upstream identity use case.
 /// </summary>
-public interface ILinkUpstreamIdentityUseCase
+internal interface ILinkUpstreamIdentityUseCase
 {
     /// <summary>
     /// Links an upstream identity to an existing user.

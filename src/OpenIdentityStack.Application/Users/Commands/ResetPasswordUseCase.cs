@@ -8,7 +8,7 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// <summary>
 /// Implementation of the reset password use case.
 /// </summary>
-public sealed class ResetPasswordUseCase : IResetPasswordUseCase
+internal sealed class ResetPasswordUseCase : IResetPasswordUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IPasswordHasher passwordHasher;

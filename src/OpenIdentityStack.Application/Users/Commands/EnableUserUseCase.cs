@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// <summary>
 /// Implementation of the enable user use case.
 /// </summary>
-public sealed class EnableUserUseCase : IEnableUserUseCase
+internal sealed class EnableUserUseCase : IEnableUserUseCase
 {
     private readonly IUserRepository userRepository;
     private readonly IDateTimeProvider dateTimeProvider;

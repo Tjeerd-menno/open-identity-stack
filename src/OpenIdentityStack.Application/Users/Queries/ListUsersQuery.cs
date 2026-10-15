@@ -58,7 +58,7 @@ public sealed record ListUsersResult(
 /// <summary>
 /// Interface for the list users query handler.
 /// </summary>
-public interface IListUsersQueryHandler
+internal interface IListUsersQueryHandler
 {
     /// <summary>
     /// Lists users with pagination.

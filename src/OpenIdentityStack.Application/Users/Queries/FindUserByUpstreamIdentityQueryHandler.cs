@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Users.Queries;
 /// <summary>
 /// Handler for finding user by upstream identity query.
 /// </summary>
-public sealed class FindUserByUpstreamIdentityQueryHandler : IFindUserByUpstreamIdentityQueryHandler
+internal sealed class FindUserByUpstreamIdentityQueryHandler : IFindUserByUpstreamIdentityQueryHandler
 {
     private readonly IUserRepository userRepository;
 

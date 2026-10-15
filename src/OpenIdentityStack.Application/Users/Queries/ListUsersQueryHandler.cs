@@ -6,7 +6,7 @@ namespace OpenIdentityStack.Application.Users.Queries;
 /// <summary>
 /// Implementation of the list users query handler.
 /// </summary>
-public sealed class ListUsersQueryHandler : IListUsersQueryHandler
+internal sealed class ListUsersQueryHandler : IListUsersQueryHandler
 {
     private readonly IUserRepository userRepository;
 

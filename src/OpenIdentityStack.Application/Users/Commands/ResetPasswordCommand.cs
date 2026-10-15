@@ -19,7 +19,7 @@ public sealed record ResetPasswordResult(UserId UserId, DateTimeOffset ResetAt);
 /// <summary>
 /// Interface for the reset password use case.
 /// </summary>
-public interface IResetPasswordUseCase
+internal interface IResetPasswordUseCase
 {
     /// <summary>
     /// Resets a user's password.
