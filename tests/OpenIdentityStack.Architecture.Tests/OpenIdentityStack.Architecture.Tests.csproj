@@ -21,8 +21,8 @@
   <!-- Referenced so the layering tests can inspect each layer's assembly metadata. Api is
        intentionally absent: it is the outermost layer and nothing asserts anything about it. -->
   <ItemGroup>
-    <Compile Remove="Fixtures/historical-error-code-contains.cs" />
-    <None Include="Fixtures/historical-error-code-contains.cs" />
+    <Compile Remove="Fixtures/**/*.cs" />
+    <None Include="Fixtures/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
