@@ -76,7 +76,7 @@ Each row is a rule and the check that fails when the old shape comes back. The l
 | Production seed does not register a demo client secret. `ShouldSeedDemoClients` returns false before `Seed:DemoClients`. | `DemoSecretSeedTests.ProductionSeedGuard_RefusesADemoSecret` |
 | Logout-token tests assert the algorithm or the validation result. | `LogoutTokenSignatureTests.LogoutTokenTests_AssertASignature` |
 | A test asserts an outcome Sonar S2699 accepts. `WaitForAsync` alone does not. | `S2699ReplayTests`; `.github/workflows/ci.yml` runs `dotnet-sonarscanner`, which enforces S2699 |
-| The coverage gate rejects a module report with no measured lines. | `CoverageGateTests.EmptyModuleReport_FailsTheCoverageGate` runs `scripts/ci/verify-coverage.sh`. CI runs that script from `.github/workflows/ci.yml` and `pr-validation.yml` |
+| The coverage gate rejects a module report with no measured lines. | `CoverageGateTests.EmptyModuleReport_FailsTheCoverageGate` and `.github/workflows/pr-validation.yml` run `scripts/ci/verify-coverage.sh`, and `.github/workflows/ci.yml` runs `scripts/ci/verify-coverage.ps1`; both scripts reject an empty module. |
 | Authorize and refresh read effective permissions once, through `ITokenPermissionSnapshot`. | `TokenPermissionSnapshotTests.AuthorizeAndRefreshResolveEffectivePermissionsOnceAndKeepNameOverGuidPrecedence` and `ForcedSecondEffectiveRoleQuery_FailsTheQueryCount` |
 | The five-minute fresh-authentication window stays as it is. | Judgment. ADR 0005. No check. |
 | Screens that need several permissions stay explicit. The generated map covers single-permission CRUD. | Judgment. No check. |
