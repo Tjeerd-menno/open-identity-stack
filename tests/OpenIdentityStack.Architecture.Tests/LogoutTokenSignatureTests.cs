@@ -11,7 +11,7 @@ public sealed partial class LogoutTokenSignatureTests
 {
     private static readonly Regex Producer = ProducerPattern();
 
-    private static readonly string[] SignatureTokens = [".Alg", "ValidateToken", "IssuerSigningKey", "SecurityAlgorithms"];
+    private static readonly Regex SignatureAssertion = SignatureAssertionPattern();
 
     [Fact]
     public void LogoutTokenTests_AssertASignature()
@@ -52,6 +52,44 @@ public sealed partial class LogoutTokenSignatureTests
         text.ShouldContain("BackChannelLogoutNotifier.cs");
     }
 
+    [Fact]
+    public void ValidationCallWithoutAResultAssertion_DoesNotCount()
+    {
+        const string production = """
+            public sealed class LogoutTokenFactory
+            {
+                public string CreateLogoutToken(SessionId sessionId, string clientId) => "token";
+            }
+            """;
+        const string tests = """
+            public sealed class LogoutTokenFactoryTests
+            {
+                [Fact]
+                public async Task CreateLogoutToken_ProducesTokenThatValidatesAgainstThePublicKey()
+                {
+                    LogoutTokenFactory factory = this.CreateFactory();
+                    string token = factory.CreateLogoutToken(SessionId.Create(), "client-1");
+                    TokenValidationResult result = await new JsonWebTokenHandler().ValidateTokenAsync(
+                        token,
+                        new TokenValidationParameters
+                        {
+                            IssuerSigningKey = new RsaSecurityKey(this._rsa.ExportParameters(false)),
+                            ValidateIssuerSigningKey = true,
+                        });
+                }
+            }
+            """;
+
+        List<string> problems = FindProblems(
+            [("src/OpenIdentityStack.Infrastructure/Identity/LogoutTokenFactory.cs", production)],
+            [("tests/OpenIdentityStack.Infrastructure.Tests/Identity/LogoutTokenFactoryTests.cs", tests)]);
+
+        problems.ShouldNotBeEmpty();
+        string text = string.Join(Environment.NewLine, problems);
+        text.ShouldContain("LogoutTokenFactory");
+        text.ShouldContain("algorithm or the validation result");
+    }
+
     internal static List<string> FindProblems(
         IReadOnlyList<(string Path, string Source)> production,
         IReadOnlyList<(string Path, string Source)> tests)
@@ -69,7 +107,7 @@ public sealed partial class LogoutTokenSignatureTests
             {
                 int line = SourceText.LineAt(source, match.Index);
                 problems.Add(
-                    $"{path}:{line}: logout token tests do not assert a signature. LogoutTokenFactory tests must assert Alg, ValidateToken, or IssuerSigningKey.");
+                    $"{path}:{line}: logout token tests do not assert a signature. LogoutTokenFactory tests must assert the algorithm or the validation result.");
             }
         }
 
@@ -93,7 +131,7 @@ public sealed partial class LogoutTokenSignatureTests
                     continue;
                 }
 
-                if (SignatureTokens.Any(token => method.Body.Contains(token, StringComparison.Ordinal)))
+                if (SignatureAssertion.IsMatch(method.Body))
                 {
                     return true;
                 }
@@ -143,4 +181,9 @@ public sealed partial class LogoutTokenSignatureTests
 
     [GeneratedRegex(@"\bstring\s+CreateLogoutToken\s*\(|\bclass\s+LogoutTokenFactory\b", RegexOptions.CultureInvariant)]
     private static partial Regex ProducerPattern();
+
+    [GeneratedRegex(
+        @"\.Alg\s*\.\s*Should|\.IsValid\s*\.\s*Should|\.Exception\s*\.\s*Should|\bAssert\s*\.\s*\w+\s*\([^;]*\.(?:Alg|IsValid|Exception)\b",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex SignatureAssertionPattern();
 }

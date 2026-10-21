@@ -362,6 +362,14 @@ internal static partial class SourceText
             return close < 0 ? text.Length : close + closer.Length;
         }
 
+        // "" is an empty string: the second quote closes it. Treating the pair as one
+        // opening quote makes the scanner read the rest of the method as string text
+        // and then throw on the method's '}'.
+        if (quotes == 2)
+        {
+            return i;
+        }
+
         return ConsumeQuoted(text, i, dollars, verbatim);
     }
 

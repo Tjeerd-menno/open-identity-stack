@@ -48,6 +48,24 @@ public sealed partial class S2699ReplayTests
             problem.Contains("OperatorCanOpenOverviewAndNavigateViaTheSidebar", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void EmptyStringLiteral_DoesNotHideTheAssertion()
+    {
+        const string source = """
+            public sealed class Sample
+            {
+                [Fact]
+                public void Example() { string value = ""; value.ShouldBeEmpty(); }
+            }
+            """;
+
+        List<SourceText.TestMethod> methods = SourceText.TestMethods(source);
+        methods.ShouldContain(method =>
+            method.Name == "Example"
+            && method.Body.Contains("ShouldBeEmpty", StringComparison.Ordinal));
+        MissingAssertions("sample.cs", source).ShouldBeEmpty();
+    }
+
     internal static List<string> MissingAssertions(string relativePath, string source)
     {
         var problems = new List<string>();
