@@ -17,7 +17,6 @@ public class BackChannelLogoutTests : IDisposable
 {
     private readonly IProcessLogoutUseCase _processLogoutUseCase;
     private readonly IFrontChannelLogoutService _frontChannelLogoutService;
-    private readonly ISessionRepository _sessionRepository;
     private readonly ILogoutNotifier _logoutNotifier;
     private readonly IOpenIddictRequestService _requestService;
     private readonly LogoutController _controller;
@@ -26,14 +25,12 @@ public class BackChannelLogoutTests : IDisposable
     {
         this._processLogoutUseCase = Substitute.For<IProcessLogoutUseCase>();
         this._frontChannelLogoutService = Substitute.For<IFrontChannelLogoutService>();
-        this._sessionRepository = Substitute.For<ISessionRepository>();
         this._logoutNotifier = Substitute.For<ILogoutNotifier>();
         this._requestService = Substitute.For<IOpenIddictRequestService>();
 
         this._controller = new LogoutController(
             this._processLogoutUseCase,
             this._frontChannelLogoutService,
-            this._sessionRepository,
             this._logoutNotifier,
             this._requestService,
             Substitute.For<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()

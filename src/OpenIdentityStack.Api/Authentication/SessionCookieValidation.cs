@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Sessions.Queries;
+using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Common;
+using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Infrastructure.Identity;
 using SharedKernel;
 
@@ -19,10 +21,15 @@ public static class SessionCookieValidation
         bool valid;
         if (Guid.TryParse(subject, out Guid userId) && Guid.TryParse(session, out Guid sessionId))
         {
-            OpenIdentityStack.Domain.Users.User? user = await services.GetRequiredService<IUserRepository>().GetByIdAsync(new UserId(userId), context.HttpContext.RequestAborted);
-            UserSession? persisted = await services.GetRequiredService<ISessionRepository>().GetByIdAsync(new SessionId(sessionId), context.HttpContext.RequestAborted);
-            valid = user?.CanAuthenticate() == true && persisted?.UserId.Value == userId && persisted.Status == SessionStatus.Active
-                && !persisted.IsExpired(services.GetRequiredService<IDateTimeProvider>());
+            IDateTimeProvider clock = services.GetRequiredService<IDateTimeProvider>();
+            Result<GetUserResult> user = await services.GetRequiredService<IGetUserQueryHandler>()
+                .HandleAsync(new GetUserQuery(new UserId(userId)), context.HttpContext.RequestAborted);
+            GetSessionResult? persisted = await services.GetRequiredService<IGetSessionQueryHandler>()
+                .HandleAsync(new GetSessionQuery(new SessionId(sessionId)), context.HttpContext.RequestAborted);
+            valid = user.IsSuccess && user.Value.Status == UserStatus.Active
+                && persisted?.UserId.Value == userId
+                && persisted.Status == SessionStatus.Active
+                && persisted.ExpiresAt >= clock.UtcNow;
         }
         else { valid = false; }
         if (!valid)

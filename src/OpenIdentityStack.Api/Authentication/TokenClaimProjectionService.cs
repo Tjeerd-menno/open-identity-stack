@@ -9,6 +9,7 @@ using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Api.Serialization;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Authorization;
+using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Groups;
 using OpenIdentityStack.Domain.Users;
 using OpenIddict.Abstractions;
@@ -18,7 +19,7 @@ namespace OpenIdentityStack.Api.Authentication;
 
 public sealed record TokenClaimProjectionRequest(
     ClaimsPrincipal Principal,
-    User? PersistedUser,
+    GetUserResult? PersistedUser,
     IReadOnlyCollection<string> Roles,
     IReadOnlyCollection<string> Permissions,
     IReadOnlyCollection<GroupClaimDto> GroupClaims,
@@ -143,7 +144,7 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
     public ClaimsPrincipal ProjectExistingPrincipal(
         ClaimsPrincipal principal,
         DateTimeOffset? authenticationTime = null,
-        User? persistedUser = null)
+        GetUserResult? persistedUser = null)
     {
         var identity = new ClaimsIdentity(
             principal.Claims.Where(claim =>
@@ -416,22 +417,23 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             .Where(static value => !string.IsNullOrWhiteSpace(value))
             .ToImmutableHashSet(StringComparer.Ordinal);
 
-    private static void AddPersistedProfileClaims(ClaimsIdentity identity, User user)
+    private static void AddPersistedProfileClaims(ClaimsIdentity identity, GetUserResult user)
     {
-        AddStringClaim(identity, Claims.GivenName, user.GivenName);
-        AddStringClaim(identity, Claims.FamilyName, user.FamilyName);
-        AddStringClaim(identity, Claims.MiddleName, user.MiddleName);
-        AddStringClaim(identity, Claims.Nickname, user.Nickname);
-        AddStringClaim(identity, Claims.PreferredUsername, user.PreferredUsername);
-        AddStringClaim(identity, Claims.Profile, user.Profile);
-        AddStringClaim(identity, Claims.Picture, user.Picture);
-        AddStringClaim(identity, Claims.Website, user.Website);
-        AddStringClaim(identity, Claims.Gender, user.Gender);
-        AddStringClaim(identity, Claims.Birthdate, user.Birthdate);
-        AddStringClaim(identity, Claims.Zoneinfo, user.ZoneInfo);
-        AddStringClaim(identity, Claims.Locale, user.Locale);
+        UserProfileData profile = user.Profile;
+        AddStringClaim(identity, Claims.GivenName, profile.GivenName);
+        AddStringClaim(identity, Claims.FamilyName, profile.FamilyName);
+        AddStringClaim(identity, Claims.MiddleName, profile.MiddleName);
+        AddStringClaim(identity, Claims.Nickname, profile.Nickname);
+        AddStringClaim(identity, Claims.PreferredUsername, profile.PreferredUsername);
+        AddStringClaim(identity, Claims.Profile, profile.Profile);
+        AddStringClaim(identity, Claims.Picture, profile.Picture);
+        AddStringClaim(identity, Claims.Website, profile.Website);
+        AddStringClaim(identity, Claims.Gender, profile.Gender);
+        AddStringClaim(identity, Claims.Birthdate, profile.Birthdate);
+        AddStringClaim(identity, Claims.Zoneinfo, profile.ZoneInfo);
+        AddStringClaim(identity, Claims.Locale, profile.Locale);
 
-        if (user.Address is { } address)
+        if (profile.Address is { } address)
         {
             identity.AddClaim(new Claim(
                 Claims.Address,
@@ -439,7 +441,7 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
                 JsonClaimValueTypes.Json));
         }
 
-        AddStringClaim(identity, Claims.PhoneNumber, user.PhoneNumber);
+        AddStringClaim(identity, Claims.PhoneNumber, profile.PhoneNumber);
         // Legacy stored flags have no independent phone verification evidence.
         // Until a proof-backed verification flow exists, never assert this claim.
         identity.AddClaim(new Claim(

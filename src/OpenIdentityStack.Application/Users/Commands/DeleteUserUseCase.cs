@@ -12,7 +12,7 @@ public sealed class DeleteUserUseCase : IDeleteUserUseCase
     private readonly IUserRepository userRepository;
     private readonly IAuditLog auditLog;
 
-    public DeleteUserUseCase(IUserRepository userRepository, IAuditLog auditLog)
+    internal DeleteUserUseCase(IUserRepository userRepository, IAuditLog auditLog)
     {
         this.userRepository = userRepository;
         this.auditLog = auditLog;

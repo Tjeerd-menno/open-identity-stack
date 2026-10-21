@@ -6,15 +6,34 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Application.Authorization;
 
-public sealed partial class AdministrativeApproval(
-    IAdministrativeActorContext actorContext,
-    IUserRepository users,
-    IGetUserEffectiveRolesQueryHandler roles,
-    IDateTimeProvider clock,
-    IAdministrativeApprovalAudit audit,
-    IAdministrativeAuthoritySnapshot authoritySnapshot,
-    ILogger<AdministrativeApproval> logger) : IAdministrativeApproval
+public sealed partial class AdministrativeApproval : IAdministrativeApproval
 {
+    private readonly IAdministrativeActorContext actorContext;
+    private readonly IUserRepository users;
+    private readonly IGetUserEffectiveRolesQueryHandler roles;
+    private readonly IDateTimeProvider clock;
+    private readonly IAdministrativeApprovalAudit audit;
+    private readonly IAdministrativeAuthoritySnapshot authoritySnapshot;
+    private readonly ILogger<AdministrativeApproval> logger;
+
+    internal AdministrativeApproval(
+        IAdministrativeActorContext actorContext,
+        IUserRepository users,
+        IGetUserEffectiveRolesQueryHandler roles,
+        IDateTimeProvider clock,
+        IAdministrativeApprovalAudit audit,
+        IAdministrativeAuthoritySnapshot authoritySnapshot,
+        ILogger<AdministrativeApproval> logger)
+    {
+        this.actorContext = actorContext;
+        this.users = users;
+        this.roles = roles;
+        this.clock = clock;
+        this.audit = audit;
+        this.authoritySnapshot = authoritySnapshot;
+        this.logger = logger;
+    }
+
     private readonly List<ApprovalIntent> pending = [];
 
     public Task CaptureAuthorityAsync(CancellationToken cancellationToken = default) => authoritySnapshot.CaptureAsync(cancellationToken);

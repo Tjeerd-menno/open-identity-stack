@@ -13,7 +13,7 @@ public sealed class GetAuthenticationSettingsQueryHandler : IGetAuthenticationSe
 {
     private readonly IAuthenticationSettingsRepository settingsRepository;
 
-    public GetAuthenticationSettingsQueryHandler(IAuthenticationSettingsRepository settingsRepository)
+    internal GetAuthenticationSettingsQueryHandler(IAuthenticationSettingsRepository settingsRepository)
     {
         this.settingsRepository = settingsRepository ?? throw new ArgumentNullException(nameof(settingsRepository));
     }

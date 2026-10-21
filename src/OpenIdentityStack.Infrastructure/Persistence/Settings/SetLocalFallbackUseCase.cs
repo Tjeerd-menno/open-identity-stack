@@ -16,7 +16,7 @@ public sealed class SetLocalFallbackUseCase : ISetLocalFallbackUseCase
     private readonly IAuditLog auditLog;
     private readonly IAdministrativeActorContext actorContext;
 
-    public SetLocalFallbackUseCase(
+    internal SetLocalFallbackUseCase(
         IAuthenticationSettingsRepository settingsRepository,
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog,

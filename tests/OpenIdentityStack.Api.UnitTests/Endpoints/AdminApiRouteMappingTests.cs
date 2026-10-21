@@ -11,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Api.Common;
 using OpenIdentityStack.Application;
-using OpenIdentityStack.Application.AdministrativeAccess;
 using OpenIdentityStack.Application.Authorization;
 
 namespace OpenIdentityStack.Api.UnitTests.Endpoints;
@@ -352,7 +351,6 @@ public sealed class AdminApiRouteMappingTests
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
         builder.Services.AddAuthorization();
         builder.Services.AddApplication();
-        builder.Services.AddScoped<AdministrativeAccessWorkflow>();
         return builder.Build();
     }
 

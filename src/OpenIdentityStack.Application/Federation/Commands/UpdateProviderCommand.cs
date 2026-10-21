@@ -79,7 +79,7 @@ public sealed class UpdateProviderUseCase : IUpdateProviderUseCase
     /// <summary>
     /// Initializes a new instance of the <see cref="UpdateProviderUseCase"/> class.
     /// </summary>
-    public UpdateProviderUseCase(
+    internal UpdateProviderUseCase(
         IUpstreamProviderRepository providerRepository,
         ISecretProtector? secretProtector = null,
         IAuditLog? audit = null)

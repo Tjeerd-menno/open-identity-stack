@@ -26,7 +26,7 @@ public sealed class DisableRoleUseCase : IDisableRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
 
-    public DisableRoleUseCase(IRoleRepository roleRepository)
+    internal DisableRoleUseCase(IRoleRepository roleRepository)
     {
         this.roleRepository = roleRepository;
     }

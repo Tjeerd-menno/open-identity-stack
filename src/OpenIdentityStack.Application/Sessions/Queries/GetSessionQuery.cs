@@ -43,7 +43,7 @@ public sealed class GetSessionQueryHandler : IGetSessionQueryHandler
 {
     private readonly ISessionRepository sessionRepository;
 
-    public GetSessionQueryHandler(ISessionRepository sessionRepository)
+    internal GetSessionQueryHandler(ISessionRepository sessionRepository)
     {
         this.sessionRepository = sessionRepository;
     }

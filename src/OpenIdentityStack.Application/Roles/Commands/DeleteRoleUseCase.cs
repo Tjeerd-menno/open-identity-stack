@@ -25,7 +25,7 @@ public sealed class DeleteRoleUseCase : IDeleteRoleUseCase
 {
     private readonly IRoleRepository roleRepository;
 
-    public DeleteRoleUseCase(IRoleRepository roleRepository)
+    internal DeleteRoleUseCase(IRoleRepository roleRepository)
     {
         this.roleRepository = roleRepository;
     }

@@ -12,7 +12,7 @@ public sealed class ApplicationPermissionAuthorizationService : IApplicationPerm
     private readonly IPermissionChecker permissionChecker;
     private readonly IGroupRepository groupRepository;
 
-    public ApplicationPermissionAuthorizationService(IPermissionChecker permissionChecker, IGroupRepository groupRepository)
+    internal ApplicationPermissionAuthorizationService(IPermissionChecker permissionChecker, IGroupRepository groupRepository)
     {
         this.permissionChecker = permissionChecker;
         this.groupRepository = groupRepository;

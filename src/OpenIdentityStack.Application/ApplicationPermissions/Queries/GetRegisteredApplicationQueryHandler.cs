@@ -14,7 +14,7 @@ public sealed class GetRegisteredApplicationQueryHandler : IGetRegisteredApplica
 {
     private readonly IApplicationPermissionRegistryRepository repository;
 
-    public GetRegisteredApplicationQueryHandler(IApplicationPermissionRegistryRepository repository)
+    internal GetRegisteredApplicationQueryHandler(IApplicationPermissionRegistryRepository repository)
     {
         this.repository = repository;
     }

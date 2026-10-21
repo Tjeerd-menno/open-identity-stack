@@ -18,7 +18,7 @@ public sealed class ApplicationLifecycleUseCases
     private readonly IApplicationProtocolProjectionTransaction transaction;
     private readonly IAdministrativeActorContext actorContext;
 
-    public ApplicationLifecycleUseCases(
+    internal ApplicationLifecycleUseCases(
         IApplicationRepository repository,
         IApplicationProtocolProjection projection,
         IPasswordHasher passwordHasher,
@@ -454,7 +454,7 @@ public sealed class ApplicationCredentialUseCases
     private readonly IAdministrativeClientGuard administrativeGuard;
     private readonly IAdministrativeActorContext actorContext;
 
-    public ApplicationCredentialUseCases(
+    internal ApplicationCredentialUseCases(
         IApplicationRepository repository,
         IApplicationProtocolProjection projection,
         IPasswordHasher passwordHasher,
@@ -655,7 +655,7 @@ public sealed class ApplicationCredentialValidationUseCases :
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
 
-    public ApplicationCredentialValidationUseCases(
+    internal ApplicationCredentialValidationUseCases(
         IApplicationRepository repository,
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,

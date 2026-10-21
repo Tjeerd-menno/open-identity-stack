@@ -13,7 +13,7 @@ public sealed class UpdateUserUseCase : IUpdateUserUseCase
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IAuditLog auditLog;
 
-    public UpdateUserUseCase(
+    internal UpdateUserUseCase(
         IUserRepository userRepository,
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog)

@@ -29,7 +29,7 @@ public sealed class SetRolePermissionsUseCase : ISetRolePermissionsUseCase
     private readonly IAdministrativeApproval approval;
     private readonly IPermissionAssignmentValidator permissionAssignmentValidator;
 
-    public SetRolePermissionsUseCase(
+    internal SetRolePermissionsUseCase(
         IRoleRepository roleRepository,
         IPermissionAssignmentValidator permissionAssignmentValidator,
         IAdministrativeApproval approval)

@@ -17,7 +17,7 @@ public sealed class RegisterApplicationUseCase
     {
     }
 
-    public RegisterApplicationUseCase(
+    internal RegisterApplicationUseCase(
         IApplicationPermissionRegistryRepository repository,
         IApplicationPermissionAuthorizationService authorizationService,
         IApplicationPermissionAuditWriter auditWriter,

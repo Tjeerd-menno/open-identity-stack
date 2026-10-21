@@ -42,7 +42,7 @@ public sealed class AssignRoleUseCase : IAssignRoleUseCase
     /// <param name="dateTimeProvider">The date/time provider.</param>
     /// <param name="auditLog">The audit log.</param>
     /// <param name="logger">The logger.</param>
-    public AssignRoleUseCase(
+    internal AssignRoleUseCase(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IDateTimeProvider dateTimeProvider,

@@ -6,7 +6,7 @@ namespace OpenIdentityStack.Application.Abstractions;
 /// <summary>
 /// Repository interface for session persistence operations.
 /// </summary>
-public interface ISessionRepository
+internal interface ISessionRepository
 {
     /// <summary>
     /// Gets a session by its ID.

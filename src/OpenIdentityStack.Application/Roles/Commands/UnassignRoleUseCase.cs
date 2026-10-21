@@ -33,7 +33,7 @@ public sealed class UnassignRoleUseCase : IUnassignRoleUseCase
     /// <param name="userRepository">The user repository.</param>
     /// <param name="roleRepository">The role repository.</param>
     /// <param name="auditLog">The audit log.</param>
-    public UnassignRoleUseCase(
+    internal UnassignRoleUseCase(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IAuditLog auditLog)

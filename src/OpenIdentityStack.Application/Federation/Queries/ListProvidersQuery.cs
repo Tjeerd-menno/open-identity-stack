@@ -50,6 +50,12 @@ public interface IListProvidersQueryHandler
     Task<Result<IReadOnlyList<ProviderDto>>> HandleAsync(
         ListProvidersQuery query,
         CancellationToken cancellationToken = default);
+
+    Task<UpstreamProvider?> GetByIdAsync(UpstreamProviderId id, CancellationToken cancellationToken = default);
+
+    Task<UpstreamProvider?> GetByNameAsync(string name, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<UpstreamProvider>> GetActiveAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -62,7 +68,7 @@ public sealed class ListProvidersQueryHandler : IListProvidersQueryHandler
     /// <summary>
     /// Initializes a new instance of the <see cref="ListProvidersQueryHandler"/> class.
     /// </summary>
-    public ListProvidersQueryHandler(IUpstreamProviderRepository providerRepository)
+    internal ListProvidersQueryHandler(IUpstreamProviderRepository providerRepository)
     {
         this.providerRepository = providerRepository;
     }
@@ -89,4 +95,13 @@ public sealed class ListProvidersQueryHandler : IListProvidersQueryHandler
 
         return dtos;
     }
+
+    public Task<UpstreamProvider?> GetByIdAsync(UpstreamProviderId id, CancellationToken cancellationToken = default) =>
+        this.providerRepository.GetByIdAsync(id, cancellationToken);
+
+    public Task<UpstreamProvider?> GetByNameAsync(string name, CancellationToken cancellationToken = default) =>
+        this.providerRepository.GetByNameAsync(name, cancellationToken);
+
+    public Task<IReadOnlyList<UpstreamProvider>> GetActiveAsync(CancellationToken cancellationToken = default) =>
+        this.providerRepository.GetActiveProvidersAsync(cancellationToken);
 }

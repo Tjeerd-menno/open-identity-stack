@@ -41,13 +41,28 @@ public sealed record SeededPermissionCatalogConfiguration(
     IReadOnlyList<SeededPermissionConfiguration> Permissions);
 
 /// <summary>Creates the domain authority records for controlled seed profiles before projecting protocol state.</summary>
-public sealed class SeededOAuthClientPreparation(
-    IApplicationRepository applications,
-    IApplicationProtocolProjection projection,
-    IResourceAccessRepository resources,
-    IApplicationPermissionRegistryRepository registry,
-    IDateTimeProvider clock)
+public sealed class SeededOAuthClientPreparation
 {
+    private readonly IApplicationRepository applications;
+    private readonly IApplicationProtocolProjection projection;
+    private readonly IResourceAccessRepository resources;
+    private readonly IApplicationPermissionRegistryRepository registry;
+    private readonly IDateTimeProvider clock;
+
+    internal SeededOAuthClientPreparation(
+        IApplicationRepository applications,
+        IApplicationProtocolProjection projection,
+        IResourceAccessRepository resources,
+        IApplicationPermissionRegistryRepository registry,
+        IDateTimeProvider clock)
+    {
+        this.applications = applications;
+        this.projection = projection;
+        this.resources = resources;
+        this.registry = registry;
+        this.clock = clock;
+    }
+
     private static readonly DomainError identityMismatch = DomainError.Forbidden(
         "Application.SeedIdentityMismatch",
         "A seeded OAuth client or resource does not match its controlled configuration.");

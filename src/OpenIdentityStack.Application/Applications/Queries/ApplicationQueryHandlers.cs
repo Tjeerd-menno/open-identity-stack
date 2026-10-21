@@ -11,7 +11,7 @@ public sealed class ListApplicationsQueryHandler : IListApplicationsQueryHandler
 {
     private readonly IApplicationRepository repository;
 
-    public ListApplicationsQueryHandler(IApplicationRepository repository)
+    internal ListApplicationsQueryHandler(IApplicationRepository repository)
     {
         this.repository = repository;
     }
@@ -58,7 +58,7 @@ public sealed class GetApplicationQueryHandler : IGetApplicationQueryHandler
 {
     private readonly IApplicationRepository repository;
 
-    public GetApplicationQueryHandler(IApplicationRepository repository)
+    internal GetApplicationQueryHandler(IApplicationRepository repository)
     {
         this.repository = repository;
     }
@@ -98,7 +98,7 @@ public sealed class ListApplicationCredentialsQueryHandler : IListApplicationCre
 {
     private readonly IApplicationRepository repository;
 
-    public ListApplicationCredentialsQueryHandler(IApplicationRepository repository)
+    internal ListApplicationCredentialsQueryHandler(IApplicationRepository repository)
     {
         this.repository = repository;
     }

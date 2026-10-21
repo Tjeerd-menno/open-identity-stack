@@ -25,7 +25,7 @@ public sealed class GetRoleQueryHandler : IGetRoleQueryHandler
 {
     private readonly IRoleRepository roleRepository;
 
-    public GetRoleQueryHandler(IRoleRepository roleRepository)
+    internal GetRoleQueryHandler(IRoleRepository roleRepository)
     {
         this.roleRepository = roleRepository;
     }

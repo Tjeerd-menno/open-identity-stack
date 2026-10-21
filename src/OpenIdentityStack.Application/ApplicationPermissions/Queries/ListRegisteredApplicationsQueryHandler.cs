@@ -13,7 +13,7 @@ public sealed class ListRegisteredApplicationsQueryHandler : IListRegisteredAppl
 {
     private readonly IApplicationPermissionRegistryRepository repository;
 
-    public ListRegisteredApplicationsQueryHandler(IApplicationPermissionRegistryRepository repository)
+    internal ListRegisteredApplicationsQueryHandler(IApplicationPermissionRegistryRepository repository)
     {
         this.repository = repository;
     }

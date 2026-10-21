@@ -12,7 +12,7 @@ public sealed class ListAssignablePermissionCatalogQueryHandler : IListAssignabl
 {
     private readonly IApplicationPermissionRegistryRepository repository;
 
-    public ListAssignablePermissionCatalogQueryHandler(IApplicationPermissionRegistryRepository repository)
+    internal ListAssignablePermissionCatalogQueryHandler(IApplicationPermissionRegistryRepository repository)
     {
         this.repository = repository;
     }

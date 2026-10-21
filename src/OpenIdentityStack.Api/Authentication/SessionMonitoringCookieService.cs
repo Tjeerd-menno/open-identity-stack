@@ -1,7 +1,9 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
-using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Sessions.Queries;
+using OpenIdentityStack.Application.Users.Queries;
+using OpenIdentityStack.Domain.Users;
 using OpenIdentityStack.Api.Serialization;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Sessions;
@@ -23,14 +25,14 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
     private const int currentVersion = 1;
     private const string protectorPurpose = "OpenIdentityStack.SessionManagement.op_session.v1";
     private readonly IDataProtector protector;
-    private readonly IUserRepository users;
-    private readonly ISessionRepository sessions;
+    private readonly IGetUserQueryHandler users;
+    private readonly IGetSessionQueryHandler sessions;
     private readonly IDateTimeProvider clock;
 
     public SessionMonitoringCookieService(
         IDataProtectionProvider dataProtection,
-        IUserRepository users,
-        ISessionRepository sessions,
+        IGetUserQueryHandler users,
+        IGetSessionQueryHandler sessions,
         IDateTimeProvider clock)
     {
         this.protector = dataProtection.CreateProtector(protectorPurpose);
@@ -81,12 +83,13 @@ public sealed class SessionMonitoringCookieService : ISessionMonitoringCookieSer
 
         var userId = new UserId(payload.UserId);
         var sessionId = new SessionId(payload.SessionId);
-        Domain.Users.User? user = await this.users.GetByIdAsync(userId, cancellationToken);
-        UserSession? session = await this.sessions.GetByIdAsync(sessionId, cancellationToken);
-        return user?.CanAuthenticate() == true
+        Result<GetUserResult> user = await this.users.HandleAsync(new GetUserQuery(userId), cancellationToken);
+        GetSessionResult? session = await this.sessions.HandleAsync(new GetSessionQuery(sessionId), cancellationToken);
+        return user.IsSuccess
+            && user.Value.Status == UserStatus.Active
             && session?.UserId == userId
             && session.Status == SessionStatus.Active
-            && !session.IsExpired(this.clock);
+            && session.ExpiresAt >= this.clock.UtcNow;
     }
 
     private bool TryReadProtectedPayload(string? value, out SessionMonitoringCookiePayload payload)

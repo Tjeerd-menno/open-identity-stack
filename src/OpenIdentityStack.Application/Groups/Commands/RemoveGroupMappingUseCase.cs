@@ -16,7 +16,7 @@ public sealed class RemoveGroupMappingUseCase : IRemoveGroupMappingUseCase
     private readonly IGroupRepository repository;
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public RemoveGroupMappingUseCase(IGroupRepository repository, IDateTimeProvider dateTimeProvider)
+    internal RemoveGroupMappingUseCase(IGroupRepository repository, IDateTimeProvider dateTimeProvider)
     {
         this.repository = repository;
         this.dateTimeProvider = dateTimeProvider;

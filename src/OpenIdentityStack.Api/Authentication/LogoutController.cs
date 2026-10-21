@@ -26,7 +26,6 @@ public sealed class LogoutController : Controller
 {
     private readonly IProcessLogoutUseCase processLogoutUseCase;
     private readonly IFrontChannelLogoutService frontChannelLogoutService;
-    private readonly ISessionRepository sessionRepository;
     private readonly ILogoutNotifier logoutNotifier;
     private readonly IOpenIddictRequestService requestService;
     private readonly IAntiforgery antiforgery;
@@ -34,14 +33,12 @@ public sealed class LogoutController : Controller
     public LogoutController(
         IProcessLogoutUseCase processLogoutUseCase,
         IFrontChannelLogoutService frontChannelLogoutService,
-        ISessionRepository sessionRepository,
         ILogoutNotifier logoutNotifier,
         IOpenIddictRequestService requestService,
         IAntiforgery antiforgery)
     {
         this.processLogoutUseCase = processLogoutUseCase;
         this.frontChannelLogoutService = frontChannelLogoutService;
-        this.sessionRepository = sessionRepository;
         this.logoutNotifier = logoutNotifier;
         this.requestService = requestService;
         this.antiforgery = antiforgery;

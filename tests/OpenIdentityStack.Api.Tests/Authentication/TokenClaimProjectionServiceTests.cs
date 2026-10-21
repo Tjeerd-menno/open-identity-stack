@@ -26,7 +26,7 @@ public sealed class TokenClaimProjectionServiceTests
         typeof(User).GetProperty(nameof(User.PhoneNumberVerified))!.SetValue(user, true);
         string[] profileTypes = ["phone_number", "phone_number_verified", "name", "given_name", "family_name", "middle_name",
             "nickname", "preferred_username", "profile", "picture", "website", "gender", "birthdate", "zoneinfo", "locale", "address", "updated_at"];
-        var request = new TokenClaimProjectionRequest(CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+        var request = new TokenClaimProjectionRequest(CreateCookiePrincipal(user.Id.Value), PersistedUser.From(user), [], [], [],
             ["openid", "profile", "phone"], [], null, null, null);
         ClaimsPrincipal expected = this.service.ProjectSubjectClaims(request);
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(request with
@@ -50,7 +50,7 @@ public sealed class TokenClaimProjectionServiceTests
     {
         User user = CreateUser();
         ClaimsPrincipal principal = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
-            CreateCookiePrincipal(user.Id.Value), user, [], [],
+            CreateCookiePrincipal(user.Id.Value), PersistedUser.From(user), [], [],
             [new GroupClaimDto("permission", "*", TokenTarget.Both),
              new GroupClaimDto("ois_human_subject", user.Id.Value.ToString(), TokenTarget.Both),
              new GroupClaimDto("ois.example", "forged", TokenTarget.Both),
@@ -91,7 +91,7 @@ public sealed class TokenClaimProjectionServiceTests
         User user = User.CreateBootstrap("bootstrap@example.test", "Bootstrap", "fixture-hash", this.dateTimeProvider).Value;
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
-            CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            CreateCookiePrincipal(user.Id.Value), PersistedUser.From(user), [], [], [],
             [OpenIddictConstants.Scopes.Email], [], null, null, null));
 
         projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
@@ -104,7 +104,7 @@ public sealed class TokenClaimProjectionServiceTests
         user.VerifyEmail(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
-            CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            CreateCookiePrincipal(user.Id.Value), PersistedUser.From(user), [], [], [],
             [OpenIddictConstants.Scopes.Email], [], null, null, null));
 
         projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("true");
@@ -115,7 +115,7 @@ public sealed class TokenClaimProjectionServiceTests
     {
         User user = CreateUser();
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
-            CreateCookiePrincipal(user.Id.Value), user, [], [], [], [], [], null, null, null));
+            CreateCookiePrincipal(user.Id.Value), PersistedUser.From(user), [], [], [], [], [], null, null, null));
 
         projected.GetClaim("ois_credential_revision").ShouldBe(Guid.Empty.ToString());
         projected.FindFirst("ois_credential_revision")!.GetDestinations().ShouldContain(OpenIddictConstants.Destinations.AccessToken);
@@ -130,7 +130,7 @@ public sealed class TokenClaimProjectionServiceTests
         string captured = Guid.NewGuid().ToString();
         principal.SetClaim("ois_credential_revision", captured);
 
-        this.service.ProjectExistingPrincipal(principal, persistedUser: user)
+        this.service.ProjectExistingPrincipal(principal, persistedUser: PersistedUser.From(user))
             .GetClaim("ois_credential_revision").ShouldBe(captured);
     }
 
@@ -140,7 +140,7 @@ public sealed class TokenClaimProjectionServiceTests
         User user = CreateUser();
         ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
 
-        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: user);
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: PersistedUser.From(user));
 
         projected.GetClaim("ois_credential_revision").ShouldBe(Guid.Empty.ToString());
         projected.FindFirst("ois_credential_revision")!.GetDestinations()
@@ -159,7 +159,7 @@ public sealed class TokenClaimProjectionServiceTests
         user.CredentialRevision.ShouldNotBe(Guid.Empty);
 
         ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(
-            CreateCookiePrincipal(user.Id.Value), persistedUser: user);
+            CreateCookiePrincipal(user.Id.Value), persistedUser: PersistedUser.From(user));
 
         projected.GetClaim("ois_credential_revision").ShouldBeNull();
     }
@@ -169,7 +169,7 @@ public sealed class TokenClaimProjectionServiceTests
     {
         User user = CreateUser();
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
-            CreateCookiePrincipal(user.Id.Value), user, [], [], [],
+            CreateCookiePrincipal(user.Id.Value), PersistedUser.From(user), [], [], [],
             [OpenIddictConstants.Scopes.Email], [], null, null, null));
 
         projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
@@ -185,7 +185,7 @@ public sealed class TokenClaimProjectionServiceTests
         principal.SetClaim(OpenIddictConstants.Claims.EmailVerified, "true");
         principal.SetClaim(OpenIddictConstants.Claims.Email, user.Email);
 
-        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: hasPersistedUser ? user : null);
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: hasPersistedUser ? PersistedUser.From(user) : null);
 
         projected.GetClaim(OpenIddictConstants.Claims.EmailVerified).ShouldBe("false");
     }
@@ -201,7 +201,7 @@ public sealed class TokenClaimProjectionServiceTests
         principal.SetClaim(OpenIddictConstants.Claims.PhoneNumberVerified, "true");
 
         ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(
-            principal, persistedUser: hasPersistedUser ? user : null);
+            principal, persistedUser: hasPersistedUser ? PersistedUser.From(user) : null);
 
         projected.GetClaim(OpenIddictConstants.Claims.PhoneNumberVerified).ShouldBe("false");
         this.service.CreateUserInfoResponse(projected)[OpenIddictConstants.Claims.PhoneNumberVerified]
@@ -218,7 +218,7 @@ public sealed class TokenClaimProjectionServiceTests
         ClaimsPrincipal principal = CreateCookiePrincipal(user.Id.Value);
         principal.SetScopes(OpenIddictConstants.Scopes.Email);
         principal.SetClaim(OpenIddictConstants.Claims.EmailVerified, !verified);
-        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: user);
+        ClaimsPrincipal projected = this.service.ProjectExistingPrincipal(principal, persistedUser: PersistedUser.From(user));
         var handler = new JsonWebTokenHandler();
         string token = handler.CreateToken(new SecurityTokenDescriptor { Subject = (ClaimsIdentity)projected.Identity! });
         using var payload = JsonDocument.Parse(Base64UrlEncoder.Decode(handler.ReadJsonWebToken(token).EncodedPayload));
@@ -236,7 +236,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookiePrincipal,
-            user,
+            PersistedUser.From(user),
             Roles: [],
             Permissions: [],
             GroupClaims: [],
@@ -259,7 +259,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookiePrincipal,
-            user,
+            PersistedUser.From(user),
             Roles: [],
             Permissions: [],
             GroupClaims: [],
@@ -283,7 +283,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookiePrincipal,
-            user,
+            PersistedUser.From(user),
             Roles: [],
             Permissions: [],
             GroupClaims: [],
@@ -307,7 +307,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookiePrincipal,
-            user,
+            PersistedUser.From(user),
             Roles: [],
             Permissions: [],
             GroupClaims:
@@ -336,7 +336,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookiePrincipal,
-            user,
+            PersistedUser.From(user),
             Roles: [],
             Permissions: [],
             GroupClaims: [new GroupClaimDto("token_kind", "client_credentials", TokenTarget.AccessToken)],
@@ -359,7 +359,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookiePrincipal,
-            user,
+            PersistedUser.From(user),
             Roles: [],
             Permissions: [],
             GroupClaims: [],
@@ -411,7 +411,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookiePrincipal,
-            user,
+            PersistedUser.From(user),
             Roles: [],
             Permissions: [],
             GroupClaims: [],
@@ -438,7 +438,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookiePrincipal,
-            user,
+            PersistedUser.From(user),
             Roles: [],
             Permissions: [],
             GroupClaims: [],
@@ -461,7 +461,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookiePrincipal,
-            user,
+            PersistedUser.From(user),
             Roles: [],
             Permissions: [],
             GroupClaims: [],
@@ -496,7 +496,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             cookiePrincipal,
-            user,
+            PersistedUser.From(user),
             Roles: [],
             Permissions: [],
             GroupClaims: [],
@@ -525,7 +525,7 @@ public sealed class TokenClaimProjectionServiceTests
 
         ClaimsPrincipal projected = this.service.ProjectSubjectClaims(new TokenClaimProjectionRequest(
             CreateCookiePrincipal(result.Value.Id.Value),
-            result.Value,
+            PersistedUser.From(result.Value),
             Roles: [],
             Permissions: [],
             GroupClaims: [],

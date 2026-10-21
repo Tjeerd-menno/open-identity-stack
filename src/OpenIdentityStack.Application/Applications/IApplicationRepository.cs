@@ -6,7 +6,7 @@ namespace OpenIdentityStack.Application.Applications;
 /// <summary>
 /// Repository interface for application aggregate persistence.
 /// </summary>
-public interface IApplicationRepository
+internal interface IApplicationRepository
 {
     Task<DomainApplication?> GetByIdAsync(DomainApplicationId id, CancellationToken cancellationToken = default);
 

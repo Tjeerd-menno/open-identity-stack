@@ -11,7 +11,7 @@ public sealed class GetUserQueryHandler : IGetUserQueryHandler
 {
     private readonly IUserRepository userRepository;
 
-    public GetUserQueryHandler(IUserRepository userRepository)
+    internal GetUserQueryHandler(IUserRepository userRepository)
     {
         this.userRepository = userRepository;
     }
@@ -39,6 +39,7 @@ public sealed class GetUserQueryHandler : IGetUserQueryHandler
             user.GetProfileData())
         {
             EmailVerified = user.EmailVerified,
+            CredentialRevision = user.CredentialRevision,
             EmailVerificationEvidence = user.EmailVerificationEvidence.Select(e => new EmailVerificationEvidenceDto(
                 e.NormalizedEmail, e.ProviderId, e.Issuer, e.VerifiedAt, e.WithdrawnAt)).ToList()
         };

@@ -115,12 +115,12 @@ internal static class ProvidersApi
     }
 
     private static async Task<IResult> GetProvider(
-        [FromServices] IUpstreamProviderRepository providerRepository,
+        [FromServices] IListProvidersQueryHandler providers,
         Guid id,
         CancellationToken cancellationToken = default)
     {
         var providerId = UpstreamProviderId.From(id);
-        UpstreamProvider? provider = await providerRepository.GetByIdAsync(providerId, cancellationToken);
+        UpstreamProvider? provider = await providers.GetByIdAsync(providerId, cancellationToken);
 
         if (provider is null)
         {
@@ -236,78 +236,107 @@ internal static class ProvidersApi
     }
 
     private static async Task<IResult> DeleteProvider(
-        [FromServices] IUpstreamProviderRepository providerRepository,
+        [FromServices] IUpdateProviderUseCase updateProvider,
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var providerId = UpstreamProviderId.From(id);
-        UpstreamProvider? provider = await providerRepository.GetByIdAsync(providerId, cancellationToken);
-
-        if (provider is null)
+        Result<UpdateProviderResult> result = await updateProvider.ExecuteAsync(
+            new UpdateProviderCommand(id, Status: "Disabled"),
+            cancellationToken);
+        if (result.IsSuccess || IsBenignStatus(result, "AlreadyDisabled"))
         {
-            return TypedResults.NotFound(new { error = "Provider not found." });
+            return TypedResults.NoContent();
         }
 
-        // Soft delete by disabling
-        Result result = provider.Disable();
-        if (result.IsFailure && !result.Error.Code.Contains("AlreadyDisabled", StringComparison.Ordinal))
-        {
-            return TypedResults.BadRequest(new { error = result.Error.Description });
-        }
-
-        await providerRepository.SaveChangesAsync(cancellationToken);
-
-        return TypedResults.NoContent();
+        return ProviderStatusFailure(result);
     }
 
     private static async Task<IResult> DisableProvider(
-        [FromServices] IUpstreamProviderRepository providerRepository,
+        [FromServices] IUpdateProviderUseCase updateProvider,
+        [FromServices] IListProvidersQueryHandler providers,
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var providerId = UpstreamProviderId.From(id);
-        UpstreamProvider? provider = await providerRepository.GetByIdAsync(providerId, cancellationToken);
-
-        if (provider is null)
+        Result<UpdateProviderResult> result = await updateProvider.ExecuteAsync(
+            new UpdateProviderCommand(id, Status: "Disabled"),
+            cancellationToken);
+        if (result.IsSuccess)
         {
-            return TypedResults.NotFound(new { error = "Provider not found." });
+            return TypedResults.Ok(MapToResponse(result.Value));
         }
 
-        Result result = provider.Disable();
-        if (result.IsFailure && !result.Error.Code.Contains("AlreadyDisabled", StringComparison.Ordinal))
+        if (IsBenignStatus(result, "AlreadyDisabled"))
         {
-            return TypedResults.BadRequest(new { error = result.Error.Description });
+            return await CurrentProviderAsync(providers, id, cancellationToken);
         }
 
-        await providerRepository.SaveChangesAsync(cancellationToken);
-
-        // Return the updated resource for immediate client feedback
-        return TypedResults.Ok(MapToResponse(provider));
+        return ProviderStatusFailure(result);
     }
 
     private static async Task<IResult> EnableProvider(
-        [FromServices] IUpstreamProviderRepository providerRepository,
+        [FromServices] IUpdateProviderUseCase updateProvider,
+        [FromServices] IListProvidersQueryHandler providers,
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var providerId = UpstreamProviderId.From(id);
-        UpstreamProvider? provider = await providerRepository.GetByIdAsync(providerId, cancellationToken);
+        Result<UpdateProviderResult> result = await updateProvider.ExecuteAsync(
+            new UpdateProviderCommand(id, Status: "Active"),
+            cancellationToken);
+        if (result.IsSuccess)
+        {
+            return TypedResults.Ok(MapToResponse(result.Value));
+        }
 
+        if (IsBenignStatus(result, "AlreadyActive"))
+        {
+            return await CurrentProviderAsync(providers, id, cancellationToken);
+        }
+
+        return ProviderStatusFailure(result);
+    }
+
+    private static bool IsBenignStatus(Result<UpdateProviderResult> result, string code) =>
+        result.IsFailure && result.Error.Code.Contains(code, StringComparison.Ordinal);
+
+    private static IResult ProviderStatusFailure(Result<UpdateProviderResult> result)
+    {
+        if (result.Error.Code.Contains("NotFound", StringComparison.Ordinal))
+        {
+            return TypedResults.NotFound(new { error = result.Error.Description });
+        }
+
+        return TypedResults.BadRequest(new { error = result.Error.Description });
+    }
+
+    private static async Task<IResult> CurrentProviderAsync(
+        IListProvidersQueryHandler providers,
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        UpstreamProvider? provider = await providers.GetByIdAsync(UpstreamProviderId.From(id), cancellationToken);
         if (provider is null)
         {
             return TypedResults.NotFound(new { error = "Provider not found." });
         }
 
-        Result result = provider.Enable();
-        if (result.IsFailure && !result.Error.Code.Contains("AlreadyActive", StringComparison.Ordinal))
-        {
-            return TypedResults.BadRequest(new { error = result.Error.Description });
-        }
-
-        await providerRepository.SaveChangesAsync(cancellationToken);
-
-        // Return the updated resource for immediate client feedback
         return TypedResults.Ok(MapToResponse(provider));
+    }
+
+    private static ProviderResponse MapToResponse(UpdateProviderResult provider)
+    {
+        return new ProviderResponse
+        {
+            Id = provider.Id,
+            Name = provider.Name,
+            DisplayName = provider.DisplayName,
+            Authority = provider.Authority,
+            ClientId = provider.ClientId,
+            Scopes = provider.Scopes,
+            JitProvisioningEnabled = provider.JitProvisioningEnabled,
+            TrustEmailVerification = provider.TrustEmailVerification,
+            Status = provider.Status,
+            CreatedAt = provider.CreatedAt
+        };
     }
 
     private static ProviderResponse MapToResponse(ProviderDto dto)

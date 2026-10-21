@@ -13,7 +13,7 @@ public sealed class PermissionChecker : IPermissionChecker
     private readonly IRoleRepository roleRepository;
     private PermissionSnapshot? snapshot;
 
-    public PermissionChecker(IRoleRepository roleRepository)
+    internal PermissionChecker(IRoleRepository roleRepository)
     {
         this.roleRepository = roleRepository;
     }

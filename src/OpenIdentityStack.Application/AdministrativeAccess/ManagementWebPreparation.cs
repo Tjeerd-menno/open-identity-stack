@@ -9,9 +9,25 @@ using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
 namespace OpenIdentityStack.Application.AdministrativeAccess;
 
 /// <summary>Controlled deployment preparation for the fixed Management Web registration; never a runtime approval bypass.</summary>
-public sealed class ManagementWebPreparation(IApplicationRepository applications, IApplicationProtocolProjection projection,
-    IResourceAccessRepository resources, IDateTimeProvider clock)
+public sealed class ManagementWebPreparation
 {
+    private readonly IApplicationRepository applications;
+    private readonly IApplicationProtocolProjection projection;
+    private readonly IResourceAccessRepository resources;
+    private readonly IDateTimeProvider clock;
+
+    internal ManagementWebPreparation(
+        IApplicationRepository applications,
+        IApplicationProtocolProjection projection,
+        IResourceAccessRepository resources,
+        IDateTimeProvider clock)
+    {
+        this.applications = applications;
+        this.projection = projection;
+        this.resources = resources;
+        this.clock = clock;
+    }
+
     public const string ClientId = "management-web-client";
     private static readonly string[] scopes = ["openid", "profile", "email", ProtectedResource.AdministrativeScope];
     private static readonly string[] grantTypes = ["authorization_code", "refresh_token"];

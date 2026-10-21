@@ -61,7 +61,7 @@ public sealed class ListUserUpstreamIdentitiesQueryHandler : IListUserUpstreamId
     /// <summary>
     /// Initializes a new instance of the <see cref="ListUserUpstreamIdentitiesQueryHandler"/> class.
     /// </summary>
-    public ListUserUpstreamIdentitiesQueryHandler(IUserRepository userRepository)
+    internal ListUserUpstreamIdentitiesQueryHandler(IUserRepository userRepository)
     {
         this.userRepository = userRepository;
     }

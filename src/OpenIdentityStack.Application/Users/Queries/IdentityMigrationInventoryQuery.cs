@@ -19,8 +19,19 @@ public interface IIdentityMigrationInventoryQueryHandler
     Task<Result<IdentityMigrationInventoryResult>> ExecuteAsync(IdentityMigrationInventoryQuery query, CancellationToken cancellationToken = default);
 }
 
-public sealed class IdentityMigrationInventoryQueryHandler(IUserRepository users, IUpstreamProviderRepository providers) : IIdentityMigrationInventoryQueryHandler
+public sealed class IdentityMigrationInventoryQueryHandler : IIdentityMigrationInventoryQueryHandler
 {
+    private readonly IUserRepository users;
+    private readonly IUpstreamProviderRepository providers;
+
+    internal IdentityMigrationInventoryQueryHandler(
+        IUserRepository users,
+        IUpstreamProviderRepository providers)
+    {
+        this.users = users;
+        this.providers = providers;
+    }
+
     public async Task<Result<IdentityMigrationInventoryResult>> ExecuteAsync(IdentityMigrationInventoryQuery query, CancellationToken cancellationToken = default)
     {
         if (query.Page < 1 || query.PageSize < 1 || query.PageSize > 100 || query.Page > int.MaxValue / query.PageSize)

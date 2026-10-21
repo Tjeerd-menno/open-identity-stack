@@ -19,7 +19,7 @@ public sealed class AddUserToGroupUseCase : IAddUserToGroupUseCase
     private readonly IUserRepository userRepository;
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public AddUserToGroupUseCase(
+    internal AddUserToGroupUseCase(
         IGroupRepository groupRepository,
         IUserRepository userRepository,
         IDateTimeProvider dateTimeProvider,

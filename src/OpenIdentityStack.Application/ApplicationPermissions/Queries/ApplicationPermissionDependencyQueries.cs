@@ -15,7 +15,7 @@ public sealed class GetPermissionDependenciesQueryHandler : IGetPermissionDepend
     private readonly IApplicationPermissionRegistryRepository repository;
     private readonly IRolePermissionDependencyReader dependencyReader;
 
-    public GetPermissionDependenciesQueryHandler(
+    internal GetPermissionDependenciesQueryHandler(
         IApplicationPermissionRegistryRepository repository,
         IRolePermissionDependencyReader dependencyReader)
     {

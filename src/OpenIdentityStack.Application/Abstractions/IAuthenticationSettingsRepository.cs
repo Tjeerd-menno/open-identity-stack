@@ -5,7 +5,7 @@ namespace OpenIdentityStack.Application.Abstractions;
 /// <summary>
 /// Repository for authentication settings operations.
 /// </summary>
-public interface IAuthenticationSettingsRepository
+internal interface IAuthenticationSettingsRepository
 {
     /// <summary>
     /// Gets the current authentication settings.

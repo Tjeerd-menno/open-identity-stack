@@ -11,7 +11,7 @@ public sealed class FindUserByUpstreamIdentityQueryHandler : IFindUserByUpstream
 {
     private readonly IUserRepository userRepository;
 
-    public FindUserByUpstreamIdentityQueryHandler(IUserRepository userRepository)
+    internal FindUserByUpstreamIdentityQueryHandler(IUserRepository userRepository)
     {
         this.userRepository = userRepository;
     }

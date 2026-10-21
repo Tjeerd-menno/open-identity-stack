@@ -26,7 +26,7 @@ public sealed class CreateGroupUseCase : ICreateGroupUseCase
     private readonly IGroupRepository groupRepository;
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public CreateGroupUseCase(IGroupRepository groupRepository, IDateTimeProvider dateTimeProvider)
+    internal CreateGroupUseCase(IGroupRepository groupRepository, IDateTimeProvider dateTimeProvider)
     {
         this.groupRepository = groupRepository;
         this.dateTimeProvider = dateTimeProvider;

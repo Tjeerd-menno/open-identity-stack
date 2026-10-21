@@ -16,7 +16,7 @@ public sealed class UpdateGroupUseCase : IUpdateGroupUseCase
     private readonly IGroupRepository repository;
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public UpdateGroupUseCase(IGroupRepository repository, IDateTimeProvider dateTimeProvider)
+    internal UpdateGroupUseCase(IGroupRepository repository, IDateTimeProvider dateTimeProvider)
     {
         this.repository = repository;
         this.dateTimeProvider = dateTimeProvider;

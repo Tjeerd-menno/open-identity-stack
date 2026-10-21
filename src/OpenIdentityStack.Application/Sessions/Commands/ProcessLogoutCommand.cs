@@ -41,7 +41,7 @@ public sealed class ProcessLogoutUseCase : IProcessLogoutUseCase
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly ICredentialTerminationService credentialTerminationService;
 
-    public ProcessLogoutUseCase(
+    internal ProcessLogoutUseCase(
         ISessionRepository sessionRepository,
         ILogoutNotifier logoutNotifier,
         IFrontChannelLogoutService frontChannelLogoutService,

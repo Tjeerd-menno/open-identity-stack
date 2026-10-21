@@ -42,7 +42,7 @@ public sealed class RevokeSessionUseCase : IRevokeSessionUseCase
     /// <summary>
     /// Initializes a new instance of the <see cref="RevokeSessionUseCase"/> class.
     /// </summary>
-    public RevokeSessionUseCase(
+    internal RevokeSessionUseCase(
         ISessionRepository sessionRepository,
         ICredentialTerminationService terminationService,
         IDateTimeProvider dateTimeProvider)
