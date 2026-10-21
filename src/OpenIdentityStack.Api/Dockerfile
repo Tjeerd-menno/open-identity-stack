@@ -15,6 +15,7 @@ COPY src/OpenIdentityStack.Application/OpenIdentityStack.Application.csproj src/
 COPY src/OpenIdentityStack.Infrastructure/OpenIdentityStack.Infrastructure.csproj src/OpenIdentityStack.Infrastructure/
 COPY src/OpenIdentityStack.ServiceDefaults/OpenIdentityStack.ServiceDefaults.csproj src/OpenIdentityStack.ServiceDefaults/
 COPY src/OpenIdentityStack.Api/OpenIdentityStack.Api.csproj src/OpenIdentityStack.Api/
+COPY src/OpenIdentityStack.Analyzers/OpenIdentityStack.Analyzers.csproj src/OpenIdentityStack.Analyzers/
 
 RUN dotnet restore src/OpenIdentityStack.Api/OpenIdentityStack.Api.csproj
 
@@ -24,6 +25,7 @@ COPY src/OpenIdentityStack.Application/ src/OpenIdentityStack.Application/
 COPY src/OpenIdentityStack.Infrastructure/ src/OpenIdentityStack.Infrastructure/
 COPY src/OpenIdentityStack.ServiceDefaults/ src/OpenIdentityStack.ServiceDefaults/
 COPY src/OpenIdentityStack.Api/ src/OpenIdentityStack.Api/
+COPY src/OpenIdentityStack.Analyzers/ src/OpenIdentityStack.Analyzers/
 
 RUN dotnet publish src/OpenIdentityStack.Api/OpenIdentityStack.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 

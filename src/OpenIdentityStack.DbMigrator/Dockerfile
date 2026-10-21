@@ -14,6 +14,7 @@ COPY src/SharedKernel/SharedKernel.csproj src/SharedKernel/
 COPY src/OpenIdentityStack.Application/OpenIdentityStack.Application.csproj src/OpenIdentityStack.Application/
 COPY src/OpenIdentityStack.Infrastructure/OpenIdentityStack.Infrastructure.csproj src/OpenIdentityStack.Infrastructure/
 COPY src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator.csproj src/OpenIdentityStack.DbMigrator/
+COPY src/OpenIdentityStack.Analyzers/OpenIdentityStack.Analyzers.csproj src/OpenIdentityStack.Analyzers/
 
 RUN dotnet restore src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator.csproj
 
@@ -22,6 +23,7 @@ COPY src/SharedKernel/ src/SharedKernel/
 COPY src/OpenIdentityStack.Application/ src/OpenIdentityStack.Application/
 COPY src/OpenIdentityStack.Infrastructure/ src/OpenIdentityStack.Infrastructure/
 COPY src/OpenIdentityStack.DbMigrator/ src/OpenIdentityStack.DbMigrator/
+COPY src/OpenIdentityStack.Analyzers/ src/OpenIdentityStack.Analyzers/
 
 RUN dotnet publish src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator.csproj -c Release -o /app/publish /p:UseAppHost=false
 
