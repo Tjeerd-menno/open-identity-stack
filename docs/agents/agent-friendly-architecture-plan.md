@@ -190,7 +190,7 @@ Order used above: architecture, then types or a lint that names the file to use,
 | Coverage gate ignores a module | One script. Fixture with an empty module must fail. | (b) |
 | Fresh authentication window, audit versus rollback, release-train intent | `AGENTS.md` table points at the row above. Prose only for these three. | (d) |
 
-`AGENTS.md` gets that table in the last phase, after each check exists. Until then the table lives here. A rule without a check is how #141 and #465 happened.
+The rule table now lives in `AGENTS.md`. This copy stays as the record of how the checks were chosen. A rule without a check is how #141 and #465 happened. The three judgment rows there are the fresh-authentication window, multi-permission screens, and denial audits that survive rollback.
 
 ## Two whole shapes
 
@@ -324,18 +324,20 @@ Out of scope: proof-based identity recovery, logout `id_token_hint`, and a provi
 
 ## Owner decisions
 
-No experiment settles these. Defaults are what the next PRs should do if you do not answer.
+Decided: no wrapper layer. Use cases and query handlers stay public and sealed, and they are Api's entry point. Repository ports are internal to Application. Do not add `I*Admin` or `IInteractiveSignIn`. `IApplicationsAdminWorkflow` stays because it already existed. The rule table lives in `AGENTS.md`.
+
+Items 2, 6, and 7 stay judgment. They are not checks. The other open items keep the default written here.
 
 1. **Forbidden errors on the application-permissions API.** Default: use `ErrorResultMapper`, and publish the body change with Management Web in one release (ADR 0003). The other choice is to teach the shared mapper the Problem Details shape and keep today's permissions responses.
 
-2. **Audit versus rollback.** The reviews want both policies. Default: a denied security attempt commits its audit even when the mutation rolls back (PR #522 denial case). A successful consent or admin mutation commits the audit in the same transaction as the row (PR #522 consent case, PR #465 revision capture). Do not pick one global rule.
+2. **Audit versus rollback.** The reviews want both policies. Default: a denied security attempt commits its audit even when the mutation rolls back (PR #522 denial case). A successful consent or admin mutation commits the audit in the same transaction as the row (PR #522 consent case, PR #465 revision capture). Do not pick one global rule. The denial-audit case stays judgment.
 
-3. **Reads on the same interface as writes.** Withdrawn. The PR #569 decision is no new `I*Admin`. Reads stay on the public query handler. Use cases and query handlers stay `public sealed`. Repository ports are `internal`. `IApplicationsAdminWorkflow` stays because it already existed.
+3. **No wrapper layer.** Decided: use cases and query handlers stay `public sealed` and are Api's entry point. Repository ports are `internal`. A separate `I*Admin` is a pass-through, not a second API. `AdminWrapperTests` fails when one appears. `1edd28f` (`IUsersAdmin`) is the closed example. Reads stay on the public query handler. `IApplicationsAdminWorkflow` stays because it already existed.
 
 4. **Feature projects.** Default: no. Stay in the four layers. `internal` is the hiding mechanism for repository ports, not for use cases.
 
 5. **Logout `id_token_hint` and provider id on the wire.** Default: leave both deferred. An internal provider value object may land later without an OpenAPI change.
 
-6. **Five-minute fresh authentication.** Default: leave the window alone. It is a product rule in ADR 0005.
+6. **Five-minute fresh authentication.** Judgment. Leave the window alone. It is a product rule in ADR 0005. No check.
 
-7. **Multi-permission screens.** Default: the generated map covers single-permission CRUD. Screens that need several permissions stay explicit and get a behavior test, not a new framework.
+7. **Multi-permission screens.** Judgment. The generated map covers single-permission CRUD. Screens that need several permissions stay explicit and get a behavior test, not a new framework. No check.

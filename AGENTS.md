@@ -49,10 +49,38 @@ Recent history favors short, imperative subjects such as `Add SonarQube scanning
 For cross-layer features, prefer smaller PR slices when the work naturally separates into contracts/domain/application, infrastructure/migrations, and ManagementWeb/E2E. Large PRs make review and CI failures harder to localize.
 Before opening a PR, sanity-check the changes against the repo's recurring failure modes:
 - OpenAPI contract and versioning changes are intentional and documented.
-- E2E tests wait on concrete UI or network conditions instead of fixed sleeps.
-- Radix-based controls are exercised with role/state-aware selectors instead of native input helpers.
 - Transactional delete or manifest flows do not rely on no-op transaction boundaries.
 - Renames update user-facing labels, validation messages, tests, and contracts consistently.
+
+Fixed sleeps and Radix `CheckAsync` are architecture rules below.
+
+## Architecture rules
+
+Use cases and query handlers stay `public sealed` and are Api's entry point. Repository ports stay `internal` to Application. `IApplicationsAdminWorkflow` stays because it already existed. Do not add `I*Admin` or `IInteractiveSignIn`.
+
+Each row is a rule and the check that fails when the old shape comes back. The last three rows are judgment. They have no test.
+
+| Rule | Enforced by |
+| --- | --- |
+| Playwright tests click and assert state. They do not call locator `CheckAsync`. | `AgentShapeTests.E2E_DoesNotCallPlaywrightLocatorCheckAsync` |
+| Tests wait on a concrete UI or network condition. They do not call `WaitForTimeoutAsync`. | `AgentShapeTests.Tests_DoNotWaitForTimeoutAsync` |
+| HTTP errors use one body, through `ErrorResultMapper.ToErrorResult`. | `AgentShapeTests.Api_HasASingleErrorResultMapper` |
+| OpenAPI for applications lives in one tree, `contracts/openapi`. | `AgentShapeTests.ApplicationsOpenApi_LivesOnlyUnderContracts` |
+| Management Web imports generated permission constants. A backtick literal such as `` `users:read` `` is still a hand-synced permission. | `AgentShapeTests.ManagementWeb_ImportsGeneratedPermissionConstants` |
+| A single-permission CRUD route uses the generated endpoint policy. | `CrudRoutePolicyTests.CrudRoutes_UseEndpointAuthorizationPolicy` |
+| Api and Authentication do not reference repository ports. Call the use case or query handler. | `RepositoryBoundaryTests.ApiAndAuthentication_DoNotReferenceRepositoryInterfaces` |
+| Use-case and query-handler classes are `public sealed`. | `UseCaseSealingTests.ApplicationUseCasesAndQueryHandlers_ArePublicSealed` |
+| No new `I*Admin` or `IInteractiveSignIn`. Use cases stay Api's entry point. | `AdminWrapperTests.Source_DoesNotAddAnAdminWrapper` |
+| A Dockerfile's final stage is `USER app` or `USER nginx`. | `ContainerUserTests.Dockerfiles_EndAsAppOrNginx` |
+| `string.Equals` and `string.Contains(string)` pass `StringComparison`. | Analyzer `StringComparisonAnalyzer` (`OIS0001`), tested by `StringComparisonAnalyzerTests` |
+| Production seed does not register a demo client secret. `ShouldSeedDemoClients` returns false before `Seed:DemoClients`. | `DemoSecretSeedTests.ProductionSeedGuard_RefusesADemoSecret` |
+| Logout-token tests assert the algorithm or the validation result. | `LogoutTokenSignatureTests.LogoutTokenTests_AssertASignature` |
+| A test asserts an outcome Sonar S2699 accepts. `WaitForAsync` alone does not. | `S2699ReplayTests`; `.github/workflows/ci.yml` runs `dotnet-sonarscanner`, which enforces S2699 |
+| The coverage gate rejects a module report with no measured lines. | `CoverageGateTests.EmptyModuleReport_FailsTheCoverageGate` runs `scripts/ci/verify-coverage.sh`. CI runs that script from `.github/workflows/ci.yml` and `pr-validation.yml` |
+| Authorize and refresh read effective permissions once, through `ITokenPermissionSnapshot`. | `TokenPermissionSnapshotTests.AuthorizeAndRefreshResolveEffectivePermissionsOnceAndKeepNameOverGuidPrecedence` and `ForcedSecondEffectiveRoleQuery_FailsTheQueryCount` |
+| The five-minute fresh-authentication window stays as it is. | Judgment. ADR 0005. No check. |
+| Screens that need several permissions stay explicit. The generated map covers single-permission CRUD. | Judgment. No check. |
+| A denied security attempt commits its audit even when the mutation rolls back. | Judgment. No check. |
 
 ## Agent skills
 
