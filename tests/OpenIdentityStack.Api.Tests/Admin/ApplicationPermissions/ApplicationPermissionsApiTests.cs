@@ -200,6 +200,32 @@ public sealed class ApplicationPermissionsApiTests(AppHostFixture fixture) : IAs
     }
 
     [Fact]
+    public async Task UpdateApplication_WhenActorLacksOwnership_ReturnsForbiddenProblemDetails()
+    {
+        string applicationIdentifier = $"orders-{Guid.NewGuid():N}"[..20];
+        Guid applicationId = await this.CreateApplicationAsync(applicationIdentifier);
+
+        var writerId = Guid.NewGuid();
+        using HttpClient writer = await this.fixture.CreateAuthenticatedClientAsync(
+            writerId.ToString(),
+            "writer-secret-123",
+            administrativePermissions: [Permissions.ApplicationPermissions.Write]);
+
+        using HttpResponseMessage response = await writer.PatchAsJsonAsync(
+            $"/api/admin/application-permissions/applications/{applicationId}",
+            new { DisplayName = "Renamed Orders API", Description = (string?)null, ConcurrencyToken = (uint?)null });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
+        string body = await response.Content.ReadAsStringAsync();
+        body.ShouldNotBeNullOrWhiteSpace();
+        JsonNode json = JsonNode.Parse(body)!;
+        json["status"]!.GetValue<int>().ShouldBe((int)HttpStatusCode.Forbidden);
+        json["title"]!.GetValue<string>().ShouldBe("Forbidden.ApplicationPermission.Forbidden");
+        json["detail"]!.GetValue<string>().ShouldBe("Actor cannot manage this registered application.");
+    }
+
+    [Fact]
     public async Task RemoteManifestPreview_WithoutTrustedBaseUrl_ReturnsBadRequest()
     {
         string applicationIdentifier = $"orders-{Guid.NewGuid():N}"[..20];
