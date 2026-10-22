@@ -3,6 +3,7 @@ using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Groups;
+using OpenIdentityStack.Domain.Roles;
 
 using SharedKernel;
 namespace OpenIdentityStack.Application.Tests.Groups;
@@ -12,6 +13,7 @@ namespace OpenIdentityStack.Application.Tests.Groups;
 public sealed class ListGroupMappingsQueryHandlerTests
 {
     private readonly IGroupRepository _groupRepository;
+    private readonly IRoleRepository _roleRepository;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly ListGroupMappingsQueryHandler _handler;
     private static readonly DateTimeOffset TestTime = new(2024, 1, 15, 10, 30, 0, TimeSpan.Zero);
@@ -19,9 +21,13 @@ public sealed class ListGroupMappingsQueryHandlerTests
     public ListGroupMappingsQueryHandlerTests()
     {
         this._groupRepository = Substitute.For<IGroupRepository>();
+        this._roleRepository = Substitute.For<IRoleRepository>();
+        this._roleRepository
+            .GetByIdsAsync(Arg.Any<IEnumerable<RoleId>>(), Arg.Any<CancellationToken>())
+            .Returns([]);
         this._dateTimeProvider = Substitute.For<IDateTimeProvider>();
         this._dateTimeProvider.UtcNow.Returns(TestTime);
-        this._handler = new ListGroupMappingsQueryHandler(this._groupRepository);
+        this._handler = new ListGroupMappingsQueryHandler(this._groupRepository, this._roleRepository);
     }
 
     private Group CreateGroup(string name, string? description = null)
@@ -109,6 +115,28 @@ public sealed class ListGroupMappingsQueryHandlerTests
         result.Value[0].MappingType.ShouldBe(MappingType.Role);
         result.Value[0].TargetRoleId.ShouldBe(roleId);
         result.Value[0].ClaimType.ShouldBeNull();
+        result.Value[0].RoleName.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task HandleAsync_RoleMapping_ResolvesRoleName()
+    {
+        Group group = this.CreateGroup("named-group", "Named");
+        Role role = Role.Create("admins", "Administrators").Value;
+        group.AddMapping(MappingType.Role, role.Id.Value.ToString(), null, TokenTarget.AccessToken, this._dateTimeProvider);
+
+        this._groupRepository
+            .GetByIdAsync(group.Id, Arg.Any<CancellationToken>())
+            .Returns(group);
+        this._roleRepository
+            .GetByIdsAsync(Arg.Any<IEnumerable<RoleId>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Role> { role });
+
+        Result<List<GroupMappingResponse>> result = await this._handler.HandleAsync(group.Id);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value[0].TargetRoleId.ShouldBe(role.Id.Value);
+        result.Value[0].RoleName.ShouldBe(role.Name);
     }
 
     [Fact]

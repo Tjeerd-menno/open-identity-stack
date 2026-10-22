@@ -40,4 +40,5 @@ public record GroupMappingResponse(
     Guid? TargetRoleId,
     string? ClaimType,
     string? ClaimValue,
-    TokenTarget TokenTarget);
+    TokenTarget TokenTarget,
+    string? RoleName = null);

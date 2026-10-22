@@ -2,14 +2,12 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using OpenIdentityStack.Api.Common;
 using OpenIddict.Validation.AspNetCore;
-using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Groups;
 using OpenIdentityStack.Application.Groups.Commands;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Groups;
-using OpenIdentityStack.Domain.Roles;
 
 using SharedKernel;
 namespace OpenIdentityStack.Api.Groups;
@@ -298,7 +296,6 @@ internal static class GroupsApi
 
     private static async Task<IResult> ListGroupMappings(
         [FromServices] IListGroupMappingsQueryHandler listGroupMappingsQueryHandler,
-        [FromServices] IRoleRepository roleRepository,
         Guid id)
     {
         Result<List<GroupMappingResponse>> result = await listGroupMappingsQueryHandler.HandleAsync(new GroupId(id));
@@ -307,45 +304,23 @@ internal static class GroupsApi
             return TypedResults.NotFound();
         }
 
-        // Build a dictionary of role IDs to role names for role mappings
-        var roleIds = result.Value
-            .Where(m => m.MappingType == MappingType.Role && m.TargetRoleId.HasValue)
-            .Select(m => m.TargetRoleId!.Value)
-            .Distinct()
-            .ToList();
-
-        Dictionary<Guid, string> roleNames = [];
-        if (roleIds.Count > 0)
+        var items = result.Value.Select(mapping =>
         {
-            IReadOnlyList<Role> roles = await roleRepository.GetByIdsAsync(roleIds.Select(id => new RoleId(id)));
-            foreach (Role role in roles)
-            {
-                roleNames[role.Id.Value] = role.Name;
-            }
-        }
-
-        // Transform to frontend-compatible format
-        var items = result.Value.Select(m =>
-        {
-            // Build value based on mapping type
             string value;
-            if (m.MappingType == MappingType.Role && m.TargetRoleId.HasValue)
+            if (mapping.MappingType == MappingType.Role && mapping.TargetRoleId.HasValue)
             {
-                // Use role name if found, otherwise fall back to ID
-                value = roleNames.TryGetValue(m.TargetRoleId.Value, out string? roleName)
-                    ? roleName
-                    : m.TargetRoleId.Value.ToString();
+                value = mapping.RoleName ?? mapping.TargetRoleId.Value.ToString();
             }
             else
             {
-                value = string.IsNullOrEmpty(m.ClaimValue)
-                    ? m.ClaimType ?? string.Empty
-                    : $"{m.ClaimType}:{m.ClaimValue}";
+                value = string.IsNullOrEmpty(mapping.ClaimValue)
+                    ? mapping.ClaimType ?? string.Empty
+                    : $"{mapping.ClaimType}:{mapping.ClaimValue}";
             }
 
             return new GroupMappingItem(
-                m.Id.ToString(),
-                m.MappingType.ToString(),
+                mapping.Id.ToString(),
+                mapping.MappingType.ToString(),
                 value,
                 CreatedAt: null);
         }).ToList();
