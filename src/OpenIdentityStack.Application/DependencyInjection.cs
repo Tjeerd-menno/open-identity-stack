@@ -8,6 +8,7 @@ using OpenIdentityStack.Application.ApplicationPermissions.Queries;
 using OpenIdentityStack.Application.Applications;
 using OpenIdentityStack.Application.Applications.Commands;
 using OpenIdentityStack.Application.Applications.Queries;
+using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Audit.Queries;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Federation.Commands;
@@ -41,6 +42,7 @@ public static class DependencyInjection
         AddApplicationUseCases(services);
         AddApplicationPermissionUseCases(services);
         AddSessionAndLogoutUseCases(services);
+        services.AddScoped<ITokenPermissionSnapshot, TokenPermissionSnapshot>();
         AddAuditUseCases(services);
         AddProviderUseCases(services);
         AddAuthorizationServices(services);
