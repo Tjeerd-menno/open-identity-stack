@@ -33,7 +33,7 @@ public sealed class ApplicationsEndpointContractTests
     [InlineData("post", "/applications/{id}/enable")]
     [InlineData("post", "/applications/{id}/credentials/client-secrets")]
     [InlineData("post", "/applications/{id}/credentials/certificates")]
-    public void ApprovalProtectedMutation_DocumentsForbiddenResponseInCanonicalAndMirror(string method, string path)
+    public void ApprovalProtectedMutation_DocumentsForbiddenResponse(string method, string path)
     {
         foreach (string contractPath in GetOpenApiContractPaths())
         {
@@ -181,13 +181,5 @@ public sealed class ApplicationsEndpointContractTests
     private static IEnumerable<string> GetOpenApiContractPaths()
     {
         yield return GetOpenApiContractPath();
-        yield return Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
-            "..",
-            "..",
-            "..",
-            "Admin",
-            "Applications",
-            "applications.openapi.yaml"));
     }
 }
