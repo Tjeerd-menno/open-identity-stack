@@ -17,17 +17,20 @@ if (-not $coverageFiles) {
 }
 
 $failed = @()
+$emptyModules = @()
 $uniqueLineCoveredByKey = @{}
 
 foreach ($file in $coverageFiles) {
     [xml]$xml = Get-Content -Path $file.FullName
     $lineRate = [double]$xml.coverage.'line-rate'
+    $measuredLines = 0
 
     foreach ($class in $xml.coverage.packages.package.classes.class) {
         $sourceFileIdentifier = if ($class.filename) { $class.filename } else { $class.name }
 
         if ($class.lines -and $class.lines.line) {
-            foreach ($line in $class.lines.line) {
+            foreach ($line in @($class.lines.line)) {
+                $measuredLines += 1
                 $key = "$sourceFileIdentifier|$($line.number)"
                 $isCovered = ([int]$line.hits) -gt 0
 
@@ -43,6 +46,12 @@ foreach ($file in $coverageFiles) {
     $percent = [math]::Round($lineRate * 100, 2)
     Write-Host "$($file.Name): $percent%"
 
+    # line-rate 1 with zero line elements passes the per-file floor and adds nothing
+    # to the overall rate, so an empty module used to be ignored.
+    if ($measuredLines -eq 0) {
+        $emptyModules += $file.Name
+    }
+
     if ($lineRate -lt $MinimumLineRate) {
         $failed += "$($file.Name) ($percent%)"
     }
@@ -53,6 +62,10 @@ $totalLinesCovered = ($uniqueLineCoveredByKey.Values | Where-Object { $_ } | Mea
 $overall = if ($totalLinesValid -gt 0) { $totalLinesCovered / $totalLinesValid } else { 0 }
 $overallPercent = [math]::Round($overall * 100, 2)
 Write-Host "Overall line coverage: $overallPercent%"
+
+if ($emptyModules.Count -gt 0) {
+    throw "Coverage report has no measured lines: $($emptyModules -join ', ')"
+}
 
 if ($overall -lt $MinimumOverallLineRate) {
     throw "Overall line coverage $overallPercent% is below $([math]::Round($MinimumOverallLineRate * 100, 2))%."

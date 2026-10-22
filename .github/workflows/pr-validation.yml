@@ -112,7 +112,9 @@ jobs:
       - name: Test API modules sequentially with coverage
         run: |
           env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Api.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.apitests.cobertura.xml --coverage-settings coverage.settings.xml
-          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Contract.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.contract.cobertura.xml --coverage-settings coverage.settings.xml
+          # Contract tests compare checked-in OpenAPI documents and do not execute product code.
+          # A coverage file from that run is line-rate 1 with no measured lines, which the gate rejects.
+          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Contract.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore
 
       - name: Test E2E modules sequentially with coverage
         run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*E2ETests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.e2e.cobertura.xml --coverage-settings coverage.settings.xml
