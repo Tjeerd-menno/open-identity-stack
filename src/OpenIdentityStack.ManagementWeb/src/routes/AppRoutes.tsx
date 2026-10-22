@@ -5,17 +5,7 @@ import { AppShell } from '@/components/AppShell';
 import { Icon } from '@/components/Icon';
 import { CenteredState } from '@/components/primitives';
 import { useAuth } from '@/lib/auth-context';
-import {
-  applicationPermissionsRead,
-  applicationsRead,
-  auditLogsRead,
-  groupsRead,
-  providersRead,
-  rolesRead,
-  sessionsRead,
-  systemManageSettings,
-  usersRead,
-} from '@/lib/generated-permissions';
+import { crudRoutePolicies } from '@/lib/generated-crud-route-policies';
 import { hasAnyPermission } from '@/lib/permissions';
 
 // Feature pages are lazily loaded so each route ships as its own chunk instead of in the initial bundle.
@@ -146,7 +136,7 @@ export function AppRoutes() {
           <Route
             path="users"
             element={
-              <RequirePermissions permissions={[usersRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.users]}>
                 <UsersPage />
               </RequirePermissions>
             }
@@ -154,7 +144,7 @@ export function AppRoutes() {
           <Route
             path="users/:userId"
             element={
-              <RequirePermissions permissions={[usersRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.userDetail]}>
                 <UserDetailPage />
               </RequirePermissions>
             }
@@ -162,7 +152,7 @@ export function AppRoutes() {
           <Route
             path="groups"
             element={
-              <RequirePermissions permissions={[groupsRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.groups]}>
                 <GroupsPage />
               </RequirePermissions>
             }
@@ -170,7 +160,7 @@ export function AppRoutes() {
           <Route
             path="groups/:groupId"
             element={
-              <RequirePermissions permissions={[groupsRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.groupDetail]}>
                 <GroupDetailPage />
               </RequirePermissions>
             }
@@ -178,7 +168,7 @@ export function AppRoutes() {
           <Route
             path="roles"
             element={
-              <RequirePermissions permissions={[rolesRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.roles]}>
                 <RolesPage />
               </RequirePermissions>
             }
@@ -186,7 +176,7 @@ export function AppRoutes() {
           <Route
             path="roles/:roleId"
             element={
-              <RequirePermissions permissions={[rolesRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.roleDetail]}>
                 <RoleDetailPage />
               </RequirePermissions>
             }
@@ -194,7 +184,7 @@ export function AppRoutes() {
           <Route
             path="application-permissions"
             element={
-              <RequirePermissions permissions={[applicationPermissionsRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.applicationPermissions]}>
                 <PermissionsPage />
               </RequirePermissions>
             }
@@ -202,7 +192,7 @@ export function AppRoutes() {
           <Route
             path="application-permissions/:registrationId"
             element={
-              <RequirePermissions permissions={[applicationPermissionsRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.applicationPermissionDetail]}>
                 <PermissionsDetailPage />
               </RequirePermissions>
             }
@@ -210,7 +200,7 @@ export function AppRoutes() {
           <Route
             path="applications"
             element={
-              <RequirePermissions permissions={[applicationsRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.applications]}>
                 <ApplicationsPage />
               </RequirePermissions>
             }
@@ -218,7 +208,7 @@ export function AppRoutes() {
           <Route
             path="applications/:applicationId"
             element={
-              <RequirePermissions permissions={[applicationsRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.applicationDetail]}>
                 <ApplicationDetailPage />
               </RequirePermissions>
             }
@@ -226,7 +216,7 @@ export function AppRoutes() {
           <Route
             path="sessions"
             element={
-              <RequirePermissions permissions={[sessionsRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.sessions]}>
                 <SessionsPage />
               </RequirePermissions>
             }
@@ -234,7 +224,7 @@ export function AppRoutes() {
           <Route
             path="sessions/:sessionId"
             element={
-              <RequirePermissions permissions={[sessionsRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.sessionDetail]}>
                 <SessionDetailPage />
               </RequirePermissions>
             }
@@ -242,7 +232,7 @@ export function AppRoutes() {
           <Route
             path="providers"
             element={
-              <RequirePermissions permissions={[providersRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.providers]}>
                 <ProvidersPage />
               </RequirePermissions>
             }
@@ -250,7 +240,7 @@ export function AppRoutes() {
           <Route
             path="providers/settings"
             element={
-              <RequirePermissions permissions={[systemManageSettings]}>
+              <RequirePermissions permissions={[crudRoutePolicies.authenticationSettings]}>
                 <AuthenticationSettingsPage />
               </RequirePermissions>
             }
@@ -258,7 +248,7 @@ export function AppRoutes() {
           <Route
             path="providers/:providerId"
             element={
-              <RequirePermissions permissions={[providersRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.providerDetail]}>
                 <ProviderDetailPage />
               </RequirePermissions>
             }
@@ -266,7 +256,7 @@ export function AppRoutes() {
           <Route
             path="audit-entries"
             element={
-              <RequirePermissions permissions={[auditLogsRead]}>
+              <RequirePermissions permissions={[crudRoutePolicies.auditEntries]}>
                 <AuditPage />
               </RequirePermissions>
             }
