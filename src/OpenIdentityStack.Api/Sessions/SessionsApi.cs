@@ -2,7 +2,6 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using OpenIdentityStack.Api.Common;
 using OpenIddict.Validation.AspNetCore;
-using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authorization;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
@@ -103,10 +102,13 @@ internal static class SessionsApi
     }
 
     private static async Task<IResult> GetSession(
-        [FromServices] ISessionRepository sessionRepository,
-        Guid id)
+        [FromServices] IGetSessionQueryHandler getSessionQueryHandler,
+        Guid id,
+        CancellationToken cancellationToken)
     {
-        UserSession? session = await sessionRepository.GetByIdAsync(new SessionId(id));
+        GetSessionResult? session = await getSessionQueryHandler.HandleAsync(
+            new GetSessionQuery(new SessionId(id)),
+            cancellationToken);
         if (session is null)
         {
             return TypedResults.NotFound(new { error = "Session not found." });
@@ -118,7 +120,7 @@ internal static class SessionsApi
             session.IpAddress,
             session.UserAgent,
             session.Status.ToString(),
-            session.ClientSessions.Count,
+            session.ClientCount,
             session.LastActivityAt,
             session.ExpiresAt,
             session.CreatedAt);
