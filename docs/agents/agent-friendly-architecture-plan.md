@@ -31,7 +31,7 @@ Count: 4. Severity: high. Security bugs compile and look like the nearby example
 - PR #465, `14c04c7`. Review: authority revision was evaluated after the permission read, so a revoke could lose the race. The same PR's review also found `ConfigureOAuth` mutating a tracked client without `SaveChangesAsync`.
 - PR #491, `87ed99b`. Review, P1: collapsing "no human-subject claim" and "two human-subject claims" into null sent an administrative token down the application-permission branch. The merge message says the same PR closed that hole. The helper still documents that other callers may collapse duplicates.
 
-Fix level: **(a) architecture.** One public workflow type per aggregate. Repository ports become `internal` to Application, with `InternalsVisibleTo` only for Infrastructure and the test projects. Api then cannot inject `IUserRepository`. A second allow-all constructor cannot be public. Types alone do not work: a second public method still compiles. Docs did not work: the introspect split and the claim helper both landed while the layering docs were already in the repo.
+Fix level: **(a) architecture.** Api calls the public use case or query handler. Do not add a new `I*Admin` or `IInteractiveSignIn`. `IApplicationsAdminWorkflow` stays because it already existed. Use cases and query handlers stay public and sealed. Repository ports become `internal` to Application, with `InternalsVisibleTo` only for Infrastructure and the test projects, and only after Api has stopped taking the port. Api then cannot inject `IUserRepository`. A second public method on a use case still compiles. The architecture test rejects a new wrapper type. It does not hide the use case. Docs did not work: the introspect split and the claim helper both landed while the layering docs were already in the repo.
 
 ### 2. Secrets and sensitive snapshots get logged or shipped
 
@@ -75,8 +75,8 @@ Count: 4. Severity: high for agents, because the old file is a template.
 
 - PR #113, `e78a8a2`. Review: validation text still said "Service identifier" after the rename to applications. The review thread names commit `2ec9050`, which is **not** on `origin/main` (squashed). The merge commit is the evidence.
 - PR #200, `b5f1922`. Review: release workflows still advertised Admin Web after the UI was removed.
-- PR #223, `238ccbd`. Review: a Dockerfile under `ManagementWeb.Legacy` built Management Web.
-- PR #232, `400c9d9`. The Client and ServiceAccount stack was still in the tree and had to be deleted. `FrontendTopologyTests` (started in `60f0200`, PR #239, strengthened in `526cae9`, PR #398) now fails the build if `AdminWeb` or `ManagementWeb.Legacy` reappears. **Measured:** those tests passed inside the throwaway architecture run below.
+- PR #223, `238ccbd`. Review: a Dockerfile under the retired Management Web directory built Management Web.
+- PR #232, `400c9d9`. The Client and ServiceAccount stack was still in the tree and had to be deleted. `FrontendTopologyTests` (started in `60f0200`, PR #239, strengthened in `526cae9`, PR #398) now fails the build if either retired UI module name reappears. Those spellings stay in that test, which the scan skips, so this plan does not repeat them. **Measured:** those tests passed inside the throwaway architecture run below.
 
 Fix level: **(a) delete the old way, (b) keep the topology test.** The test already names the banned modules. Extend it only when a module is actually gone. Leave `ApplicationType` legal in `OpenIddictApplicationProjection` only. Product code uses `ApplicationProfile`. A doc paragraph is how the next agent learns the old word. The copilot instructions may keep one sentence that points at the projection file, because the protocol name is an external constraint, not a second product model.
 
@@ -106,7 +106,7 @@ Fix level: **(b) types.** `NormalizedPreferredUsername` is the pattern that work
 Count: 3. Severity: medium. The written rule did not hold.
 
 - PR #129, `dc638cd`. Review: three `CheckAsync` calls on Radix checkboxes, plus `WaitForTimeoutAsync(600)`.
-- Parent of PR #200 (`b5f1922^`). **Measured** `git grep`: 7 `WaitForTimeoutAsync` calls under `tests/OpenIdentityStack.AdminWeb.E2ETests`, including comments "Give React time to process" and "Wait for save". Deleting Admin Web removed them. No check did.
+- Parent of PR #200 (`b5f1922^`). **Measured** `git grep`: 7 `WaitForTimeoutAsync` calls under the end-to-end project that PR deleted, including comments "Give React time to process" and "Wait for save". Deleting that project removed them. No check did.
 - PR #465, `14c04c7`. **Measured** `git blame`: `AdministrativeAccessManagementTests.cs` line 68 is `GetByRole(AriaRole.Checkbox).CheckAsync()`, still on `3e1f0c0`. PR #141, `f91c837`, had already put the Radix and no-sleep rules in the PR template.
 
 Fix level: **(b) a source check.** Playwright's `CheckAsync` cannot be deleted from the package. The supported helper is click the checkbox role and assert `data-state` or `aria-checked`. The check's failure names that helper. The throwaway test below failed on line 68 and passed for `WaitForTimeoutAsync` on the current tree. The same needle hits the 7 historical lines. Docs are the wrong level. They were already present when #465 copied `CheckAsync`.
@@ -177,7 +177,7 @@ Order used above: architecture, then types or a lint that names the file to use,
 
 | Rule the agent would otherwise copy wrong | What enforces it | Level |
 | --- | --- | --- |
-| Admin HTTP calls a use case or a repository it found nearby | Api cannot reference repository interfaces or `I*UseCase`. It can reference `I*Admin` only. | (a) `internal` + architecture test |
+| Admin HTTP calls a use case or a repository it found nearby | Api calls the public use case or query handler. Repository ports are internal. No new `I*Admin` or `IInteractiveSignIn`. `IApplicationsAdminWorkflow` stays. | (a) architecture test |
 | A second AppHost or a second `AddApplication` | One project, one composition call, test fails on a second hit | (a) |
 | A second OpenAPI YAML or a permission string typed by hand | One YAML tree. Generated TS constants. Routes import them. | (a) |
 | A second error mapper | One `ErrorResultMapper.ToErrorResult`. The throwaway check already fails on the private method at `ApplicationPermissionsApi.cs:686`. | (a) delete, (b) the check |
@@ -201,6 +201,7 @@ Keep SharedKernel, Domain, Application, Infrastructure, Api, AppHost, DbMigrator
 Public surface an API file can use:
 
 ```csharp
+// Rejected sample. Do not add this type. Api calls the public use case or query handler.
 group.MapPost("/users", async (CreateUserBody body, IUsersAdmin users, CancellationToken ct) =>
 {
     Result<UserDetails> result = await users.CreateAsync(body.ToCommand(), ct);
@@ -245,9 +246,11 @@ Interface depth: candidate B's Api surface is one method per aggregate. Candidat
 
 ### Synthesis
 
-Use candidate A.
+Use candidate A for the layering, not for a new wrapper type.
 
-Applications already proved the workflow shape. Users are the template agents copy, so Users change first, then roles, groups, and sessions. Application permissions stop taking maintenance use cases beside the registry workflow. Interactive sign-in (account, authorize, logout, cookie validation) moves behind `IInteractiveSignIn` in a later phase. Those controllers are the other template agents copy (`AuthorizationController` takes `IUserRepository` today). **Measured:** repository parameters also sit in `PublicProfilesApi` (three lines) and `SessionsApi` (one line), and in five Authentication files.
+The `IUsersAdmin` sample above, and an `IInteractiveSignIn` wrapper, are the shape the owner rejected (PR #569). Do not add them. Use cases and query handlers stay public and sealed, and they are Api's entry point. Repository ports are internal. `IApplicationsAdminWorkflow` stays because it already existed.
+
+Applications already proved that existing workflow. Users are the template agents copy, so Users change first, then roles, groups, and sessions. Application permissions stop taking maintenance use cases beside the registry workflow. Interactive sign-in (account, authorize, logout, cookie validation) calls the public use case or query handler. It does not move behind a new `IInteractiveSignIn`. Those controllers are the other template agents copy (`AuthorizationController` takes `IUserRepository` today). **Measured:** repository parameters also sit in `PublicProfilesApi` (three lines) and `SessionsApi` (one line), and in five Authentication files. `AccountController`, `AuthorizationController`, `SessionMonitoringCookieService`, and `SessionCookieValidation` still take `IUserRepository`.
 
 Do not add MediatR, AutoMapper, Newtonsoft, or Swashbuckle. Do not add a feature project per aggregate.
 
@@ -285,27 +288,29 @@ Throwaway branch `cursor/throwaway-agent-shape-checks-637e`, commit `ee0ad79`. N
 
 **Not measured:** a cold `dotnet build` of `OpenIdentityStack.slnx`, Sonar S2699, the coverage-gate fixture, and a `StringComparison` analyzer. **Guess:** a cold solution build is several minutes. The NuGet-pin transcript summary reported CI `build-test` around 6 to 8 minutes. That number was not re-checked against Actions in this session.
 
-The spike answers three questions. A source check can fail on the live `CheckAsync` mistake. The same style of check can see the second error mapper and the admin repository injections. The sleep check is quiet on today's tree and would have failed on the pre-#200 Admin Web tests. It does not answer whether `internal` use cases compile. **Inferred** from the project references: Api references Application, so `internal` interfaces disappear from Api as soon as `InternalsVisibleTo` omits Api. That compile is phase 5, not this PR.
+The spike answers three questions. A source check can fail on the live `CheckAsync` mistake. The same style of check can see the second error mapper and the admin repository injections. The sleep check is quiet on today's tree and would have failed on the pre-#200 end-to-end tests. It does not answer whether an `internal` repository port compiles. **Inferred** from the project references: Api references Application, so an `internal` port disappears from Api as soon as `InternalsVisibleTo` omits Api. That compile is the phase that moves the four Authentication call sites, not this PR, and not a phase that hides the port while those call sites remain.
 
 ## Phased execution
 
 Each phase is its own PR. Do not start until this plan is accepted. Rollback of any phase is reverting that PR. Do not combine a behavior change with a move.
 
-1. **Land the three checks red, then make them green.** Add the throwaway scans, minus the self-match, as real architecture tests. CI fails on line 68, on the private `ToErrorResult`, and on the four repository lines. Then fix those call sites without changing response bodies: click the checkbox and assert state; call `ErrorResultMapper` only where the body already matches `ErrorResponse`; leave forbidden behavior for phase 2. Repository injections in public profiles and sessions move behind existing query handlers, still public. Risk: E2E click does not toggle the Radix checkbox. Rollback: revert. The sleep check lands in this phase already green, with a comment that points at the 7 historical lines.
+1. **Land the checks red, then make them green.** Add the throwaway scans, minus the self-match, as real architecture tests. CI fails on line 68, on the private `ToErrorResult`, and on the four repository lines. Then fix those call sites without changing response bodies: click the checkbox and assert state; call `ErrorResultMapper` only where the body already matches `ErrorResponse`; leave forbidden behavior for phase 2. Repository injections in public profiles and sessions move behind existing query handlers, still public. In this same phase, replay one assertion-free test from the #427 S2699 set and show the existing gate fail, then delete the replay so the tree is green. Also add the class 2 source checks here: Production seed cannot register a demo secret, and logout-token tests must assert a signature. Show each red on a copied historical mistake, then green on the current tree. Risk: E2E click does not toggle the Radix checkbox. Rollback: revert. The sleep check lands in this phase already green, with a comment that points at the 7 historical lines.
 
 2. **One forbidden body.** Owner decision 1. Contract test the permissions API error before and after. Risk: a client parsed Problem Details `title`. Rollback: revert the mapper call.
 
 3. **Delete the second OpenAPI YAML.** Point `GetOpenApiContractPaths` at `contracts/openapi` only. Risk: a test depended on the copy's trailing newline. **Inferred** low. Rollback: restore the file.
 
-4. **Generate permission constants.** Routes import the generated module. CI fails if the file is stale. Keep the 9 JSON cases. Risk: a placeholder string gets generated as a real permission. The generator reads `Permissions.cs` constants only.
+4. **Generate permission constants and the CRUD policy map.** Routes import the generated module. CI fails if the file is stale. Keep the 9 JSON cases. Risk: a placeholder string gets generated as a real permission. The generator reads `Permissions.cs` constants only. Constants alone leave class 11 open: `users:read` and `users:write` are both legal, so the #143 and #469 misses still compile. Also generate an operation-to-permission manifest from each endpoint `RequireAuthorization` policy, and fail the build when a single-permission Management Web route or action imports a different constant. Screens that combine several permissions stay on owner decision 7.
 
-5. **Users workflow, and hide Users use cases.** Api Users code may name `IUsersAdmin` only. An architecture test fails otherwise. InternalsVisibleTo for Infrastructure and tests. Risk: a missed DI registration fails at startup, not at compile. Cover with one Api.Tests create-user test. Rollback: make the interfaces public again.
+Phases 5–8 named a wrapper layer the owner rejected (PR #569). Do not add `IUsersAdmin`, any other new `I*Admin`, or `IInteractiveSignIn`. Use cases and query handlers stay public and sealed. Repository ports become internal only after Api has stopped taking them. `IApplicationsAdminWorkflow` stays because it already existed. `IUserRepository` stays public while `AccountController`, `AuthorizationController`, `SessionMonitoringCookieService`, and `SessionCookieValidation` still take it. Making that port internal earlier, with no `InternalsVisibleTo` for Api, does not compile. The PR that moves those four call sites onto the existing public use case or query handler is the PR that then marks the port `internal`, in that order.
 
-6. **Roles, groups, sessions admin.** Same test, one aggregate per PR.
+5. **Users stay on public use cases.** Do not add `IUsersAdmin`. Do not make `IUserRepository` internal in this phase. The four Authentication types above still take it. An architecture test fails if a new `I*Admin` appears. Cover with one Api.Tests create-user test that calls the public use case. Rollback: revert.
 
-7. **Applications and application permissions.** Hide lifecycle use cases behind the workflow that already exists. Stop injecting maintenance use cases next to the registry workflow. Risk: the architecture test `ApplicationPermissionsApiArchitectureTests` encodes today's split and must change in the same PR.
+6. **Roles, groups, and sessions stay on public use cases.** Same no-new-wrapper test, one aggregate per PR. Do not add an admin interface. Do not make a repository port internal while Api still takes it.
 
-8. **Interactive sign-in workflow.** Move repository use out of Authentication. Risk: cookie validation and logout behavior. This phase is behavior-preserving and needs the existing auth integration tests. It does not finish `id_token_hint`. Rollback: revert.
+7. **Applications and application permissions.** `IApplicationsAdminWorkflow` stays. Do not hide lifecycle use cases and do not make them internal. Stop injecting maintenance use cases next to the registry workflow. Risk: the architecture test `ApplicationPermissionsApiArchitectureTests` encodes today's split and must change in the same PR.
+
+8. **Authentication stops taking the user repository.** Move `AccountController`, `AuthorizationController`, `SessionMonitoringCookieService`, and `SessionCookieValidation` onto the existing public use case or query handler. Do not add `IInteractiveSignIn`. After that move, in this same PR, make `IUserRepository` internal, with `InternalsVisibleTo` for Infrastructure and the test projects only. Risk: cookie validation and logout behavior. This phase is behavior-preserving and needs the existing auth integration tests. It does not finish `id_token_hint`. Rollback: revert.
 
 9. **Snapshot owner on the token path.** One type returns effective permissions. A test fails if authorize or refresh resolves them twice. Risk: a behavior change in group-versus-role precedence. The #477 message says name-over-GUID precedence must stay. Assert that in the same test.
 
@@ -313,7 +318,7 @@ Each phase is its own PR. Do not start until this plan is accepted. Rollback of 
 
 11. **Dockerfile user check, and the string-comparison analyzer, each on a past file.** The analyzer's first PR must show a failure on a two-argument `Equals` or `Contains` copied from history, then the current tree goes green. If the analyzer is too noisy, narrow it to Domain and Application identifier code. Do not weaken it with a blanket suppression.
 
-12. **Write the rule table into `AGENTS.md`.** Delete checklist lines that now have a check. Keep the three judgment rows. Run `mkdocs build --strict` if a published doc changed.
+12. **Write the rule table into `AGENTS.md`.** Only rows whose check an earlier phase already added, including the phase 1 S2699 replay, the Production demo-secret seed check, and the logout-token signature check. Do not publish or delete guidance for a check that no phase has added. Delete checklist lines that now have a check. Keep the three judgment rows. Run `mkdocs build --strict` if a published doc changed.
 
 Out of scope: proof-based identity recovery, logout `id_token_hint`, and a provider-id change on the wire. ADR 0005 and `DEFERRED-BACKEND-REMEDIATION-ITEMS.md` already defer those.
 
@@ -325,9 +330,9 @@ No experiment settles these. Defaults are what the next PRs should do if you do 
 
 2. **Audit versus rollback.** The reviews want both policies. Default: a denied security attempt commits its audit even when the mutation rolls back (PR #522 denial case). A successful consent or admin mutation commits the audit in the same transaction as the row (PR #522 consent case, PR #465 revision capture). Do not pick one global rule.
 
-3. **Reads on the same interface as writes.** Default: one `IUsersAdmin` with create, get, and list. A separate query interface is a second type to inject.
+3. **Reads on the same interface as writes.** Withdrawn. The PR #569 decision is no new `I*Admin`. Reads stay on the public query handler. Use cases and query handlers stay `public sealed`. Repository ports are `internal`. `IApplicationsAdminWorkflow` stays because it already existed.
 
-4. **Feature projects.** Default: no. Stay in the four layers. `internal` is the hiding mechanism.
+4. **Feature projects.** Default: no. Stay in the four layers. `internal` is the hiding mechanism for repository ports, not for use cases.
 
 5. **Logout `id_token_hint` and provider id on the wire.** Default: leave both deferred. An internal provider value object may land later without an OpenAPI change.
 
