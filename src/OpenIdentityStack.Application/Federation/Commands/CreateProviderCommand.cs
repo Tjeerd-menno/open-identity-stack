@@ -77,7 +77,7 @@ public sealed class CreateProviderUseCase : ICreateProviderUseCase
     /// <summary>
     /// Initializes a new instance of the <see cref="CreateProviderUseCase"/> class.
     /// </summary>
-    public CreateProviderUseCase(
+    internal CreateProviderUseCase(
         IUpstreamProviderRepository providerRepository,
         IEnvironmentProvider environmentProvider,
         ISecretProtector secretProtector,

@@ -198,7 +198,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<LocalUserBootstrapper>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<OpenIdentityStack.Application.Resources.IResourceAccessRepository, Resources.ResourceAccessRepository>();
-        services.AddScoped<Resources.ResourceAccessBootstrapper>();
+        services.AddScopedInternal<Resources.ResourceAccessBootstrapper>();
         services.AddScoped<IApplicationPermissionRegistryRepository, ApplicationPermissionRegistryRepository>();
         services.AddScoped<IPermissionAssignmentStore, RolePermissionAssignmentStore>();
         services.AddScoped<IApplicationPermissionTransactionRunner, ApplicationPermissionTransactionRunner>();
@@ -246,8 +246,8 @@ public static class ServiceCollectionExtensions
     private static void AddInfrastructureUseCases(IServiceCollection services)
     {
         // Authentication settings use cases (implemented in Infrastructure).
-        services.AddScoped<IGetAuthenticationSettingsQueryHandler, GetAuthenticationSettingsQueryHandler>();
-        services.AddScoped<ISetDefaultProviderUseCase, SetDefaultProviderUseCase>();
-        services.AddScoped<ISetLocalFallbackUseCase, SetLocalFallbackUseCase>();
+        services.AddScopedInternal<IGetAuthenticationSettingsQueryHandler, GetAuthenticationSettingsQueryHandler>();
+        services.AddScopedInternal<ISetDefaultProviderUseCase, SetDefaultProviderUseCase>();
+        services.AddScopedInternal<ISetLocalFallbackUseCase, SetLocalFallbackUseCase>();
     }
 }

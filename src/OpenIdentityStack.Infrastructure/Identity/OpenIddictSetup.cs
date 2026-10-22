@@ -5,6 +5,8 @@ using Microsoft.Extensions.Hosting;
 using OpenIddict.Abstractions;
 using OpenIddict.Quartz;
 using OpenIddict.Server;
+using OpenIdentityStack.Application.Applications;
+using OpenIdentityStack.Application.Resources;
 using OpenIdentityStack.Infrastructure.Persistence;
 using Quartz;
 
@@ -201,8 +203,14 @@ public static class OpenIddictSetup
                 // Enrich successful token introspection responses with caller-filtered
                 // permission metadata while keeping OpenIddict's client authentication
                 // and token activity checks in the built-in endpoint pipeline.
+                // The handler constructor is internal because it takes internal repository
+                // ports (CS0051). UseScopedHandler<T>() only activates public constructors,
+                // so the factory invokes that constructor directly.
                 options.AddEventHandler<OpenIddictServerEvents.HandleIntrospectionRequestContext>(builder =>
-                    builder.UseScopedHandler<IntrospectionPermissionsHandler>());
+                    builder.UseScopedHandler(static provider => new IntrospectionPermissionsHandler(
+                        provider.GetRequiredService<IResourcePermissionService>(),
+                        provider.GetRequiredService<IResourceAccessRepository>(),
+                        provider.GetRequiredService<IApplicationRepository>())));
 
                 // Keep OpenIddict's storage identifiers out of public ID tokens.
                 options.AddInternalTokenClaimTrimming();

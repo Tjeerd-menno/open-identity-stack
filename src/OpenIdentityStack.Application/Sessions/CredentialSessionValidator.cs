@@ -15,7 +15,7 @@ public sealed class CredentialSessionValidator : ICredentialSessionValidator
     private readonly IUserRepository userRepository;
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public CredentialSessionValidator(
+    internal CredentialSessionValidator(
         ISessionRepository sessionRepository,
         IUserRepository userRepository,
         IDateTimeProvider dateTimeProvider)

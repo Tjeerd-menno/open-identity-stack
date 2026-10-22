@@ -17,6 +17,7 @@ using OpenIdentityStack.Application.Groups.Commands;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Application.Roles.Commands;
 using OpenIdentityStack.Application.Roles.Queries;
+using OpenIdentityStack.Application.Sessions;
 using OpenIdentityStack.Application.Sessions.Commands;
 using OpenIdentityStack.Application.Sessions.Queries;
 using OpenIdentityStack.Application.Users.Commands;
@@ -43,127 +44,128 @@ public static class DependencyInjection
         AddAuditUseCases(services);
         AddProviderUseCases(services);
         AddAuthorizationServices(services);
-        services.AddScoped<IAdministrativeApproval, AdministrativeApproval>();
-        services.AddScoped<AdministrativeAccess.AdministrativeAccessWorkflow>();
-        services.AddScoped<AdministrativeAccess.ManagementWebPreparation>();
+        services.AddScopedInternal<IAdministrativeApproval, AdministrativeApproval>();
+        services.AddScopedInternal<AdministrativeAccess.AdministrativeAccessWorkflow>();
+        services.AddScopedInternal<AdministrativeAccess.ManagementWebPreparation>();
         services.AddScoped<IAdministrativeClientGuard>(provider => provider.GetRequiredService<AdministrativeAccess.AdministrativeAccessWorkflow>());
         services.AddScoped<IAdministrativeAccessEvaluator, AdministrativeAccess.AdministrativeAccessEvaluator>();
         services.TryAddSingleton<IAdministrativeActorContext, UnauthenticatedAdministrativeActorContext>();
-        services.AddScoped<UnrestrictedGrantPolicy>();
-        services.AddScoped<Applications.SeededOAuthClientPreparation>();
+        services.AddScopedInternal<UnrestrictedGrantPolicy>();
+        services.AddScopedInternal<Applications.SeededOAuthClientPreparation>();
 
         return services;
     }
 
     private static void AddUserUseCases(IServiceCollection services)
     {
-        services.AddScoped<ICreateUserUseCase, CreateUserUseCase>();
-        services.AddScoped<IValidateUserCredentialsUseCase, ValidateUserCredentialsUseCase>();
-        services.AddScoped<IDisableUserUseCase, DisableUserUseCase>();
-        services.AddScoped<IEnableUserUseCase, EnableUserUseCase>();
-        services.AddScoped<IUpdateUserUseCase, UpdateUserUseCase>();
-        services.AddScoped<IResetPasswordUseCase, ResetPasswordUseCase>();
-        services.AddScoped<IDeleteUserUseCase, DeleteUserUseCase>();
-        services.AddScoped<IGetUserQueryHandler, GetUserQueryHandler>();
-        services.AddScoped<IGetPublicProfileQueryHandler, GetPublicProfileQueryHandler>();
-        services.AddScoped<IListUsersQueryHandler, ListUsersQueryHandler>();
-        services.AddScoped<IGetUserEffectiveRolesQueryHandler, GetUserEffectiveRolesQueryHandler>();
+        services.AddScopedInternal<ICreateUserUseCase, CreateUserUseCase>();
+        services.AddScopedInternal<IValidateUserCredentialsUseCase, ValidateUserCredentialsUseCase>();
+        services.AddScopedInternal<IDisableUserUseCase, DisableUserUseCase>();
+        services.AddScopedInternal<IEnableUserUseCase, EnableUserUseCase>();
+        services.AddScopedInternal<IUpdateUserUseCase, UpdateUserUseCase>();
+        services.AddScopedInternal<IResetPasswordUseCase, ResetPasswordUseCase>();
+        services.AddScopedInternal<IDeleteUserUseCase, DeleteUserUseCase>();
+        services.AddScopedInternal<IGetUserQueryHandler, GetUserQueryHandler>();
+        services.AddScopedInternal<IGetPublicProfileQueryHandler, GetPublicProfileQueryHandler>();
+        services.AddScopedInternal<IListUsersQueryHandler, ListUsersQueryHandler>();
+        services.AddScopedInternal<IGetUserEffectiveRolesQueryHandler, GetUserEffectiveRolesQueryHandler>();
     }
 
     private static void AddFederationUseCases(IServiceCollection services)
     {
-        services.AddScoped<IJitProvisionUserUseCase, JitProvisionUserUseCase>();
+        services.AddScopedInternal<IJitProvisionUserUseCase, JitProvisionUserUseCase>();
         services.AddScoped<SetProviderEmailVerificationTrust>();
         services.AddScoped<ILinkUpstreamIdentityUseCase, LinkUpstreamIdentityUseCase>();
-        services.AddScoped<IUnlinkUpstreamIdentityUseCase, UnlinkUpstreamIdentityUseCase>();
-        services.AddScoped<IFindUserByUpstreamIdentityQueryHandler, FindUserByUpstreamIdentityQueryHandler>();
-        services.AddScoped<IListUserUpstreamIdentitiesQueryHandler, ListUserUpstreamIdentitiesQueryHandler>();
-        services.AddScoped<IIdentityMigrationInventoryQueryHandler, IdentityMigrationInventoryQueryHandler>();
+        services.AddScopedInternal<IUnlinkUpstreamIdentityUseCase, UnlinkUpstreamIdentityUseCase>();
+        services.AddScopedInternal<IFindUserByUpstreamIdentityQueryHandler, FindUserByUpstreamIdentityQueryHandler>();
+        services.AddScopedInternal<IListUserUpstreamIdentitiesQueryHandler, ListUserUpstreamIdentitiesQueryHandler>();
+        services.AddScopedInternal<IIdentityMigrationInventoryQueryHandler, IdentityMigrationInventoryQueryHandler>();
     }
 
     private static void AddRoleUseCases(IServiceCollection services)
     {
-        services.AddScoped<ICreateRoleUseCase, CreateRoleUseCase>();
-        services.AddScoped<IUpdateRoleUseCase, UpdateRoleUseCase>();
-        services.AddScoped<IDeleteRoleUseCase, DeleteRoleUseCase>();
-        services.AddScoped<IDisableRoleUseCase, DisableRoleUseCase>();
-        services.AddScoped<IEnableRoleUseCase, EnableRoleUseCase>();
-        services.AddScoped<ISetRolePermissionsUseCase, SetRolePermissionsUseCase>();
-        services.AddScoped<IAddRolePermissionUseCase, AddRolePermissionUseCase>();
-        services.AddScoped<IRemoveRolePermissionUseCase, RemoveRolePermissionUseCase>();
-        services.AddScoped<IGetRoleQueryHandler, GetRoleQueryHandler>();
-        services.AddScoped<IListRolesQueryHandler, ListRolesQueryHandler>();
-        services.AddScoped<IAssignRoleUseCase, AssignRoleUseCase>();
-        services.AddScoped<IUnassignRoleUseCase, UnassignRoleUseCase>();
-        services.AddScoped<IGetUserRolesQueryHandler, GetUserRolesQueryHandler>();
+        services.AddScopedInternal<ICreateRoleUseCase, CreateRoleUseCase>();
+        services.AddScopedInternal<IUpdateRoleUseCase, UpdateRoleUseCase>();
+        services.AddScopedInternal<IDeleteRoleUseCase, DeleteRoleUseCase>();
+        services.AddScopedInternal<IDisableRoleUseCase, DisableRoleUseCase>();
+        services.AddScopedInternal<IEnableRoleUseCase, EnableRoleUseCase>();
+        services.AddScopedInternal<ISetRolePermissionsUseCase, SetRolePermissionsUseCase>();
+        services.AddScopedInternal<IAddRolePermissionUseCase, AddRolePermissionUseCase>();
+        services.AddScopedInternal<IRemoveRolePermissionUseCase, RemoveRolePermissionUseCase>();
+        services.AddScopedInternal<IGetRoleQueryHandler, GetRoleQueryHandler>();
+        services.AddScopedInternal<IListRolesQueryHandler, ListRolesQueryHandler>();
+        services.AddScopedInternal<IAssignRoleUseCase, AssignRoleUseCase>();
+        services.AddScopedInternal<IUnassignRoleUseCase, UnassignRoleUseCase>();
+        services.AddScopedInternal<IGetUserRolesQueryHandler, GetUserRolesQueryHandler>();
     }
 
     private static void AddGroupUseCases(IServiceCollection services)
     {
-        services.AddScoped<ICreateGroupUseCase, CreateGroupUseCase>();
-        services.AddScoped<IUpdateGroupUseCase, UpdateGroupUseCase>();
-        services.AddScoped<IDeleteGroupUseCase, DeleteGroupUseCase>();
-        services.AddScoped<IAddUserToGroupUseCase, AddUserToGroupUseCase>();
-        services.AddScoped<IRemoveUserFromGroupUseCase, RemoveUserFromGroupUseCase>();
-        services.AddScoped<IAddGroupMappingUseCase, AddGroupMappingUseCase>();
-        services.AddScoped<IRemoveGroupMappingUseCase, RemoveGroupMappingUseCase>();
+        services.AddScopedInternal<ICreateGroupUseCase, CreateGroupUseCase>();
+        services.AddScopedInternal<IUpdateGroupUseCase, UpdateGroupUseCase>();
+        services.AddScopedInternal<IDeleteGroupUseCase, DeleteGroupUseCase>();
+        services.AddScopedInternal<IAddUserToGroupUseCase, AddUserToGroupUseCase>();
+        services.AddScopedInternal<IRemoveUserFromGroupUseCase, RemoveUserFromGroupUseCase>();
+        services.AddScopedInternal<IAddGroupMappingUseCase, AddGroupMappingUseCase>();
+        services.AddScopedInternal<IRemoveGroupMappingUseCase, RemoveGroupMappingUseCase>();
 
-        services.AddScoped<IGetGroupQueryHandler, GetGroupQueryHandler>();
-        services.AddScoped<IListGroupsQueryHandler, ListGroupsQueryHandler>();
-        services.AddScoped<IListGroupMembersQueryHandler, ListGroupMembersQueryHandler>();
-        services.AddScoped<IListGroupMappingsQueryHandler, ListGroupMappingsQueryHandler>();
-        services.AddScoped<IGetUserGroupsQueryHandler, GetUserGroupsQueryHandler>();
-        services.AddScoped<IUserGroupsProvider, RequestScopedUserGroupsProvider>();
+        services.AddScopedInternal<IGetGroupQueryHandler, GetGroupQueryHandler>();
+        services.AddScopedInternal<IListGroupsQueryHandler, ListGroupsQueryHandler>();
+        services.AddScopedInternal<IListGroupMembersQueryHandler, ListGroupMembersQueryHandler>();
+        services.AddScopedInternal<IListGroupMappingsQueryHandler, ListGroupMappingsQueryHandler>();
+        services.AddScopedInternal<IGetUserGroupsQueryHandler, GetUserGroupsQueryHandler>();
+        services.AddScopedInternal<IUserGroupsProvider, RequestScopedUserGroupsProvider>();
         services.AddScoped<IGetGroupClaimsForUserQueryHandler, GetGroupClaimsForUserQueryHandler>();
     }
 
     private static void AddApplicationUseCases(IServiceCollection services)
     {
-        services.AddScoped<ApplicationLifecycleUseCases>();
+        services.AddScopedInternal<ApplicationLifecycleUseCases>();
 
-        services.AddScoped<ApplicationCredentialUseCases>();
+        services.AddScopedInternal<ApplicationCredentialUseCases>();
 
-        services.AddScoped<ApplicationCredentialValidationUseCases>();
+        services.AddScopedInternal<ApplicationCredentialValidationUseCases>();
         services.AddScoped<IValidateApplicationClientCredentialsUseCase>(provider => provider.GetRequiredService<ApplicationCredentialValidationUseCases>());
         services.AddScoped<IValidateApplicationCertificateUseCase>(provider => provider.GetRequiredService<ApplicationCredentialValidationUseCases>());
 
-        services.AddScoped<ListApplicationsQueryHandler>();
+        services.AddScopedInternal<ListApplicationsQueryHandler>();
         services.AddScoped<IListApplicationsQueryHandler>(provider => provider.GetRequiredService<ListApplicationsQueryHandler>());
-        services.AddScoped<GetApplicationQueryHandler>();
+        services.AddScopedInternal<GetApplicationQueryHandler>();
         services.AddScoped<IGetApplicationQueryHandler>(provider => provider.GetRequiredService<GetApplicationQueryHandler>());
-        services.AddScoped<ListApplicationCredentialsQueryHandler>();
+        services.AddScopedInternal<ListApplicationCredentialsQueryHandler>();
         services.AddScoped<IListApplicationCredentialsQueryHandler>(provider => provider.GetRequiredService<ListApplicationCredentialsQueryHandler>());
         services.AddScoped<ListApplicationProfilePoliciesQueryHandler>();
         services.AddScoped<IListApplicationProfilePoliciesQueryHandler>(provider => provider.GetRequiredService<ListApplicationProfilePoliciesQueryHandler>());
         services.AddScoped<IApplicationsAdminWorkflow, ApplicationsAdminWorkflow>();
-        services.AddScoped<Resources.IResourcePermissionService, Resources.ResourcePermissionService>();
-        services.AddScoped<Resources.ResourceAccessWorkflow>();
+        services.AddScopedInternal<Resources.IResourcePermissionService, Resources.ResourcePermissionService>();
+        services.AddScopedInternal<Resources.ResourceAccessWorkflow>();
     }
 
     private static void AddApplicationPermissionUseCases(IServiceCollection services)
     {
-        services.AddScoped<RegisterApplicationUseCase>();
-        services.AddScoped<IListRegisteredApplicationsQueryHandler, ListRegisteredApplicationsQueryHandler>();
-        services.AddScoped<IGetRegisteredApplicationQueryHandler, GetRegisteredApplicationQueryHandler>();
-        services.AddScoped<IListAssignablePermissionCatalogQueryHandler, ListAssignablePermissionCatalogQueryHandler>();
+        services.AddScopedInternal<RegisterApplicationUseCase>();
+        services.AddScopedInternal<IListRegisteredApplicationsQueryHandler, ListRegisteredApplicationsQueryHandler>();
+        services.AddScopedInternal<IGetRegisteredApplicationQueryHandler, GetRegisteredApplicationQueryHandler>();
+        services.AddScopedInternal<IListAssignablePermissionCatalogQueryHandler, ListAssignablePermissionCatalogQueryHandler>();
 
-        services.AddScoped<ApplicationPermissionManifestUseCases>();
-        services.AddScoped<ApplicationPermissionMaintenanceUseCases>();
+        services.AddScopedInternal<ApplicationPermissionManifestUseCases>();
+        services.AddScopedInternal<ApplicationPermissionMaintenanceUseCases>();
         services.AddScoped<IApplicationPermissionRegistryWorkflow, ApplicationPermissionRegistryWorkflow>();
-        services.AddScoped<IGetPermissionDependenciesQueryHandler, GetPermissionDependenciesQueryHandler>();
+        services.AddScopedInternal<IGetPermissionDependenciesQueryHandler, GetPermissionDependenciesQueryHandler>();
     }
 
     private static void AddSessionAndLogoutUseCases(IServiceCollection services)
     {
-        services.AddScoped<ICreateSessionUseCase, CreateSessionUseCase>();
-        services.AddScoped<IAddClientSessionUseCase, AddClientSessionUseCase>();
-        services.AddScoped<IRevokeSessionUseCase, RevokeSessionUseCase>();
+        services.AddScopedInternal<ICreateSessionUseCase, CreateSessionUseCase>();
+        services.AddScopedInternal<IAddClientSessionUseCase, AddClientSessionUseCase>();
+        services.AddScopedInternal<IRevokeSessionUseCase, RevokeSessionUseCase>();
         services.AddScoped<IRevokeAllUserSessionsUseCase, RevokeAllUserSessionsUseCase>();
-        services.AddScoped<IListSessionsQueryHandler, ListSessionsQueryHandler>();
-        services.AddScoped<IGetSessionQueryHandler, GetSessionQueryHandler>();
-        services.AddScoped<IValidateSessionQueryHandler, ValidateSessionQueryHandler>();
+        services.AddScopedInternal<IListSessionsQueryHandler, ListSessionsQueryHandler>();
+        services.AddScopedInternal<IGetSessionQueryHandler, GetSessionQueryHandler>();
+        services.AddScopedInternal<IValidateSessionQueryHandler, ValidateSessionQueryHandler>();
+        services.AddScopedInternal<ICredentialSessionValidator, CredentialSessionValidator>();
 
-        services.AddScoped<IProcessLogoutUseCase, ProcessLogoutUseCase>();
+        services.AddScopedInternal<IProcessLogoutUseCase, ProcessLogoutUseCase>();
         services.AddScoped<INotifyClientsOfLogoutUseCase, NotifyClientsOfLogoutUseCase>();
     }
 
@@ -174,16 +176,16 @@ public static class DependencyInjection
 
     private static void AddProviderUseCases(IServiceCollection services)
     {
-        services.AddScoped<ICreateProviderUseCase, CreateProviderUseCase>();
-        services.AddScoped<IUpdateProviderUseCase, UpdateProviderUseCase>();
-        services.AddScoped<IListProvidersQueryHandler, ListProvidersQueryHandler>();
+        services.AddScopedInternal<ICreateProviderUseCase, CreateProviderUseCase>();
+        services.AddScopedInternal<IUpdateProviderUseCase, UpdateProviderUseCase>();
+        services.AddScopedInternal<IListProvidersQueryHandler, ListProvidersQueryHandler>();
     }
 
     private static void AddAuthorizationServices(IServiceCollection services)
     {
-        services.AddScoped<IApplicationPermissionAuthorizationService, ApplicationPermissionAuthorizationService>();
+        services.AddScopedInternal<IApplicationPermissionAuthorizationService, ApplicationPermissionAuthorizationService>();
         services.AddScoped<IApplicationPermissionAuditWriter, ApplicationPermissionAuditWriter>();
-        services.AddScoped<IPermissionAssignmentValidator, PermissionAssignmentValidator>();
-        services.AddScoped<IPermissionChecker, PermissionChecker>();
+        services.AddScopedInternal<IPermissionAssignmentValidator, PermissionAssignmentValidator>();
+        services.AddScopedInternal<IPermissionChecker, PermissionChecker>();
     }
 }

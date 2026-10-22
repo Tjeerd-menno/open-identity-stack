@@ -29,7 +29,7 @@ public sealed class UpdateRoleUseCase : IUpdateRoleUseCase
     private readonly IAdministrativeApproval approval;
     private readonly IPermissionAssignmentValidator permissionAssignmentValidator;
 
-    public UpdateRoleUseCase(
+    internal UpdateRoleUseCase(
         IRoleRepository roleRepository,
         IPermissionAssignmentValidator permissionAssignmentValidator,
         IAdministrativeApproval approval)

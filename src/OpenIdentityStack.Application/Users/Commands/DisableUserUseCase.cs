@@ -16,7 +16,7 @@ public sealed class DisableUserUseCase : IDisableUserUseCase
     private readonly ICredentialLifecycleTransactionRunner transactionRunner;
     private readonly ISessionRepository sessionRepository;
 
-    public DisableUserUseCase(
+    internal DisableUserUseCase(
         IUserRepository userRepository,
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog,

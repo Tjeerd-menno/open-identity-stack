@@ -10,7 +10,7 @@ public sealed class ListUsersQueryHandler : IListUsersQueryHandler
 {
     private readonly IUserRepository userRepository;
 
-    public ListUsersQueryHandler(IUserRepository userRepository)
+    internal ListUsersQueryHandler(IUserRepository userRepository)
     {
         this.userRepository = userRepository;
     }

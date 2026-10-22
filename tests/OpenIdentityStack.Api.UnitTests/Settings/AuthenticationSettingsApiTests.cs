@@ -9,6 +9,7 @@ using OpenIdentityStack.Api.Settings;
 using OpenIdentityStack.Application.Federation.Queries;
 using OpenIdentityStack.Application.Settings.Commands;
 using OpenIdentityStack.Application.Settings.Queries;
+using OpenIdentityStack.Domain.Federation;
 using OpenIdentityStack.Domain.Settings;
 
 using SharedKernel;
@@ -215,6 +216,15 @@ public sealed class AuthenticationSettingsApiTests
         {
             return handler(query, cancellationToken);
         }
+
+        public Task<UpstreamProvider?> GetByIdAsync(UpstreamProviderId id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<UpstreamProvider?>(null);
+
+        public Task<UpstreamProvider?> GetByNameAsync(string name, CancellationToken cancellationToken = default) =>
+            Task.FromResult<UpstreamProvider?>(null);
+
+        public Task<IReadOnlyList<UpstreamProvider>> GetActiveAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<UpstreamProvider>>([]);
     }
 
     private sealed class StubSetDefaultProviderUseCase(

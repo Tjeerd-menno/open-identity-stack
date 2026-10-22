@@ -24,7 +24,7 @@ public class SessionValidationBenchmarks
         // 1. Arrange - Setup minimal mocks for the "Hot Path" (Token Exchange)
         IOpenIddictApplicationManager applicationManager = Substitute.For<IOpenIddictApplicationManager>();
         IOpenIddictScopeManager scopeManager = Substitute.For<IOpenIddictScopeManager>();
-        IUserRepository userRepository = Substitute.For<IUserRepository>();
+        IGetUserQueryHandler userRepository = Substitute.For<IGetUserQueryHandler>();
         IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
         IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler = Substitute.For<IGetGroupClaimsForUserQueryHandler>();
         IAddClientSessionUseCase addClientSessionUseCase = Substitute.For<OpenIdentityStack.Application.Sessions.Commands.IAddClientSessionUseCase>();

@@ -7,11 +7,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Federation.Commands;
+using OpenIdentityStack.Application.Federation.Queries;
 using OpenIdentityStack.Application.Sessions.Commands;
+using OpenIdentityStack.Application.Settings.Queries;
 using OpenIdentityStack.Application.Users.Commands;
+using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Federation;
 using OpenIdentityStack.Domain.Settings;
+using OpenIdentityStack.Domain.Users;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using OpenIdentityStack.Infrastructure.Identity;
 
@@ -25,9 +29,9 @@ public class AccountController : Controller
 {
     private readonly IValidateUserCredentialsUseCase validateCredentialsUseCase;
     private readonly ICreateSessionUseCase createSessionUseCase;
-    private readonly IAuthenticationSettingsRepository authSettingsRepository;
-    private readonly IUpstreamProviderRepository providerRepository;
-    private readonly IUserRepository userRepository;
+    private readonly IGetAuthenticationSettingsQueryHandler authenticationSettings;
+    private readonly IListProvidersQueryHandler providers;
+    private readonly IGetUserQueryHandler users;
     private readonly IDynamicAuthenticationSchemeService schemeService;
     private readonly IJitProvisionUserUseCase jitProvisionUseCase;
     private readonly IAuditLog audit;
@@ -37,9 +41,9 @@ public class AccountController : Controller
     public AccountController(
         IValidateUserCredentialsUseCase validateCredentialsUseCase,
         ICreateSessionUseCase createSessionUseCase,
-        IAuthenticationSettingsRepository authSettingsRepository,
-        IUpstreamProviderRepository providerRepository,
-        IUserRepository userRepository,
+        IGetAuthenticationSettingsQueryHandler authenticationSettings,
+        IListProvidersQueryHandler providers,
+        IGetUserQueryHandler users,
         IDynamicAuthenticationSchemeService schemeService,
         IJitProvisionUserUseCase jitProvisionUseCase,
         IAuditLog audit,
@@ -48,9 +52,9 @@ public class AccountController : Controller
     {
         this.validateCredentialsUseCase = validateCredentialsUseCase;
         this.createSessionUseCase = createSessionUseCase;
-        this.authSettingsRepository = authSettingsRepository;
-        this.providerRepository = providerRepository;
-        this.userRepository = userRepository;
+        this.authenticationSettings = authenticationSettings;
+        this.providers = providers;
+        this.users = users;
         this.schemeService = schemeService;
         this.jitProvisionUseCase = jitProvisionUseCase;
         this.audit = audit;
@@ -81,18 +85,16 @@ public class AccountController : Controller
         // Pass fresh parameter to the view so it can forward it to ExternalLogin
         this.ViewData["Fresh"] = fresh;
 
-        // Get authentication settings
-        AuthenticationSettings settings = await this.authSettingsRepository.GetOrCreateAsync();
-        
+        AuthenticationSettingsDto settings = await this.GetAuthenticationSettingsAsync();
+
         this.ViewData["IsLocalDefault"] = settings.IsLocalDefault;
         this.ViewData["LocalFallbackEnabled"] = settings.LocalFallbackEnabled;
 
         if (!settings.IsLocalDefault)
         {
-            // Get the default provider information
             if (Guid.TryParse(settings.DefaultProviderId, out Guid providerId))
             {
-                UpstreamProvider? provider = await this.providerRepository.GetByIdAsync(
+                UpstreamProvider? provider = await this.providers.GetByIdAsync(
                     UpstreamProviderId.From(providerId));
                 
                 if (provider is not null && provider.IsActive)
@@ -138,7 +140,7 @@ public class AccountController : Controller
         await this.HttpContext.SignOutAsync("ExternalCookie");
 
         // Validate the provider exists and is active
-        UpstreamProvider? upstreamProvider = await this.providerRepository.GetByNameAsync(provider);
+        UpstreamProvider? upstreamProvider = await this.providers.GetByNameAsync(provider);
         if (upstreamProvider is null || !upstreamProvider.IsActive)
         {
             // Provider not found or disabled, redirect to login with error
@@ -238,13 +240,14 @@ public class AccountController : Controller
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
-        Domain.Users.User? user = await this.userRepository.GetByIdAsync(jitResult.Value.UserId);
-        if (user is null)
+        Result<GetUserResult>? userResult = await this.users.HandleAsync(new GetUserQuery(jitResult.Value.UserId));
+        if (userResult is null || userResult.IsFailure)
         {
             return this.RedirectToAction(nameof(Login), new { returnUrl, error = "external_auth_failed" });
         }
 
-        if (user.Status != Domain.Users.UserStatus.Active)
+        GetUserResult user = userResult.Value;
+        if (user.Status != UserStatus.Active)
         {
             await this.audit.LogAsync("federation", "Federation.AccountAssociationDenied", "User", user.Id.Value.ToString(),
                 $"Local account is not active. Provider: {providerGuid}.");
@@ -486,8 +489,7 @@ public class AccountController : Controller
             return this.Json(new { canAccess = false });
         }
 
-        // Get authentication settings
-        AuthenticationSettings settings = await this.authSettingsRepository.GetOrCreateAsync();
+        AuthenticationSettingsDto settings = await this.GetAuthenticationSettingsAsync();
 
         // If local is default, anyone can access local login
         if (settings.IsLocalDefault)
@@ -527,6 +529,17 @@ public class AccountController : Controller
         }
 
         return this.Redirect("/");
+    }
+
+    private async Task<AuthenticationSettingsDto> GetAuthenticationSettingsAsync()
+    {
+        Result<AuthenticationSettingsDto> result = await this.authenticationSettings.HandleAsync(new GetAuthenticationSettingsQuery());
+        if (result.IsFailure)
+        {
+            return new AuthenticationSettingsDto(AuthenticationSettings.LocalProviderId, true, true, DateTimeOffset.UtcNow);
+        }
+
+        return result.Value;
     }
 
     private static string GetErrorMessage(string errorCode)

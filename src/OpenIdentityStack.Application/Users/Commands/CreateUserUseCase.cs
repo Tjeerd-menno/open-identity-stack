@@ -18,7 +18,7 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
     private readonly IAuditLog auditLog;
     private readonly ILogger<CreateUserUseCase> logger;
 
-    public CreateUserUseCase(
+    internal CreateUserUseCase(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         IPasswordPolicyValidator passwordPolicyValidator,

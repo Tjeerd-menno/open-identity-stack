@@ -6,7 +6,7 @@ namespace OpenIdentityStack.Application.Abstractions;
 /// <summary>
 /// Repository interface for Group entities.
 /// </summary>
-public interface IGroupRepository
+internal interface IGroupRepository
 {
     /// <summary>
     /// Gets a group by its unique identifier.

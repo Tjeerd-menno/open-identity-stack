@@ -4,11 +4,11 @@ using OpenIdentityStack.Domain.Groups;
 using SharedKernel;
 namespace OpenIdentityStack.Application.Groups.Queries;
 
-public class GetUserGroupsQueryHandler : IGetUserGroupsQueryHandler
+public sealed class GetUserGroupsQueryHandler : IGetUserGroupsQueryHandler
 {
     private readonly IGroupRepository repository;
 
-    public GetUserGroupsQueryHandler(IGroupRepository repository)
+    internal GetUserGroupsQueryHandler(IGroupRepository repository)
     {
         this.repository = repository;
     }

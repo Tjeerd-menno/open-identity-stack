@@ -7,7 +7,7 @@ namespace OpenIdentityStack.Application.Abstractions;
 /// <summary>
 /// Repository interface for User entities.
 /// </summary>
-public interface IUserRepository
+internal interface IUserRepository
 {
     /// <summary>
     /// Gets a user by their unique identifier.

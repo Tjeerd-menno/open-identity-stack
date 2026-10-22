@@ -26,7 +26,7 @@ public sealed class RemoveRolePermissionUseCase : IRemoveRolePermissionUseCase
 {
     private readonly IRoleRepository roleRepository;
 
-    public RemoveRolePermissionUseCase(IRoleRepository roleRepository)
+    internal RemoveRolePermissionUseCase(IRoleRepository roleRepository)
     {
         this.roleRepository = roleRepository;
     }

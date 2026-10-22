@@ -10,13 +10,28 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Application.Resources;
 
-public sealed class ResourcePermissionService(
-    IResourceAccessRepository resources,
-    IApplicationRepository applications,
-    IApplicationPermissionRegistryRepository registry,
-    IUserRepository users,
-    IGetUserEffectiveRolesQueryHandler roles) : IResourcePermissionService
+public sealed class ResourcePermissionService : IResourcePermissionService
 {
+    private readonly IResourceAccessRepository resources;
+    private readonly IApplicationRepository applications;
+    private readonly IApplicationPermissionRegistryRepository registry;
+    private readonly IUserRepository users;
+    private readonly IGetUserEffectiveRolesQueryHandler roles;
+
+    internal ResourcePermissionService(
+        IResourceAccessRepository resources,
+        IApplicationRepository applications,
+        IApplicationPermissionRegistryRepository registry,
+        IUserRepository users,
+        IGetUserEffectiveRolesQueryHandler roles)
+    {
+        this.resources = resources;
+        this.applications = applications;
+        this.registry = registry;
+        this.users = users;
+        this.roles = roles;
+    }
+
     public async Task<Result<ResourceTokenProjection>> ProjectAsync(ResourceTokenRequest request, CancellationToken cancellationToken = default)
     {
         Domain.Applications.Application? client = await applications.GetByClientIdAsync(request.ClientId, cancellationToken);

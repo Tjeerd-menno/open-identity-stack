@@ -5,7 +5,7 @@ namespace OpenIdentityStack.Application.Abstractions;
 /// <summary>
 /// Repository for upstream provider operations.
 /// </summary>
-public interface IUpstreamProviderRepository
+internal interface IUpstreamProviderRepository
 {
     /// <summary>
     /// Gets an upstream provider by ID.

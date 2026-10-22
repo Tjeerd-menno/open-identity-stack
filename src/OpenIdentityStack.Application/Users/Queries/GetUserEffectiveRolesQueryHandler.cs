@@ -15,7 +15,7 @@ public sealed class GetUserEffectiveRolesQueryHandler : IGetUserEffectiveRolesQu
     private readonly IRoleRepository roleRepository;
     private readonly IUserGroupsProvider userGroups;
 
-    public GetUserEffectiveRolesQueryHandler(
+    internal GetUserEffectiveRolesQueryHandler(
         IRoleRepository roleRepository,
         IUserGroupsProvider userGroups)
     {

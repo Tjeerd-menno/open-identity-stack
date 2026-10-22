@@ -21,7 +21,7 @@ public sealed class ValidateUserCredentialsUseCase : IValidateUserCredentialsUse
     private readonly IAuditLog auditLog;
     private readonly ILogger<ValidateUserCredentialsUseCase> logger;
 
-    public ValidateUserCredentialsUseCase(
+    internal ValidateUserCredentialsUseCase(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,

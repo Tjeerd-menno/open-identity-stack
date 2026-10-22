@@ -33,6 +33,9 @@ public sealed record GetUserResult(
     UserProfileData Profile)
 {
     public bool EmailVerified { get; init; }
+
+    public Guid CredentialRevision { get; init; }
+
     public IReadOnlyList<EmailVerificationEvidenceDto> EmailVerificationEvidence { get; init; } = [];
 }
 

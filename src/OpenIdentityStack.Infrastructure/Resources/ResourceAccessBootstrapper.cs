@@ -5,8 +5,19 @@ using OpenIdentityStack.Domain.Resources;
 namespace OpenIdentityStack.Infrastructure.Resources;
 
 /// <summary>Initializes the reserved resource only. Client entitlements require explicit approval.</summary>
-public sealed class ResourceAccessBootstrapper(IResourceAccessRepository resources, IOpenIddictScopeManager scopes)
+public sealed class ResourceAccessBootstrapper
 {
+    private readonly IResourceAccessRepository resources;
+    private readonly IOpenIddictScopeManager scopes;
+
+    internal ResourceAccessBootstrapper(
+        IResourceAccessRepository resources,
+        IOpenIddictScopeManager scopes)
+    {
+        this.resources = resources;
+        this.scopes = scopes;
+    }
+
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         ProtectedResource? resource = await resources.GetResourceAsync(ProtectedResource.AdministrativeResourceId, cancellationToken);

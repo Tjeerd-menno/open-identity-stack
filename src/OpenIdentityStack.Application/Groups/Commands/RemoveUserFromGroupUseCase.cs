@@ -14,7 +14,7 @@ public sealed class RemoveUserFromGroupUseCase : IRemoveUserFromGroupUseCase
     private readonly IGroupRepository groupRepository;
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public RemoveUserFromGroupUseCase(
+    internal RemoveUserFromGroupUseCase(
         IGroupRepository groupRepository,
         IDateTimeProvider dateTimeProvider)
     {

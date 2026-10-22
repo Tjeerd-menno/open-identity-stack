@@ -17,7 +17,7 @@ public sealed class GetUserRolesQueryHandler : IGetUserRolesQueryHandler
     /// </summary>
     /// <param name="userRepository">The user repository.</param>
     /// <param name="roleRepository">The role repository.</param>
-    public GetUserRolesQueryHandler(
+    internal GetUserRolesQueryHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository)
     {

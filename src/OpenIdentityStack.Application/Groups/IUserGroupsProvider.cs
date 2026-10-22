@@ -23,7 +23,7 @@ public sealed class RequestScopedUserGroupsProvider : IUserGroupsProvider
     private readonly IGroupRepository groupRepository;
     private readonly Dictionary<UserId, Task<IReadOnlyList<Group>>> cache = [];
 
-    public RequestScopedUserGroupsProvider(IGroupRepository groupRepository)
+    internal RequestScopedUserGroupsProvider(IGroupRepository groupRepository)
     {
         this.groupRepository = groupRepository;
     }

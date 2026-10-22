@@ -46,7 +46,7 @@ public sealed class UnlinkUpstreamIdentityUseCase : IUnlinkUpstreamIdentityUseCa
     private readonly IUserRepository userRepository;
     private readonly IAuditLog auditLog;
 
-    public UnlinkUpstreamIdentityUseCase(IUserRepository userRepository, IAuditLog auditLog)
+    internal UnlinkUpstreamIdentityUseCase(IUserRepository userRepository, IAuditLog auditLog)
     {
         this.userRepository = userRepository;
         this.auditLog = auditLog;

@@ -3,7 +3,7 @@ using OpenIdentityStack.Domain.Resources;
 
 namespace OpenIdentityStack.Application.Resources;
 
-public interface IResourceAccessRepository
+internal interface IResourceAccessRepository
 {
     Task<IReadOnlyList<ProtectedResource>> ListResourcesAsync(CancellationToken cancellationToken = default);
     Task<ProtectedResource?> GetResourceAsync(Guid id, CancellationToken cancellationToken = default);

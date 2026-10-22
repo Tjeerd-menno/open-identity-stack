@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Federation.Queries;
 using OpenIdentityStack.Domain.Federation;
 
 namespace OpenIdentityStack.Api.Authentication;
@@ -206,12 +207,12 @@ public sealed partial class ExternalAuthenticationStartupService : IHostedServic
         this.LogConfiguringProviders();
 
         using IServiceScope scope = this.serviceProvider.CreateScope();
-        IUpstreamProviderRepository providerRepository = scope.ServiceProvider.GetRequiredService<IUpstreamProviderRepository>();
+        IListProvidersQueryHandler providersQuery = scope.ServiceProvider.GetRequiredService<IListProvidersQueryHandler>();
         DynamicAuthenticationSchemeService schemeService = scope.ServiceProvider.GetRequiredService<DynamicAuthenticationSchemeService>();
 
         try
         {
-            IReadOnlyList<UpstreamProvider> providers = await providerRepository.GetActiveProvidersAsync(cancellationToken);
+            IReadOnlyList<UpstreamProvider> providers = await providersQuery.GetActiveAsync(cancellationToken);
 
             foreach (UpstreamProvider provider in providers)
             {

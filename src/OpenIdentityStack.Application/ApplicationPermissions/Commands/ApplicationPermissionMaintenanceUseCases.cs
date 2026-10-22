@@ -25,7 +25,7 @@ public sealed class ApplicationPermissionMaintenanceUseCases
     private readonly IApplicationPermissionTransactionRunner transactionRunner;
     private readonly IPermissionDiagnosticsReader? diagnosticsReader;
 
-    public ApplicationPermissionMaintenanceUseCases(
+    internal ApplicationPermissionMaintenanceUseCases(
         IApplicationPermissionRegistryRepository repository,
         IApplicationPermissionAuthorizationService authorizationService,
         IRolePermissionDependencyReader dependencyReader,

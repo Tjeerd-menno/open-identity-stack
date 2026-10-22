@@ -12,11 +12,22 @@ public sealed record AdministrativeAccessDto(bool Approved, IReadOnlyList<string
 public sealed record AdministrativeAccessConfiguration(IReadOnlyList<string> DelegatedPermissions, IReadOnlyList<string> ApplicationPermissions, long? ExpectedRevision, bool AcknowledgeAdministrativeAccess = false);
 
 /// <summary>The reserved Admin resource grant is the persisted administrative entitlement and ceiling.</summary>
-public sealed class AdministrativeAccessWorkflow(
-    IResourceAccessRepository resources,
-    IApplicationRepository applications,
-    IAdministrativeApproval approval) : IAdministrativeClientGuard
+public sealed class AdministrativeAccessWorkflow : IAdministrativeClientGuard
 {
+    private readonly IResourceAccessRepository resources;
+    private readonly IApplicationRepository applications;
+    private readonly IAdministrativeApproval approval;
+
+    internal AdministrativeAccessWorkflow(
+        IResourceAccessRepository resources,
+        IApplicationRepository applications,
+        IAdministrativeApproval approval)
+    {
+        this.resources = resources;
+        this.applications = applications;
+        this.approval = approval;
+    }
+
     private static readonly DomainError conflict = DomainError.Conflict("AdministrativeAccess.Conflict", "Administrative access changed; reload before saving.");
 
     public async Task<Result<AdministrativeAccessDto>> GetAsync(Guid applicationId, CancellationToken cancellationToken = default)

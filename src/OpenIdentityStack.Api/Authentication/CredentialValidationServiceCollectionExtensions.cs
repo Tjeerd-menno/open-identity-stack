@@ -21,7 +21,6 @@ public static class CredentialValidationServiceCollectionExtensions
 {
     public static IServiceCollection AddCredentialValidation(this IServiceCollection services)
     {
-        services.AddScoped<ICredentialSessionValidator, CredentialSessionValidator>();
         services.AddScoped<AuthoritativeCredentialValidationHandler>();
         services.AddScoped<CurrentAuthorizationClaimsProjector>();
         services.AddScoped<AuthoritativeIntrospectionHandler>();

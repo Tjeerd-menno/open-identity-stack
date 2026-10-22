@@ -18,7 +18,7 @@ public sealed class SetDefaultProviderUseCase : ISetDefaultProviderUseCase
     private readonly IAuditLog auditLog;
     private readonly IAdministrativeActorContext actorContext;
 
-    public SetDefaultProviderUseCase(
+    internal SetDefaultProviderUseCase(
         IAuthenticationSettingsRepository settingsRepository,
         IUpstreamProviderRepository providerRepository,
         IDateTimeProvider dateTimeProvider,

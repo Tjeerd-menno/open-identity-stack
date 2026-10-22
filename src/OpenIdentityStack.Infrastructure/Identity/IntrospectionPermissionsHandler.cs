@@ -10,9 +10,22 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Infrastructure.Identity;
 
-internal sealed class IntrospectionPermissionsHandler(IResourcePermissionService projection, IResourceAccessRepository resources, IApplicationRepository applications) :
-    IOpenIddictServerHandler<OpenIddictServerEvents.HandleIntrospectionRequestContext>
+internal sealed class IntrospectionPermissionsHandler : IOpenIddictServerHandler<OpenIddictServerEvents.HandleIntrospectionRequestContext>
 {
+    private readonly IResourcePermissionService projection;
+    private readonly IResourceAccessRepository resources;
+    private readonly IApplicationRepository applications;
+
+    internal IntrospectionPermissionsHandler(
+        IResourcePermissionService projection,
+        IResourceAccessRepository resources,
+        IApplicationRepository applications)
+    {
+        this.projection = projection;
+        this.resources = resources;
+        this.applications = applications;
+    }
+
     public async ValueTask HandleAsync(OpenIddictServerEvents.HandleIntrospectionRequestContext context)
     {
         ClaimsPrincipal? principal = context.GenericTokenPrincipal;

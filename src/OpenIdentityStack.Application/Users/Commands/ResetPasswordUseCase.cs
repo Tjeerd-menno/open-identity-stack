@@ -19,7 +19,7 @@ public sealed class ResetPasswordUseCase : IResetPasswordUseCase
     private readonly ICredentialLifecycleTransactionRunner transactionRunner;
     private readonly ISessionRepository sessionRepository;
 
-    public ResetPasswordUseCase(
+    internal ResetPasswordUseCase(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         IPasswordPolicyValidator passwordPolicyValidator,

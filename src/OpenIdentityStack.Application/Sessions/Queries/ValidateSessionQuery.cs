@@ -41,7 +41,7 @@ public sealed class ValidateSessionQueryHandler : IValidateSessionQueryHandler
     private readonly ISessionRepository sessionRepository;
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public ValidateSessionQueryHandler(
+    internal ValidateSessionQueryHandler(
         ISessionRepository sessionRepository,
         IDateTimeProvider dateTimeProvider)
     {

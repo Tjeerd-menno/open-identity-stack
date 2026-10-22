@@ -5,7 +5,7 @@ using OpenIdentityStack.Domain.ApplicationPermissions;
 
 namespace OpenIdentityStack.Application.Abstractions;
 
-public interface IApplicationPermissionRegistryRepository
+internal interface IApplicationPermissionRegistryRepository
 {
     Task<bool> ExistsByIdentifierAsync(string applicationIdentifier, CancellationToken cancellationToken = default);
 

@@ -3,11 +3,11 @@ using OpenIdentityStack.Domain.Groups;
 
 namespace OpenIdentityStack.Application.Groups.Queries;
 
-public class GetGroupQueryHandler : IGetGroupQueryHandler
+public sealed class GetGroupQueryHandler : IGetGroupQueryHandler
 {
     private readonly IGroupRepository repository;
 
-    public GetGroupQueryHandler(IGroupRepository repository)
+    internal GetGroupQueryHandler(IGroupRepository repository)
     {
         this.repository = repository;
     }

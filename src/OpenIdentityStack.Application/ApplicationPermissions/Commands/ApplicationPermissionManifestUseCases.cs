@@ -31,7 +31,7 @@ public sealed class ApplicationPermissionManifestUseCases
     private readonly IApplicationPermissionTransactionRunner transactionRunner;
     private readonly IRemotePermissionManifestFetcher? remoteManifestFetcher;
 
-    public ApplicationPermissionManifestUseCases(
+    internal ApplicationPermissionManifestUseCases(
         IApplicationPermissionRegistryRepository repository,
         IApplicationPermissionAuthorizationService authorizationService,
         IApplicationPermissionAuditWriter auditWriter,

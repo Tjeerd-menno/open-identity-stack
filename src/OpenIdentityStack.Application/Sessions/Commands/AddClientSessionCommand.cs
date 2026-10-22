@@ -43,7 +43,7 @@ public sealed class AddClientSessionUseCase : IAddClientSessionUseCase
     private readonly IDateTimeProvider dateTimeProvider;
     private readonly IClientLogoutMetadataResolver clientLogoutMetadataResolver;
 
-    public AddClientSessionUseCase(
+    internal AddClientSessionUseCase(
         ISessionRepository sessionRepository,
         IDateTimeProvider dateTimeProvider,
         IClientLogoutMetadataResolver clientLogoutMetadataResolver)

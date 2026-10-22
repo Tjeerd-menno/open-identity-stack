@@ -4,8 +4,16 @@ using SharedKernel;
 
 namespace OpenIdentityStack.Application.Authorization;
 
-public sealed class UnrestrictedGrantPolicy(IRoleRepository roles)
+public sealed class UnrestrictedGrantPolicy
 {
+    private readonly IRoleRepository roles;
+
+    internal UnrestrictedGrantPolicy(
+        IRoleRepository roles)
+    {
+        this.roles = roles;
+    }
+
     public static bool IncludesAllPermissions(IEnumerable<string> permissions) =>
         permissions.Any(permission => string.Equals(permission.Trim(), "*", StringComparison.Ordinal));
 

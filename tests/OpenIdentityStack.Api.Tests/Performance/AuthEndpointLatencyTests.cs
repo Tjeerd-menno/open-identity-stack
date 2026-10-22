@@ -293,7 +293,7 @@ public sealed class AuthEndpointLatencyTests
     {
         IOpenIddictApplicationManager applicationManager = Substitute.For<IOpenIddictApplicationManager>();
         IOpenIddictScopeManager scopeManager = Substitute.For<IOpenIddictScopeManager>();
-        IUserRepository userRepository = Substitute.For<IUserRepository>();
+        IGetUserQueryHandler userRepository = Substitute.For<IGetUserQueryHandler>();
         IGetUserEffectiveRolesQueryHandler getUserEffectiveRolesQueryHandler = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
         IGetGroupClaimsForUserQueryHandler getGroupClaimsForUserQueryHandler = Substitute.For<IGetGroupClaimsForUserQueryHandler>();
         IAddClientSessionUseCase addClientSessionUseCase = Substitute.For<IAddClientSessionUseCase>();
@@ -378,7 +378,6 @@ public sealed class AuthEndpointLatencyTests
     {
         IProcessLogoutUseCase processLogoutUseCase = Substitute.For<IProcessLogoutUseCase>();
         IFrontChannelLogoutService frontChannelLogoutService = Substitute.For<IFrontChannelLogoutService>();
-        ISessionRepository sessionRepository = Substitute.For<ISessionRepository>();
         ILogoutNotifier logoutNotifier = Substitute.For<ILogoutNotifier>();
         IOpenIddictRequestService requestService = Substitute.For<IOpenIddictRequestService>();
 
@@ -395,7 +394,6 @@ public sealed class AuthEndpointLatencyTests
         var controller = new LogoutController(
             processLogoutUseCase,
             frontChannelLogoutService,
-            sessionRepository,
             logoutNotifier,
             requestService,
             Substitute.For<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()

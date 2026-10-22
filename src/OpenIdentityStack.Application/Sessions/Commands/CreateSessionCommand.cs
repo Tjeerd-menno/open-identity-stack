@@ -50,7 +50,7 @@ public sealed class CreateSessionUseCase : ICreateSessionUseCase
     private readonly IUserRepository userRepository;
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public CreateSessionUseCase(
+    internal CreateSessionUseCase(
         ISessionRepository sessionRepository,
         IUserRepository userRepository,
         IDateTimeProvider dateTimeProvider)

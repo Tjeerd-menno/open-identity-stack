@@ -17,7 +17,7 @@ public sealed class AddGroupMappingUseCase : IAddGroupMappingUseCase
     private readonly UnrestrictedGrantPolicy unrestrictedPolicy;
     private readonly IDateTimeProvider dateTimeProvider;
 
-    public AddGroupMappingUseCase(
+    internal AddGroupMappingUseCase(
         IGroupRepository groupRepository,
         IDateTimeProvider dateTimeProvider,
         IAdministrativeApproval approval,

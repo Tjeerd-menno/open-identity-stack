@@ -13,8 +13,22 @@ public sealed record ResourceConfiguration(string Audience, string Scope, string
 public sealed record ClientResourceGrantConfiguration(IReadOnlyList<string> DelegatedPermissions, IReadOnlyList<string> ApplicationPermissions, long? ExpectedRevision = null);
 
 /// <summary>Manages business resource mappings and client ceilings behind the Applications.Write HTTP boundary.</summary>
-public sealed class ResourceAccessWorkflow(IResourceAccessRepository resources, IApplicationRepository applications, IApplicationPermissionRegistryRepository registry)
+public sealed class ResourceAccessWorkflow
 {
+    private readonly IResourceAccessRepository resources;
+    private readonly IApplicationRepository applications;
+    private readonly IApplicationPermissionRegistryRepository registry;
+
+    internal ResourceAccessWorkflow(
+        IResourceAccessRepository resources,
+        IApplicationRepository applications,
+        IApplicationPermissionRegistryRepository registry)
+    {
+        this.resources = resources;
+        this.applications = applications;
+        this.registry = registry;
+    }
+
     private static readonly DomainError conflict = DomainError.Conflict("ResourceAccess.Conflict", "Resource access changed; reload before saving.");
     public async Task<IReadOnlyList<ProtectedResourceDto>> ListResourcesAsync(CancellationToken cancellationToken = default) =>
         (await resources.ListResourcesAsync(cancellationToken)).Select(Map).ToArray();

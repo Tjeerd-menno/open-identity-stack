@@ -14,7 +14,7 @@ public sealed class EnableUserUseCase : IEnableUserUseCase
     private readonly IAuditLog auditLog;
     private readonly IAdministrativeApproval approval;
 
-    public EnableUserUseCase(
+    internal EnableUserUseCase(
         IUserRepository userRepository,
         IDateTimeProvider dateTimeProvider,
         IAuditLog auditLog,

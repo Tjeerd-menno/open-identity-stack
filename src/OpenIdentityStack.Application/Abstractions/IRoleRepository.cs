@@ -5,7 +5,7 @@ namespace OpenIdentityStack.Application.Abstractions;
 /// <summary>
 /// Repository interface for role operations.
 /// </summary>
-public interface IRoleRepository
+internal interface IRoleRepository
 {
     /// <summary>
     /// Gets a role by its ID.

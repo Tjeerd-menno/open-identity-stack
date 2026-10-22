@@ -94,7 +94,7 @@ public sealed class ListSessionsQueryHandler : IListSessionsQueryHandler
     /// <summary>
     /// Initializes a new instance of the <see cref="ListSessionsQueryHandler"/> class.
     /// </summary>
-    public ListSessionsQueryHandler(ISessionRepository sessionRepository)
+    internal ListSessionsQueryHandler(ISessionRepository sessionRepository)
     {
         this.sessionRepository = sessionRepository;
     }

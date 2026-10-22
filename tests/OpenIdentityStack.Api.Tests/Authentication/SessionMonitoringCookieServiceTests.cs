@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
 using OpenIdentityStack.Api.Authentication;
-using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Sessions.Queries;
+using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Users;
@@ -10,8 +11,8 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 
 public sealed class SessionMonitoringCookieServiceTests
 {
-    private readonly IUserRepository users = Substitute.For<IUserRepository>();
-    private readonly ISessionRepository sessions = Substitute.For<ISessionRepository>();
+    private readonly IGetUserQueryHandler users = Substitute.For<IGetUserQueryHandler>();
+    private readonly IGetSessionQueryHandler sessions = Substitute.For<IGetSessionQueryHandler>();
     private readonly IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
     private readonly SessionMonitoringCookieService service;
     private readonly User user;
@@ -24,8 +25,10 @@ public sealed class SessionMonitoringCookieServiceTests
         this.user = User.CreateLocal("monitor@example.test", "Monitor", "fixture-hash", this.clock).Value;
         this.user.VerifyEmail(this.clock).IsSuccess.ShouldBeTrue();
         this.session = UserSession.Create(this.user.Id, "127.0.0.1", "tests", this.clock).Value;
-        this.users.GetByIdAsync(this.user.Id, Arg.Any<CancellationToken>()).Returns(this.user);
-        this.sessions.GetByIdAsync(this.session.Id, Arg.Any<CancellationToken>()).Returns(this.session);
+        this.users.HandleAsync(Arg.Any<GetUserQuery>(), Arg.Any<CancellationToken>())
+            .Returns(_ => PersistedUser.From(this.user));
+        this.sessions.HandleAsync(Arg.Any<GetSessionQuery>(), Arg.Any<CancellationToken>())
+            .Returns(call => PersistedUser.From(this.SessionFor(call.Arg<GetSessionQuery>().SessionId)));
         this.service = new SessionMonitoringCookieService(
             new EphemeralDataProtectionProvider(), this.users, this.sessions, this.clock);
     }
@@ -37,8 +40,7 @@ public sealed class SessionMonitoringCookieServiceTests
             this.user.Id, this.session.Id, this.clock.UtcNow.AddHours(1));
 
         (await this.service.IsCurrentAsync(value)).ShouldBeTrue();
-        await this.sessions.DidNotReceive().UpdateAsync(
-            Arg.Any<UserSession>(), Arg.Any<CancellationToken>());
+        await this.sessions.Received(1).HandleAsync(Arg.Any<GetSessionQuery>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -112,7 +114,8 @@ public sealed class SessionMonitoringCookieServiceTests
             this.user.Id, this.session.Id, this.clock.UtcNow.AddHours(1));
         User other = User.CreateLocal("other@example.test", "Other", "fixture-hash", this.clock).Value;
         UserSession otherSession = UserSession.Create(other.Id, "127.0.0.1", "tests", this.clock).Value;
-        this.sessions.GetByIdAsync(this.session.Id, Arg.Any<CancellationToken>()).Returns(otherSession);
+        this.sessions.HandleAsync(Arg.Any<GetSessionQuery>(), Arg.Any<CancellationToken>())
+            .Returns(PersistedUser.From(otherSession));
 
         (await this.service.IsCurrentAsync(value)).ShouldBeFalse();
     }
@@ -126,4 +129,9 @@ public sealed class SessionMonitoringCookieServiceTests
 
         (await this.service.IsCurrentAsync(value)).ShouldBeFalse();
     }
+
+    private UserSession SessionFor(SessionId sessionId) =>
+        sessionId == this.session.Id
+            ? this.session
+            : throw new InvalidOperationException($"Unexpected session {sessionId}.");
 }

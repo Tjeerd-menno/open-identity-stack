@@ -15,7 +15,7 @@ public sealed class JitProvisionUserUseCase : IJitProvisionUserUseCase
     private readonly IAuditLog auditLog;
     private readonly IJitProvisioningPersistence persistence;
 
-    public JitProvisionUserUseCase(
+    internal JitProvisionUserUseCase(
         IUserRepository userRepository,
         IUpstreamProviderRepository providerRepository,
         IAuditLog auditLog,

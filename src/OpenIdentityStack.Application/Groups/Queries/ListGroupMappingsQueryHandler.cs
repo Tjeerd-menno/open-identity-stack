@@ -5,12 +5,12 @@ using OpenIdentityStack.Domain.Roles;
 using SharedKernel;
 namespace OpenIdentityStack.Application.Groups.Queries;
 
-public class ListGroupMappingsQueryHandler : IListGroupMappingsQueryHandler
+public sealed class ListGroupMappingsQueryHandler : IListGroupMappingsQueryHandler
 {
     private readonly IGroupRepository repository;
     private readonly IRoleRepository roles;
 
-    public ListGroupMappingsQueryHandler(IGroupRepository repository, IRoleRepository roles)
+    internal ListGroupMappingsQueryHandler(IGroupRepository repository, IRoleRepository roles)
     {
         this.repository = repository;
         this.roles = roles;

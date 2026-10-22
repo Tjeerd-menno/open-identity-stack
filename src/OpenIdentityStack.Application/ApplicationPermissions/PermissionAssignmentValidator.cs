@@ -39,7 +39,7 @@ public sealed class PermissionAssignmentValidator : IPermissionAssignmentValidat
 
     private readonly IApplicationPermissionRegistryRepository repository;
 
-    public PermissionAssignmentValidator(IApplicationPermissionRegistryRepository repository)
+    internal PermissionAssignmentValidator(IApplicationPermissionRegistryRepository repository)
     {
         this.repository = repository;
     }

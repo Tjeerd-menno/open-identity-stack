@@ -28,7 +28,7 @@ public sealed class EnableRoleUseCase : IEnableRoleUseCase
     private readonly IRoleRepository roleRepository;
     private readonly IAdministrativeApproval approval;
 
-    public EnableRoleUseCase(IRoleRepository roleRepository,
+    internal EnableRoleUseCase(IRoleRepository roleRepository,
         IAdministrativeApproval approval)
     {
         this.roleRepository = roleRepository;

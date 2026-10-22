@@ -29,7 +29,7 @@ public sealed class ListRolesQueryHandler : IListRolesQueryHandler
     /// Initializes a new instance of the <see cref="ListRolesQueryHandler"/> class.
     /// </summary>
     /// <param name="roleRepository">The role repository.</param>
-    public ListRolesQueryHandler(IRoleRepository roleRepository)
+    internal ListRolesQueryHandler(IRoleRepository roleRepository)
     {
         this.roleRepository = roleRepository;
     }

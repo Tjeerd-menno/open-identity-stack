@@ -41,7 +41,7 @@ public sealed class GetPublicProfileQueryHandler : IGetPublicProfileQueryHandler
 {
     private readonly IUserRepository userRepository;
 
-    public GetPublicProfileQueryHandler(IUserRepository userRepository)
+    internal GetPublicProfileQueryHandler(IUserRepository userRepository)
     {
         this.userRepository = userRepository;
     }

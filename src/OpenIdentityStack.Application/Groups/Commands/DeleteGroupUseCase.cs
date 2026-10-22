@@ -15,7 +15,7 @@ public sealed class DeleteGroupUseCase : IDeleteGroupUseCase
 {
     private readonly IGroupRepository repository;
 
-    public DeleteGroupUseCase(IGroupRepository repository)
+    internal DeleteGroupUseCase(IGroupRepository repository)
     {
         this.repository = repository;
     }
