@@ -15,15 +15,16 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { ErrorState, PageHeader } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { groupsDelete, groupsWrite } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 
 export function GroupsPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canWrite = hasPermission(auth.permissions, 'groups:write');
+  const canWrite = hasPermission(auth.permissions, groupsWrite);
   // Deletion is authorized with groups:delete, independent of groups:write.
-  const canDelete = hasPermission(auth.permissions, 'groups:delete');
+  const canDelete = hasPermission(auth.permissions, groupsDelete);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);

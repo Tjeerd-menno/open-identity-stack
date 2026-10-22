@@ -11,13 +11,14 @@ import { Pager } from '@/components/ListControls';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { applicationPermissionsWrite } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { RegisterManifestModal } from './RegisterManifestModal';
 
 export function PermissionsPage() {
   const navigate = useNavigate();
   const auth = useAuth();
-  const canWrite = hasPermission(auth.permissions, 'application-permissions:write');
+  const canWrite = hasPermission(auth.permissions, applicationPermissionsWrite);
   const [registerOpened, registerControls] = useDisclosure(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);

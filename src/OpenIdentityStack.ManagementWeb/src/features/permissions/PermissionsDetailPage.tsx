@@ -17,6 +17,7 @@ import { DataTable, type Column } from '@/components/DataTable';
 import { BackLink, CenteredState, DetailHeader, ErrorState, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { applicationPermissionsAdmin, applicationPermissionsWrite } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { useSyncedForm } from '@/lib/use-synced-form';
 
@@ -26,8 +27,8 @@ export function PermissionsDetailPage() {
   const queryClient = useQueryClient();
   // Registry maintenance (edit, add permission) needs application-permissions:write; ownership
   // transfer and maintainer management are guarded by application-permissions:admin.
-  const canWrite = hasPermission(auth.permissions, 'application-permissions:write');
-  const canAdmin = hasPermission(auth.permissions, 'application-permissions:admin');
+  const canWrite = hasPermission(auth.permissions, applicationPermissionsWrite);
+  const canAdmin = hasPermission(auth.permissions, applicationPermissionsAdmin);
 
   const [addPermissionOpened, addPermissionControls] = useDisclosure(false);
 

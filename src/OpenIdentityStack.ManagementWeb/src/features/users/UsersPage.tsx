@@ -15,6 +15,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { usersDelete, usersDisable, usersWrite } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { formatRelativeTime, getInitials } from '@/lib/format';
 
@@ -22,9 +23,9 @@ export function UsersPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canWrite = hasPermission(auth.permissions, 'users:write');
-  const canDisable = hasPermission(auth.permissions, 'users:disable');
-  const canDelete = hasPermission(auth.permissions, 'users:delete');
+  const canWrite = hasPermission(auth.permissions, usersWrite);
+  const canDisable = hasPermission(auth.permissions, usersDisable);
+  const canDelete = hasPermission(auth.permissions, usersDelete);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);

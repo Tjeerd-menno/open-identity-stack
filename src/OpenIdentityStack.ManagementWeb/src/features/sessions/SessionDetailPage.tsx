@@ -8,6 +8,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { sessionsRevoke } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 
@@ -19,7 +20,7 @@ export function SessionDetailPage() {
   const { sessionId = '' } = useParams();
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const canRevoke = hasPermission(auth.permissions, 'sessions:revoke');
+  const canRevoke = hasPermission(auth.permissions, sessionsRevoke);
   const [pendingRevoke, setPendingRevoke] = useState(false);
   const [pendingRevokeAll, setPendingRevokeAll] = useState(false);
 

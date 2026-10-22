@@ -10,6 +10,14 @@ import { Icon } from '@/components/Icon';
 import { BackLink, CenteredState, DetailHeader, ErrorState, FieldRow, MetaStrip, SectionCard, StatusBadge } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import {
+  groupsRead,
+  rolesAssign,
+  rolesRead,
+  usersDisable,
+  usersResetPassword,
+  usersWrite,
+} from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { useSyncedForm } from '@/lib/use-synced-form';
@@ -21,13 +29,13 @@ export function UserDetailPage() {
   // Gate each action on the granular permission its backend endpoint actually requires,
   // rather than treating users:write as an umbrella (UsersApi authorizes disable, reset,
   // role assignment and group/role reads independently).
-  const canWrite = hasPermission(auth.permissions, 'users:write');
-  const canResetPassword = hasPermission(auth.permissions, 'users:reset-password');
-  const canDisableUser = hasPermission(auth.permissions, 'users:disable');
-  const canReadRoles = hasPermission(auth.permissions, 'roles:read');
-  const canReadGroups = hasPermission(auth.permissions, 'groups:read');
+  const canWrite = hasPermission(auth.permissions, usersWrite);
+  const canResetPassword = hasPermission(auth.permissions, usersResetPassword);
+  const canDisableUser = hasPermission(auth.permissions, usersDisable);
+  const canReadRoles = hasPermission(auth.permissions, rolesRead);
+  const canReadGroups = hasPermission(auth.permissions, groupsRead);
   // Assignment is authorized with roles:assign; listing the roles to pick from needs roles:read.
-  const canAssignRoles = hasPermission(auth.permissions, 'roles:assign');
+  const canAssignRoles = hasPermission(auth.permissions, rolesAssign);
   const [roleToAssign, setRoleToAssign] = useState<string | null>(null);
   const [resetOpened, resetControls] = useDisclosure(false);
 

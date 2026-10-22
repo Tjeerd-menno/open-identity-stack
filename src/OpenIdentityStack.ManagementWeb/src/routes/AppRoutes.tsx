@@ -5,6 +5,17 @@ import { AppShell } from '@/components/AppShell';
 import { Icon } from '@/components/Icon';
 import { CenteredState } from '@/components/primitives';
 import { useAuth } from '@/lib/auth-context';
+import {
+  applicationPermissionsRead,
+  applicationsRead,
+  auditLogsRead,
+  groupsRead,
+  providersRead,
+  rolesRead,
+  sessionsRead,
+  systemManageSettings,
+  usersRead,
+} from '@/lib/generated-permissions';
 import { hasAnyPermission } from '@/lib/permissions';
 
 // Feature pages are lazily loaded so each route ships as its own chunk instead of in the initial bundle.
@@ -135,7 +146,7 @@ export function AppRoutes() {
           <Route
             path="users"
             element={
-              <RequirePermissions permissions={['users:read']}>
+              <RequirePermissions permissions={[usersRead]}>
                 <UsersPage />
               </RequirePermissions>
             }
@@ -143,7 +154,7 @@ export function AppRoutes() {
           <Route
             path="users/:userId"
             element={
-              <RequirePermissions permissions={['users:read']}>
+              <RequirePermissions permissions={[usersRead]}>
                 <UserDetailPage />
               </RequirePermissions>
             }
@@ -151,7 +162,7 @@ export function AppRoutes() {
           <Route
             path="groups"
             element={
-              <RequirePermissions permissions={['groups:read']}>
+              <RequirePermissions permissions={[groupsRead]}>
                 <GroupsPage />
               </RequirePermissions>
             }
@@ -159,7 +170,7 @@ export function AppRoutes() {
           <Route
             path="groups/:groupId"
             element={
-              <RequirePermissions permissions={['groups:read']}>
+              <RequirePermissions permissions={[groupsRead]}>
                 <GroupDetailPage />
               </RequirePermissions>
             }
@@ -167,7 +178,7 @@ export function AppRoutes() {
           <Route
             path="roles"
             element={
-              <RequirePermissions permissions={['roles:read']}>
+              <RequirePermissions permissions={[rolesRead]}>
                 <RolesPage />
               </RequirePermissions>
             }
@@ -175,7 +186,7 @@ export function AppRoutes() {
           <Route
             path="roles/:roleId"
             element={
-              <RequirePermissions permissions={['roles:read']}>
+              <RequirePermissions permissions={[rolesRead]}>
                 <RoleDetailPage />
               </RequirePermissions>
             }
@@ -183,7 +194,7 @@ export function AppRoutes() {
           <Route
             path="application-permissions"
             element={
-              <RequirePermissions permissions={['application-permissions:read']}>
+              <RequirePermissions permissions={[applicationPermissionsRead]}>
                 <PermissionsPage />
               </RequirePermissions>
             }
@@ -191,7 +202,7 @@ export function AppRoutes() {
           <Route
             path="application-permissions/:registrationId"
             element={
-              <RequirePermissions permissions={['application-permissions:read']}>
+              <RequirePermissions permissions={[applicationPermissionsRead]}>
                 <PermissionsDetailPage />
               </RequirePermissions>
             }
@@ -199,7 +210,7 @@ export function AppRoutes() {
           <Route
             path="applications"
             element={
-              <RequirePermissions permissions={['applications:read']}>
+              <RequirePermissions permissions={[applicationsRead]}>
                 <ApplicationsPage />
               </RequirePermissions>
             }
@@ -207,7 +218,7 @@ export function AppRoutes() {
           <Route
             path="applications/:applicationId"
             element={
-              <RequirePermissions permissions={['applications:read']}>
+              <RequirePermissions permissions={[applicationsRead]}>
                 <ApplicationDetailPage />
               </RequirePermissions>
             }
@@ -215,7 +226,7 @@ export function AppRoutes() {
           <Route
             path="sessions"
             element={
-              <RequirePermissions permissions={['sessions:read']}>
+              <RequirePermissions permissions={[sessionsRead]}>
                 <SessionsPage />
               </RequirePermissions>
             }
@@ -223,7 +234,7 @@ export function AppRoutes() {
           <Route
             path="sessions/:sessionId"
             element={
-              <RequirePermissions permissions={['sessions:read']}>
+              <RequirePermissions permissions={[sessionsRead]}>
                 <SessionDetailPage />
               </RequirePermissions>
             }
@@ -231,7 +242,7 @@ export function AppRoutes() {
           <Route
             path="providers"
             element={
-              <RequirePermissions permissions={['providers:read']}>
+              <RequirePermissions permissions={[providersRead]}>
                 <ProvidersPage />
               </RequirePermissions>
             }
@@ -239,7 +250,7 @@ export function AppRoutes() {
           <Route
             path="providers/settings"
             element={
-              <RequirePermissions permissions={['system:settings']}>
+              <RequirePermissions permissions={[systemManageSettings]}>
                 <AuthenticationSettingsPage />
               </RequirePermissions>
             }
@@ -247,7 +258,7 @@ export function AppRoutes() {
           <Route
             path="providers/:providerId"
             element={
-              <RequirePermissions permissions={['providers:read']}>
+              <RequirePermissions permissions={[providersRead]}>
                 <ProviderDetailPage />
               </RequirePermissions>
             }
@@ -255,7 +266,7 @@ export function AppRoutes() {
           <Route
             path="audit-entries"
             element={
-              <RequirePermissions permissions={['audit-logs:read']}>
+              <RequirePermissions permissions={[auditLogsRead]}>
                 <AuditPage />
               </RequirePermissions>
             }
