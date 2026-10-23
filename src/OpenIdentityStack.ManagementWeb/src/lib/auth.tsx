@@ -9,7 +9,7 @@ import { getOidcAuthority, getOidcClientId } from './runtime-config';
 import { AdministrativeApprovalDialog } from '@/components/AdministrativeApprovalDialog';
 
 type CurrentUserLoadState =
-  | { token: string; status: 'success'; user: CurrentUserResponse }
+  | { token: string; subject: string | null; status: 'success'; user: CurrentUserResponse }
   | { token: string; status: 'error'; error: unknown }
   | null;
 
@@ -48,11 +48,26 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
   const recoveryStarted = useRef(false);
+  // getUser() reads and parses sessionStorage. API calls only need the session
+  // already delivered by the initial load and the user-manager events below.
+  const sessionRef = useRef<User | null>(null);
 
-  const getAccessToken = useCallback(async () => {
-    const user = await userManager.getUser();
-    return user?.expired ? null : (user?.access_token ?? null);
-  }, [userManager]);
+  const adoptSession = useCallback((user: User | null) => {
+    const active = user && !user.expired ? user : null;
+    sessionRef.current = active;
+    setOidcUser(active);
+  }, []);
+
+  const clearSession = useCallback(() => {
+    sessionRef.current = null;
+    setOidcUser(null);
+    setCurrentUserLoad(null);
+  }, []);
+
+  const getAccessToken = useCallback(() => {
+    const user = sessionRef.current;
+    return Promise.resolve(user && !user.expired ? user.access_token : null);
+  }, []);
 
   const login = useCallback(async () => userManager.signinRedirect(), [userManager]);
   const logout = useCallback(async () => userManager.signoutRedirect(), [userManager]);
@@ -97,13 +112,13 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
         try {
           const user = await userManager.getUser();
           if (!cancelled) {
-            setOidcUser(user && !user.expired ? user : null);
+            adoptSession(user);
             setIsLoading(false);
           }
         } catch (error) {
           console.error('Failed to get user:', error);
           if (!cancelled) {
-            setOidcUser(null);
+            adoptSession(null);
             setIsLoading(false);
           }
         }
@@ -115,23 +130,32 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [userManager, location.pathname]);
+  }, [adoptSession, userManager, location.pathname]);
 
   useEffect(() => {
     const removeUserLoaded = userManager.events.addUserLoaded((user) => {
-      setOidcUser(user && !user.expired ? user : null);
+      adoptSession(user);
+    });
+    const removeUserUnloaded = userManager.events.addUserUnloaded(() => {
+      clearSession();
+    });
+    const removeAccessTokenExpired = userManager.events.addAccessTokenExpired(() => {
+      clearSession();
     });
 
     return () => {
       removeUserLoaded();
+      removeUserUnloaded();
+      removeAccessTokenExpired();
     };
-  }, [userManager]);
+  }, [adoptSession, clearSession, userManager]);
 
   useEffect(() => {
     setAccessTokenProvider(getAccessToken);
   }, [getAccessToken]);
 
   const accessToken = oidcUser && !oidcUser.expired ? oidcUser.access_token : null;
+  const activeSubject = sessionSubject(oidcUser);
 
   useEffect(() => {
     if (!accessToken) {
@@ -139,12 +163,13 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false;
+    const subject = activeSubject;
 
     api.currentUser
       .getCurrentUser()
       .then((response) => {
         if (!cancelled) {
-          setCurrentUserLoad({ token: accessToken, status: 'success', user: response });
+          setCurrentUserLoad({ token: accessToken, subject, status: 'success', user: response });
         }
       })
       .catch((error: unknown) => {
@@ -163,10 +188,19 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, recoverRejectedSession]);
+  }, [accessToken, activeSubject, recoverRejectedSession]);
 
+  // Silent renew mints a new access token for the same subject. Keep the last
+  // successful profile until /me returns so AppRoutes does not swap the shell
+  // for the full-screen loader. A different subject is a different operator.
+  const sameOperator =
+    activeSubject !== null &&
+    currentUserLoad?.status === 'success' &&
+    currentUserLoad.subject === activeSubject;
   const effectiveCurrentUser =
-    currentUserLoad?.token === accessToken && currentUserLoad.status === 'success'
+    oidcUser &&
+    currentUserLoad?.status === 'success' &&
+    (currentUserLoad.token === accessToken || sameOperator)
       ? currentUserLoad.user
       : null;
   const effectiveCurrentUserError =
@@ -206,6 +240,11 @@ function OidcAuthProvider({ children }: { children: ReactNode }) {
 
 function getFallbackDisplayName(user: User | null): string {
   return typeof user?.profile.name === 'string' ? user.profile.name : 'Operator';
+}
+
+function sessionSubject(user: User | null): string | null {
+  const subject = user?.profile.sub;
+  return typeof subject === 'string' && subject.length > 0 ? subject : null;
 }
 
 function getApiStatus(error: unknown): number | null {
