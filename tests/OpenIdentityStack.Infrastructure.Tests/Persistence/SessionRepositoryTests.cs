@@ -1,4 +1,8 @@
+using System.Data.Common;
+
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Infrastructure.Persistence;
@@ -170,6 +174,66 @@ public sealed class SessionRepositoryTests : IClassFixture<SqliteTestFixture>, I
 
         total.ShouldBe(1);
         sessions[0].Status.ShouldBe(SessionStatus.Active);
+    }
+
+    [Fact]
+    public async Task GetValidationSnapshotAsync_ReadsValidationFieldsWithoutTrackingOrClientSessions()
+    {
+        UserSession session = await this.SeedAsync(UserId.Create());
+        session.AddClientSession("client", this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        await this._repository.UpdateAsync(session);
+        this._dbContext.ChangeTracker.Clear();
+
+        var observer = new QueryTextObserver();
+        var options = new DbContextOptionsBuilder<OpenIdentityStackDbContext>()
+            .UseSqlite(this._dbContext.Database.GetDbConnection())
+            .AddInterceptors(observer)
+            .Options;
+        await using var readContext = new OpenIdentityStackDbContext(options);
+        ISessionRepository repository = new SessionRepository(readContext);
+
+        SessionValidationSnapshot? snapshot = await repository.GetValidationSnapshotAsync(session.Id);
+
+        snapshot.ShouldNotBeNull();
+        snapshot.UserId.ShouldBe(session.UserId);
+        snapshot.Status.ShouldBe(SessionStatus.Active);
+        snapshot.ExpiresAt.ShouldBe(session.ExpiresAt);
+        snapshot.UserSecurityVersion.ShouldBe(session.UserSecurityVersion);
+        readContext.ChangeTracker.Entries().ShouldBeEmpty();
+        observer.Commands.ShouldNotBeEmpty();
+        observer.Commands.ShouldAllBe(command => !command.Contains("ClientSessions", StringComparison.OrdinalIgnoreCase));
+
+        observer.Commands.Clear();
+        UserSession? loaded = await repository.GetByIdAsync(session.Id);
+        loaded.ShouldNotBeNull();
+        loaded.ClientSessions.Count.ShouldBe(1);
+        observer.Commands.ShouldContain(command => command.Contains("ClientSessions", StringComparison.OrdinalIgnoreCase));
+
+        (await repository.GetValidationSnapshotAsync(SessionId.Create())).ShouldBeNull();
+    }
+
+    private sealed class QueryTextObserver : DbCommandInterceptor
+    {
+        public List<string> Commands { get; } = [];
+
+        public override InterceptionResult<DbDataReader> ReaderExecuting(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result)
+        {
+            this.Commands.Add(command.CommandText);
+            return result;
+        }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            this.Commands.Add(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
     }
 
     private async Task<UserSession> SeedAsync(UserId userId)

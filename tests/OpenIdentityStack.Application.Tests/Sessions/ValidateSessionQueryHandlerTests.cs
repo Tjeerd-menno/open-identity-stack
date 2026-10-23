@@ -216,4 +216,87 @@ public sealed class ValidateSessionQueryHandlerTests
         await Should.ThrowAsync<OperationCanceledException>(
             () => this._handler.HandleAsync(query, cts.Token));
     }
+
+    [Fact]
+    public async Task HandleAsync_CredentialMatches_LoadsTheSessionOnceAndUpdatesActivity()
+    {
+        UserSession session = this.CreateSession(UserId.Create());
+        var query = new ValidateSessionQuery(
+            session.Id,
+            new CredentialSessionCheck(session.UserId, session.UserSecurityVersion, true));
+        this._sessionRepository.GetByIdAsync(session.Id, Arg.Any<CancellationToken>()).Returns(session);
+
+        ValidateSessionResult result = await this._handler.HandleAsync(query);
+
+        result.IsValid.ShouldBeTrue();
+        result.CredentialRejected.ShouldBeFalse();
+        await this._sessionRepository.Received(1).GetByIdAsync(session.Id, Arg.Any<CancellationToken>());
+        await this._sessionRepository.Received(1).UpdateAsync(session, Arg.Any<CancellationToken>());
+        await this._sessionRepository.DidNotReceive().GetValidationSnapshotAsync(Arg.Any<SessionId>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_CredentialSecurityVersionMismatch_RejectsWithoutUpdating()
+    {
+        UserSession session = this.CreateSession(UserId.Create());
+        var query = new ValidateSessionQuery(
+            session.Id,
+            new CredentialSessionCheck(session.UserId, session.UserSecurityVersion + 1, true));
+        this._sessionRepository.GetByIdAsync(session.Id, Arg.Any<CancellationToken>()).Returns(session);
+
+        ValidateSessionResult result = await this._handler.HandleAsync(query);
+
+        result.IsValid.ShouldBeFalse();
+        result.CredentialRejected.ShouldBeTrue();
+        result.Reason.ShouldBeNull();
+        await this._sessionRepository.DidNotReceive().UpdateAsync(Arg.Any<UserSession>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_RevokedSessionWithCredentialCheck_RejectsTheCredentialBeforeTheStatusReason()
+    {
+        UserSession session = this.CreateSession(UserId.Create());
+        session.Revoke(this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        var query = new ValidateSessionQuery(
+            session.Id,
+            new CredentialSessionCheck(session.UserId, session.UserSecurityVersion, true));
+        this._sessionRepository.GetByIdAsync(session.Id, Arg.Any<CancellationToken>()).Returns(session);
+
+        ValidateSessionResult result = await this._handler.HandleAsync(query);
+
+        result.IsValid.ShouldBeFalse();
+        result.CredentialRejected.ShouldBeTrue();
+        result.Reason.ShouldBeNull();
+        await this._sessionRepository.DidNotReceive().UpdateAsync(Arg.Any<UserSession>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_MissingSessionWithCredentialCheck_RejectsTheCredential()
+    {
+        var sessionId = SessionId.Create();
+        var query = new ValidateSessionQuery(sessionId, new CredentialSessionCheck(UserId.Create(), 0, true));
+        this._sessionRepository.GetByIdAsync(sessionId, Arg.Any<CancellationToken>()).Returns((UserSession?)null);
+
+        ValidateSessionResult result = await this._handler.HandleAsync(query);
+
+        result.IsValid.ShouldBeFalse();
+        result.CredentialRejected.ShouldBeTrue();
+        result.Reason.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task HandleAsync_OwnerCannotAuthenticate_RejectsTheCredentialWithoutUpdating()
+    {
+        UserSession session = this.CreateSession(UserId.Create());
+        var query = new ValidateSessionQuery(
+            session.Id,
+            new CredentialSessionCheck(session.UserId, session.UserSecurityVersion, false));
+        this._sessionRepository.GetByIdAsync(session.Id, Arg.Any<CancellationToken>()).Returns(session);
+
+        ValidateSessionResult result = await this._handler.HandleAsync(query);
+
+        result.IsValid.ShouldBeFalse();
+        result.CredentialRejected.ShouldBeTrue();
+        await this._sessionRepository.DidNotReceive().UpdateAsync(Arg.Any<UserSession>(), Arg.Any<CancellationToken>());
+    }
 }

@@ -82,8 +82,11 @@ public class AuthorizationControllerTests : IDisposable
         this._requestService = Substitute.For<IOpenIddictRequestService>();
         this._credentialSessionValidator = Substitute.For<ICredentialSessionValidator>();
         this._antiforgery = Substitute.For<IAntiforgery>();
-        this._credentialSessionValidator.IsValidAsync(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(true));
+        IDateTimeProvider validatedUserClock = Substitute.For<IDateTimeProvider>();
+        validatedUserClock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        User validatedUser = User.CreateLocal("john@example.com", "John Doe", "fixture-hash", validatedUserClock).Value;
+        this._credentialSessionValidator.ValidateAsync(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<CancellationToken>())
+            .Returns(validatedUser);
 
         this._controller = new AuthorizationController(
             this._applicationManager,
@@ -1458,6 +1461,73 @@ public class AuthorizationControllerTests : IDisposable
 
         // Assert
         Assert.IsType<Microsoft.AspNetCore.Mvc.SignInResult>(result);
+        await this._credentialSessionValidator.DidNotReceive().ValidateAsync(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<CancellationToken>());
+        await this._userRepository.Received(1).HandleAsync(new GetUserQuery(tokenUser.Id), Arg.Any<CancellationToken>());
+        await this._validateSessionQueryHandler.Received(1).HandleAsync(
+            Arg.Is<ValidateSessionQuery>(query =>
+                query.SessionId == sessionId
+                && query.Credential!.UserId == tokenUser.Id
+                && query.Credential.SecurityVersion == tokenUser.SecurityVersion
+                && query.Credential.CanAuthenticate == tokenUser.CanAuthenticate()),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Exchange_RefreshToken_CredentialRejection_ReturnsGenericInvalidGrant()
+    {
+        var request = new OpenIddictRequest
+        {
+            ClientId = "test-client",
+            GrantType = OpenIddictConstants.GrantTypes.RefreshToken
+        };
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
+        User tokenUser = this.SetupPersistedTokenUser();
+        var sessionId = SessionId.Create();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(OpenIddictConstants.Claims.Subject, tokenUser.Id.Value.ToString()),
+            new Claim("session_id", sessionId.Value.ToString())
+        ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
+        this.SetupMockServices(principal);
+        this._validateSessionQueryHandler.HandleAsync(Arg.Any<ValidateSessionQuery>(), Arg.Any<CancellationToken>())
+            .Returns(new ValidateSessionResult(false, "Session has been revoked") { CredentialRejected = true });
+
+        ForbidResult forbid = (await this._controller.Exchange()).ShouldBeOfType<ForbidResult>();
+
+        forbid.Properties!.Items[OpenIddictServerAspNetCoreConstants.Properties.Error].ShouldBe(OpenIddictConstants.Errors.InvalidGrant);
+        forbid.Properties.Items[OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription].ShouldBe("The credentials are no longer valid.");
+        await this._credentialSessionValidator.DidNotReceive().ValidateAsync(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<CancellationToken>());
+        await this._validateSessionQueryHandler.Received(1).HandleAsync(Arg.Any<ValidateSessionQuery>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Authorize_LoadedUser_ChecksTheSessionOnceWithoutReloadingTheCredential()
+    {
+        User user = this.SetupPersistedTokenUser();
+        var sessionId = SessionId.Create();
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest { ClientId = "test-client" });
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.NameIdentifier, user.Id.Value.ToString()),
+            new Claim("sid", sessionId.Value.ToString())
+        ], "Cookies"));
+        this._controller.ControllerContext.HttpContext.User = principal;
+        this.SetupMockServices(principal);
+        this.ReturnEffectiveRoles();
+        this._scopeManager.ListResourcesAsync(Arg.Any<ImmutableArray<string>>(), Arg.Any<CancellationToken>())
+            .Returns(AsyncEnumerable.Empty<string>());
+
+        (await this._controller.Authorize()).ShouldBeOfType<SignInResult>();
+
+        await this._credentialSessionValidator.DidNotReceive().ValidateAsync(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<CancellationToken>());
+        await this._userRepository.Received(1).HandleAsync(new GetUserQuery(user.Id), Arg.Any<CancellationToken>());
+        await this._validateSessionQueryHandler.Received(1).HandleAsync(
+            Arg.Is<ValidateSessionQuery>(query =>
+                query.SessionId == sessionId
+                && query.Credential!.UserId == user.Id
+                && query.Credential.SecurityVersion == user.SecurityVersion
+                && query.Credential.CanAuthenticate == user.CanAuthenticate()),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -1581,7 +1651,7 @@ public class AuthorizationControllerTests : IDisposable
             new Claim(OpenIddictConstants.Claims.Email, "stale@example.test")
         ], OpenIddictServerAspNetCoreDefaults.AuthenticationScheme));
         principal.SetScopes(OpenIddictConstants.Scopes.Email);
-        this._userRepository.HandleAsync(new GetUserQuery(user.Id), Arg.Any<CancellationToken>()).Returns(PersistedUser.From(user));
+        this._credentialSessionValidator.ValidateAsync(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<CancellationToken>()).Returns(user);
         this.SetupMockServices(principal);
 
         OkObjectResult result = (await this._controller.UserInfo()).ShouldBeOfType<OkObjectResult>();
@@ -1589,6 +1659,9 @@ public class AuthorizationControllerTests : IDisposable
         Dictionary<string, object> claims = result.Value.ShouldBeOfType<Dictionary<string, object>>();
         claims[OpenIddictConstants.Claims.Email].ShouldBe(user.Email);
         claims[OpenIddictConstants.Claims.EmailVerified].ShouldBe(true);
+        await this._userRepository.DidNotReceive().HandleAsync(Arg.Any<GetUserQuery>(), Arg.Any<CancellationToken>());
+        await this._validateSessionQueryHandler.DidNotReceive().HandleAsync(Arg.Any<ValidateSessionQuery>(), Arg.Any<CancellationToken>());
+        await this._credentialSessionValidator.Received(1).ValidateAsync(user.Id, Arg.Any<SessionId>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]

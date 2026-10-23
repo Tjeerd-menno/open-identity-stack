@@ -37,6 +37,33 @@ public sealed record GetUserResult(
     public Guid CredentialRevision { get; init; }
 
     public IReadOnlyList<EmailVerificationEvidenceDto> EmailVerificationEvidence { get; init; } = [];
+
+    public bool CanAuthenticate { get; init; }
+
+    public long SecurityVersion { get; init; }
+
+    public static GetUserResult From(User user) => new(
+        user.Id,
+        user.Email,
+        user.DisplayName,
+        user.Status,
+        user.MfaEnabled,
+        user.LastLoginAt,
+        user.CreatedAt,
+        user.ModifiedAt,
+        user.GetProfileData())
+    {
+        EmailVerified = user.EmailVerified,
+        CredentialRevision = user.CredentialRevision,
+        EmailVerificationEvidence = user.EmailVerificationEvidence.Select(evidence => new EmailVerificationEvidenceDto(
+            evidence.NormalizedEmail,
+            evidence.ProviderId,
+            evidence.Issuer,
+            evidence.VerifiedAt,
+            evidence.WithdrawnAt)).ToList(),
+        CanAuthenticate = user.CanAuthenticate(),
+        SecurityVersion = user.SecurityVersion,
+    };
 }
 
 public sealed record EmailVerificationEvidenceDto(string Email, Guid? ProviderId, string? Issuer, DateTimeOffset VerifiedAt, DateTimeOffset? WithdrawnAt);

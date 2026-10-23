@@ -1,6 +1,5 @@
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Domain.Common;
-using OpenIdentityStack.Domain.Sessions;
 using OpenIdentityStack.Domain.Users;
 
 using SharedKernel;
@@ -25,18 +24,20 @@ public sealed class CredentialSessionValidator : ICredentialSessionValidator
         this.dateTimeProvider = dateTimeProvider;
     }
 
-    public async Task<bool> IsValidAsync(
+    public async Task<User?> ValidateAsync(
         UserId userId,
         SessionId sessionId,
         CancellationToken cancellationToken = default)
     {
-        UserSession? session = await this.sessionRepository.GetByIdAsync(sessionId, cancellationToken);
-        if (session is null || session.UserId != userId || session.Status != SessionStatus.Active || session.IsExpired(this.dateTimeProvider))
+        SessionValidationSnapshot? session = await this.sessionRepository.GetValidationSnapshotAsync(sessionId, cancellationToken);
+        if (session is null || !session.HasUsableSession(userId, this.dateTimeProvider.UtcNow))
         {
-            return false;
+            return null;
         }
 
-        User? user = await this.userRepository.GetByIdAsync(userId, cancellationToken);
-        return user is not null && user.CanAuthenticate() && user.SecurityVersion == session.UserSecurityVersion;
+        User? user = await this.userRepository.GetReadOnlyByIdAsync(userId, cancellationToken);
+        return user is not null && session.Accepts(userId, user.CanAuthenticate(), user.SecurityVersion, this.dateTimeProvider.UtcNow)
+            ? user
+            : null;
     }
 }

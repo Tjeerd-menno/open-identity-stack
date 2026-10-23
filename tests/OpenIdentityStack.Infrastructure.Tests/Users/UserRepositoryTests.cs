@@ -143,6 +143,23 @@ public sealed class UserRepositoryTests : IClassFixture<SqliteTestFixture>, IAsy
         result.ShouldBeNull();
     }
 
+    [Fact]
+    public async Task GetReadOnlyByIdAsync_ReturnsEvidenceWithoutTracking()
+    {
+        User user = await this.SeedUserAsync("readonly@example.com", "Read Only", "hashed_password");
+        user.VerifyEmail(this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        await this._repository.UpdateAsync(user);
+        await this._repository.SaveChangesAsync();
+        this._dbContext.ChangeTracker.Clear();
+
+        User? result = await this._repository.GetReadOnlyByIdAsync(user.Id);
+
+        result.ShouldNotBeNull();
+        result.EmailVerified.ShouldBeTrue();
+        result.EmailVerificationEvidence.Count.ShouldBe(1);
+        this._dbContext.ChangeTracker.Entries().ShouldBeEmpty();
+    }
+
     #endregion
 
     #region GetByIdsAsync Tests

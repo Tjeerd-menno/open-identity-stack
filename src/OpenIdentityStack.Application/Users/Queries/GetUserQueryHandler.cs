@@ -21,27 +21,12 @@ public sealed class GetUserQueryHandler : IGetUserQueryHandler
         GetUserQuery query,
         CancellationToken cancellationToken = default)
     {
-        User? user = await this.userRepository.GetByIdAsync(query.UserId, cancellationToken);
+        User? user = await this.userRepository.GetReadOnlyByIdAsync(query.UserId, cancellationToken);
         if (user is null)
         {
             return UserErrors.NotFound;
         }
 
-        return new GetUserResult(
-            user.Id,
-            user.Email,
-            user.DisplayName,
-            user.Status,
-            user.MfaEnabled,
-            user.LastLoginAt,
-            user.CreatedAt,
-            user.ModifiedAt,
-            user.GetProfileData())
-        {
-            EmailVerified = user.EmailVerified,
-            CredentialRevision = user.CredentialRevision,
-            EmailVerificationEvidence = user.EmailVerificationEvidence.Select(e => new EmailVerificationEvidenceDto(
-                e.NormalizedEmail, e.ProviderId, e.Issuer, e.VerifiedAt, e.WithdrawnAt)).ToList()
-        };
+        return GetUserResult.From(user);
     }
 }

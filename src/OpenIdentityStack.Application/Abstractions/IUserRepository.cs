@@ -18,6 +18,11 @@ internal interface IUserRepository
     Task<User?> GetByIdAsync(UserId id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a user by id without attaching the user to the change tracker.
+    /// </summary>
+    Task<User?> GetReadOnlyByIdAsync(UserId id, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets the users matching the supplied identifiers in a single batch.
     /// Identifiers that do not match an existing user are omitted from the result.
     /// The order of the returned users is not guaranteed; callers that need a
