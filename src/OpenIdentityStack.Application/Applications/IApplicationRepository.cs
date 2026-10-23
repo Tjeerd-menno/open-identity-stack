@@ -1,7 +1,16 @@
+using OpenIdentityStack.Domain.Applications;
 using DomainApplication = OpenIdentityStack.Domain.Applications.Application;
 using DomainApplicationId = OpenIdentityStack.Domain.Applications.ApplicationId;
 
 namespace OpenIdentityStack.Application.Applications;
+
+/// <summary>
+/// Client fields read on the token path. The aggregate and its credentials stay unloaded.
+/// </summary>
+internal sealed record ClientTokenProjection(
+    DomainApplicationId Id,
+    ApplicationStatus Status,
+    IReadOnlyList<string> AllowedScopes);
 
 /// <summary>
 /// Repository interface for application aggregate persistence.
@@ -11,6 +20,8 @@ internal interface IApplicationRepository
     Task<DomainApplication?> GetByIdAsync(DomainApplicationId id, CancellationToken cancellationToken = default);
 
     Task<DomainApplication?> GetByClientIdAsync(string clientId, CancellationToken cancellationToken = default);
+
+    Task<ClientTokenProjection?> GetTokenProjectionAsync(string clientId, CancellationToken cancellationToken = default);
 
     Task<bool> ExistsByClientIdAsync(string clientId, CancellationToken cancellationToken = default);
 

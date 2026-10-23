@@ -37,6 +37,26 @@ public sealed class ApplicationRepository : IApplicationRepository
             .FirstOrDefaultAsync(application => application.ClientId == clientId, cancellationToken);
     }
 
+    async Task<ClientTokenProjection?> IApplicationRepository.GetTokenProjectionAsync(
+        string clientId,
+        CancellationToken cancellationToken)
+    {
+        var row = await this.dbContext.Applications
+            .AsNoTracking()
+            .Where(application => application.ClientId == clientId)
+            .Select(application => new
+            {
+                application.Id,
+                application.Status,
+                AllowedScopes = EF.Property<List<string>>(application, "allowedScopes")
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return row is null
+            ? null
+            : new ClientTokenProjection(row.Id, row.Status, row.AllowedScopes);
+    }
+
     public async Task<bool> ExistsByClientIdAsync(
         string clientId,
         CancellationToken cancellationToken = default)
