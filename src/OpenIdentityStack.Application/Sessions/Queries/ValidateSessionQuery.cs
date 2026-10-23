@@ -8,14 +8,26 @@ namespace OpenIdentityStack.Application.Sessions.Queries;
 /// Query to validate if a session is still active.
 /// </summary>
 /// <param name="SessionId">The session ID to validate.</param>
-public sealed record ValidateSessionQuery(SessionId SessionId);
+/// <param name="Credential">Owner facts already loaded by the caller. When set, the session is loaded once and those facts are checked before a status reason is returned.</param>
+public sealed record ValidateSessionQuery(SessionId SessionId, CredentialSessionCheck? Credential = null);
+
+/// <summary>
+/// User facts already read by the caller so session validation does not load the user again.
+/// </summary>
+public sealed record CredentialSessionCheck(UserId UserId, long SecurityVersion, bool CanAuthenticate);
 
 /// <summary>
 /// Result of session validation.
 /// </summary>
 /// <param name="IsValid">Whether the session is valid.</param>
 /// <param name="Reason">Reason if session is invalid.</param>
-public sealed record ValidateSessionResult(bool IsValid, string? Reason = null);
+public sealed record ValidateSessionResult(bool IsValid, string? Reason = null)
+{
+    /// <summary>
+    /// Gets whether the credential owner check failed. Callers show the generic credential error instead of <see cref="Reason"/>.
+    /// </summary>
+    public bool CredentialRejected { get; init; }
+}
 
 /// <summary>
 /// Query handler interface for validating sessions.
@@ -58,7 +70,22 @@ public sealed class ValidateSessionQueryHandler : IValidateSessionQueryHandler
 
         if (session is null)
         {
-            return new ValidateSessionResult(false, "Session not found");
+            return query.Credential is null
+                ? new ValidateSessionResult(false, "Session not found")
+                : new ValidateSessionResult(false) { CredentialRejected = true };
+        }
+
+        if (query.Credential is { } credential)
+        {
+            var snapshot = new SessionValidationSnapshot(
+                session.UserId,
+                session.Status,
+                session.ExpiresAt,
+                session.UserSecurityVersion);
+            if (!snapshot.Accepts(credential.UserId, credential.CanAuthenticate, credential.SecurityVersion, this.dateTimeProvider.UtcNow))
+            {
+                return new ValidateSessionResult(false) { CredentialRejected = true };
+            }
         }
 
         if (session.Status == SessionStatus.Revoked)

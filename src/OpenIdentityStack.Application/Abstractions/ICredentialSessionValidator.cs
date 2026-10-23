@@ -1,4 +1,5 @@
 using OpenIdentityStack.Domain.Common;
+using OpenIdentityStack.Domain.Users;
 
 namespace OpenIdentityStack.Application.Abstractions;
 
@@ -7,7 +8,10 @@ namespace OpenIdentityStack.Application.Abstractions;
 /// </summary>
 public interface ICredentialSessionValidator
 {
-    Task<bool> IsValidAsync(
+    /// <summary>
+    /// Returns the user when the session is still a usable credential for that user.
+    /// </summary>
+    Task<User?> ValidateAsync(
         UserId userId,
         SessionId sessionId,
         CancellationToken cancellationToken = default);

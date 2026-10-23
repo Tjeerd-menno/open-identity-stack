@@ -31,7 +31,7 @@ public sealed class GetUserQueryHandlerTests
         var userId = new UserId(Guid.NewGuid());
         var query = new GetUserQuery(userId);
 
-        this._userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
+        this._userRepository.GetReadOnlyByIdAsync(userId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
 
         // Act
@@ -49,7 +49,7 @@ public sealed class GetUserQueryHandlerTests
         User user = CreateUser();
         var query = new GetUserQuery(user.Id);
 
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
+        this._userRepository.GetReadOnlyByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
 
         // Act
@@ -66,7 +66,7 @@ public sealed class GetUserQueryHandlerTests
         User user = CreateUser("found@example.com", "Found User");
         var query = new GetUserQuery(user.Id);
 
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
+        this._userRepository.GetReadOnlyByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
 
         // Act
@@ -83,7 +83,7 @@ public sealed class GetUserQueryHandlerTests
         User user = CreateUser("found@example.com", "Found User");
         var query = new GetUserQuery(user.Id);
 
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
+        this._userRepository.GetReadOnlyByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
 
         // Act
@@ -100,7 +100,7 @@ public sealed class GetUserQueryHandlerTests
         User user = CreateUser();
         var query = new GetUserQuery(user.Id);
 
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
+        this._userRepository.GetReadOnlyByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
 
         // Act
@@ -117,7 +117,7 @@ public sealed class GetUserQueryHandlerTests
         User user = CreateUser();
         var query = new GetUserQuery(user.Id);
 
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
+        this._userRepository.GetReadOnlyByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
 
         // Act
@@ -134,7 +134,7 @@ public sealed class GetUserQueryHandlerTests
         User user = CreateUser();
         var query = new GetUserQuery(user.Id);
 
-        this._userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
+        this._userRepository.GetReadOnlyByIdAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
 
         // Act
@@ -145,6 +145,22 @@ public sealed class GetUserQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_UserFound_MapsCredentialFactsFromTheReadOnlyUser()
+    {
+        User user = CreateUser();
+        user.VerifyEmail(this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        user.SetPassword("replacement-hash", this._dateTimeProvider).IsSuccess.ShouldBeTrue();
+        this._userRepository.GetReadOnlyByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+
+        Result<GetUserResult> result = await this._handler.HandleAsync(new GetUserQuery(user.Id));
+
+        result.Value.CanAuthenticate.ShouldBeTrue();
+        result.Value.SecurityVersion.ShouldBe(user.SecurityVersion);
+        result.Value.EmailVerified.ShouldBeTrue();
+        await this._userRepository.DidNotReceive().GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_PassesCancellationToken()
     {
         // Arrange
@@ -152,14 +168,14 @@ public sealed class GetUserQueryHandlerTests
         var query = new GetUserQuery(user.Id);
         using var cts = new CancellationTokenSource();
 
-        this._userRepository.GetByIdAsync(user.Id, cts.Token)
+        this._userRepository.GetReadOnlyByIdAsync(user.Id, cts.Token)
             .Returns(user);
 
         // Act
         await this._handler.HandleAsync(query, cts.Token);
 
         // Assert
-        await this._userRepository.Received(1).GetByIdAsync(user.Id, cts.Token);
+        await this._userRepository.Received(1).GetReadOnlyByIdAsync(user.Id, cts.Token);
     }
 
     private User CreateUser(string email = "user@example.com", string displayName = "Test User")

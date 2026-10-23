@@ -27,6 +27,14 @@ public sealed class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<User?> GetReadOnlyByIdAsync(UserId id, CancellationToken cancellationToken = default)
+    {
+        return await this.dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<User>> GetByIdsAsync(IEnumerable<UserId> ids, CancellationToken cancellationToken = default)
     {
         // Distinct guards against duplicate identifiers; chunking keeps each IN clause

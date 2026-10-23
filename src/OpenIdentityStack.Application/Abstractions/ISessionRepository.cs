@@ -14,6 +14,11 @@ internal interface ISessionRepository
     Task<UserSession?> GetByIdAsync(SessionId id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Reads the fields needed to validate a credential without tracking the session or its clients.
+    /// </summary>
+    Task<SessionValidationSnapshot?> GetValidationSnapshotAsync(SessionId id, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets all sessions for a user.
     /// </summary>
     Task<IReadOnlyList<UserSession>> GetByUserIdAsync(

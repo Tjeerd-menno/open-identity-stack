@@ -30,6 +30,26 @@ public sealed class SessionRepository : ISessionRepository
     }
 
     /// <inheritdoc/>
+    async Task<SessionValidationSnapshot?> ISessionRepository.GetValidationSnapshotAsync(SessionId id, CancellationToken cancellationToken)
+    {
+        var row = await this.context.UserSessions
+            .AsNoTracking()
+            .Where(session => session.Id == id)
+            .Select(session => new
+            {
+                session.UserId,
+                session.Status,
+                session.ExpiresAt,
+                session.UserSecurityVersion,
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return row is null
+            ? null
+            : new SessionValidationSnapshot(row.UserId, row.Status, row.ExpiresAt, row.UserSecurityVersion);
+    }
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<UserSession>> GetByUserIdAsync(
         UserId userId,
         CancellationToken cancellationToken = default)

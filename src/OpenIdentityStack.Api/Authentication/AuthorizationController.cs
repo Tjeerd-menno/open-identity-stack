@@ -180,9 +180,7 @@ public class AuthorizationController : Controller
         string? sessionIdValue = user.FindFirstValue("sid") ?? user.FindFirstValue(legacySessionIdClaim);
         if (!Guid.TryParse(sessionIdValue, out Guid sessionIdGuid)
             || userId is null
-            || !await this.HasValidCredentialSessionAsync(user, userId.Value)
-            || !(await this.validateSessionQueryHandler.HandleAsync(
-                new ValidateSessionQuery(new SessionId(sessionIdGuid)), this.HttpContext.RequestAborted)).IsValid)
+            || await this.ValidateKnownCredentialAsync(user, userId.Value, persistedUser) is not { IsValid: true })
         {
             await this.HttpContext.SignOutAsync("Cookies");
             if (promptNone)
@@ -570,27 +568,26 @@ public class AuthorizationController : Controller
             string? sessionIdStr = result.Principal.FindFirst("sid")?.Value
                 ?? result.Principal.FindFirst(legacySessionIdClaim)?.Value;
 
-            if (!Guid.TryParse(sessionIdStr, out Guid sessionIdGuid)
-                || TryParseUserId(subject ?? string.Empty) is not { } sessionUserId
-                || !await this.HasValidCredentialSessionAsync(result.Principal, sessionUserId))
+            if (TryParseUserId(subject ?? string.Empty) is not { } sessionUserId)
             {
                 return this.RejectUnavailableCredentials();
             }
 
+            ValidateSessionResult? validateResult = await this.ValidateKnownCredentialAsync(result.Principal, sessionUserId, tokenUser);
+            if (validateResult is null || (!validateResult.IsValid && validateResult.CredentialRejected))
             {
-                ValidateSessionResult validateResult = await this.validateSessionQueryHandler.HandleAsync(
-                    new ValidateSessionQuery(new SessionId(sessionIdGuid)));
+                return this.RejectUnavailableCredentials();
+            }
 
-                if (!validateResult.IsValid)
-                {
-                    return this.Forbid(
-                        authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
-                        properties: new AuthenticationProperties(new Dictionary<string, string?>
-                        {
-                            [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.InvalidGrant,
-                            [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = validateResult.Reason ?? "Session invalid"
-                        }));
-                }
+            if (!validateResult.IsValid)
+            {
+                return this.Forbid(
+                    authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
+                    properties: new AuthenticationProperties(new Dictionary<string, string?>
+                    {
+                        [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.InvalidGrant,
+                        [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = validateResult.Reason ?? "Session invalid"
+                    }));
             }
 
             DateTimeOffset? authenticationTime = GetAuthenticationTime(result.Properties, result.Principal!);
@@ -682,12 +679,21 @@ public class AuthorizationController : Controller
         if (!applicationSubject)
         {
             if (TryParseUserId(subject ?? string.Empty) is not { } userId
-                || !await this.HasValidCredentialSessionAsync(principal, userId))
+                || !TryGetSessionId(principal, out SessionId sessionId))
             {
                 return this.InvalidUserInfoToken();
             }
 
-            emailEvidenceUser = await this.FindUserAsync(userId);
+            Domain.Users.User? validatedUser = await this.credentialSessionValidator.ValidateAsync(
+                userId,
+                sessionId,
+                this.HttpContext.RequestAborted);
+            if (validatedUser is null)
+            {
+                return this.InvalidUserInfoToken();
+            }
+
+            emailEvidenceUser = GetUserResult.From(validatedUser);
         }
 
         ClaimsPrincipal projected = this.tokenClaimProjectionService.ProjectExistingPrincipal(result.Principal!, persistedUser: emailEvidenceUser);
@@ -710,11 +716,46 @@ public class AuthorizationController : Controller
         return result is { IsSuccess: true } ? result.Value : null;
     }
 
-    private async Task<bool> HasValidCredentialSessionAsync(ClaimsPrincipal principal, UserId userId)
+    private async Task<ValidateSessionResult?> ValidateKnownCredentialAsync(
+        ClaimsPrincipal principal,
+        UserId userId,
+        GetUserResult? loadedUser)
     {
-        string? sessionId = principal.FindFirstValue("sid") ?? principal.FindFirstValue(legacySessionIdClaim);
-        return Guid.TryParse(sessionId, out Guid parsedSessionId)
-            && await this.credentialSessionValidator.IsValidAsync(userId, new SessionId(parsedSessionId), this.HttpContext.RequestAborted);
+        if (!TryGetSessionId(principal, out SessionId sessionId))
+        {
+            return null;
+        }
+
+        if (loadedUser is { } user && user.Id == userId)
+        {
+            return await this.validateSessionQueryHandler.HandleAsync(
+                new ValidateSessionQuery(
+                    sessionId,
+                    new CredentialSessionCheck(user.Id, user.SecurityVersion, user.CanAuthenticate)),
+                this.HttpContext.RequestAborted);
+        }
+
+        if (await this.credentialSessionValidator.ValidateAsync(userId, sessionId, this.HttpContext.RequestAborted) is null)
+        {
+            return new ValidateSessionResult(false) { CredentialRejected = true };
+        }
+
+        return await this.validateSessionQueryHandler.HandleAsync(
+            new ValidateSessionQuery(sessionId),
+            this.HttpContext.RequestAborted);
+    }
+
+    private static bool TryGetSessionId(ClaimsPrincipal principal, out SessionId sessionId)
+    {
+        string? sessionValue = principal.FindFirstValue("sid") ?? principal.FindFirstValue(legacySessionIdClaim);
+        if (!Guid.TryParse(sessionValue, out Guid parsedSessionId))
+        {
+            sessionId = default;
+            return false;
+        }
+
+        sessionId = new SessionId(parsedSessionId);
+        return true;
     }
 
     // NOTE: Logout endpoint is handled by LogoutController which implements

@@ -66,9 +66,9 @@ internal sealed class CredentialCookieOptionsPostConfigure : IPostConfigureOptio
 
             if (!Guid.TryParse(userIdValue, out Guid userId)
                 || !Guid.TryParse(sessionIdValue, out Guid sessionId)
-                || !await context.HttpContext.RequestServices
+                || await context.HttpContext.RequestServices
                     .GetRequiredService<ICredentialSessionValidator>()
-                    .IsValidAsync(new UserId(userId), new SessionId(sessionId), context.HttpContext.RequestAborted))
+                    .ValidateAsync(new UserId(userId), new SessionId(sessionId), context.HttpContext.RequestAborted) is null)
             {
                 context.RejectPrincipal();
                 await context.HttpContext.SignOutAsync("Cookies");

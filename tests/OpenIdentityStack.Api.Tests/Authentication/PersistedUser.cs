@@ -9,20 +9,7 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 
 internal static class PersistedUser
 {
-    public static GetUserResult From(User user) => new(
-        user.Id,
-        user.Email,
-        user.DisplayName,
-        user.Status,
-        user.MfaEnabled,
-        user.LastLoginAt,
-        user.CreatedAt,
-        user.ModifiedAt,
-        user.GetProfileData())
-    {
-        EmailVerified = user.EmailVerified,
-        CredentialRevision = user.CredentialRevision,
-    };
+    public static GetUserResult From(User user) => GetUserResult.From(user);
 
     public static AuthenticationSettingsDto From(AuthenticationSettings settings) =>
         new(settings.DefaultProviderId, settings.IsLocalDefault, settings.LocalFallbackEnabled, settings.UpdatedAt);

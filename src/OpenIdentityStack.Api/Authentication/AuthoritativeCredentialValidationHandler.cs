@@ -43,8 +43,8 @@ public sealed class AuthoritativeCredentialValidationHandler
 
         if (!Guid.TryParse(subject, out Guid userId)
             || !Guid.TryParse(session, out Guid sessionId)
-            || !await this.credentialSessionValidator.IsValidAsync(
-                new UserId(userId), new SessionId(sessionId)))
+            || await this.credentialSessionValidator.ValidateAsync(
+                new UserId(userId), new SessionId(sessionId)) is null)
         {
             context.Reject(
                 error: Errors.InvalidToken,
@@ -81,7 +81,7 @@ public sealed class AuthoritativeIntrospectionHandler
         string? session = principal.FindFirstValue("sid") ?? principal.FindFirstValue(TokenClaimProjectionService.LegacySessionIdClaim);
         if (!Guid.TryParse(subject, out Guid userId)
             || !Guid.TryParse(session, out Guid sessionId)
-            || !await this.credentialSessionValidator.IsValidAsync(new UserId(userId), new SessionId(sessionId)))
+            || await this.credentialSessionValidator.ValidateAsync(new UserId(userId), new SessionId(sessionId)) is null)
         {
             context.Reject(
                 error: Errors.InvalidToken,
