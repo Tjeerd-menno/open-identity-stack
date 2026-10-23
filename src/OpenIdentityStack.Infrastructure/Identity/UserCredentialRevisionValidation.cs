@@ -1,5 +1,7 @@
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using OpenIddict.Validation;
@@ -15,6 +17,12 @@ public sealed class UserCredentialRevisionValidation(OpenIdentityStackDbContext 
     IOpenIddictServerHandler<OpenIddictServerEvents.ProcessSignInContext>,
     IOpenIddictValidationHandler<OpenIddictValidationEvents.ValidateTokenContext>
 {
+    // EF.CompileAsyncQuery binds a plan to one model instance. Contexts that do not share a
+    // model each compile once. Every call still reads the database.
+    private static readonly ConditionalWeakTable<
+        IModel,
+        Func<OpenIdentityStackDbContext, UserId, CancellationToken, Task<Guid?>>> currentCredentialRevision = new();
+
     public async ValueTask HandleAsync(OpenIddictServerEvents.ValidateTokenContext context)
     {
         // Logout hints and client assertions do not authorize user access or refresh grants.
@@ -71,10 +79,16 @@ public sealed class UserCredentialRevisionValidation(OpenIdentityStackDbContext 
             return capturedRevision is null;
         }
 
-        // A fresh scalar query avoids both identity-map and OpenIddict token-cache state.
-        Guid? currentRevision = await dbContext.Users.AsNoTracking()
-            .Where(u => u.Id == new UserId(subject)).Select(u => (Guid?)u.CredentialRevision)
-            .SingleOrDefaultAsync(cancellationToken);
+        Func<OpenIdentityStackDbContext, UserId, CancellationToken, Task<Guid?>> revisionQuery =
+            currentCredentialRevision.GetValue(
+                dbContext.Model,
+                static _ => EF.CompileAsyncQuery(
+                    (OpenIdentityStackDbContext context, UserId id, CancellationToken _) =>
+                        context.Users.AsNoTracking()
+                            .Where(user => user.Id == id)
+                            .Select(user => (Guid?)user.CredentialRevision)
+                            .SingleOrDefault()));
+        Guid? currentRevision = await revisionQuery(dbContext, new UserId(subject), cancellationToken);
         if (!currentRevision.HasValue)
         {
             return capturedRevision is null; // Application subjects have no user revision.
