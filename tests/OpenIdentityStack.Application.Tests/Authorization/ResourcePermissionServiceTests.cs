@@ -96,6 +96,33 @@ public sealed class ResourcePermissionServiceTests
     }
 
     [Fact]
+    public async Task ProjectAsync_WithoutAuthorityRevisionDoesNotReuseAnAdministrativeDecision()
+    {
+        var administrativeResource = ProtectedResource.CreateAdministrative();
+        ClientApplication administrativeClient = ClientApplication.CreateMachineToMachine(
+            "admin-client", "Admin client", null, [ProtectedResource.AdministrativeScope], this.clock).Value;
+        this.applications.GetTokenProjectionAsync(administrativeClient.ClientId, Arg.Any<CancellationToken>()).Returns(ClientProjection(administrativeClient));
+        this.scopes[ProtectedResource.AdministrativeScope] = administrativeResource;
+        this.audiences[ProtectedResource.AdministrativeAudience] = administrativeResource;
+        this.grants[administrativeResource.Id] = ClientResourceGrant.Create(administrativeClient.Id, administrativeResource.Id, ["*"], []).Value;
+        var request = new ResourceTokenRequest(
+            administrativeClient.ClientId,
+            [ProtectedResource.AdministrativeScope],
+            [ProtectedResource.AdministrativeAudience],
+            this.user.Id,
+            ["users:read"],
+            [ProtectedResource.AdministrativeAudience]);
+
+        (await this.service.ProjectAsync(request)).Value.Permissions.ShouldBe(["users:read"]);
+        (await this.service.ProjectAsync(request)).Value.Permissions.ShouldBe(["users:read"]);
+
+        await this.roles.Received(2).HandleAsync(this.user.Id, Arg.Any<CancellationToken>());
+        await this.users.Received(2).GetByIdAsync(this.user.Id, Arg.Any<CancellationToken>());
+        await this.applications.Received(2).GetTokenProjectionAsync(administrativeClient.ClientId, Arg.Any<CancellationToken>());
+        await this.applications.DidNotReceive().GetByClientIdAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ProjectAsync_RejectsAdministrativeProjectionWhenUserRolesAreFullyRevoked()
     {
         var administrativeResource = ProtectedResource.CreateAdministrative();

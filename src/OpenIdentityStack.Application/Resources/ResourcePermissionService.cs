@@ -17,23 +17,31 @@ public sealed class ResourcePermissionService : IResourcePermissionService
     private readonly IApplicationPermissionRegistryRepository registry;
     private readonly IUserRepository users;
     private readonly IGetUserEffectiveRolesQueryHandler roles;
+    private readonly AdministrativeAccessDecisionCache cache;
 
     internal ResourcePermissionService(
         IResourceAccessRepository resources,
         IApplicationRepository applications,
         IApplicationPermissionRegistryRepository registry,
         IUserRepository users,
-        IGetUserEffectiveRolesQueryHandler roles)
+        IGetUserEffectiveRolesQueryHandler roles,
+        AdministrativeAccessDecisionCache? cache = null)
     {
         this.resources = resources;
         this.applications = applications;
         this.registry = registry;
         this.users = users;
         this.roles = roles;
+        this.cache = cache ?? new AdministrativeAccessDecisionCache();
     }
 
     public async Task<Result<ResourceTokenProjection>> ProjectAsync(ResourceTokenRequest request, CancellationToken cancellationToken = default)
     {
+        if (await this.FindCachedAdministrativeProjectionAsync(request, cancellationToken) is { } cached)
+        {
+            return cached;
+        }
+
         ClientTokenProjection? client = await applications.GetTokenProjectionAsync(request.ClientId, cancellationToken);
         if (client is null || client.Status != ApplicationStatus.Active)
         {
@@ -155,7 +163,78 @@ public sealed class ResourcePermissionService : IResourcePermissionService
             return ResourceAccessErrors.NotGranted;
         }
 
-        return new ResourceTokenProjection(requested.Values.Select(static resource => resource.Audience).Order(StringComparer.Ordinal).ToArray(),
+        var projection = new ResourceTokenProjection(requested.Values.Select(static resource => resource.Audience).Order(StringComparer.Ordinal).ToArray(),
             permissions.Order(StringComparer.Ordinal).ToArray(), revisions);
+        this.RememberAdministrativeProjection(request, projection);
+        return projection;
     }
+
+    private async Task<ResourceTokenProjection?> FindCachedAdministrativeProjectionAsync(
+        ResourceTokenRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetAdministrativeCacheKey(request, out long revision, out string fingerprint)
+            || this.cache.Find(revision, fingerprint) is not { } cached)
+        {
+            return null;
+        }
+
+        // The revision row can still be read when the administrative resource table cannot.
+        // Re-read that resource through the batched scope lookup so a store outage fails the
+        // request instead of replaying a cached allow.
+        ProtectedResource? resource = (await this.resources.FindByScopesAsync([ProtectedResource.AdministrativeScope], cancellationToken))
+            .SingleOrDefault(candidate => string.Equals(candidate.Scope, ProtectedResource.AdministrativeScope, StringComparison.Ordinal));
+        if (resource is { Enabled: true }
+            && string.Equals(resource.Audience, ProtectedResource.AdministrativeAudience, StringComparison.Ordinal))
+        {
+            return cached;
+        }
+
+        this.cache.Evict(revision, fingerprint);
+        return null;
+    }
+
+    private void RememberAdministrativeProjection(ResourceTokenRequest request, ResourceTokenProjection projection)
+    {
+        if (!TryGetAdministrativeCacheKey(request, out long revision, out string fingerprint))
+        {
+            return;
+        }
+
+        this.cache.Store(revision, fingerprint, new ResourceTokenProjection(
+            projection.Audiences.ToArray(),
+            projection.Permissions.ToArray(),
+            new Dictionary<Guid, long>(projection.GrantRevisions)));
+    }
+
+    /// <summary>
+    /// Administrative calls pass the revision just captured for the request.
+    /// Token issuance leaves it unset and always reads current authority.
+    /// Caller-supplied user permissions are not cached: they skip the live role query.
+    /// </summary>
+    private static bool TryGetAdministrativeCacheKey(ResourceTokenRequest request, out long revision, out string fingerprint)
+    {
+        fingerprint = string.Empty;
+        if (request.AuthorityRevision is not long authorityRevision
+            || request.UserPermissions is not null
+            || request.Scopes is not [ProtectedResource.AdministrativeScope]
+            || request.RequestedResources is not [ProtectedResource.AdministrativeAudience]
+            || request.OriginalAudiences is not (null or [ProtectedResource.AdministrativeAudience]))
+        {
+            revision = 0;
+            return false;
+        }
+
+        revision = authorityRevision;
+        fingerprint = string.Join(
+            '\u001f',
+            request.ClientId,
+            request.UserId is { } subject ? subject.Value.ToString("D") : "application",
+            Ceiling(request.OriginalPermissions));
+        return true;
+    }
+
+    private static string Ceiling(IReadOnlyList<string>? values) => values is null
+        ? "\u0000"
+        : string.Join('\u001e', values.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
 }
