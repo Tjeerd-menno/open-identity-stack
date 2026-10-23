@@ -1,0 +1,3714 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="OpenIdentityStack documentation for identity operators and platform teams.">
+      
+      
+      
+        <link rel="canonical" href="https://tjeerd-menno.github.io/open-identity-stack/agents/agent-friendly-architecture-plan/">
+      
+      
+        <link rel="prev" href="../../engineering/application-permission-transaction-notes/">
+      
+      
+        <link rel="next" href="../../adr/0001-dual-admin-ui-strategy/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.5">
+    
+    
+      
+        <title>Agent-friendly architecture plan - OpenIdentityStack</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.8608ea7d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#agent-friendly-architecture-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="OpenIdentityStack" class="md-header__button md-logo" aria-label="OpenIdentityStack" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenIdentityStack
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Agent-friendly architecture plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-hidden="true"  type="radio" name="__palette" id="__palette_1">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Tjeerd-menno/open-identity-stack" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Tjeerd-menno/open-identity-stack
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="OpenIdentityStack" class="md-nav__button md-logo" aria-label="OpenIdentityStack" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenIdentityStack
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Tjeerd-menno/open-identity-stack" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Tjeerd-menno/open-identity-stack
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Getting started
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Getting started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/guided-setup/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Guided setup
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quick-start/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick start
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Features
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Features
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Installation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/local/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Local development
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/containers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Containers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/production/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Production (Kubernetes)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/windows-service/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Windows service
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../configuration/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Configuration
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Configuration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/runtime-settings/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Runtime settings
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/environment-variables/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Environment variables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../operations/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Operations
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Operations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/health-and-observability/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Health and observability
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/database-operations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Database operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/upgrades/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrades
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications-migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Applications migration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Administration
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Administration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin-applications/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Applications
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/users-and-roles/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Users and roles
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/groups-and-delegation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Groups and delegation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/clients/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Client applications
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/service-accounts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service accounts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/federation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Federation providers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/sessions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Sessions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Management Web
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Management Web
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../management-web/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../integrations/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Integrations
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Integrations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/web-app-oidc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web app OIDC integration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/api-protection/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API protection
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/machine-to-machine/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Machine-to-machine access
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/verify-integration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Verify an integration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            Troubleshooting
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/startup-failures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Startup failures
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/database-and-migration-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Database and migration issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/login-and-token-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Login and token issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/certificates-and-key-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificates and key issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/reverse-proxy-and-cors-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Reverse proxy and CORS issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/clients-and-service-accounts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Clients and service accounts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Security
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Security
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/oidc-iam-conformance-assessment/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OIDC and IAM assessment
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/identity-boundary-rollout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Identity boundary rollout
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/email-verification-evidence/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Email verification evidence
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/unrestricted-administration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Unrestricted administration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/administrative-client-access/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Administrative client access
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/identity-boundary-implementation-evidence/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Identity boundary implementation evidence
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/hardening-checklist/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hardening checklist
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/secrets-management/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Secrets management
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/certificates-and-keys/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificates and keys
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/backup-and-recovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Backup and recovery
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" checked>
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_2" id="__nav_12_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Product reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_2">
+            <span class="md-nav__icon md-icon"></span>
+            Product reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/configuration-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/endpoint-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Endpoint reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/standards-and-flows/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Standards and flows
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/glossary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Glossary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_12_3" id="__nav_12_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Internal reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_12_3">
+            <span class="md-nav__icon md-icon"></span>
+            Internal reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/API-VS-CONTRACT-TESTING-SUMMARY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API vs Contract Testing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CODE_COVERAGE_GUIDE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Code coverage guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CODE_COVERAGE_SUMMARY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage summary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CODE_COVERAGE_ANALYSIS/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CONTRACT-TEST-MIGRATION-GUIDE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Contract test migration guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/TESTING-STRATEGY/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Testing strategy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/UNDERSTANDING_COVERAGE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Coverage interpretation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/GHCR-PUBLISHING/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GHCR publishing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/OPENIDENTITYSTACK_PRODUCTION/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Production config guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../engineering/application-permission-transaction-notes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Application permission transaction notes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Agent-friendly architecture plan
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Agent-friendly architecture plan
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-recall-could-and-could-not-see" class="md-nav__link">
+    <span class="md-ellipsis">
+      What recall could and could not see
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-the-current-shape-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      Why the current shape exists
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pitfall-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pitfall classes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pitfall classes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-a-second-path-skips-the-invariant" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. A second path skips the invariant
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-secrets-and-sensitive-snapshots-get-logged-or-shipped" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Secrets and sensitive snapshots get logged or shipped
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-tests-pass-without-checking-the-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Tests pass without checking the behavior
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-hot-paths-issue-another-query-or-allocation-per-row-or-per-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Hot paths issue another query or allocation per row or per call
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-retired-names-and-deleted-stacks-stay-copyable" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Retired names and deleted stacks stay copyable
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-coverage-or-ci-says-pass-while-the-data-was-dropped" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Coverage or CI says pass while the data was dropped
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-case-and-culture-of-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Case and culture of strings
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-e2e-uses-a-fixed-sleep-or-a-native-checkbox-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. E2E uses a fixed sleep or a native checkbox API
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-a-second-copy-of-a-list-or-contract-drifts" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. A second copy of a list or contract drifts
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-the-same-behavior-is-registered-twice" class="md-nav__link">
+    <span class="md-ellipsis">
+      10. The same behavior is registered twice
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#11-the-ui-gates-a-different-permission-than-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      11. The UI gates a different permission than the API
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-a-container-runs-as-root" class="md-nav__link">
+    <span class="md-ellipsis">
+      12. A container runs as root
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-docs-name-files-or-types-that-are-not-there" class="md-nav__link">
+    <span class="md-ellipsis">
+      13. Docs name files or types that are not there
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chosen-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      Chosen enforcement
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#two-whole-shapes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Two whole shapes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Two whole shapes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#candidate-a-one-workflow-type-inside-the-current-four-projects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Candidate A. One workflow type inside the current four projects
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#candidate-b-one-project-per-aggregate-public-method-is-mapusers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Candidate B. One project per aggregate, public method is MapUsers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      Screen
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Synthesis
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prototype-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prototype results
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phased-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phased execution
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#owner-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Owner decisions
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_4" id="__nav_12_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Architecture decisions
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_4">
+            <span class="md-nav__icon md-icon"></span>
+            Architecture decisions
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-dual-admin-ui-strategy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dual admin UI strategy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-dual-host-management-ui/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dual-host management UI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0003-unified-release-train-for-breaking-api-changes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Unified release train for breaking API changes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0004-management-web-opaque-access-token-permissions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Management Web opaque access token permissions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-identity-and-administrative-trust-boundaries/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Identity and administrative trust boundaries
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_12_5" id="__nav_12_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Certification workbench
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_12_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12_5">
+            <span class="md-nav__icon md-icon"></span>
+            Certification workbench
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../certification/oidf-negative-review-automation-plan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OIDC negative review automation plan
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../certification/openid-connect-certification-scope/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OpenID Connect certification scope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../certification/run-oidf-conformance-suite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OIDC conformance suite
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-recall-could-and-could-not-see" class="md-nav__link">
+    <span class="md-ellipsis">
+      What recall could and could not see
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-the-current-shape-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      Why the current shape exists
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pitfall-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pitfall classes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pitfall classes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-a-second-path-skips-the-invariant" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. A second path skips the invariant
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-secrets-and-sensitive-snapshots-get-logged-or-shipped" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Secrets and sensitive snapshots get logged or shipped
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-tests-pass-without-checking-the-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Tests pass without checking the behavior
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-hot-paths-issue-another-query-or-allocation-per-row-or-per-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Hot paths issue another query or allocation per row or per call
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-retired-names-and-deleted-stacks-stay-copyable" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Retired names and deleted stacks stay copyable
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-coverage-or-ci-says-pass-while-the-data-was-dropped" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Coverage or CI says pass while the data was dropped
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-case-and-culture-of-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Case and culture of strings
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-e2e-uses-a-fixed-sleep-or-a-native-checkbox-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. E2E uses a fixed sleep or a native checkbox API
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-a-second-copy-of-a-list-or-contract-drifts" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. A second copy of a list or contract drifts
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-the-same-behavior-is-registered-twice" class="md-nav__link">
+    <span class="md-ellipsis">
+      10. The same behavior is registered twice
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#11-the-ui-gates-a-different-permission-than-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      11. The UI gates a different permission than the API
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-a-container-runs-as-root" class="md-nav__link">
+    <span class="md-ellipsis">
+      12. A container runs as root
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-docs-name-files-or-types-that-are-not-there" class="md-nav__link">
+    <span class="md-ellipsis">
+      13. Docs name files or types that are not there
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chosen-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      Chosen enforcement
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#two-whole-shapes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Two whole shapes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Two whole shapes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#candidate-a-one-workflow-type-inside-the-current-four-projects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Candidate A. One workflow type inside the current four projects
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#candidate-b-one-project-per-aggregate-public-method-is-mapusers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Candidate B. One project per aggregate, public method is MapUsers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      Screen
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Synthesis
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prototype-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prototype results
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phased-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phased execution
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#owner-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Owner decisions
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="agent-friendly-architecture-plan">Agent-friendly architecture plan<a class="headerlink" href="#agent-friendly-architecture-plan" title="Permanent link">&para;</a></h1>
+<p>Status: proposal for review. This document does not change runtime code. Execution waits for the owner.</p>
+<p>Assumption: every contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles. A change that looks right in one file must be right for the whole repo.</p>
+<p>Evidence labels: <strong>measured</strong> means a command or file read in this session. <strong>Inferred</strong> means a conclusion from those reads. <strong>Guess</strong> means neither. Commit SHAs are on <code>origin/main</code> unless noted. Review text is from GitHub pull-request review comments read in this session. A class is listed only when it happened at least twice.</p>
+<h2 id="what-recall-could-and-could-not-see">What recall could and could not see<a class="headerlink" href="#what-recall-could-and-could-not-see" title="Permanent link">&para;</a></h2>
+<p><code>cursor-cloud</code> <code>list-cloud-agents</code> (archived included, limit 200) returned 5 agents, <code>totalMatched</code> 5, <code>hasMore</code> false. The tool is scoped to this run's environment. Accessible runs: environment setup <code>bc-fdd4b829-ce70-483a-b193-51d3a027323a</code>, build verify <code>bc-b8dab39d-3e2d-5183-9f09-0a4efe77413a</code>, NuGet pin <code>bc-2bfab033-a482-5df4-afea-88263248df49</code>, plus this plan's coordinator and worker. Transcripts for the first three were fetched and summarized. They cover toolchain traps (NuGet audit, npm 11, Aspire HTTP profile, management-web bootstrap grant). They do not contain an earlier architecture redesign.</p>
+<p>Not accessible: desktop or IDE chats, agents outside this environment, and any older owner conversation about this repo. Review comments were read for the historical sample that the pulls-comments API returned (highest PR in that truncated sample was 335) and, separately, for PRs 398, 423, 427, 434, 465, 466, 469, 477, 479, 480, 491, 498, 522, and 525. PRs 427, 434, 477, and 479 had no review comments in that call.</p>
+<h2 id="why-the-current-shape-exists">Why the current shape exists<a class="headerlink" href="#why-the-current-shape-exists" title="Permanent link">&para;</a></h2>
+<p>The product is Clean Architecture on purpose. Domain and Application must not reference ASP.NET, EF Core, or OpenIddict. <code>LayeringTests</code> enforces that (<code>526cae9</code>, PR #398). Management Web is the only operator UI (ADR 0001, ADR 0002). Admin API breaks ship with the client and the UI together (ADR 0003). The browser treats access tokens as opaque and reads permissions from <code>GET /api/me</code> (ADR 0004). Linking, disablement, administrative entitlements, audiences, quarantine, and email trust are explicit (ADR 0005). Clients and service accounts were unified into Applications (<code>400c9d9</code>, PR #232). Those boundaries stay.</p>
+<p>What an agent sees today is two templates for one job. Users, roles, and groups expose one <code>I*UseCase</code> per command. Applications expose <code>IApplicationsAdminWorkflow</code> (45 lines, ten methods). Application permissions expose a workflow and also inject maintenance use cases. <strong>Measured:</strong> 115 lines match <code>public interface I</code> under Application, 39 files declare an <code>I*UseCase</code>, and 2 files declare an <code>I*Workflow</code>. <code>UsersApi.cs</code> is 559 lines. The nearest file is a legal second way.</p>
+<h2 id="pitfall-classes">Pitfall classes<a class="headerlink" href="#pitfall-classes" title="Permanent link">&para;</a></h2>
+<p>Ranked by severity first, then by how often the class showed up.</p>
+<h3 id="1-a-second-path-skips-the-invariant">1. A second path skips the invariant<a class="headerlink" href="#1-a-second-path-skips-the-invariant" title="Permanent link">&para;</a></h3>
+<p>Count: 4. Severity: high. Security bugs compile and look like the nearby example.</p>
+<ul>
+<li>PR #87, <code>b2e9dbc</code>. Review: <code>RegisterServiceUseCase</code> had an allow-all constructor, and a non-GUID actor id skipped the permission check.</li>
+<li>PR #101, <code>4ddefa2</code>. Review: MVC and OpenIddict both claimed <code>/connect/introspect</code>, so the rate limit and the permission handler could miss the request that actually ran.</li>
+<li>PR #465, <code>14c04c7</code>. Review: authority revision was evaluated after the permission read, so a revoke could lose the race. The same PR's review also found <code>ConfigureOAuth</code> mutating a tracked client without <code>SaveChangesAsync</code>.</li>
+<li>PR #491, <code>87ed99b</code>. Review, P1: collapsing "no human-subject claim" and "two human-subject claims" into null sent an administrative token down the application-permission branch. The merge message says the same PR closed that hole. The helper still documents that other callers may collapse duplicates.</li>
+</ul>
+<p>Fix level: <strong>(a) architecture.</strong> Api calls the public use case or query handler. Do not add a new <code>I*Admin</code> or <code>IInteractiveSignIn</code>. <code>IApplicationsAdminWorkflow</code> stays because it already existed. Use cases and query handlers stay public and sealed. Repository ports become <code>internal</code> to Application, with <code>InternalsVisibleTo</code> only for Infrastructure and the test projects, and only after Api has stopped taking the port. Api then cannot inject <code>IUserRepository</code>. A second public method on a use case still compiles. The architecture test rejects a new wrapper type. It does not hide the use case. Docs did not work: the introspect split and the claim helper both landed while the layering docs were already in the repo.</p>
+<h3 id="2-secrets-and-sensitive-snapshots-get-logged-or-shipped">2. Secrets and sensitive snapshots get logged or shipped<a class="headerlink" href="#2-secrets-and-sensitive-snapshots-get-logged-or-shipped" title="Permanent link">&para;</a></h3>
+<p>Count: 4. Severity: high.</p>
+<ul>
+<li>PR #25, <code>aa9de0e</code>. Review: the migrator logged the generated admin password.</li>
+<li>PR #398, <code>526cae9</code>. Back-channel logout tokens were unsigned <code>alg: none</code> JWTs on the live path. A client-side <code>MockAuthProvider</code> could grant <code>*</code>. Demo client secrets were seedable in Production. The commit removes those.</li>
+<li>PR #424, <code>3ee58ff</code>. Hardcoded credentials and file ownership.</li>
+<li>PR #469, <code>d80a2c8</code>. Review: do not log the full emergency-access snapshot. PR #522, <code>e7e036a</code>, is a later scan pass and is the same pressure, not a fifth root cause.</li>
+</ul>
+<p>Fix level: <strong>(a) for the bypass, (b) for logs.</strong> One interactive sign-in path. No build-time auth switch. A source check fails if Production seed can register a demo secret, and if logout token tests do not assert a signature. <strong>Inferred:</strong> a type cannot forbid <code>LogInformation(password)</code> once <code>string</code> is in scope. The check has to name <code>LogoutTokenFactory</code> and the Production seed guard. Do not add a prose rule for this. #398 already rewrote the prose by deleting the bypass.</p>
+<h3 id="3-tests-pass-without-checking-the-behavior">3. Tests pass without checking the behavior<a class="headerlink" href="#3-tests-pass-without-checking-the-behavior" title="Permanent link">&para;</a></h3>
+<p>Count: 4. Severity: high, because classes 1 and 2 hide inside them.</p>
+<ul>
+<li>PR #101, <code>4ddefa2</code>. Review: the route test mapped only MVC controllers, so it passed when OpenIddict owned the real endpoint.</li>
+<li>PR #143, <code>85e46a1</code>. Review: the E2E project test only checked that Playwright files existed.</li>
+<li>PR #398, <code>526cae9</code>. <code>GroupClaimsTests</code> had comment-only bodies. Logout notifier tests checked counts and URLs and not the token signature. The commit deletes the empty tests and adds signature checks.</li>
+<li>PR #427, <code>9120ea8</code>. Sonar S2699 reported 54 tests with no assertion the analyzer accepts.</li>
+</ul>
+<p>Fix level: <strong>(c) tests, with the existing S2699 gate.</strong> A vacuous test compiles. Architecture cannot make "assert something true" a type. Keep S2699 in CI. When a security path is touched, the test must assert the outcome (signature, status, persisted row), not that a file exists. <strong>Not measured here:</strong> Sonar was not re-run. The proof that S2699 catches this class is the #427 commit itself. Phase 1 should replay one of those empty tests and show the gate fail before anyone trusts it again.</p>
+<h3 id="4-hot-paths-issue-another-query-or-allocation-per-row-or-per-call">4. Hot paths issue another query or allocation per row or per call<a class="headerlink" href="#4-hot-paths-issue-another-query-or-allocation-per-row-or-per-call" title="Permanent link">&para;</a></h3>
+<p>Count: 7. Severity: high on the token path, medium on admin lists.</p>
+<ul>
+<li>PR #87, <code>b2e9dbc</code>. Review: <code>GetDependenciesAsync</code> loaded every role and filtered in memory.</li>
+<li>PR #144, <code>0fbe0f6</code>. Review: each list row called both <code>useUser</code> and <code>useGroup</code>.</li>
+<li>PR #434, <code>a950bd3</code>. Ordinal comparisons, <code>FrozenDictionary</code>, cached <code>JsonSerializerOptions</code>.</li>
+<li>PR #477, <code>88eac46</code>. Token-path role queries batched; read-only queries use <code>AsNoTracking</code>.</li>
+<li>PR #479, <code>ed5f16a</code>. One scoped group load per request; more N+1 batching; Management Web initial JS described in the message as 890 kB to 399 kB (<strong>not re-measured</strong>).</li>
+<li>PR #491, <code>87ed99b</code>. Regex, claim, and permission-match allocations. This is the same commit as the claim-collapse bug in class 1.</li>
+<li>PR #498, <code>c01058c</code>. Refresh-grant role queries, and list search debounced off per-keystroke requests.</li>
+</ul>
+<p>Fix level: <strong>(a) one snapshot owner, (c) one query-count test.</strong> Hiding repositories stops a second feature from querying users itself. It does not stop the snapshot owner from calling the database twice. Add one test on authorize and refresh that fails if effective roles are resolved more than once. A lint cannot see a loop. Docs did not stop #477, #479, #491, and #498 from being separate cleanup passes.</p>
+<h3 id="5-retired-names-and-deleted-stacks-stay-copyable">5. Retired names and deleted stacks stay copyable<a class="headerlink" href="#5-retired-names-and-deleted-stacks-stay-copyable" title="Permanent link">&para;</a></h3>
+<p>Count: 4. Severity: high for agents, because the old file is a template.</p>
+<ul>
+<li>PR #113, <code>e78a8a2</code>. Review: validation text still said "Service identifier" after the rename to applications. The review thread names commit <code>2ec9050</code>, which is <strong>not</strong> on <code>origin/main</code> (squashed). The merge commit is the evidence.</li>
+<li>PR #200, <code>b5f1922</code>. Review: release workflows still advertised Admin Web after the UI was removed.</li>
+<li>PR #223, <code>238ccbd</code>. Review: a Dockerfile under the retired Management Web directory built Management Web.</li>
+<li>PR #232, <code>400c9d9</code>. The Client and ServiceAccount stack was still in the tree and had to be deleted. <code>FrontendTopologyTests</code> (started in <code>60f0200</code>, PR #239, strengthened in <code>526cae9</code>, PR #398) now fails the build if either retired UI module name reappears. Those spellings stay in that test, which the scan skips, so this plan does not repeat them. <strong>Measured:</strong> those tests passed inside the throwaway architecture run below.</li>
+</ul>
+<p>Fix level: <strong>(a) delete the old way, (b) keep the topology test.</strong> The test already names the banned modules. Extend it only when a module is actually gone. Leave <code>ApplicationType</code> legal in <code>OpenIddictApplicationProjection</code> only. Product code uses <code>ApplicationProfile</code>. A doc paragraph is how the next agent learns the old word. The copilot instructions may keep one sentence that points at the projection file, because the protocol name is an external constraint, not a second product model.</p>
+<h3 id="6-coverage-or-ci-says-pass-while-the-data-was-dropped">6. Coverage or CI says pass while the data was dropped<a class="headerlink" href="#6-coverage-or-ci-says-pass-while-the-data-was-dropped" title="Permanent link">&para;</a></h3>
+<p>Count: 3. Severity: high. This is the same failure mode as class 3, at the gate.</p>
+<ul>
+<li>PR #7, <code>e1a5178</code>. MTP coverage handling for <code>dotnet test --test-modules</code>.</li>
+<li>PR #398, <code>526cae9</code>. <code>.coverage-threshold</code> was never read from the directory the script searched. Defaults said 0.80 while CI passed 0.10 and 0.72. Frontend coverage was collected and not checked. <code>admin-api-client</code> tests were not on a workflow.</li>
+<li>PR #423, <code>2a1bf38</code>. The coverage gate discarded per-module results. PR #423 review also asked for a Sonar coverage format the server accepts.</li>
+</ul>
+<p>Fix level: <strong>(b) one gate.</strong> Delete extra threshold files rather than documenting them. Phase 1 proves the gate: a fixture with an empty module report must fail. <strong>Not run in this session.</strong></p>
+<h3 id="7-case-and-culture-of-strings">7. Case and culture of strings<a class="headerlink" href="#7-case-and-culture-of-strings" title="Permanent link">&para;</a></h3>
+<p>Count: 4. Severity: medium, except the username uniqueness bug, which was high.</p>
+<ul>
+<li>PR #26, <code>fe940de</code>. Review: search used <code>ToUpperInvariant</code> on one side and <code>ToUpper</code> on the other.</li>
+<li>PR #67, <code>f6437ef</code>. Review: the unique index was case-sensitive while lookup was case-insensitive, so <code>Alice</code> and <code>alice</code> could both exist.</li>
+<li>PR #434, <code>a950bd3</code>. <code>Contains</code> on error codes moved to ordinal comparison.</li>
+<li>PR #479, <code>ed5f16a</code>. A redundant <code>LOWER()</code> on an already-normalized role name.</li>
+</ul>
+<p>Fix level: <strong>(b) types.</strong> <code>NormalizedPreferredUsername</code> is the pattern that worked for #67: the database compares the normalized column. Culture bugs inside one entity are not an architecture split. <code>string.Equals</code> without <code>StringComparison</code> still compiles under <code>AnalysisLevel</code> <code>latest-recommended</code> (<strong>measured</strong> in <code>Directory.Build.props</code>; no <code>CA1307</code> / <code>CA1310</code> entry in <code>.editorconfig</code>). A local analyzer that rejects the two-argument <code>Equals</code> and <code>Contains</code> overloads, and tells the author to pass <code>StringComparison.Ordinal</code> or to use the normalized column, is the check. <strong>Not run in this session.</strong> Do not ban ordinal-ignore-case for emails. That is a product rule and stays in the domain type.</p>
+<h3 id="8-e2e-uses-a-fixed-sleep-or-a-native-checkbox-api">8. E2E uses a fixed sleep or a native checkbox API<a class="headerlink" href="#8-e2e-uses-a-fixed-sleep-or-a-native-checkbox-api" title="Permanent link">&para;</a></h3>
+<p>Count: 3. Severity: medium. The written rule did not hold.</p>
+<ul>
+<li>PR #129, <code>dc638cd</code>. Review: three <code>CheckAsync</code> calls on Radix checkboxes, plus <code>WaitForTimeoutAsync(600)</code>.</li>
+<li>Parent of PR #200 (<code>b5f1922^</code>). <strong>Measured</strong> <code>git grep</code>: 7 <code>WaitForTimeoutAsync</code> calls under the end-to-end project that PR deleted, including comments "Give React time to process" and "Wait for save". Deleting that project removed them. No check did.</li>
+<li>PR #465, <code>14c04c7</code>. <strong>Measured</strong> <code>git blame</code>: <code>AdministrativeAccessManagementTests.cs</code> line 68 is <code>GetByRole(AriaRole.Checkbox).CheckAsync()</code>, still on <code>3e1f0c0</code>. PR #141, <code>f91c837</code>, had already put the Radix and no-sleep rules in the PR template.</li>
+</ul>
+<p>Fix level: <strong>(b) a source check.</strong> Playwright's <code>CheckAsync</code> cannot be deleted from the package. The supported helper is click the checkbox role and assert <code>data-state</code> or <code>aria-checked</code>. The check's failure names that helper. The throwaway test below failed on line 68 and passed for <code>WaitForTimeoutAsync</code> on the current tree. The same needle hits the 7 historical lines. Docs are the wrong level. They were already present when #465 copied <code>CheckAsync</code>.</p>
+<h3 id="9-a-second-copy-of-a-list-or-contract-drifts">9. A second copy of a list or contract drifts<a class="headerlink" href="#9-a-second-copy-of-a-list-or-contract-drifts" title="Permanent link">&para;</a></h3>
+<p>Count: 3 review incidents, plus two copies that are still in tree. Severity: medium.</p>
+<ul>
+<li>PR #67, <code>f6437ef</code>. Review: certification image tags did not match the kustomization beside them.</li>
+<li>PR #332, <code>ed87352</code>. Review: S256-only discovery was not in the contract tests.</li>
+<li>PR #333, <code>228258a</code>. Review: new profile fields had no contract coverage. PR #465 review asked to move a new contract into <code>contracts/openapi</code> because the comparison script only watches that tree.</li>
+</ul>
+<p><strong>Measured</strong> structural copies that are easy to edit once:</p>
+<ul>
+<li><code>contracts/openapi/006-unify-applications-model/applications.openapi.yaml</code> (806 lines) and <code>tests/OpenIdentityStack.Contract.Tests/Admin/Applications/applications.openapi.yaml</code> (805 lines) differ by a trailing newline only. <code>GetOpenApiContractPaths()</code> yields both.</li>
+<li><code>PermissionSemantics.cs</code> (65 lines) and <code>permission-semantics.ts</code> (47 lines) are two matchers. <code>tests/PermissionSemantics/permission-semantics-cases.json</code> has 9 cases. Application <code>PermissionsMatchingTests</code> passed 22 tests in 643 ms (wall 2.83 s, warm). The Vitest file passed 11 tests in 180 ms (wall 0.77 s). <strong>Inferred:</strong> the 9 shared cases are inside both runs. The suites agree today. A third copy would not be caught by the type system.</li>
+</ul>
+<p>Fix level: <strong>(a) one file.</strong> Contract tests read only <code>contracts/openapi</code>. Delete the second YAML. Permission strings are owned by <code>Permissions.cs</code>. A generated TypeScript module is what routes import. The JSON file stays as the behavior oracle. Generation is the source of truth across languages. One shared runtime assembly is not possible. Hand-editing both matchers is how class 7 comes back.</p>
+<p>Placeholder strings <code>group:engineering</code> and <code>orders:read</code> in Management Web are input placeholders, not catalog drift (<strong>measured</strong>).</p>
+<h3 id="10-the-same-behavior-is-registered-twice">10. The same behavior is registered twice<a class="headerlink" href="#10-the-same-behavior-is-registered-twice" title="Permanent link">&para;</a></h3>
+<p>Count: 3. Severity: medium.</p>
+<ul>
+<li>PR #85, <code>692e3bf</code>. Review: a second AppHost at the repo root, with a second <code>aspire.config.json</code>.</li>
+<li>PR #101, <code>4ddefa2</code>. The introspect split in class 1 is also a second registration.</li>
+<li>PR #140, <code>bd2264c</code>. Review: <code>AddCommonServices</code> called <code>AddApplication()</code> even though Program and the migrator already did. The author removed it.</li>
+</ul>
+<p>Fix level: <strong>(a).</strong> One AppHost project. One <code>AddApplication</code> call per process. A test that fails when a second <code>AppHost.csproj</code> appears is enough. This is the same mechanism as class 5.</p>
+<h3 id="11-the-ui-gates-a-different-permission-than-the-api">11. The UI gates a different permission than the API<a class="headerlink" href="#11-the-ui-gates-a-different-permission-than-the-api" title="Permanent link">&para;</a></h3>
+<p>Count: 3. Severity: high for the operator who gets a 403 or a hidden action.</p>
+<ul>
+<li>PR #143, <code>85e46a1</code>. Review: the users page always loaded roles, which require <code>roles:read</code>, and role assignment was hidden behind <code>users:write</code>.</li>
+<li>PR #223, <code>238ccbd</code>. Review: granular actions (group members, credentials) were not gated on their own permissions.</li>
+<li>PR #469, <code>d80a2c8</code>. Review: a route allowed <code>sessions:revoke</code> while the page immediately required more.</li>
+</ul>
+<p>Fix level: <strong>(a) one map, (c) where the map cannot see intent.</strong> Generate the route permission from the endpoint policy for the CRUD screens. Two legal permission constants both type-check, so a type alias does not stop "I picked <code>users:write</code> because the next file did." The generated map fails the build when the UI constant and the endpoint policy differ. Judgment remains for screens that combine several permissions. That judgment is the only docs row for this class.</p>
+<h3 id="12-a-container-runs-as-root">12. A container runs as root<a class="headerlink" href="#12-a-container-runs-as-root" title="Permanent link">&para;</a></h3>
+<p>Count: 2. Severity: high.</p>
+<ul>
+<li>PR #109, <code>3ebabea</code>. Admin Web nginx started as root.</li>
+<li>PR #419, <code>b96d9c3</code>. Root nginx user again, after the UI move. <strong>Measured</strong> today: Api and DbMigrator use <code>USER app</code>, Management Web uses <code>USER nginx</code>.</li>
+</ul>
+<p>Fix level: <strong>(b).</strong> A Dockerfile check that the last <code>USER</code> is not root, and that nginx images contain <code>USER nginx</code>. Architecture types do not see Dockerfiles. The check names the expected user.</p>
+<h3 id="13-docs-name-files-or-types-that-are-not-there">13. Docs name files or types that are not there<a class="headerlink" href="#13-docs-name-files-or-types-that-are-not-there" title="Permanent link">&para;</a></h3>
+<p>Count: 3. Severity: medium. This is why agent rules are last.</p>
+<ul>
+<li>PR #68, <code>4db9b45</code>. Review: production docs pointed at <code>deploy/open-identity-stack</code>, which was not in the repo.</li>
+<li>PR #100, <code>74bd1ab</code>. Review: skill files pointed at spec-kit scripts the repo did not contain.</li>
+<li>PR #141, <code>f91c837</code>. Review: the transaction note required <code>IApplicationPermissionTransactionRunner</code>, which did not exist. The PR template still asks reviewers to notice no-op transactions. The type was never added.</li>
+</ul>
+<p>Fix level: <strong>(d) only after the check exists.</strong> Delete or rewrite a doc that names a missing type in the same change that deletes the type. Do not add a new instruction file to fix classes 1–12.</p>
+<p>Not a class: the NuGet <code>System.Security.Cryptography.Pkcs</code> / <code>Xml</code> 10.0.12 audit failure. It happened once in git (<code>29e99f8</code>, PR #545) and again as an environment workaround (<code>NuGetAudit=false</code>). One pair is not yet a repeated product bug. The pin in <code>Directory.Packages.props</code> is the fix. Leave it.</p>
+<p>Audit and transactions are not given their own class number because the two recorded policies disagree. They are an owner decision below. The incidents are PR #522 (denial audit must survive rollback, and consent plus audit must commit together) and PR #469 / #465 (revision capture and the mutation must be one transaction).</p>
+<h2 id="chosen-enforcement">Chosen enforcement<a class="headerlink" href="#chosen-enforcement" title="Permanent link">&para;</a></h2>
+<p>Order used above: architecture, then types or a lint that names the file to use, then behavior tests, then docs.</p>
+<table>
+<thead>
+<tr>
+<th>Rule the agent would otherwise copy wrong</th>
+<th>What enforces it</th>
+<th>Level</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Admin HTTP calls a use case or a repository it found nearby</td>
+<td>Api calls the public use case or query handler. Repository ports are internal. No new <code>I*Admin</code> or <code>IInteractiveSignIn</code>. <code>IApplicationsAdminWorkflow</code> stays.</td>
+<td>(a) architecture test</td>
+</tr>
+<tr>
+<td>A second AppHost or a second <code>AddApplication</code></td>
+<td>One project, one composition call, test fails on a second hit</td>
+<td>(a)</td>
+</tr>
+<tr>
+<td>A second OpenAPI YAML or a permission string typed by hand</td>
+<td>One YAML tree. Generated TS constants. Routes import them.</td>
+<td>(a)</td>
+</tr>
+<tr>
+<td>A second error mapper</td>
+<td>One <code>ErrorResultMapper.ToErrorResult</code>. The throwaway check already fails on the private method at <code>ApplicationPermissionsApi.cs:686</code>.</td>
+<td>(a) delete, (b) the check</td>
+</tr>
+<tr>
+<td>Checkbox via <code>CheckAsync</code>, or <code>WaitForTimeoutAsync</code></td>
+<td>Source check. Failure text names click-and-assert.</td>
+<td>(b)</td>
+</tr>
+<tr>
+<td><code>string.Equals</code> / <code>Contains</code> without <code>StringComparison</code></td>
+<td>Analyzer names <code>StringComparison.Ordinal</code> or the normalized column</td>
+<td>(b)</td>
+</tr>
+<tr>
+<td>Dockerfile ends as root</td>
+<td>CI names <code>USER app</code> or <code>USER nginx</code></td>
+<td>(b)</td>
+</tr>
+<tr>
+<td>Test with no assertion</td>
+<td>Existing S2699</td>
+<td>(c)</td>
+</tr>
+<tr>
+<td>Token path resolves roles twice</td>
+<td>One snapshot type, plus a query-count test</td>
+<td>(a) + (c)</td>
+</tr>
+<tr>
+<td>UI permission constant ≠ endpoint policy</td>
+<td>Generated map for CRUD. Docs only for multi-permission screens.</td>
+<td>(a), docs for the exception</td>
+</tr>
+<tr>
+<td>Coverage gate ignores a module</td>
+<td>One script. Fixture with an empty module must fail.</td>
+<td>(b)</td>
+</tr>
+<tr>
+<td>Fresh authentication window, audit versus rollback, release-train intent</td>
+<td><code>AGENTS.md</code> table points at the row above. Prose only for these three.</td>
+<td>(d)</td>
+</tr>
+</tbody>
+</table>
+<p>The rule table now lives in <code>AGENTS.md</code>. This copy stays as the record of how the checks were chosen. A rule without a check is how #141 and #465 happened. The three judgment rows there are the fresh-authentication window, multi-permission screens, and denial audits that survive rollback.</p>
+<h2 id="two-whole-shapes">Two whole shapes<a class="headerlink" href="#two-whole-shapes" title="Permanent link">&para;</a></h2>
+<h3 id="candidate-a-one-workflow-type-inside-the-current-four-projects">Candidate A. One workflow type inside the current four projects<a class="headerlink" href="#candidate-a-one-workflow-type-inside-the-current-four-projects" title="Permanent link">&para;</a></h3>
+<p>Keep SharedKernel, Domain, Application, Infrastructure, Api, AppHost, DbMigrator, Management Web, and <code>admin-api-client</code>.</p>
+<p>Public surface an API file can use:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// Rejected sample. Do not add this type. Api calls the public use case or query handler.</span>
+<span class="k">group</span><span class="p">.</span><span class="n">MapPost</span><span class="p">(</span><span class="s">&quot;/users&quot;</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="n">CreateUserBody</span><span class="w"> </span><span class="n">body</span><span class="p">,</span><span class="w"> </span><span class="n">IUsersAdmin</span><span class="w"> </span><span class="n">users</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="w"> </span><span class="n">ct</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">Result</span><span class="o">&lt;</span><span class="n">UserDetails</span><span class="o">&gt;</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">users</span><span class="p">.</span><span class="n">CreateAsync</span><span class="p">(</span><span class="n">body</span><span class="p">.</span><span class="n">ToCommand</span><span class="p">(),</span><span class="w"> </span><span class="n">ct</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">ToHttpResult</span><span class="p">();</span>
+<span class="p">});</span>
+
+<span class="k">public</span><span class="w"> </span><span class="k">interface</span><span class="w"> </span><span class="n">IUsersAdmin</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">Task</span><span class="o">&lt;</span><span class="n">Result</span><span class="o">&lt;</span><span class="n">UserDetails</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">CreateAsync</span><span class="p">(</span><span class="n">CreateUser</span><span class="w"> </span><span class="n">command</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="w"> </span><span class="n">cancellationToken</span><span class="p">);</span>
+<span class="w">    </span><span class="n">Task</span><span class="o">&lt;</span><span class="n">Result</span><span class="o">&lt;</span><span class="n">UserDetails</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">GetAsync</span><span class="p">(</span><span class="n">UserId</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="w"> </span><span class="n">cancellationToken</span><span class="p">);</span>
+<span class="w">    </span><span class="n">Task</span><span class="o">&lt;</span><span class="n">Result</span><span class="o">&lt;</span><span class="n">Page</span><span class="o">&lt;</span><span class="n">UserSummary</span><span class="o">&gt;&gt;&gt;</span><span class="w"> </span><span class="n">ListAsync</span><span class="p">(</span><span class="n">ListUsers</span><span class="w"> </span><span class="n">query</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="w"> </span><span class="n">cancellationToken</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><code>ICreateUserUseCase</code> and <code>IUserRepository</code> are <code>internal</code>. Infrastructure and tests see them through <code>InternalsVisibleTo</code>. <code>ToHttpResult</code> is the only error function. <code>IApplicationsAdminWorkflow</code> is the existing version of this shape. Reads move onto the same interface so there is not a query-handler twin.</p>
+<h3 id="candidate-b-one-project-per-aggregate-public-method-is-mapusers">Candidate B. One project per aggregate, public method is <code>MapUsers</code><a class="headerlink" href="#candidate-b-one-project-per-aggregate-public-method-is-mapusers" title="Permanent link">&para;</a></h3>
+<p>Each feature assembly exposes only:</p>
+<div class="highlight"><pre><span></span><code><span class="k">public</span><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">UsersEndpoints</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="n">IEndpointRouteBuilder</span><span class="w"> </span><span class="nf">MapUsers</span><span class="p">(</span><span class="k">this</span><span class="w"> </span><span class="n">IEndpointRouteBuilder</span><span class="w"> </span><span class="n">app</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Use cases and repositories are internal to that assembly. Api cannot name them. This hides more per project than candidate A.</p>
+<h3 id="screen">Screen<a class="headerlink" href="#screen" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Red flag</th>
+<th>Candidate A</th>
+<th>Candidate B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shared mutable state</td>
+<td>Unchanged. Static permission catalogs stay immutable. Module-level token handlers in <code>ManagementWeb/src/lib/api.ts</code> stay a frontend problem, not a reason to split assemblies.</td>
+<td>Same.</td>
+</tr>
+<tr>
+<td>Multiple ways</td>
+<td>Removes the use-case versus workflow split if every aggregate gets one <code>I*Admin</code>.</td>
+<td>Each feature can still invent an internal use-case style. Agents copy the nearest feature.</td>
+</tr>
+<tr>
+<td>Hand-synced lists</td>
+<td>Program.cs lists workflow registrations. One list.</td>
+<td>Program.cs, the migrator, and the solution file each list every feature project. That is the list class we are removing.</td>
+</tr>
+<tr>
+<td>Hidden coupling</td>
+<td>Ports stay in Application, so the coupling is visible.</td>
+<td>Feature projects hide coupling until a shared kernel of "just this DTO" appears. <strong>Guess:</strong> that shared kernel shows up on the second feature.</td>
+</tr>
+<tr>
+<td>Escape hatches</td>
+<td><code>Result&lt;T&gt;</code> stays. No <code>object</code> command bags.</td>
+<td>A <code>MapUsers</code> that still takes <code>IUserRepository</code> as a parameter reopens class 1. The public signature must not.</td>
+</tr>
+<tr>
+<td>Near-duplicate examples</td>
+<td>One workflow file to copy.</td>
+<td>Eight similar <code>.csproj</code> trees to copy. That is how Admin Web and Management Web both existed.</td>
+</tr>
+</tbody>
+</table>
+<p>Interface depth: candidate B's Api surface is one method per aggregate. Candidate A's Api surface is one interface per aggregate. B hides the method bodies one assembly further. A hides the 39 use-case interfaces without a new copyable project. <strong>Inferred:</strong> A is the smaller public surface that does not add a hand-synced project list. B looks smaller only at the <code>using</code> line, and it multiplies templates.</p>
+<h3 id="synthesis">Synthesis<a class="headerlink" href="#synthesis" title="Permanent link">&para;</a></h3>
+<p>Use candidate A for the layering, not for a new wrapper type.</p>
+<p>The <code>IUsersAdmin</code> sample above, and an <code>IInteractiveSignIn</code> wrapper, are the shape the owner rejected (PR #569). Do not add them. Use cases and query handlers stay public and sealed, and they are Api's entry point. Repository ports are internal. <code>IApplicationsAdminWorkflow</code> stays because it already existed.</p>
+<p>Applications already proved that existing workflow. Users are the template agents copy, so Users change first, then roles, groups, and sessions. Application permissions stop taking maintenance use cases beside the registry workflow. Interactive sign-in (account, authorize, logout, cookie validation) calls the public use case or query handler. It does not move behind a new <code>IInteractiveSignIn</code>. Those controllers are the other template agents copy (<code>AuthorizationController</code> takes <code>IUserRepository</code> today). <strong>Measured:</strong> repository parameters also sit in <code>PublicProfilesApi</code> (three lines) and <code>SessionsApi</code> (one line), and in five Authentication files. <code>AccountController</code>, <code>AuthorizationController</code>, <code>SessionMonitoringCookieService</code>, and <code>SessionCookieValidation</code> still take <code>IUserRepository</code>.</p>
+<p>Do not add MediatR, AutoMapper, Newtonsoft, or Swashbuckle. Do not add a feature project per aggregate.</p>
+<p>Error mapping: <code>ErrorResponse</code> is <code>(Error, Message)</code>. The private permissions mapper returns the same two fields for not-found, conflict, and bad request. Forbidden differs: Problem Details with <code>title</code> set to the error code, versus a bare 403 from <code>ErrorResultMapper</code> for a generic forbidden code (<strong>measured</strong>). Unifying them changes that response. See owner decisions.</p>
+<p>Permission catalog:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// generated from Permissions.cs, not hand-edited</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">usersRead</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;users:read&quot;</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kd">const</span><span class="p">;</span>
+</code></pre></div>
+<p>Routes and buttons import that module. The 9 JSON cases stay and keep running on both sides.</p>
+<h2 id="prototype-results">Prototype results<a class="headerlink" href="#prototype-results" title="Permanent link">&para;</a></h2>
+<p>Throwaway branch <code>cursor/throwaway-agent-shape-checks-637e</code>, commit <code>ee0ad79</code>. Not pushed. Not for review. The check file is not on this PR.</p>
+<p><strong>Measured</strong> on that branch, <code>dotnet test --project tests/OpenIdentityStack.Architecture.Tests</code>:</p>
+<ul>
+<li>Wall 1.66 s. Test duration 501 ms. Total 10, failed 3, succeeded 7, exit 2.</li>
+<li>The 7 successes are the existing layering and frontend-topology tests plus the new sleep check, which is clean on the current tree.</li>
+<li><code>E2E_DoesNotCallPlaywrightLocatorCheckAsync</code> failed on <code>AdministrativeAccessManagementTests.cs:68</code>.</li>
+<li><code>Api_HasASingleErrorResultMapper</code> failed on <code>ApplicationPermissionsApi.cs:686</code>.</li>
+<li><code>AdminMinimalApis_DoNotInjectRepositories</code> failed on <code>PublicProfilesApi.cs</code> lines 29, 43, and 115, and <code>SessionsApi.cs</code> line 106.</li>
+<li>The first compile of the spike failed in 1.17 s (<code>CS0266</code>, missing <code>ToArray</code>). The next run compiled and produced the failures above in 1.87 s wall. The sleep check initially matched its own source text. After excluding the architecture project, it passed.</li>
+</ul>
+<p><strong>Measured</strong> historical sleep needle, <code>git grep WaitForTimeoutAsync b5f1922^ -- tests/**/*.cs</code>: 7 hits. The current-tree check does not see them because PR #200 deleted that test project.</p>
+<p><strong>Measured</strong> warm runs, already-built test DLLs, no solution build:</p>
+<ul>
+<li>Domain tests: 509 passed, duration 700 ms, wall 4 s.</li>
+<li>Permission matching class: 22 passed, duration 643 ms, wall 2.83 s.</li>
+<li>Permission semantics Vitest: 11 passed, duration 180 ms, wall 0.77 s.</li>
+</ul>
+<p><strong>Not measured:</strong> a cold <code>dotnet build</code> of <code>OpenIdentityStack.slnx</code>, Sonar S2699, the coverage-gate fixture, and a <code>StringComparison</code> analyzer. <strong>Guess:</strong> a cold solution build is several minutes. The NuGet-pin transcript summary reported CI <code>build-test</code> around 6 to 8 minutes. That number was not re-checked against Actions in this session.</p>
+<p>The spike answers three questions. A source check can fail on the live <code>CheckAsync</code> mistake. The same style of check can see the second error mapper and the admin repository injections. The sleep check is quiet on today's tree and would have failed on the pre-#200 end-to-end tests. It does not answer whether an <code>internal</code> repository port compiles. <strong>Inferred</strong> from the project references: Api references Application, so an <code>internal</code> port disappears from Api as soon as <code>InternalsVisibleTo</code> omits Api. That compile is the phase that moves the four Authentication call sites, not this PR, and not a phase that hides the port while those call sites remain.</p>
+<h2 id="phased-execution">Phased execution<a class="headerlink" href="#phased-execution" title="Permanent link">&para;</a></h2>
+<p>Each phase is its own PR. Do not start until this plan is accepted. Rollback of any phase is reverting that PR. Do not combine a behavior change with a move.</p>
+<ol>
+<li>
+<p><strong>Land the checks red, then make them green.</strong> Add the throwaway scans, minus the self-match, as real architecture tests. CI fails on line 68, on the private <code>ToErrorResult</code>, and on the four repository lines. Then fix those call sites without changing response bodies: click the checkbox and assert state; call <code>ErrorResultMapper</code> only where the body already matches <code>ErrorResponse</code>; leave forbidden behavior for phase 2. Repository injections in public profiles and sessions move behind existing query handlers, still public. In this same phase, replay one assertion-free test from the #427 S2699 set and show the existing gate fail, then delete the replay so the tree is green. Also add the class 2 source checks here: Production seed cannot register a demo secret, and logout-token tests must assert a signature. Show each red on a copied historical mistake, then green on the current tree. Risk: E2E click does not toggle the Radix checkbox. Rollback: revert. The sleep check lands in this phase already green, with a comment that points at the 7 historical lines.</p>
+</li>
+<li>
+<p><strong>One forbidden body.</strong> Owner decision 1. Contract test the permissions API error before and after. Risk: a client parsed Problem Details <code>title</code>. Rollback: revert the mapper call.</p>
+</li>
+<li>
+<p><strong>Delete the second OpenAPI YAML.</strong> Point <code>GetOpenApiContractPaths</code> at <code>contracts/openapi</code> only. Risk: a test depended on the copy's trailing newline. <strong>Inferred</strong> low. Rollback: restore the file.</p>
+</li>
+<li>
+<p><strong>Generate permission constants and the CRUD policy map.</strong> Routes import the generated module. CI fails if the file is stale. Keep the 9 JSON cases. Risk: a placeholder string gets generated as a real permission. The generator reads <code>Permissions.cs</code> constants only. Constants alone leave class 11 open: <code>users:read</code> and <code>users:write</code> are both legal, so the #143 and #469 misses still compile. Also generate an operation-to-permission manifest from each endpoint <code>RequireAuthorization</code> policy, and fail the build when a single-permission Management Web route or action imports a different constant. Screens that combine several permissions stay on owner decision 7.</p>
+</li>
+</ol>
+<p>Phases 5–8 named a wrapper layer the owner rejected (PR #569). Do not add <code>IUsersAdmin</code>, any other new <code>I*Admin</code>, or <code>IInteractiveSignIn</code>. Use cases and query handlers stay public and sealed. Repository ports become internal only after Api has stopped taking them. <code>IApplicationsAdminWorkflow</code> stays because it already existed. <code>IUserRepository</code> stays public while <code>AccountController</code>, <code>AuthorizationController</code>, <code>SessionMonitoringCookieService</code>, and <code>SessionCookieValidation</code> still take it. Making that port internal earlier, with no <code>InternalsVisibleTo</code> for Api, does not compile. The PR that moves those four call sites onto the existing public use case or query handler is the PR that then marks the port <code>internal</code>, in that order.</p>
+<ol>
+<li>
+<p><strong>Users stay on public use cases.</strong> Do not add <code>IUsersAdmin</code>. Do not make <code>IUserRepository</code> internal in this phase. The four Authentication types above still take it. An architecture test fails if a new <code>I*Admin</code> appears. Cover with one Api.Tests create-user test that calls the public use case. Rollback: revert.</p>
+</li>
+<li>
+<p><strong>Roles, groups, and sessions stay on public use cases.</strong> Same no-new-wrapper test, one aggregate per PR. Do not add an admin interface. Do not make a repository port internal while Api still takes it.</p>
+</li>
+<li>
+<p><strong>Applications and application permissions.</strong> <code>IApplicationsAdminWorkflow</code> stays. Do not hide lifecycle use cases and do not make them internal. Stop injecting maintenance use cases next to the registry workflow. Risk: the architecture test <code>ApplicationPermissionsApiArchitectureTests</code> encodes today's split and must change in the same PR.</p>
+</li>
+<li>
+<p><strong>Authentication stops taking the user repository.</strong> Move <code>AccountController</code>, <code>AuthorizationController</code>, <code>SessionMonitoringCookieService</code>, and <code>SessionCookieValidation</code> onto the existing public use case or query handler. Do not add <code>IInteractiveSignIn</code>. After that move, in this same PR, make <code>IUserRepository</code> internal, with <code>InternalsVisibleTo</code> for Infrastructure and the test projects only. Risk: cookie validation and logout behavior. This phase is behavior-preserving and needs the existing auth integration tests. It does not finish <code>id_token_hint</code>. Rollback: revert.</p>
+</li>
+<li>
+<p><strong>Snapshot owner on the token path.</strong> One type returns effective permissions. A test fails if authorize or refresh resolves them twice. Risk: a behavior change in group-versus-role precedence. The #477 message says name-over-GUID precedence must stay. Assert that in the same test.</p>
+</li>
+<li>
+<p><strong>Query-count and coverage fixtures.</strong> Prove the token test fails when a second query is forced. Prove the coverage gate fails on an empty module. Then turn them on.</p>
+</li>
+<li>
+<p><strong>Dockerfile user check, and the string-comparison analyzer, each on a past file.</strong> The analyzer's first PR must show a failure on a two-argument <code>Equals</code> or <code>Contains</code> copied from history, then the current tree goes green. If the analyzer is too noisy, narrow it to Domain and Application identifier code. Do not weaken it with a blanket suppression.</p>
+</li>
+<li>
+<p><strong>Write the rule table into <code>AGENTS.md</code>.</strong> Only rows whose check an earlier phase already added, including the phase 1 S2699 replay, the Production demo-secret seed check, and the logout-token signature check. Do not publish or delete guidance for a check that no phase has added. Delete checklist lines that now have a check. Keep the three judgment rows. Run <code>mkdocs build --strict</code> if a published doc changed.</p>
+</li>
+</ol>
+<p>Out of scope: proof-based identity recovery, logout <code>id_token_hint</code>, and a provider-id change on the wire. ADR 0005 and <code>DEFERRED-BACKEND-REMEDIATION-ITEMS.md</code> already defer those.</p>
+<h2 id="owner-decisions">Owner decisions<a class="headerlink" href="#owner-decisions" title="Permanent link">&para;</a></h2>
+<p>Decided: no wrapper layer. Use cases and query handlers stay public and sealed, and they are Api's entry point. Repository ports are internal to Application. Do not add <code>I*Admin</code> or <code>IInteractiveSignIn</code>. <code>IApplicationsAdminWorkflow</code> stays because it already existed. The rule table lives in <code>AGENTS.md</code>.</p>
+<p>Items 2, 6, and 7 stay judgment. They are not checks. The other open items keep the default written here.</p>
+<ol>
+<li>
+<p><strong>Forbidden errors on the application-permissions API.</strong> Default: use <code>ErrorResultMapper</code>, and publish the body change with Management Web in one release (ADR 0003). The other choice is to teach the shared mapper the Problem Details shape and keep today's permissions responses.</p>
+</li>
+<li>
+<p><strong>Audit versus rollback.</strong> The reviews want both policies. Default: a denied security attempt commits its audit even when the mutation rolls back (PR #522 denial case). A successful consent or admin mutation commits the audit in the same transaction as the row (PR #522 consent case, PR #465 revision capture). Do not pick one global rule. The denial-audit case stays judgment.</p>
+</li>
+<li>
+<p><strong>No wrapper layer.</strong> Decided: use cases and query handlers stay <code>public sealed</code> and are Api's entry point. Repository ports are <code>internal</code>. A separate <code>I*Admin</code> is a pass-through, not a second API. <code>AdminWrapperTests</code> fails when one appears. <code>1edd28f</code> (<code>IUsersAdmin</code>) is the closed example. Reads stay on the public query handler. <code>IApplicationsAdminWorkflow</code> stays because it already existed.</p>
+</li>
+<li>
+<p><strong>Feature projects.</strong> Default: no. Stay in the four layers. <code>internal</code> is the hiding mechanism for repository ports, not for use cases.</p>
+</li>
+<li>
+<p><strong>Logout <code>id_token_hint</code> and provider id on the wire.</strong> Default: leave both deferred. An internal provider value object may land later without an OpenAPI change.</p>
+</li>
+<li>
+<p><strong>Five-minute fresh authentication.</strong> Judgment. Leave the window alone. It is a product rule in ADR 0005. No check.</p>
+</li>
+<li>
+<p><strong>Multi-permission screens.</strong> Judgment. The generated map covers single-permission CRUD. Screens that need several permissions stay explicit and get a behavior test, not a new framework. No check.</p>
+</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "navigation.sections", "navigation.expand", "search.highlight", "search.suggest", "content.code.copy"], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f1b6f286.min.js"></script>
+      
+    
+  </body>
+</html>
