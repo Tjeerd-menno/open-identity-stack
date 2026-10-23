@@ -21,6 +21,18 @@ public sealed class ResourceAccessRepository(OpenIdentityStackDbContext db, IOpe
         db.ProtectedResources.SingleOrDefaultAsync(resource => resource.Scope == scope, cancellationToken);
     public Task<ProtectedResource?> FindByAudienceAsync(string audience, CancellationToken cancellationToken = default) =>
         db.ProtectedResources.SingleOrDefaultAsync(resource => resource.Audience == audience, cancellationToken);
+    public async Task<IReadOnlyList<ProtectedResource>> FindByScopesAsync(IEnumerable<string> scopes, CancellationToken cancellationToken = default)
+    {
+        string[] requested = scopes.ToArray();
+        if (requested.Length == 0) { return []; }
+        return await db.ProtectedResources.AsNoTracking().Where(resource => requested.Contains(resource.Scope)).ToListAsync(cancellationToken);
+    }
+    public async Task<IReadOnlyList<ProtectedResource>> FindByAudiencesAsync(IEnumerable<string> audiences, CancellationToken cancellationToken = default)
+    {
+        string[] requested = audiences.ToArray();
+        if (requested.Length == 0) { return []; }
+        return await db.ProtectedResources.AsNoTracking().Where(resource => requested.Contains(resource.Audience)).ToListAsync(cancellationToken);
+    }
     public async Task<IReadOnlyList<ClientResourceGrant>> ListGrantsAsync(ApplicationId applicationId, CancellationToken cancellationToken = default) =>
         await db.ClientResourceGrants.Where(grant => grant.ClientApplicationId == applicationId).ToListAsync(cancellationToken);
     public Task<ClientResourceGrant?> GetGrantAsync(ApplicationId applicationId, Guid resourceId, CancellationToken cancellationToken = default) =>

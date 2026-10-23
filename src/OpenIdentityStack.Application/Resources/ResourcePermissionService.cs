@@ -40,22 +40,28 @@ public sealed class ResourcePermissionService : IResourcePermissionService
             return ResourceAccessErrors.NotGranted;
         }
 
+        string[] requestedScopes = request.Scopes.Where(static scope => !ProtectedResource.IsProtocolScope(scope)).Distinct(StringComparer.Ordinal).ToArray();
         var requested = new Dictionary<Guid, ProtectedResource>();
-        foreach (string scope in request.Scopes.Distinct(StringComparer.Ordinal))
+        if (requestedScopes.Length > 0)
         {
-            if (ProtectedResource.IsProtocolScope(scope)) { continue; }
-            ProtectedResource? resource = await resources.FindByScopeAsync(scope, cancellationToken);
-            if (resource is null || !resource.Enabled) { return ResourceAccessErrors.UnknownResource; }
-            requested[resource.Id] = resource;
+            var resourcesByScope = (await resources.FindByScopesAsync(requestedScopes, cancellationToken))
+                .ToDictionary(static resource => resource.Scope, StringComparer.Ordinal);
+            foreach (string scope in requestedScopes)
+            {
+                if (!resourcesByScope.TryGetValue(scope, out ProtectedResource? resource) || !resource.Enabled) { return ResourceAccessErrors.UnknownResource; }
+                requested[resource.Id] = resource;
+            }
         }
 
         if (request.RequestedResources.Count > 0)
         {
+            string[] audiences = request.RequestedResources.Distinct(StringComparer.Ordinal).ToArray();
+            var resourcesByAudience = (await resources.FindByAudiencesAsync(audiences, cancellationToken))
+                .ToDictionary(static resource => resource.Audience, StringComparer.Ordinal);
             var selected = new HashSet<Guid>();
-            foreach (string audience in request.RequestedResources.Distinct(StringComparer.Ordinal))
+            foreach (string audience in audiences)
             {
-                ProtectedResource? resource = await resources.FindByAudienceAsync(audience, cancellationToken);
-                if (resource is null || !resource.Enabled || !requested.ContainsKey(resource.Id))
+                if (!resourcesByAudience.TryGetValue(audience, out ProtectedResource? resource) || !resource.Enabled || !requested.ContainsKey(resource.Id))
                 {
                     return ResourceAccessErrors.UnknownResource;
                 }
@@ -104,11 +110,12 @@ public sealed class ResourcePermissionService : IResourcePermissionService
         var catalogs = new Dictionary<string, IReadOnlyList<string>?>(StringComparer.Ordinal);
         var permissions = new HashSet<string>(StringComparer.Ordinal);
         var revisions = new Dictionary<Guid, long>();
+        Dictionary<Guid, ClientResourceGrant>? grantsByResource = null;
         foreach (ProtectedResource resource in requested.Values)
         {
             if (!client.AllowedScopes.Contains(resource.Scope, StringComparer.Ordinal)) { return ResourceAccessErrors.NotGranted; }
-            ClientResourceGrant? grant = await resources.GetGrantAsync(client.Id, resource.Id, cancellationToken);
-            if (grant is null) { return ResourceAccessErrors.NotGranted; }
+            grantsByResource ??= (await resources.ListGrantsAsync(client.Id, cancellationToken)).ToDictionary(static grant => grant.ResourceId);
+            if (!grantsByResource.TryGetValue(resource.Id, out ClientResourceGrant? grant)) { return ResourceAccessErrors.NotGranted; }
             IReadOnlyList<string> assigned = request.UserId is null ? grant.ApplicationPermissions : grant.DelegatedPermissions;
             if (assigned.Count == 0) { return ResourceAccessErrors.NotGranted; }
             revisions[resource.Id] = grant.Revision;

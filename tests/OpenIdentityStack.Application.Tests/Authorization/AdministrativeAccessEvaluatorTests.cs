@@ -47,7 +47,7 @@ public sealed class AdministrativeAccessEvaluatorTests
     public async Task UnapprovedClientDoesNotBorrowHumanPermissions()
     {
         (AdministrativeAccessEvaluator evaluator, _, IResourceAccessRepository resources, User user) = CreateEvaluator(["*"], []);
-        resources.GetGrantAsync(Arg.Any<OpenIdentityStack.Domain.Applications.ApplicationId>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((ClientResourceGrant?)null);
+        resources.ListGrantsAsync(Arg.Any<OpenIdentityStack.Domain.Applications.ApplicationId>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<ClientResourceGrant>());
         (await evaluator.EvaluateAsync(new("approved-client", user.Id, ["users:read"]))).IsFailure.ShouldBeTrue();
     }
 
@@ -68,10 +68,10 @@ public sealed class AdministrativeAccessEvaluatorTests
         roles.HandleAsync(user.Id, Arg.Any<CancellationToken>()).Returns((Result<IReadOnlyList<RoleDto>>)userRoles.ToList());
         IResourceAccessRepository resources = Substitute.For<IResourceAccessRepository>();
         var admin = ProtectedResource.CreateAdministrative();
-        resources.FindByScopeAsync("ois.admin", Arg.Any<CancellationToken>()).Returns(admin);
-        resources.FindByAudienceAsync(ProtectedResource.AdministrativeAudience, Arg.Any<CancellationToken>()).Returns(admin);
+        resources.FindByScopesAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>()).Returns(new[] { admin });
+        resources.FindByAudiencesAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>()).Returns(new[] { admin });
         ClientResourceGrant grant = ClientResourceGrant.Create(client.Id, admin.Id, delegated, machine).Value;
-        resources.GetGrantAsync(client.Id, admin.Id, Arg.Any<CancellationToken>()).Returns(grant);
+        resources.ListGrantsAsync(client.Id, Arg.Any<CancellationToken>()).Returns(new[] { grant });
         var projection = new ResourcePermissionService(resources, clients, Substitute.For<IApplicationPermissionRegistryRepository>(), users, roles);
         return (new AdministrativeAccessEvaluator(projection, Substitute.For<IAdministrativeAuthoritySnapshot>()), grant, resources, user);
     }
