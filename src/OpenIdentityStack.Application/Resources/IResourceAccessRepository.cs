@@ -9,6 +9,8 @@ internal interface IResourceAccessRepository
     Task<ProtectedResource?> GetResourceAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ProtectedResource?> FindByScopeAsync(string scope, CancellationToken cancellationToken = default);
     Task<ProtectedResource?> FindByAudienceAsync(string audience, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProtectedResource>> FindByScopesAsync(IEnumerable<string> scopes, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProtectedResource>> FindByAudiencesAsync(IEnumerable<string> audiences, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ClientResourceGrant>> ListGrantsAsync(ApplicationId applicationId, CancellationToken cancellationToken = default);
     Task<ClientResourceGrant?> GetGrantAsync(ApplicationId applicationId, Guid resourceId, CancellationToken cancellationToken = default);
     void AddResource(ProtectedResource resource);
