@@ -34,7 +34,7 @@ public sealed class ResourcePermissionService : IResourcePermissionService
 
     public async Task<Result<ResourceTokenProjection>> ProjectAsync(ResourceTokenRequest request, CancellationToken cancellationToken = default)
     {
-        Domain.Applications.Application? client = await applications.GetByClientIdAsync(request.ClientId, cancellationToken);
+        ClientTokenProjection? client = await applications.GetTokenProjectionAsync(request.ClientId, cancellationToken);
         if (client is null || client.Status != ApplicationStatus.Active)
         {
             return ResourceAccessErrors.NotGranted;

@@ -4,6 +4,7 @@ using OpenIdentityStack.Application.Resources;
 using OpenIdentityStack.Application.Roles.Queries;
 using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.ApplicationPermissions;
+using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Domain.Resources;
 using OpenIdentityStack.Domain.Users;
 using SharedKernel;
@@ -34,7 +35,7 @@ public sealed class ResourcePermissionServiceTests
             [("invoice:read", "Read", null, null), ("invoice:write", "Write", null, null)], this.user.Id.Value.ToString(), this.clock).Value;
         this.resources.FindByScopeAsync("orders-api", Arg.Any<CancellationToken>()).Returns(this.resource);
         this.resources.FindByAudienceAsync(this.resource.Audience, Arg.Any<CancellationToken>()).Returns(this.resource);
-        this.applications.GetByClientIdAsync(this.client.ClientId, Arg.Any<CancellationToken>()).Returns(this.client);
+        this.applications.GetTokenProjectionAsync(this.client.ClientId, Arg.Any<CancellationToken>()).Returns(ClientProjection(this.client));
         this.registry.GetByIdentifierAsync("orders", Arg.Any<CancellationToken>()).Returns(catalog);
         this.users.GetByIdAsync(this.user.Id, Arg.Any<CancellationToken>()).Returns(this.user);
         this.roles.HandleAsync(this.user.Id, Arg.Any<CancellationToken>()).Returns((Result<IReadOnlyList<RoleDto>>)new[]
@@ -91,7 +92,7 @@ public sealed class ResourcePermissionServiceTests
         var administrativeResource = ProtectedResource.CreateAdministrative();
         ClientApplication administrativeClient = ClientApplication.CreateMachineToMachine(
             "admin-client", "Admin client", null, [ProtectedResource.AdministrativeScope], this.clock).Value;
-        this.applications.GetByClientIdAsync(administrativeClient.ClientId, Arg.Any<CancellationToken>()).Returns(administrativeClient);
+        this.applications.GetTokenProjectionAsync(administrativeClient.ClientId, Arg.Any<CancellationToken>()).Returns(ClientProjection(administrativeClient));
         this.resources.FindByScopeAsync(ProtectedResource.AdministrativeScope, Arg.Any<CancellationToken>()).Returns(administrativeResource);
         this.resources.FindByAudienceAsync(ProtectedResource.AdministrativeAudience, Arg.Any<CancellationToken>()).Returns(administrativeResource);
         this.resources.GetGrantAsync(administrativeClient.Id, administrativeResource.Id, Arg.Any<CancellationToken>()).Returns(
@@ -105,6 +106,30 @@ public sealed class ResourcePermissionServiceTests
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBe(ResourceAccessErrors.NotGranted);
+        await this.roles.Received(1).HandleAsync(this.user.Id, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProjectAsync_RejectsMissingDisabledAndUnscopedClientsFromTheTokenProjection()
+    {
+        this.applications.GetTokenProjectionAsync(this.client.ClientId, Arg.Any<CancellationToken>())
+            .Returns((ClientTokenProjection?)null);
+        Result<ResourceTokenProjection> missing = await this.service.ProjectAsync(new ResourceTokenRequest(
+            this.client.ClientId, ["orders-api"], [], null));
+        missing.Error.ShouldBe(ResourceAccessErrors.NotGranted);
+
+        this.applications.GetTokenProjectionAsync(this.client.ClientId, Arg.Any<CancellationToken>())
+            .Returns(new ClientTokenProjection(this.client.Id, ApplicationStatus.Disabled, this.client.AllowedScopes));
+        Result<ResourceTokenProjection> disabled = await this.service.ProjectAsync(new ResourceTokenRequest(
+            this.client.ClientId, ["orders-api"], [], null));
+        disabled.Error.ShouldBe(ResourceAccessErrors.NotGranted);
+
+        this.applications.GetTokenProjectionAsync(this.client.ClientId, Arg.Any<CancellationToken>())
+            .Returns(new ClientTokenProjection(this.client.Id, ApplicationStatus.Active, []));
+        Result<ResourceTokenProjection> unscoped = await this.service.ProjectAsync(new ResourceTokenRequest(
+            this.client.ClientId, ["orders-api"], [], null));
+        unscoped.Error.ShouldBe(ResourceAccessErrors.NotGranted);
+        await this.applications.DidNotReceive().GetByClientIdAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -156,4 +181,7 @@ public sealed class ResourcePermissionServiceTests
         result.Error.ShouldBe(ResourceAccessErrors.Reserved);
         await this.resources.DidNotReceiveWithAnyArgs().SaveChangesAsync(default!, default!, default!);
     }
+
+    private static ClientTokenProjection ClientProjection(ClientApplication application) =>
+        new(application.Id, application.Status, application.AllowedScopes);
 }

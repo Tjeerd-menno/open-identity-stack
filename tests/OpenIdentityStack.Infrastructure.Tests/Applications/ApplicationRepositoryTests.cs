@@ -1,6 +1,9 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using OpenIdentityStack.Application.Abstractions;
+using OpenIdentityStack.Application.Applications;
 using OpenIdentityStack.Application.Applications.Commands;
 using OpenIdentityStack.Domain.Applications;
 using OpenIdentityStack.Infrastructure.Applications;
@@ -88,6 +91,76 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
 
         result.ShouldNotBeNull();
         result!.Credentials.Single().Id.ShouldBe(credential.Id);
+    }
+
+    [Fact]
+    public async Task GetTokenProjectionAsync_ReturnsIdStatusAndScopesWithoutLoadingCredentials()
+    {
+        DomainApplication application = DomainApplication.CreateMachineToMachine(
+            "worker-api",
+            "Worker API",
+            null,
+            ["api.read", "orders-api"],
+            this.dateTimeProvider).Value;
+        application.AddSecret(
+            "hashed-secret",
+            "Primary secret",
+            this.now.AddDays(30),
+            this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+        await this.repository.AddAsync(application);
+        await this.repository.SaveChangesAsync();
+
+        var observer = new ProjectionCommandObserver();
+        DbContextOptions<OpenIdentityStackDbContext> options = new DbContextOptionsBuilder<OpenIdentityStackDbContext>(this.fixture.Options)
+            .AddInterceptors(observer)
+            .Options;
+        await using OpenIdentityStackDbContext reading = new(options);
+        IApplicationRepository readingRepository = new ApplicationRepository(reading);
+
+        ClientTokenProjection? result = await readingRepository.GetTokenProjectionAsync("worker-api");
+
+        result.ShouldNotBeNull();
+        result!.Id.ShouldBe(application.Id);
+        result.Status.ShouldBe(ApplicationStatus.Active);
+        result.AllowedScopes.ShouldBe(["api.read", "orders-api"]);
+        reading.ChangeTracker.Entries().ShouldBeEmpty();
+        observer.Commands.ShouldNotBeEmpty();
+        string sql = string.Join('\n', observer.Commands);
+        sql.ShouldContain("AllowedScopes");
+        sql.ShouldNotContain("ApplicationCredentials");
+        sql.ShouldNotContain("DisplayName");
+    }
+
+    [Fact]
+    public async Task GetTokenProjectionAsync_ReturnsNullWhenTheClientDoesNotExist()
+    {
+        ClientTokenProjection? result = await ((IApplicationRepository)this.repository).GetTokenProjectionAsync("missing-client");
+
+        result.ShouldBeNull();
+        this.dbContext.ChangeTracker.Entries().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetTokenProjectionAsync_ReturnsDisabledStatusWithoutTracking()
+    {
+        DomainApplication application = DomainApplication.CreateMachineToMachine(
+            "disabled-api",
+            "Disabled API",
+            null,
+            ["api.read"],
+            this.dateTimeProvider).Value;
+        application.Disable(this.dateTimeProvider).IsSuccess.ShouldBeTrue();
+        await this.repository.AddAsync(application);
+        await this.repository.SaveChangesAsync();
+        this.dbContext.ChangeTracker.Clear();
+
+        ClientTokenProjection? result = await ((IApplicationRepository)this.repository).GetTokenProjectionAsync("disabled-api");
+
+        result.ShouldNotBeNull();
+        result!.Id.ShouldBe(application.Id);
+        result.Status.ShouldBe(ApplicationStatus.Disabled);
+        result.AllowedScopes.ShouldBe(["api.read"]);
+        this.dbContext.ChangeTracker.Entries().ShouldBeEmpty();
     }
 
     [Fact]
@@ -275,5 +348,20 @@ public sealed class ApplicationRepositoryTests : IClassFixture<SqliteTestFixture
             requirePkce: false,
             requireConsent: profile != ApplicationProfile.MachineToMachine,
             this.dateTimeProvider).Value;
+
+    private sealed class ProjectionCommandObserver : DbCommandInterceptor
+    {
+        public List<string> Commands { get; } = [];
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            this.Commands.Add(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
+    }
 }
 

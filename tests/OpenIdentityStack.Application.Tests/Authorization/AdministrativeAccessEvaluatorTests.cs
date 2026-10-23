@@ -59,7 +59,8 @@ public sealed class AdministrativeAccessEvaluatorTests
             OAuthClientType.Confidential, ["client_credentials"], ["ois.admin"], [], [], false, false, clock).Value;
         User user = User.CreateFederated("operator@example.com", "Operator", clock).Value;
         IApplicationRepository clients = Substitute.For<IApplicationRepository>();
-        clients.GetByClientIdAsync("approved-client", Arg.Any<CancellationToken>()).Returns(client);
+        clients.GetTokenProjectionAsync("approved-client", Arg.Any<CancellationToken>())
+            .Returns(new ClientTokenProjection(client.Id, client.Status, client.AllowedScopes));
         IUserRepository users = Substitute.For<IUserRepository>();
         users.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         IGetUserEffectiveRolesQueryHandler roles = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
