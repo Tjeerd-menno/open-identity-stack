@@ -1,8 +1,11 @@
 import { act, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider, useAuth } from './auth';
+import userEvent from '@testing-library/user-event';
+import { useEffect } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { AppRoutes } from '@/routes/AppRoutes';
 import { renderManagementWeb } from '@/test/render';
-import { mockApi, resetApiMocks } from '@/test/mock-api';
+import { mockApi, page, resetApiMocks } from '@/test/mock-api';
+import { AuthProvider, useAuth, type AuthContextValue } from './auth';
 
 type MockOidcUser = {
   expired: boolean;
@@ -12,14 +15,18 @@ type MockOidcUser = {
 
 let storedUser: MockOidcUser | null;
 let loadedCallback: ((user: MockOidcUser) => void) | null;
-let signoutRedirect: ReturnType<typeof vi.fn>;
-let signinRedirect: ReturnType<typeof vi.fn>;
-let removeUser: ReturnType<typeof vi.fn>;
+let unloadedCallback: (() => void) | null;
+let expiredCallback: (() => void) | null;
+let getUser: Mock<() => Promise<MockOidcUser | null>>;
+let signoutRedirect: Mock<() => Promise<void>>;
+let signinRedirect: Mock<(args?: { prompt: string; max_age: number }) => Promise<void>>;
+let removeUser: Mock<() => Promise<void>>;
+let latestAuth: AuthContextValue | null;
 
 vi.mock('oidc-client-ts', () => ({
   WebStorageStateStore: vi.fn(),
   UserManager: vi.fn(function UserManagerMock(this: Record<string, unknown>) {
-    this.getUser = vi.fn(async () => storedUser);
+    this.getUser = getUser;
     this.signinRedirect = signinRedirect;
     this.removeUser = removeUser;
     this.signinCallback = vi.fn();
@@ -31,12 +38,25 @@ vi.mock('oidc-client-ts', () => ({
           loadedCallback = null;
         };
       }),
+      addUserUnloaded: vi.fn((callback: () => void) => {
+        unloadedCallback = callback;
+        return () => {
+          unloadedCallback = null;
+        };
+      }),
+      addAccessTokenExpired: vi.fn((callback: () => void) => {
+        expiredCallback = callback;
+        return () => {
+          expiredCallback = null;
+        };
+      }),
     };
   }),
 }));
 
 vi.mock('@/lib/api', async () => ({
   api: (await import('@/test/mock-api')).mockApi,
+  getApiErrorMessage: (error: unknown) => (error instanceof Error ? error.message : String(error)),
   setAccessTokenProvider: vi.fn(),
   setUnauthorizedHandler: vi.fn(),
   setAdministrativeApprovalHandler: vi.fn(),
@@ -44,6 +64,9 @@ vi.mock('@/lib/api', async () => ({
 
 function AuthProbe() {
   const auth = useAuth();
+  useEffect(() => {
+    latestAuth = auth;
+  });
 
   return (
     <div>
@@ -60,12 +83,21 @@ describe('AuthProvider current user permissions', () => {
     storedUser = {
       expired: false,
       access_token: 'opaque-token-without-dots',
-      profile: { name: 'Token Name' },
+      profile: { sub: 'user-123', name: 'Token Name' },
     };
     loadedCallback = null;
-    signoutRedirect = vi.fn(async () => {});
+    unloadedCallback = null;
+    expiredCallback = null;
+    latestAuth = null;
+    getUser = vi.fn(async () => storedUser);
+    removeUser = vi.fn(async () => {
+      storedUser = null;
+      unloadedCallback?.();
+    });
+    signoutRedirect = vi.fn(async () => {
+      await removeUser();
+    });
     signinRedirect = vi.fn(async () => {});
-    removeUser = vi.fn(async () => { storedUser = null; });
     resetApiMocks();
     mockApi.currentUser.getCurrentUser.mockResolvedValue({
       subject: 'user-123',
@@ -164,10 +196,203 @@ describe('AuthProvider current user permissions', () => {
       loadedCallback?.({
         expired: false,
         access_token: 'new-opaque-token',
-        profile: { name: 'Token Name' },
+        profile: { sub: 'user-123', name: 'Token Name' },
       });
     });
 
     await waitFor(() => expect(mockApi.currentUser.getCurrentUser).toHaveBeenCalledTimes(2));
   });
+
+  it('keeps the open page mounted when silent renew replaces the access token', async () => {
+    mockApi.users.getUsers.mockResolvedValue(page([]));
+    const user = userEvent.setup();
+    renderManagementWeb(
+      <AuthProvider>
+        <AuthProbe />
+        <AppRoutes />
+      </AuthProvider>,
+      { initialEntries: ['/users'] }
+    );
+
+    const search = await screen.findByRole('textbox', { name: 'Search users' });
+    await user.type(search, 'ada');
+    expect(screen.getByTestId('loading')).toHaveTextContent('false');
+
+    let resolveRenewedUser!: (value: CurrentUser) => void;
+    mockApi.currentUser.getCurrentUser.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRenewedUser = resolve;
+      })
+    );
+
+    act(() => {
+      loadedCallback?.({
+        expired: false,
+        access_token: 'renewed-token',
+        profile: { sub: 'user-123', name: 'Token Name' },
+      });
+    });
+
+    expect(mockApi.currentUser.getCurrentUser).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Loading console…')).not.toBeInTheDocument();
+    expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    expect(screen.getByTestId('permissions')).toHaveTextContent('users:read');
+    expect(screen.getByTestId('display-name')).toHaveTextContent('Ada Lovelace');
+    expect(screen.getByRole('textbox', { name: 'Search users' })).toHaveValue('ada');
+
+    resolveRenewedUser(operator(['users:read']));
+
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
+    expect(screen.getByRole('textbox', { name: 'Search users' })).toHaveValue('ada');
+    expect(screen.queryByText('Loading console…')).not.toBeInTheDocument();
+  });
+
+  it('returns the in-memory access token without reading the user store on each call', async () => {
+    renderManagementWeb(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
+    const storeReads = getUser.mock.calls.length;
+
+    await expect(latestAuth?.getAccessToken()).resolves.toBe('opaque-token-without-dots');
+    await expect(latestAuth?.getAccessToken()).resolves.toBe('opaque-token-without-dots');
+    expect(getUser).toHaveBeenCalledTimes(storeReads);
+
+    await act(async () => {
+      loadedCallback?.({
+        expired: false,
+        access_token: 'renewed-token',
+        profile: { sub: 'user-123', name: 'Token Name' },
+      });
+    });
+
+    await expect(latestAuth?.getAccessToken()).resolves.toBe('renewed-token');
+    expect(getUser).toHaveBeenCalledTimes(storeReads);
+  });
+
+  it('drops the previous operator while a different subject is revalidated', async () => {
+    renderManagementWeb(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('permissions')).toHaveTextContent('users:read'));
+
+    let resolveSwitchedUser!: (value: CurrentUser) => void;
+    mockApi.currentUser.getCurrentUser.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSwitchedUser = resolve;
+      })
+    );
+
+    act(() => {
+      loadedCallback?.({
+        expired: false,
+        access_token: 'switched-token',
+        profile: { sub: 'user-999', name: 'Grace Hopper' },
+      });
+    });
+
+    expect(screen.getByTestId('loading')).toHaveTextContent('true');
+    expect(screen.getByTestId('permissions')).toHaveTextContent('');
+    expect(screen.getByTestId('display-name')).toHaveTextContent('Grace Hopper');
+    expect(screen.getByTestId('display-name')).not.toHaveTextContent('Ada Lovelace');
+
+    resolveSwitchedUser({
+      subject: 'user-999',
+      userName: 'grace',
+      displayName: 'Grace Hopper',
+      email: null,
+      permissions: ['roles:read'],
+    });
+
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
+    expect(screen.getByTestId('permissions')).toHaveTextContent('roles:read');
+    expect(screen.getByTestId('display-name')).toHaveTextContent('Grace Hopper');
+  });
+
+  it('signs out when the user manager unloads the session', async () => {
+    renderManagementWeb(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'));
+
+    await act(async () => {
+      await latestAuth?.logout();
+    });
+
+    expect(signoutRedirect).toHaveBeenCalledOnce();
+    expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+    expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    expect(screen.getByTestId('permissions')).toHaveTextContent('');
+    await expect(latestAuth?.getAccessToken()).resolves.toBeNull();
+    expect(getUser).toHaveBeenCalledOnce();
+  });
+
+  it('returns no access token once the cached session expires', async () => {
+    renderManagementWeb(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'));
+    const storeReads = getUser.mock.calls.length;
+    storedUser!.expired = true;
+
+    await expect(latestAuth?.getAccessToken()).resolves.toBeNull();
+    expect(getUser).toHaveBeenCalledTimes(storeReads);
+
+    act(() => {
+      expiredCallback?.();
+    });
+
+    expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+    expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    expect(screen.getByTestId('permissions')).toHaveTextContent('');
+  });
+
+  it('does not authenticate an already expired session', async () => {
+    storedUser = {
+      expired: true,
+      access_token: 'stale-token',
+      profile: { sub: 'user-123', name: 'Token Name' },
+    };
+
+    renderManagementWeb(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
+    expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+    expect(mockApi.currentUser.getCurrentUser).not.toHaveBeenCalled();
+    await expect(latestAuth?.getAccessToken()).resolves.toBeNull();
+  });
 });
+
+type CurrentUser = {
+  subject: string;
+  userName: string;
+  displayName: string;
+  email: string | null;
+  permissions: string[];
+};
+
+function operator(permissions: string[]): CurrentUser {
+  return {
+    subject: 'user-123',
+    userName: 'ada',
+    displayName: 'Ada Lovelace',
+    email: 'ada@example.com',
+    permissions,
+  };
+}
