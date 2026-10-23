@@ -114,7 +114,7 @@ public sealed class AdministrativeGrantRevisionRequirementTests
 
     private sealed class StubAdministrativeAuthoritySnapshot : IAdministrativeAuthoritySnapshot
     {
-        public Task CaptureAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<long> CaptureAsync(CancellationToken cancellationToken = default) => Task.FromResult(0L);
     }
 
 }

@@ -12,15 +12,16 @@ public partial class OpenIdentityStackDbContext
 {
     private long? authoritySnapshot;
 
-    internal async Task CaptureAuthoritySnapshotAsync(CancellationToken cancellationToken)
+    internal async Task<long> CaptureAuthoritySnapshotAsync(CancellationToken cancellationToken)
     {
-        if (this.authoritySnapshot.HasValue) { return; }
+        if (this.authoritySnapshot.HasValue) { return this.authoritySnapshot.Value; }
         // A guarded use case must capture before mutation; stale tracked authorization reads
         // cannot be reused under a newer revision.
         if (this.ChangeTracker.HasChanges()) { throw new InvalidOperationException("Capture administrative authority before modifying tracked entities."); }
         long revision = await this.Set<AdministrativeAuthorityRevision>().AsNoTracking().Select(value => value.Revision).SingleAsync(cancellationToken);
         this.ChangeTracker.Clear();
         this.authoritySnapshot = revision;
+        return revision;
     }
 
     private bool NeedsAuthorityFence() => this.ChangeTracker.Entries().Any(entry =>

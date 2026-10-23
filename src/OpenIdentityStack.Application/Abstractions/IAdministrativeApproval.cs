@@ -27,7 +27,8 @@ public interface IAdministrativeApproval
 /// <summary>Captures authority read dependencies before an access-changing use case reads its entities.</summary>
 public interface IAdministrativeAuthoritySnapshot
 {
-    Task CaptureAsync(CancellationToken cancellationToken = default);
+    /// <summary>Returns the revision captured for this scope. A later capture in the same scope returns that same value.</summary>
+    Task<long> CaptureAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>Persists approval audit independently of the mutation's tracked state.</summary>

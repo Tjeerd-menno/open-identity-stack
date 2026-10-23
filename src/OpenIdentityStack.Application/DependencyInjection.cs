@@ -139,6 +139,7 @@ public static class DependencyInjection
         services.AddScoped<ListApplicationProfilePoliciesQueryHandler>();
         services.AddScoped<IListApplicationProfilePoliciesQueryHandler>(provider => provider.GetRequiredService<ListApplicationProfilePoliciesQueryHandler>());
         services.AddScoped<IApplicationsAdminWorkflow, ApplicationsAdminWorkflow>();
+        services.AddSingleton<Resources.AdministrativeAccessDecisionCache>();
         services.AddScopedInternal<Resources.IResourcePermissionService, Resources.ResourcePermissionService>();
         services.AddScopedInternal<Resources.ResourceAccessWorkflow>();
     }

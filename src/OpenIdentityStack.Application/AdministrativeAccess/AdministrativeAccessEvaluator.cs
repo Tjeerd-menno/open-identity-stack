@@ -20,10 +20,12 @@ public sealed class AdministrativeAccessEvaluator(IResourcePermissionService res
     {
         // Bind the later mutation fence to these authorization reads. A use-case capture
         // must reuse this revision rather than accepting a revocation that happened in between.
-        await authoritySnapshot.CaptureAsync(cancellationToken);
+        // The same revision keys the projection cache. It moves with role, grant, and credential
+        // withdrawal, so the next request evaluates current authority with no time-to-live window.
+        long revision = await authoritySnapshot.CaptureAsync(cancellationToken);
         Result<ResourceTokenProjection> current = await resources.ProjectAsync(new ResourceTokenRequest(request.ClientId,
             [ProtectedResource.AdministrativeScope], [ProtectedResource.AdministrativeAudience], request.UserId,
-            request.TokenPermissions, [ProtectedResource.AdministrativeAudience]), cancellationToken);
+            request.TokenPermissions, [ProtectedResource.AdministrativeAudience], AuthorityRevision: revision), cancellationToken);
         if (current.IsFailure) { return current.Error; }
         if (!current.Value.Audiences.SequenceEqual([ProtectedResource.AdministrativeAudience]) || current.Value.Permissions.Count == 0)
         {
