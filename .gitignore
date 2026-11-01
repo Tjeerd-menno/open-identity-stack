@@ -161,3 +161,6 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
+
+# Impeccable engine binaries. The skill launcher downloads the platform binary on first run.
+**/skills/impeccable/scripts/bin/
