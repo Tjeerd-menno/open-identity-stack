@@ -96,6 +96,10 @@ Default label vocabulary — `needs-triage`, `needs-info`, `ready-for-agent`, `r
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+### Impeccable
+
+The Impeccable skill is installed for frontend and UI work. Run `/impeccable init` once to create `PRODUCT.md` and `DESIGN.md`. Update with `npx impeccable update`.
+
 ## Project Principles
 
 OpenIdentityStack is an identity and access management product. These principles govern all feature work, migrated from the former Spec Kit constitution.
