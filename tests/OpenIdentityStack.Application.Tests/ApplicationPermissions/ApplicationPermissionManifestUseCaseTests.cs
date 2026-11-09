@@ -498,6 +498,45 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ManifestChanges_WithDifferentApplicationIdentifier_RejectsWithoutChangingCatalogOrAssignments(bool preview)
+    {
+        RegisteredApplication application = CreateApplication("1.0.0");
+        uint concurrencyToken = application.ConcurrencyToken;
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.authorizationService.CanAdministerRegistryAsync("actor-1", Arg.Any<CancellationToken>()).Returns(true);
+        this.permissionAssignmentStore.RemoveAssignmentsAsync(
+                Arg.Any<PermissionAssignmentRemovalPlan>(), "actor-1", Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<PermissionAssignmentImpactDto>>)Array.Empty<PermissionAssignmentImpactDto>());
+        PermissionManifestDocument manifest = EmptyManifest("2.0.0") with
+        {
+            Application = new PermissionManifestApplicationDeclaration("billing-api", "Billing API", null, "2.0.0"),
+        };
+        var command = new ApplyApplicationPermissionManifestCommand(application.Id.Value, manifest, "actor-1", concurrencyToken);
+
+        if (preview)
+        {
+            Result<ManifestPreviewDto> result = await this.useCases.PreviewChangesAsync(command);
+            result.IsFailure.ShouldBeTrue();
+            result.Error.Code.ShouldBe("Validation.PermissionManifest.ApplicationIdentifierMismatch");
+        }
+        else
+        {
+            Result<ManifestApplyDto> result = await this.useCases.ApplyChangesAsync(command);
+            result.IsFailure.ShouldBeTrue();
+            result.Error.Code.ShouldBe("Validation.PermissionManifest.ApplicationIdentifierMismatch");
+        }
+        application.ManifestVersion.ShouldBe("1.0.0");
+        application.DisplayName.ShouldBe("Orders API");
+        application.ConcurrencyToken.ShouldBe(concurrencyToken);
+        application.Permissions.Single().IsRemoved.ShouldBeFalse();
+        await this.permissionAssignmentStore.DidNotReceive().RemoveAssignmentsAsync(
+            Arg.Any<PermissionAssignmentRemovalPlan>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
     private RegisteredApplication CreateApplication(string manifestVersion, string? manifestBaseUrl = "https://orders.example.com/api")
     {
         Result<RegisteredApplication> result = RegisteredApplication.Register(
