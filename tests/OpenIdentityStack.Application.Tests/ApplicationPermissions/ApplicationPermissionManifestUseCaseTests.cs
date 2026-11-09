@@ -537,6 +537,23 @@ public sealed class ApplicationPermissionManifestUseCaseTests
         await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task NonTransactionalManifestOperations_WhenManageDenied_StillWriteDeniedAudits()
+    {
+        RegisteredApplication application = CreateApplication("1.0.0");
+        this.repository.GetByIdAsync(application.Id, Arg.Any<CancellationToken>()).Returns(application);
+        this.authorizationService.CanManageApplicationAsync("actor-1", application, Arg.Any<CancellationToken>()).Returns(false);
+        var command = new ApplyApplicationPermissionManifestCommand(application.Id.Value, ValidManifest("2.0.0"), "actor-1", application.ConcurrencyToken);
+
+        (await this.useCases.ApplyAsync(command)).IsFailure.ShouldBeTrue();
+        (await this.useCases.PreviewAsync(command)).IsFailure.ShouldBeTrue();
+        (await this.useCases.PreviewChangesAsync(command)).IsFailure.ShouldBeTrue();
+
+        await this.auditWriter.Received(3).WriteAsync(
+            "ApplyApplicationPermissionManifest", "actor-1", application.Id.Value.ToString(), "Denied", Arg.Any<CancellationToken>());
+        await this.repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
     private RegisteredApplication CreateApplication(string manifestVersion, string? manifestBaseUrl = "https://orders.example.com/api")
     {
         Result<RegisteredApplication> result = RegisteredApplication.Register(
