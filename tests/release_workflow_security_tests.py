@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 WORKFLOW = Path(__file__).resolve().parents[1] / ".github/workflows/release.yml"
+INSTALLER = Path(__file__).resolve().parents[1] / "deploy/windows-service/install-open-identity-stack.ps1"
 
 
 def pwsh_steps():
@@ -29,6 +30,37 @@ def pwsh_steps():
 
 
 class ReleaseWorkflowSecurityTests(unittest.TestCase):
+    def test_installer_default_finds_executable_in_release_layout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "release with spaces"
+            executable = package / "publish/OpenIdentityStack.Api.exe"
+            executable.parent.mkdir(parents=True)
+            executable.touch()
+            env = os.environ.copy()
+            env.update(OIS_INSTALLER=str(INSTALLER), OIS_PACKAGE=str(package))
+            result = subprocess.run(
+                ["pwsh", "-NoProfile", "-NonInteractive", "-Command", """
+                    $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+                        $env:OIS_INSTALLER, [ref]$null, [ref]$null)
+                    $parameter = $ast.ParamBlock.Parameters | Where-Object {
+                        $_.Name.VariablePath.UserPath -eq 'InstallPath'
+                    }
+                    $expression = [scriptblock]::Create(
+                        'param($PSScriptRoot) ' + $parameter.DefaultValue.Extent.Text)
+                    $resolved = & $expression $env:OIS_PACKAGE
+                    if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
+                        throw "Installer executable not found: $resolved"
+                    }
+                    Write-Output $resolved
+                """],
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(executable, Path(result.stdout.strip()))
+
     def test_pwsh_steps_do_not_interpolate_workflow_expressions(self):
         steps = pwsh_steps()
         self.assertEqual(3, len(steps))

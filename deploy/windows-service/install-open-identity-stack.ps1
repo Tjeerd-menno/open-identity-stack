@@ -2,7 +2,7 @@ param(
     [string]$ServiceName = "OpenIdentityStack",
     [string]$DisplayName = "OpenIdentityStack",
     [string]$Description = "OpenIdentityStack identity and access management service",
-    [string]$InstallPath = (Join-Path $PSScriptRoot "..\publish\OpenIdentityStack.Api.exe"),
+    [string]$InstallPath = (Join-Path $PSScriptRoot "publish\OpenIdentityStack.Api.exe"),
     [string]$Url = "http://localhost:8080"
 )
 
