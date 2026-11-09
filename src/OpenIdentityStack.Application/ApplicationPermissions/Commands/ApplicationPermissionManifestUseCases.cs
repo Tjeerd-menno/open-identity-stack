@@ -202,12 +202,12 @@ public sealed class ApplicationPermissionManifestUseCases
 
     public async Task<Result<ManifestApplyDto>> ApplyChangesAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken = default)
     {
-        bool registryRemovalDenied = false;
+        bool accessDenied = false;
         Result<ManifestApplyDto> result = await this.transactionRunner
-            .ExecuteAsync(token => this.ApplyChangesCoreAsync(command, () => registryRemovalDenied = true, token), cancellationToken)
+            .ExecuteAsync(token => this.ApplyChangesCoreAsync(command, () => accessDenied = true, token), cancellationToken)
             .ConfigureAwait(false);
 
-        if (registryRemovalDenied)
+        if (accessDenied)
         {
             await this.auditWriter.WriteAsync(
                 "ApplyApplicationPermissionManifest",
@@ -284,10 +284,10 @@ public sealed class ApplicationPermissionManifestUseCases
 
     private async Task<Result<ManifestApplyDto>> ApplyChangesCoreAsync(
         ApplyApplicationPermissionManifestCommand command,
-        Action onRegistryRemovalDenied,
+        Action onAccessDenied,
         CancellationToken cancellationToken)
     {
-        Result<ManifestChangePlan> planResult = await this.CreateManifestChangePlanAsync(command, cancellationToken).ConfigureAwait(false);
+        Result<ManifestChangePlan> planResult = await this.CreateManifestChangePlanAsync(command, cancellationToken, onAccessDenied).ConfigureAwait(false);
         if (planResult.IsFailure)
         {
             return planResult.Error;
@@ -299,7 +299,7 @@ public sealed class ApplicationPermissionManifestUseCases
         {
             if (!await this.authorizationService.CanAdministerRegistryAsync(command.ActorId, cancellationToken).ConfigureAwait(false))
             {
-                onRegistryRemovalDenied();
+                onAccessDenied();
                 return DomainError.Forbidden("PermissionManifest.Forbidden", "Actor cannot remove application permissions.");
             }
 
@@ -415,12 +415,16 @@ public sealed class ApplicationPermissionManifestUseCases
         return application;
     }
 
-    private async Task<Result<ManifestChangePlan>> CreateManifestChangePlanAsync(ApplyApplicationPermissionManifestCommand command, CancellationToken cancellationToken)
+    private async Task<Result<ManifestChangePlan>> CreateManifestChangePlanAsync(
+        ApplyApplicationPermissionManifestCommand command,
+        CancellationToken cancellationToken,
+        Action? onAccessDenied = null)
     {
         Result<RegisteredApplication> preconditions = await this.ValidateManifestUpdatePreconditionsAsync(
             command,
             allowEmptyPermissions: true,
-            cancellationToken: cancellationToken).ConfigureAwait(false);
+            cancellationToken: cancellationToken,
+            onAccessDenied: onAccessDenied).ConfigureAwait(false);
         if (preconditions.IsFailure)
         {
             return preconditions.Error;
@@ -476,7 +480,8 @@ public sealed class ApplicationPermissionManifestUseCases
     private async Task<Result<RegisteredApplication>> ValidateManifestUpdatePreconditionsAsync(
         ApplyApplicationPermissionManifestCommand command,
         bool allowEmptyPermissions,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action? onAccessDenied = null)
     {
         Result validation = ApplicationPermissionManifestValidator.Validate(command.Manifest, null, allowEmptyPermissions);
         if (validation.IsFailure)
@@ -492,7 +497,15 @@ public sealed class ApplicationPermissionManifestUseCases
 
         if (!await this.authorizationService.CanManageApplicationAsync(command.ActorId, application, cancellationToken).ConfigureAwait(false))
         {
-            await this.auditWriter.WriteAsync("ApplyApplicationPermissionManifest", command.ActorId, application.Id.Value.ToString(), "Denied", cancellationToken).ConfigureAwait(false);
+            if (onAccessDenied is null)
+            {
+                await this.auditWriter.WriteAsync("ApplyApplicationPermissionManifest", command.ActorId, application.Id.Value.ToString(), "Denied", cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                onAccessDenied();
+            }
+
             return DomainError.Forbidden("PermissionManifest.Forbidden", "Actor cannot manage this registered application.");
         }
 
