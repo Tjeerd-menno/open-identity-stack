@@ -26,6 +26,8 @@ COPY src/OpenIdentityStack.ManagementWeb/nginx.conf /etc/nginx/conf.d/default.co
 COPY --chmod=755 src/OpenIdentityStack.ManagementWeb/docker-entrypoint.sh /docker-entrypoint.d/40-openidentitystack-runtime-config.sh
 COPY --chmod=755 --from=build /workspace/src/OpenIdentityStack.ManagementWeb/dist /usr/share/nginx/html
 
+RUN chown nginx:nginx /usr/share/nginx/html/runtime-config.js
+
 EXPOSE 80
 
 USER nginx
