@@ -45,6 +45,28 @@ function renderDetail(auth = makeAuth()) {
 }
 
 describe('UserDetailPage', () => {
+  it('assigns a role beyond the first page of available roles', async () => {
+    const user = userEvent.setup();
+    const roles = Array.from({ length: 101 }, (_, index) => ({
+      id: `role-${index}`, name: `role-${index}`, displayName: `Role ${index}`,
+      isSystemRole: false, isActive: true, permissions: [],
+    }));
+    mockApi.roles.getRoles.mockImplementation(async ({ page: requestedPage }) =>
+      page(roles.slice((requestedPage - 1) * 100, requestedPage * 100), {
+        page: requestedPage, pageSize: 100, totalCount: 101, totalPages: 2,
+      })
+    );
+    mockApi.users.assignUserRole.mockResolvedValue(undefined);
+    renderDetail();
+
+    await user.click(await screen.findByRole('tab', { name: /roles/i }));
+    await user.type(screen.getByPlaceholderText('Select a role'), 'Role 100');
+    await user.click(await screen.findByRole('option', { name: 'Role 100' }));
+    await user.click(screen.getByRole('button', { name: 'Assign' }));
+
+    await waitFor(() => expect(mockApi.users.assignUserRole).toHaveBeenCalledWith('u1', 'role-100'));
+  });
+
   it.each([
     { name: 'unrestricted', permissions: ['*'] },
     { name: 'user write', permissions: ['users:read', 'users:write'] },

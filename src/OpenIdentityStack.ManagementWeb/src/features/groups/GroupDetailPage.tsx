@@ -26,6 +26,7 @@ import { RowMenu } from '@/components/RowMenu';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { BackLink, CenteredState, DetailHeader, ErrorState, MetaStrip, SectionCard } from '@/components/primitives';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { getAllRoles } from '@/lib/roles';
 import { useAuth } from '@/lib/auth-context';
 import { groupsDelete, groupsManageMembers, groupsWrite, rolesRead } from '@/lib/generated-permissions';
 import { hasPermission } from '@/lib/permissions';
@@ -418,7 +419,7 @@ function AddMappingModal({
   // role identifier), so offer a role picker rather than a free-text name field.
   const rolesQuery = useQuery({
     queryKey: ['roles', 'all'],
-    queryFn: () => api.roles.getRoles({ page: 1, pageSize: 100 }),
+    queryFn: getAllRoles,
     enabled: canReadRoles,
   });
 
@@ -455,7 +456,7 @@ function AddMappingModal({
               searchable
               required
               disabled={!canReadRoles}
-              data={(rolesQuery.data?.items ?? []).map((role) => ({ value: role.id, label: role.displayName }))}
+              data={(rolesQuery.data ?? []).map((role) => ({ value: role.id, label: role.displayName }))}
               value={form.values.value || null}
               error={form.errors.value}
               onChange={(value) => form.setFieldValue('value', value ?? '')}
