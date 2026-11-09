@@ -496,6 +496,11 @@ public sealed class ApplicationPermissionManifestUseCases
             return DomainError.Forbidden("PermissionManifest.Forbidden", "Actor cannot manage this registered application.");
         }
 
+        if (!string.Equals(command.Manifest.Application.Id, application.ApplicationIdentifier, StringComparison.Ordinal))
+        {
+            return DomainError.Validation("PermissionManifest.ApplicationIdentifierMismatch", "Manifest application identifier must match the registered application.");
+        }
+
         if (command.ExpectedConcurrencyToken.HasValue && application.ConcurrencyToken != command.ExpectedConcurrencyToken.Value)
         {
             return DomainError.Conflict("PermissionManifest.ConcurrencyConflict", "The registered application was modified by another request.");
