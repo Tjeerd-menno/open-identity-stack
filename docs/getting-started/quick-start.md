@@ -22,6 +22,8 @@ When AppHost starts, it provisions or connects:
 - API
 - Management Web UI
 
+Local Aspire runs in `Development` bootstrap the Management Web client's administrative access automatically. Sign in after the migrator completes; no separate approval bootstrap command is needed. Existing withdrawn access is preserved.
+
 ## Use a disposable local database when needed
 
 If you want a clean state between runs:

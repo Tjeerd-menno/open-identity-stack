@@ -32,7 +32,10 @@ The AppHost composes:
 
 - PostgreSQL uses a persistent data volume by default
 - `Seed__DevelopmentData=true` is set for the local migrator path
+- local Aspire runs in `Development` also bootstrap the Management Web client's delegated administrative access
 - the management web receives `VITE_OIDC_AUTHORITY` and `VITE_API_BASE_URL` from the API endpoint
+
+Restarting AppHost creates a missing Management Web grant, so no separate migrator run is needed. Existing grants, including withdrawn access, are preserved. Publish mode and other environments still require [explicit administrative client approval](../security/administrative-client-access.md#management-web-preparation).
 
 ## Useful local toggles
 

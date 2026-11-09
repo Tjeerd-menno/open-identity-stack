@@ -41,7 +41,9 @@ The API exposes `GET` and `PUT /api/admin/applications/{id}/administrative-acces
 
 The migrator prepares only the fixed `management-web-client` registration, with `ois.admin`, authorization code plus PKCE, and independently reviewed redirect URIs configured under `OpenIddict:Clients:ManagementWeb`. Preparation alone does not approve it.
 
-For controlled initial deployment, explicitly set `Seed:AdministrativeAccess:BootstrapManagementWeb=true` for one migrator run. This flag is off by default. It grants the known Management Web registration a delegated `*` ceiling and no machine permissions. The bootstrap validates the existing public-client identity, PKCE, allowed grant types, absence of credentials, and exact configured redirect/post-logout URI sets. It refuses mismatches and disabled registrations. Remove the flag after successful bootstrap.
+Local Aspire runs in `Development` enable `Seed:AdministrativeAccess:BootstrapManagementWeb` automatically for the bundled Management Web client. Publish mode and other environments do not enable it.
+
+For controlled initial deployment or a standalone migrator run, explicitly set `Seed:AdministrativeAccess:BootstrapManagementWeb=true` for one migrator run. The migrator's default is off. It grants the known Management Web registration a delegated `*` ceiling and no machine permissions. The bootstrap validates the existing public-client identity, PKCE, allowed grant types, absence of credentials, and exact configured redirect/post-logout URI sets. It refuses mismatches and disabled registrations. Remove the flag after successful bootstrap.
 
 An existing grant is never expanded or restored by bootstrap reruns, including an empty grant retained after withdrawal. The bootstrap does not approve ordinary registrations or provide a runtime recovery endpoint. Other integrations must receive explicit human approval.
 
