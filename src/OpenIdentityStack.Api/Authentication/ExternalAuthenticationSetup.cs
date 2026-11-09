@@ -29,13 +29,15 @@ public interface IDynamicAuthenticationSchemeService
 /// <summary>
 /// Service for dynamically registering external authentication schemes.
 /// </summary>
-public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthenticationSchemeService
+public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthenticationSchemeService, IDisposable
 {
     private readonly IAuthenticationSchemeProvider schemeProvider;
     private readonly IOptionsMonitorCache<OpenIdConnectOptions> optionsCache;
     private readonly IServiceProvider serviceProvider;
     private readonly ILogger<DynamicAuthenticationSchemeService> logger;
     private readonly ISecretProtector secretProtector;
+    private readonly SemaphoreSlim registrationGate = new(1, 1);
+    private readonly Dictionary<string, (UpstreamProviderId Id, string Authority, string ClientId, string? ClientSecret)> registeredConfigurations = new(StringComparer.Ordinal);
 
     public DynamicAuthenticationSchemeService(
         IAuthenticationSchemeProvider schemeProvider,
@@ -56,16 +58,36 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
     /// </summary>
     public async Task RegisterSchemeAsync(UpstreamProvider provider, CancellationToken cancellationToken = default)
     {
+        await this.registrationGate.WaitAsync(cancellationToken);
+        try
+        {
+            await this.RegisterSchemeCoreAsync(provider);
+        }
+        finally
+        {
+            this.registrationGate.Release();
+        }
+    }
+
+    private async Task RegisterSchemeCoreAsync(UpstreamProvider provider)
+    {
         string schemeName = provider.Name;
 
         // Check if scheme already exists
         AuthenticationScheme? existingScheme = await this.schemeProvider.GetSchemeAsync(schemeName);
+        (UpstreamProviderId Id, string Authority, string ClientId, string? ClientSecret) configuration =
+            (provider.Id, provider.Authority, provider.ClientId, provider.ClientSecret);
+        if (existingScheme is not null
+            && this.registeredConfigurations.TryGetValue(schemeName,
+                out (UpstreamProviderId Id, string Authority, string ClientId, string? ClientSecret) registeredConfiguration)
+            && registeredConfiguration == configuration)
+        {
+            return;
+        }
+
         if (existingScheme is not null)
         {
             this.LogSchemeAlreadyRegistered(schemeName);
-            // Remove and re-add to update
-            this.schemeProvider.RemoveScheme(schemeName);
-            this.optionsCache.TryRemove(schemeName);
         }
 
         // Configure the OpenIdConnect options
@@ -146,6 +168,7 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
         }
 
         // Add options to the cache
+        this.optionsCache.TryRemove(schemeName);
         this.optionsCache.TryAdd(schemeName, options);
 
         // Register the authentication scheme
@@ -154,8 +177,12 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
             provider.DisplayName,
             typeof(OpenIdConnectHandler));
 
-        this.schemeProvider.AddScheme(scheme);
+        if (existingScheme is null)
+        {
+            this.schemeProvider.AddScheme(scheme);
+        }
 
+        this.registeredConfigurations[schemeName] = configuration;
         this.LogSchemeRegistered(schemeName, provider.DisplayName);
     }
 
@@ -164,10 +191,21 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
     /// </summary>
     public void RemoveScheme(string schemeName)
     {
-        this.schemeProvider.RemoveScheme(schemeName);
-        this.optionsCache.TryRemove(schemeName);
-        this.LogSchemeRemoved(schemeName);
+        this.registrationGate.Wait();
+        try
+        {
+            this.schemeProvider.RemoveScheme(schemeName);
+            this.optionsCache.TryRemove(schemeName);
+            this.registeredConfigurations.Remove(schemeName);
+            this.LogSchemeRemoved(schemeName);
+        }
+        finally
+        {
+            this.registrationGate.Release();
+        }
     }
+
+    public void Dispose() => this.registrationGate.Dispose();
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Authentication scheme '{SchemeName}' already registered, updating options")]
     private partial void LogSchemeAlreadyRegistered(string schemeName);

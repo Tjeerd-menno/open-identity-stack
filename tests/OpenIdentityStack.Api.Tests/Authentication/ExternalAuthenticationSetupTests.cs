@@ -118,7 +118,7 @@ public sealed class DynamicAuthenticationSchemeServiceTests
     }
 
     [Fact]
-    public async Task RegisterSchemeAsync_WithExistingScheme_RemovesAndReadds()
+    public async Task RegisterSchemeAsync_WithExistingScheme_KeepsSchemeAndUpdatesOptions()
     {
         // Arrange
         IAuthenticationSchemeProvider schemeProvider = Substitute.For<IAuthenticationSchemeProvider>();
@@ -140,9 +140,61 @@ public sealed class DynamicAuthenticationSchemeServiceTests
         await service.RegisterSchemeAsync(providerResult.Value);
 
         // Assert
-        schemeProvider.Received(1).RemoveScheme("google");
+        schemeProvider.DidNotReceive().RemoveScheme("google");
         optionsCache.Received(1).TryRemove("google");
-        schemeProvider.Received(1).AddScheme(Arg.Is<AuthenticationScheme>(s => s!.Name == "google"));
+        schemeProvider.DidNotReceive().AddScheme(Arg.Any<AuthenticationScheme>());
+        optionsCache.Received(1).TryAdd("google", Arg.Is<OpenIdConnectOptions>(options => options!.ClientId == "client-id"));
+    }
+
+    [Fact]
+    public async Task RegisterSchemeAsync_ReusesOptionsUntilProviderConfigurationChanges()
+    {
+        var schemes = new AuthenticationSchemeProvider(Options.Create(new AuthenticationOptions()));
+        var cache = new OptionsCache<OpenIdConnectOptions>();
+        IServiceProvider services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(IEnumerable<IPostConfigureOptions<OpenIdConnectOptions>>))
+            .Returns(Array.Empty<IPostConfigureOptions<OpenIdConnectOptions>>());
+        using var service = new DynamicAuthenticationSchemeService(schemes, cache, services, Substitute.For<ILogger<DynamicAuthenticationSchemeService>>());
+        UpstreamProvider provider = UpstreamProvider.Create("tenant", "Tenant", "https://issuer.example/", "client").Value;
+        await service.RegisterSchemeAsync(provider);
+        OpenIdConnectOptions initial = cache.GetOrAdd("tenant", () => throw new InvalidOperationException());
+        AuthenticationScheme? scheme = await schemes.GetSchemeAsync("tenant");
+
+        await service.RegisterSchemeAsync(provider);
+
+        cache.GetOrAdd("tenant", () => throw new InvalidOperationException()).ShouldBeSameAs(initial);
+
+        provider.UpdateAuthority("https://replacement.example/").IsSuccess.ShouldBeTrue();
+        provider.UpdateClientId("replacement-client").IsSuccess.ShouldBeTrue();
+        await service.RegisterSchemeAsync(provider);
+
+        OpenIdConnectOptions updated = cache.GetOrAdd("tenant", () => throw new InvalidOperationException());
+        updated.ShouldNotBeSameAs(initial);
+        updated.Authority.ShouldBe("https://replacement.example");
+        updated.ClientId.ShouldBe("replacement-client");
+        (await schemes.GetSchemeAsync("tenant")).ShouldBeSameAs(scheme);
+    }
+
+    [Fact]
+    public async Task RegisterSchemeAsync_WhenCallsOverlap_RegistersOneStableScheme()
+    {
+        var schemes = new DelayedAuthenticationSchemeProvider();
+        var cache = new OptionsCache<OpenIdConnectOptions>();
+        IServiceProvider services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(IEnumerable<IPostConfigureOptions<OpenIdConnectOptions>>))
+            .Returns(Array.Empty<IPostConfigureOptions<OpenIdConnectOptions>>());
+        var service = new DynamicAuthenticationSchemeService(schemes, cache, services, Substitute.For<ILogger<DynamicAuthenticationSchemeService>>());
+        UpstreamProvider provider = UpstreamProvider.Create("tenant", "Tenant", "https://issuer.example/", "client").Value;
+
+        Task first = service.RegisterSchemeAsync(provider);
+        Task second = service.RegisterSchemeAsync(provider);
+        schemes.ReleaseReads.SetResult();
+        await Task.WhenAll(first, second);
+
+        (await schemes.GetAllSchemesAsync()).ShouldHaveSingleItem().Name.ShouldBe("tenant");
+        schemes.AddCount.ShouldBe(1);
+        schemes.RemoveCount.ShouldBe(0);
+        cache.GetOrAdd("tenant", () => throw new InvalidOperationException()).ClientId.ShouldBe("client");
     }
 
     [Fact]
@@ -162,6 +214,32 @@ public sealed class DynamicAuthenticationSchemeServiceTests
         // Assert
         schemeProvider.Received(1).RemoveScheme("google");
         optionsCache.Received(1).TryRemove("google");
+    }
+
+    private sealed class DelayedAuthenticationSchemeProvider() : AuthenticationSchemeProvider(Options.Create(new AuthenticationOptions()))
+    {
+        public TaskCompletionSource ReleaseReads { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int AddCount { get; private set; }
+        public int RemoveCount { get; private set; }
+
+        public override async Task<AuthenticationScheme?> GetSchemeAsync(string name)
+        {
+            AuthenticationScheme? scheme = await base.GetSchemeAsync(name);
+            await this.ReleaseReads.Task;
+            return scheme;
+        }
+
+        public override void AddScheme(AuthenticationScheme scheme)
+        {
+            base.AddScheme(scheme);
+            this.AddCount++;
+        }
+
+        public override void RemoveScheme(string name)
+        {
+            base.RemoveScheme(name);
+            this.RemoveCount++;
+        }
     }
 }
 
