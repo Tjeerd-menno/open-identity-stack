@@ -39,11 +39,13 @@ public sealed class RemotePermissionManifestFetcher : IRemotePermissionManifestF
             return Error("RemoteBaseUrlUntrusted", "Remote import requires HTTPS except for explicit loopback HTTP development fixtures.");
         }
 
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(this.httpClient.Timeout);
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
             using HttpResponseMessage response = await this.httpClient
-                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
                 .ConfigureAwait(false);
 
             if (IsRedirect(response.StatusCode))
@@ -67,9 +69,9 @@ public sealed class RemotePermissionManifestFetcher : IRemotePermissionManifestF
                 return Error("RemoteResponseTooLarge", "Remote manifest response exceeded the maximum size.");
             }
 
-            await using Stream boundedStream = await ReadBoundedAsync(response.Content, cancellationToken).ConfigureAwait(false);
+            await using Stream boundedStream = await ReadBoundedAsync(response.Content, deadline.Token).ConfigureAwait(false);
             PermissionManifestDocument? manifest = await JsonSerializer
-                .DeserializeAsync<PermissionManifestDocument>(boundedStream, serializerOptions, cancellationToken)
+                .DeserializeAsync<PermissionManifestDocument>(boundedStream, serializerOptions, deadline.Token)
                 .ConfigureAwait(false);
             if (manifest is null)
             {
@@ -87,7 +89,7 @@ public sealed class RemotePermissionManifestFetcher : IRemotePermissionManifestF
         {
             return Error("RemoteResponseTooLarge", "Remote manifest response exceeded the maximum size.");
         }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return Error("RemoteFetchTimedOut", "Remote manifest fetch timed out.");
         }
