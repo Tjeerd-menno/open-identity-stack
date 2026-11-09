@@ -21,6 +21,7 @@ import {
 import { hasPermission } from '@/lib/permissions';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { useSyncedForm } from '@/lib/use-synced-form';
+import { getAllRoles } from '@/lib/roles';
 
 export function UserDetailPage() {
   const { userId = '' } = useParams();
@@ -56,7 +57,7 @@ export function UserDetailPage() {
   });
   const allRolesQuery = useQuery({
     queryKey: ['roles', 'all'],
-    queryFn: () => api.roles.getRoles({ page: 1, pageSize: 100 }),
+    queryFn: getAllRoles,
     enabled: canAssignRoles && canReadRoles,
   });
 
@@ -129,7 +130,7 @@ export function UserDetailPage() {
       roles={roles}
       groups={groups}
       identities={identities}
-      availableRoles={allRolesQuery.data?.items ?? []}
+      availableRoles={allRolesQuery.data ?? []}
       roleToAssign={roleToAssign}
       onRoleToAssign={setRoleToAssign}
       isAssigningRole={assignRole.isPending}
