@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Hosting;
+
 IDistributedApplicationBuilder builder = DistributedApplication.CreateBuilder(args);
 
 // Use a persistent data volume only when not explicitly disabled (e.g., test runs)
@@ -39,6 +41,11 @@ IResourceBuilder<ProjectResource> openIdModuleMigrator = builder.AddProject<Proj
     .WithEnvironment("Seed__DevelopmentData", "true")
     .WithEnvironment("Seed__DefaultAdmin__Password", defaultAdminPassword)
     .WaitFor(openIdentityStackDb);
+
+if (builder.ExecutionContext.IsRunMode && builder.Environment.IsDevelopment())
+{
+    openIdModuleMigrator.WithEnvironment("Seed__AdministrativeAccess__BootstrapManagementWeb", "true");
+}
 
 // Add the API project with PostgreSQL dependency
 // Use fixed external ports for consistent OAuth configuration
