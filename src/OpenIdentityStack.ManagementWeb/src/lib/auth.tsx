@@ -15,7 +15,7 @@ type CurrentUserLoadState =
 
 export { AuthContextProvider, useAuth, type AuthContextValue } from './auth-context';
 
-function createUserManager(): UserManager {
+function createUserManager(automaticSilentRenew = true): UserManager {
   const baseUrl = globalThis.location.origin;
   const settings: UserManagerSettings = {
     authority: getOidcAuthority(),
@@ -25,7 +25,7 @@ function createUserManager(): UserManager {
     silent_redirect_uri: `${baseUrl}/auth/silent-callback`,
     response_type: 'code',
     scope: 'openid profile email ois.admin',
-    automaticSilentRenew: true,
+    automaticSilentRenew,
     userStore: new WebStorageStateStore({ store: globalThis.sessionStorage }),
   };
 
@@ -33,7 +33,27 @@ function createUserManager(): UserManager {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  if (location.pathname === '/auth/silent-callback') {
+    return <SilentAuthCallback />;
+  }
+
   return <OidcAuthProvider>{children}</OidcAuthProvider>;
+}
+
+function SilentAuthCallback() {
+  const [userManager] = useState(() => createUserManager(false));
+  const callbackStarted = useRef(false);
+
+  useEffect(() => {
+    if (callbackStarted.current) return;
+    callbackStarted.current = true;
+    void userManager.signinSilentCallback().catch((error: unknown) => {
+      console.error('OIDC silent callback error:', error);
+    });
+  }, [userManager]);
+
+  return null;
 }
 
 // Guards the authorization-code redemption so it runs exactly once, even when
