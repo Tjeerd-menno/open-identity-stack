@@ -86,6 +86,38 @@ public sealed class RemotePermissionManifestFetcherTests
     }
 
     [Fact]
+    public async Task FetchAsync_WhenBodyStalls_ReturnsTimeoutWithinClientDeadline()
+    {
+        using var stream = new BlockingReadStream();
+        using HttpResponseMessage response = StreamingJsonResponse(stream);
+        using var client = new HttpClient(new StubHttpMessageHandler(_ => response)) { Timeout = TimeSpan.FromMilliseconds(50) };
+        RemotePermissionManifestFetcher fetcher = new(client);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        Result<PermissionManifestDocument> result = await fetcher.FetchAsync("https://orders.example.com", "orders-api", cancellation.Token);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Code.ShouldBe("Validation.PermissionManifest.RemoteFetchTimedOut");
+        cancellation.IsCancellationRequested.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task FetchAsync_WhenCallerCancelsBodyRead_PropagatesCancellation()
+    {
+        using var stream = new BlockingReadStream();
+        using HttpResponseMessage response = StreamingJsonResponse(stream);
+        using var client = new HttpClient(new StubHttpMessageHandler(_ => response));
+        RemotePermissionManifestFetcher fetcher = new(client);
+        using var cancellation = new CancellationTokenSource();
+
+        Task<Result<PermissionManifestDocument>> fetch = fetcher.FetchAsync("https://orders.example.com", "orders-api", cancellation.Token);
+        await stream.ReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+
+        await Should.ThrowAsync<OperationCanceledException>(async () => await fetch);
+    }
+
+    [Fact]
     public async Task FetchAsync_WithPlainHttpNonLocalhostBaseUrl_ReturnsValidationError()
     {
         RemotePermissionManifestFetcher fetcher = new(new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(Manifest("orders-api")))));
@@ -112,6 +144,25 @@ public sealed class RemotePermissionManifestFetcherTests
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json"),
         };
+    }
+
+    private static HttpResponseMessage StreamingJsonResponse(Stream stream)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(stream) };
+        response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        return response;
+    }
+
+    private sealed class BlockingReadStream : MemoryStream
+    {
+        public TaskCompletionSource ReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            this.ReadStarted.TrySetResult();
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
     }
 
     private static string Manifest(string applicationId)
