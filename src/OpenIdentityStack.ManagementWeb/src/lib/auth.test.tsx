@@ -1,6 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useEffect } from 'react';
+import { UserManager } from 'oidc-client-ts';
+import { StrictMode, useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { AppRoutes } from '@/routes/AppRoutes';
 import { renderManagementWeb } from '@/test/render';
@@ -20,6 +21,7 @@ let expiredCallback: (() => void) | null;
 let getUser: Mock<() => Promise<MockOidcUser | null>>;
 let signoutRedirect: Mock<() => Promise<void>>;
 let signinRedirect: Mock<(args?: { prompt: string; max_age: number }) => Promise<void>>;
+let signinSilentCallback: Mock<() => Promise<void>>;
 let removeUser: Mock<() => Promise<void>>;
 let latestAuth: AuthContextValue | null;
 
@@ -30,6 +32,7 @@ vi.mock('oidc-client-ts', () => ({
     this.signinRedirect = signinRedirect;
     this.removeUser = removeUser;
     this.signinCallback = vi.fn();
+    this.signinSilentCallback = signinSilentCallback;
     this.signoutRedirect = signoutRedirect;
     this.events = {
       addUserLoaded: vi.fn((callback: (user: MockOidcUser) => void) => {
@@ -98,6 +101,7 @@ describe('AuthProvider current user permissions', () => {
       await removeUser();
     });
     signinRedirect = vi.fn(async () => {});
+    signinSilentCallback = vi.fn(async () => {});
     resetApiMocks();
     mockApi.currentUser.getCurrentUser.mockResolvedValue({
       subject: 'user-123',
@@ -109,7 +113,42 @@ describe('AuthProvider current user permissions', () => {
   });
 
   afterEach(() => {
+    window.history.replaceState(null, '', '/');
     vi.clearAllMocks();
+  });
+
+  it('completes the silent callback once without loading the console session', async () => {
+    window.history.replaceState(null, '', '/auth/silent-callback?code=renewed-code&state=renewal');
+    renderManagementWeb(
+      <StrictMode>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </StrictMode>,
+      { initialEntries: ['/auth/silent-callback'] }
+    );
+
+    await waitFor(() => expect(signinSilentCallback).toHaveBeenCalledOnce());
+    expect(UserManager).toHaveBeenLastCalledWith(expect.objectContaining({ automaticSilentRenew: false }));
+    expect(getUser).not.toHaveBeenCalled();
+    expect(mockApi.currentUser.getCurrentUser).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed silent callback without loading the console session', async () => {
+    const error = new Error('Unable to notify the parent window');
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    signinSilentCallback.mockRejectedValue(error);
+    renderManagementWeb(
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>,
+      { initialEntries: ['/auth/silent-callback'] }
+    );
+
+    await waitFor(() => expect(log).toHaveBeenCalledWith('OIDC silent callback error:', error));
+    expect(getUser).not.toHaveBeenCalled();
+    expect(mockApi.currentUser.getCurrentUser).not.toHaveBeenCalled();
+    log.mockRestore();
   });
 
   it('loads permissions from /api/me for an opaque access token', async () => {
