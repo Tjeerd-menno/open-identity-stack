@@ -322,8 +322,8 @@ public class ManagementWebAppHostFixture : IAsyncLifetime
             throw new InvalidOperationException(
                 "Playwright Chromium runtime was not found for ManagementWeb E2E tests. " +
                 "Install browsers using the generated Playwright script (for example: " +
-                "'pwsh tests/OpenIdentityStack.ManagementWeb.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium' " +
-                "or './tests/OpenIdentityStack.ManagementWeb.E2ETests/bin/Debug/net10.0/playwright.sh install chromium') " +
+                "'pwsh tests/OpenIdentityStack.ManagementWeb.E2ETests/bin/Debug/net11.0/playwright.ps1 install chromium' " +
+                "or './tests/OpenIdentityStack.ManagementWeb.E2ETests/bin/Debug/net11.0/playwright.sh install chromium') " +
                 "and rerun the tests.");
         }
     }

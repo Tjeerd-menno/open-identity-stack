@@ -4,13 +4,13 @@
 `src/` contains the product code. Core backend layers live in `SharedKernel`, `OpenIdentityStack.Domain`, `OpenIdentityStack.Application`, and `OpenIdentityStack.Infrastructure`. Runtime entry points are `OpenIdentityStack.Api`, `OpenIdentityStack.DbMigrator`, `OpenIdentityStack.AppHost` (Aspire orchestration), and `OpenIdentityStack.ManagementWeb` (React/Vite admin UI). `tests/` mirrors those layers with focused projects such as `*.Domain.Tests`, `*.Application.Tests`, `*.Api.Tests`, `*.Contract.Tests`, and `*.ManagementWeb.E2ETests`. Product docs live in `docs/`, deployment scripts in `deploy/`, and API contracts in `contracts/`.
 
 ## Build, Test, and Development Commands
-Use .NET 10 and restore from the solution root:
+Use .NET 11 and restore from the solution root:
 
 - `dotnet restore OpenIdentityStack.slnx` restores backend dependencies.
 - `dotnet build OpenIdentityStack.slnx --no-restore` builds all .NET projects with analyzers enabled.
 - `dotnet run --project src/OpenIdentityStack.AppHost` starts the full Aspire stack locally.
 - `dotnet test --project tests/OpenIdentityStack.Domain.Tests/OpenIdentityStack.Domain.Tests.csproj` runs a single fast unit suite.
-- `dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Api.Tests.dll" --max-parallel-test-modules 1 --no-build --no-restore` matches the CI pattern for sequential API-style modules.
+- `dotnet test --test-modules "tests/**/bin/Debug/net11.0/*Api.Tests.dll" --max-parallel-test-modules 1 --no-build --no-restore` matches the CI pattern for sequential API-style modules.
 - `cd src/OpenIdentityStack.ManagementWeb; npm install; npm run dev` starts the management UI.
 - `cd src/OpenIdentityStack.ManagementWeb; npm run build && npm run lint && npm test` validates the frontend.
 - `mkdocs build --strict` verifies the docs site.
@@ -114,7 +114,7 @@ Tests must be planned before implementation. Behavior changes must include test 
 Backend changes must preserve the existing Clean/Hexagonal layering: Domain contains business rules and domain types; Application contains use cases, queries, commands, DTOs, and ports; Infrastructure contains persistence, OpenIddict, external provider, audit, and other adapter implementations; Api contains HTTP and UI adapters; AppHost orchestrates the local Aspire runtime. Features should be organized by domain slice (Users, Groups, Roles, Sessions, ServiceAccounts, Federation, Clients, ServicePermissions). Dependencies must point inward — Domain code must not depend on ASP.NET Core, EF Core, OpenIddict, React, or other adapter concerns.
 
 ### IV. Simplicity and Dependency Discipline
-Prefer direct services and use cases, explicit DTO mapping, System.Text.Json, Microsoft OpenAPI plus Scalar, and existing repository patterns. Disallowed packages (require an explicit, documented exception to introduce): Newtonsoft.Json (use System.Text.Json), Swashbuckle/Swagger (use Microsoft.AspNetCore.OpenApi and Scalar), AutoMapper (use explicit mapping), MediatR (use direct use-case/service/query/command handler injection). New packages must be justified by irreplaceable value, maintenance health, security posture, license compatibility, and compatibility with .NET 10 or the ManagementWeb stack.
+Prefer direct services and use cases, explicit DTO mapping, System.Text.Json, Microsoft OpenAPI plus Scalar, and existing repository patterns. Disallowed packages (require an explicit, documented exception to introduce): Newtonsoft.Json (use System.Text.Json), Swashbuckle/Swagger (use Microsoft.AspNetCore.OpenApi and Scalar), AutoMapper (use explicit mapping), MediatR (use direct use-case/service/query/command handler injection). New packages must be justified by irreplaceable value, maintenance health, security posture, license compatibility, and compatibility with .NET 11 or the ManagementWeb stack.
 
 ### V. Operational Reliability and Observability
 Features affecting runtime behavior must include health, logging, diagnostics, configuration, migration, deployment, and rollback considerations proportional to risk. Production paths must preserve PostgreSQL persistence, data-protection storage, signing and encryption key safety, reverse-proxy behavior, and secure configuration. Security-relevant and operationally significant actions must be observable without exposing secrets or sensitive personal data.

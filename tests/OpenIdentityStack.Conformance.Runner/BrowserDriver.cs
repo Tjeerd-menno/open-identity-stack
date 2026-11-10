@@ -51,7 +51,7 @@ internal sealed class BrowserDriver : IAsyncDisposable
             throw new InvalidOperationException(
                 "Could not launch Chromium. Playwright's browser binaries are not installed by "
                 + "the build; install them once with:\n\n"
-                + "    tests/OpenIdentityStack.Conformance.Runner/bin/Debug/net10.0/playwright.ps1 install chromium\n\n"
+                + "    tests/OpenIdentityStack.Conformance.Runner/bin/Debug/net11.0/playwright.ps1 install chromium\n\n"
                 + "(use playwright.sh on Linux and macOS). See "
                 + "docs/certification/run-oidf-conformance-suite.md.",
                 ex);

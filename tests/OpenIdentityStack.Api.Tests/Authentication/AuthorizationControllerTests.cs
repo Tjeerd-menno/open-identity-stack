@@ -1097,13 +1097,13 @@ public class AuthorizationControllerTests : IDisposable
             ClientId = "test-client",
             Scope = OpenIddictConstants.Scopes.OpenId
         };
-        request[OpenIddictConstants.Parameters.Claims] = JsonDocument.Parse("""
+        request[OpenIddictConstants.Parameters.Claims] = JsonElement.Parse("""
             {
               "userinfo": {
                 "name": { "essential": true }
               }
             }
-            """).RootElement.Clone();
+            """);
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
         Claim[] claims = new[]
@@ -1182,14 +1182,14 @@ public class AuthorizationControllerTests : IDisposable
             ClientId = "test-client",
             Scope = OpenIddictConstants.Scopes.OpenId
         };
-        request[OpenIddictConstants.Parameters.Claims] = JsonDocument.Parse("""
+        request[OpenIddictConstants.Parameters.Claims] = JsonElement.Parse("""
             {
               "userinfo": {
                 "given_name": { "essential": true },
                 "email": { "essential": true }
               }
             }
-            """).RootElement.Clone();
+            """);
         this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(request);
 
         Claim[] claims = new[]

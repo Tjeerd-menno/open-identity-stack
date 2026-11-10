@@ -1,7 +1,7 @@
 ARG BUILDPLATFORM
 ARG TARGETPLATFORM
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Build.props
@@ -27,7 +27,7 @@ COPY src/OpenIdentityStack.Analyzers/ src/OpenIdentityStack.Analyzers/
 
 RUN dotnet publish src/OpenIdentityStack.DbMigrator/OpenIdentityStack.DbMigrator.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
 
 COPY --chown=root:root --chmod=555 --from=build /app/publish .

@@ -36,7 +36,7 @@ Go to [Windows service deployment](../installation/windows-service.md).
 
 ### Local
 
-- .NET 10 SDK
+- .NET 11 SDK
 - Node.js LTS
 - Git
 
