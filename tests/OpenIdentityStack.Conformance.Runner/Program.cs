@@ -12,8 +12,8 @@ string configJson = await File.ReadAllTextAsync(options.ConfigPath);
 // The OP the plan config points at is the only origin the browser may type the
 // certification password into. Deriving it from the config rather than a flag
 // keeps it impossible to run against one OP while trusting another.
-string discoveryUrl = JsonDocument.Parse(configJson)
-    .RootElement.GetProperty("server").GetProperty("discoveryUrl").GetString()
+string discoveryUrl = JsonElement.Parse(configJson)
+    .GetProperty("server").GetProperty("discoveryUrl").GetString()
     ?? throw new InvalidOperationException($"{options.ConfigPath} has no server.discoveryUrl.");
 
 options = options with

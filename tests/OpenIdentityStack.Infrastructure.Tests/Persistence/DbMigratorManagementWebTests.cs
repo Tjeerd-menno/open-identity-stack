@@ -82,7 +82,7 @@ public sealed class DbMigratorManagementWebTests
             WorkingDirectory = project, UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardOutput = true, RedirectStandardError = true,
         };
-        start.ArgumentList.Add(Path.Combine(project, "bin", configuration, "net10.0", "OpenIdentityStack.DbMigrator.dll"));
+        start.ArgumentList.Add(Path.Combine(project, "bin", configuration, "net11.0", "OpenIdentityStack.DbMigrator.dll"));
         start.Environment["ConnectionStrings__openidentitystack"] = connection;
         start.Environment["DOTNET_ENVIRONMENT"] = "Testing";
         start.Environment["Seed__DemoClients"] = "false";

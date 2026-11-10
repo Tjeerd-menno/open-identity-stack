@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-OpenIdentityStack is an OpenIddict-based Identity & Access Management (IAM) product built with .NET 10, .NET Aspire, PostgreSQL, and React. It provides OAuth 2.0/OIDC authentication, RBAC, federation, admin APIs, a DbMigrator, Management Web, Linux container images, and Windows service packaging.
+OpenIdentityStack is an OpenIddict-based Identity & Access Management (IAM) product built with .NET 11, .NET Aspire, PostgreSQL, and React. It provides OAuth 2.0/OIDC authentication, RBAC, federation, admin APIs, a DbMigrator, Management Web, Linux container images, and Windows service packaging.
 
 ## Architecture
 
@@ -82,7 +82,7 @@ dotnet test --project tests/OpenIdentityStack.Domain.Tests/... -- --filter-names
 
 # CI-style sequential run for API/integration modules (build first so the DLLs exist)
 dotnet build OpenIdentityStack.slnx --no-restore
-dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Api.Tests.dll" --max-parallel-test-modules 1 --no-build --no-restore
+dotnet test --test-modules "tests/**/bin/Debug/net11.0/*Api.Tests.dll" --max-parallel-test-modules 1 --no-build --no-restore
 ```
 Tests use Microsoft.Testing.Platform with xUnit v3 (`[Fact]`/`[Theory]`). API tests use Aspire integration testing via `AppHostFixture`.
 

@@ -191,7 +191,7 @@ which blocks certification exactly as a `FAILED` does.
 the first run otherwise fails at launch. Install Chromium once:
 
 ```powershell
-tests/OpenIdentityStack.Conformance.Runner/bin/Debug/net10.0/playwright.ps1 install chromium
+tests/OpenIdentityStack.Conformance.Runner/bin/Debug/net11.0/playwright.ps1 install chromium
 ```
 
 Use `playwright.sh` on Linux and macOS. If it is missing, the runner says so and

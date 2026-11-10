@@ -16,8 +16,8 @@ public sealed class OpenIddictClientLogoutMetadataResolverTests
         manager.FindByClientIdAsync("portal", Arg.Any<CancellationToken>()).Returns(application);
         manager.GetPropertiesAsync(application, Arg.Any<CancellationToken>()).Returns(
             ImmutableDictionary<string, JsonElement>.Empty
-                .Add(OpenIddictClientLogoutMetadataResolver.FrontChannelLogoutUriProperty, JsonDocument.Parse("\"https://portal.test/front\"").RootElement.Clone())
-                .Add(OpenIddictClientLogoutMetadataResolver.BackChannelLogoutUriProperty, JsonDocument.Parse("\"https://portal.test/back\"").RootElement.Clone()));
+                .Add(OpenIddictClientLogoutMetadataResolver.FrontChannelLogoutUriProperty, JsonElement.Parse("\"https://portal.test/front\""))
+                .Add(OpenIddictClientLogoutMetadataResolver.BackChannelLogoutUriProperty, JsonElement.Parse("\"https://portal.test/back\"")));
         var resolver = new OpenIddictClientLogoutMetadataResolver(manager);
 
         ClientLogoutMetadata result = await resolver.ResolveAsync("portal");
@@ -34,7 +34,7 @@ public sealed class OpenIddictClientLogoutMetadataResolverTests
         manager.FindByClientIdAsync("portal", Arg.Any<CancellationToken>()).Returns(application);
         manager.GetPropertiesAsync(application, Arg.Any<CancellationToken>()).Returns(
             ImmutableDictionary<string, JsonElement>.Empty
-                .Add(OpenIddictClientLogoutMetadataResolver.FrontChannelLogoutUriProperty, JsonDocument.Parse("\"javascript:alert(1)\"").RootElement.Clone()));
+                .Add(OpenIddictClientLogoutMetadataResolver.FrontChannelLogoutUriProperty, JsonElement.Parse("\"javascript:alert(1)\"")));
         var resolver = new OpenIddictClientLogoutMetadataResolver(manager);
 
         ClientLogoutMetadata result = await resolver.ResolveAsync("portal");

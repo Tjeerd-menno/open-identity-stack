@@ -54,7 +54,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "11.0.x"
 
       - name: Set up JDK 17
         uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
@@ -105,7 +105,7 @@ jobs:
       - name: Install Playwright browsers for ManagementWeb E2E tests
         shell: pwsh
         run: |
-          $playwrightScript = "tests/OpenIdentityStack.ManagementWeb.E2ETests/bin/Debug/net10.0/playwright.ps1"
+          $playwrightScript = "tests/OpenIdentityStack.ManagementWeb.E2ETests/bin/Debug/net11.0/playwright.ps1"
           if (-not (Test-Path $playwrightScript)) {
             throw "Playwright install script not found at '$playwrightScript'. Ensure the E2E test project was built successfully."
           }
@@ -113,21 +113,21 @@ jobs:
 
       - name: Test unit modules with coverage
         run: |
-          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Domain.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.domain.cobertura.xml --coverage-settings coverage.settings.xml
-          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Application.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.application.cobertura.xml --coverage-settings coverage.settings.xml
-          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/OpenIdentityStack.Infrastructure.Tests/bin/Debug/net10.0/OpenIdentityStack.Infrastructure.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.infrastructure.cobertura.xml --coverage-settings coverage.settings.xml
-          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/OpenIdentityStack.Api.UnitTests/bin/Debug/net10.0/OpenIdentityStack.Api.UnitTests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.apiunit.cobertura.xml --coverage-settings coverage.settings.xml
-          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/OpenIdentityStack.Architecture.Tests/bin/Debug/net10.0/OpenIdentityStack.Architecture.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore
+          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net11.0/*Domain.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.domain.cobertura.xml --coverage-settings coverage.settings.xml
+          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net11.0/*Application.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.application.cobertura.xml --coverage-settings coverage.settings.xml
+          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/OpenIdentityStack.Infrastructure.Tests/bin/Debug/net11.0/OpenIdentityStack.Infrastructure.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.infrastructure.cobertura.xml --coverage-settings coverage.settings.xml
+          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/OpenIdentityStack.Api.UnitTests/bin/Debug/net11.0/OpenIdentityStack.Api.UnitTests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.apiunit.cobertura.xml --coverage-settings coverage.settings.xml
+          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/OpenIdentityStack.Architecture.Tests/bin/Debug/net11.0/OpenIdentityStack.Architecture.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --no-build --no-restore
 
       - name: Test API modules sequentially with coverage
         run: |
-          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Api.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.apitests.cobertura.xml --coverage-settings coverage.settings.xml
+          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net11.0/*Api.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.apitests.cobertura.xml --coverage-settings coverage.settings.xml
           # Contract tests compare checked-in OpenAPI documents and do not execute product code.
           # A coverage file from that run is line-rate 1 with no measured lines, which the gate rejects.
-          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*Contract.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore
+          env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net11.0/*Contract.Tests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore
 
       - name: Test E2E modules sequentially with coverage
-        run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net10.0/*E2ETests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.e2e.cobertura.xml --coverage-settings coverage.settings.xml
+        run: env -u DEBUG_SESSION_PORT -u DEBUG_SESSION_TOKEN dotnet test --test-modules "tests/**/bin/Debug/net11.0/*E2ETests.dll" --root-directory "$GITHUB_WORKSPACE" --max-parallel-test-modules 1 --no-build --no-restore -- --coverage --coverage-output-format cobertura --coverage-output coverage.e2e.cobertura.xml --coverage-settings coverage.settings.xml
 
       - name: Verify coverage threshold
         shell: bash

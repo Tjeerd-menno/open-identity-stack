@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 
@@ -37,6 +38,7 @@ public static class ProblemDetailsConfiguration
                 {
                     (int statusCode, string title) = exception switch
                     {
+                        JsonException when httpContext.Response.StatusCode == StatusCodes.Status400BadRequest => (StatusCodes.Status400BadRequest, "Bad Request"),
                         Microsoft.AspNetCore.Http.BadHttpRequestException => (StatusCodes.Status400BadRequest, "Bad Request"),
                         ArgumentException => (StatusCodes.Status400BadRequest, "Bad Request"),
                         UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
@@ -70,6 +72,7 @@ public static class ProblemDetailsConfiguration
                     {
                         problemDetails.Detail = exception switch
                         {
+                            JsonException when httpContext.Response.StatusCode == StatusCodes.Status400BadRequest => "The request body is invalid or malformed.",
                             Microsoft.AspNetCore.Http.BadHttpRequestException => "The request body is invalid or malformed.",
                             ArgumentException => exception.Message,
                             UnauthorizedAccessException => "You are not authorized to perform this action.",

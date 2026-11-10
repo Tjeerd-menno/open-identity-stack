@@ -4,9 +4,11 @@ Use this path for evaluation, development, and integration testing.
 
 ## Prerequisites
 
-- .NET 10 SDK
+- .NET 11 SDK
 - Node.js LTS
 - Git
+
+The SDK and runtime use .NET 11. EF Core, the PostgreSQL provider, the data-protection EF integration, and `dotnet-ef` remain on stable 10.x versions until a stable Npgsql EF Core 11 provider is available. Keep these persistence dependencies aligned when upgrading them.
 
 PostgreSQL client tooling is optional but useful for diagnostics.
 

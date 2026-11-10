@@ -169,7 +169,7 @@ The stack only stands the suite and the OP up facing each other. Plans are drive
 Install the browser binaries once — `dotnet build` restores Playwright's driver but not Chromium:
 
 ```bash
-tests/OpenIdentityStack.Conformance.Runner/bin/Debug/net10.0/playwright.ps1 install chromium
+tests/OpenIdentityStack.Conformance.Runner/bin/Debug/net11.0/playwright.ps1 install chromium
 ```
 
 Use `playwright.sh` on Linux and macOS. Then, from this directory:
