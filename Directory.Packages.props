@@ -5,10 +5,10 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Aspire 13.6.4 -->
-    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.6.4" />
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.4" />
-    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.4" />
-    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.6.5" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.5" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.5" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.6.5" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.15" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
@@ -38,7 +38,7 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="11.0.0" />
-    <PackageVersion Include="Scalar.AspNetCore" Version="2.17.8" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.20.0" />
     <!-- Keep EF Core, its PostgreSQL provider, DataProtection EF integration, and dotnet-ef on 10.x
          until a stable Npgsql EF Core 11 provider is available. These run on .NET 11. -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.15" />
@@ -47,15 +47,15 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.15" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <!-- OpenIddict -->
-    <PackageVersion Include="OpenIddict.AspNetCore" Version="7.7.1" />
-    <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="7.7.1" />
-    <PackageVersion Include="OpenIddict.Quartz" Version="7.7.1" />
+    <PackageVersion Include="OpenIddict.AspNetCore" Version="7.8.0" />
+    <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="7.8.0" />
+    <PackageVersion Include="OpenIddict.Quartz" Version="7.8.0" />
     <!-- Validation -->
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <!-- Testing -->
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Playwright" Version="1.64.1" />
-    <PackageVersion Include="Microsoft.Playwright.Xunit.v3" Version="1.63.0" />
+    <PackageVersion Include="Microsoft.Playwright.Xunit.v3" Version="1.64.1" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
