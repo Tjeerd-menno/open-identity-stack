@@ -2,6 +2,7 @@
 
 Use the product reference pages in this section when you need quick lookup material rather than a guided walkthrough.
 
+- [Compatibility across 1.x](compatibility.md)
 - [Configuration reference](configuration-reference.md)
 - [Endpoint reference](endpoint-reference.md)
 - [Standards and flows](standards-and-flows.md)

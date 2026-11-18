@@ -12,6 +12,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  admin-api-compatibility:
+    name: Admin API 1.x compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: "11.0.x"
+
+      - name: Build the API test host
+        run: dotnet build tests/OpenIdentityStack.Api.Tests/OpenIdentityStack.Api.Tests.csproj
+
+      - name: Install pinned oasdiff for the 1.x Admin API check
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl --fail --silent --show-error --location --retry 3 \
+            -o oasdiff.tar.gz https://github.com/oasdiff/oasdiff/releases/download/v1.15.0/oasdiff_1.15.0_linux_amd64.tar.gz
+          echo 'b87f2539b82a97472b8d4d558063c21a228937431c5d35b85e369eee1a8f6c90  oasdiff.tar.gz' | sha256sum --check
+          mkdir -p oasdiff-bin
+          tar -xzf oasdiff.tar.gz -C oasdiff-bin oasdiff
+          echo "$RUNNER_TEMP/oasdiff-bin" >> "$GITHUB_PATH"
+
+      - name: Check the generated Admin API against the 1.x release baselines
+        env:
+          OIS_ADMIN_OPENAPI_OUTPUT: ${{ runner.temp }}/admin-api.json
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python3 tests/admin_api_compatibility_tests.py -v
+          dotnet test --test-modules "tests/OpenIdentityStack.Api.Tests/bin/Debug/net11.0/OpenIdentityStack.Api.Tests.dll" --no-build --no-restore -- --filter-class OpenIdentityStack.Api.Tests.Admin.AdminOpenApiExportTests
+          python3 scripts/ci/check-admin-api-compatibility.py --base-ref "$BASE_SHA" "$OIS_ADMIN_OPENAPI_OUTPUT"
+
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 90

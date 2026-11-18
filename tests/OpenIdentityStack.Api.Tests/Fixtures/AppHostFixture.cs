@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Infrastructure.Persistence;
@@ -225,6 +228,18 @@ public class AppHostFixture : IAsyncLifetime
         await operation(dbContext);
     }
 
+    internal async Task<OpenApiDocument> GetAdminOpenApiDocumentAsync()
+    {
+        if (this.Factory is null)
+        {
+            throw new InvalidOperationException("Factory is not initialized.");
+        }
+
+        using IServiceScope scope = this.Factory.Services.CreateScope();
+        IOpenApiDocumentProvider provider = scope.ServiceProvider.GetRequiredKeyedService<IOpenApiDocumentProvider>("v1");
+        return await provider.GetOpenApiDocumentAsync(TestContext.Current.CancellationToken);
+    }
+
     public async Task<Guid> CreateSessionAsync(
         Guid userId,
         string? ipAddress = null,
@@ -380,6 +395,13 @@ public class AppHostFixture : IAsyncLifetime
 
             builder.ConfigureTestServices(services =>
             {
+                services.PostConfigure<OpenApiOptions>("v1", options =>
+                {
+                    Func<ApiDescription, bool> include = options.ShouldInclude;
+                    options.ShouldInclude = description => include(description) &&
+                        (description.RelativePath == "api/admin" ||
+                         description.RelativePath?.StartsWith("api/admin/", StringComparison.Ordinal) == true);
+                });
                 services.RemoveAll<DbContextOptions<OpenIdentityStackDbContext>>();
                 services.RemoveAll<OpenIdentityStackDbContext>();
 
