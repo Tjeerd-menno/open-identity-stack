@@ -56,6 +56,18 @@ def main(stage):
     require(len(access) == 5, "Expected an encrypted Production access token")
     enc_kid = json.loads(decode(access[0]))["kid"]
 
+    def admin_read(value):
+        req = urllib.request.Request(issuer + "/api/admin/users",
+                                     headers={"Authorization": "Bearer " + value})
+        try:
+            with urllib.request.urlopen(req, context=tls, timeout=15) as result:
+                require("items" in json.load(result), "Unexpected users response")
+                return result.status
+        except urllib.error.HTTPError as error:
+            if error.code == 401:
+                return error.code
+            raise RuntimeError(f"Unexpected admin response HTTP {error.code}") from None
+
     def refresh(value):
         data = urllib.parse.urlencode(dict(grant_type="refresh_token", client_id="management-web-client",
                                           refresh_token=value)).encode()
@@ -71,6 +83,7 @@ def main(stage):
             raise RuntimeError(f"Unexpected refresh response HTTP {error.code}") from None
 
     # Keep a separate, never-redeemed grant for the subsequent transition.
+    require(admin_read(tokens["access_token"]) == 200, "New access token rejected by Admin API")
     require(refresh(tokens["refresh_token"]) == "accepted", "Fresh grant failed to refresh")
     state_file = material.parent / "rotation-state.json"
     if stage != "baseline":
@@ -84,11 +97,14 @@ def main(stage):
         else:
             raise ValueError("Unknown rotation stage")
         previous_refresh = refresh(previous["refresh"])
-        print(f"{stage} replacement: previously issued unused refresh grant = {previous_refresh}")
+        previous_read = admin_read(previous["access"])
+        print(f"{stage} replacement: previous access HTTP {previous_read}, previous unused refresh = {previous_refresh}")
     if stage != "encryption":
         fd = os.open(state_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        held = browser_tokens()
+        require(admin_read(held["access_token"]) == 200, "Pre-transition token rejected")
         with os.fdopen(fd, "w") as state:
-            json.dump(dict(sig=info["kid"], enc=enc_kid, refresh=browser_tokens()["refresh_token"]), state)
+            json.dump(dict(sig=info["kid"], enc=enc_kid, refresh=held["refresh_token"], access=held["access_token"]), state)
     else:
         state_file.unlink()
     print(f"{stage}: verified discovery, ID-token signature and claims, encrypted access token and fresh refresh")

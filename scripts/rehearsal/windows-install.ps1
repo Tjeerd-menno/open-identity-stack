@@ -21,7 +21,7 @@ function Get-VerifiedManifest([string]$digest) {
 
 function Export-Pfx($certificate, [string]$name) {
     $path = Join-Path $working "$name.pfx"
-    Export-PfxCertificate -Cert $certificate -FilePath $path -Password $pfxPassword | Out-Null
+    Export-PfxCertificate -Cert $certificate -FilePath $path -Password $pfxPassword -CryptoAlgorithmOption AES256_SHA256 | Out-Null
     $path
 }
 
@@ -112,13 +112,6 @@ try {
     $env:OpenIddict__Clients__ManagementWeb__RedirectUris__0 = $redirect
     $env:OpenIddict__Clients__ManagementWeb__PostLogoutRedirectUris__0 = "$issuer/"
     $env:OpenIddict__Issuer = "$issuer/"
-    # Keep potentially sensitive migration/HTTP diagnostics off the workflow console.
-    & dotnet $migrator *> (Join-Path $working 'migrator.log')
-    $bootstrapQuery = 'SELECT "EntityId" FROM "AuditLogEntries" WHERE "Action" = ''User.BootstrapCreated'';'
-    $emergencyId = & "$pgBin/psql.exe" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 35433 -U rehearsal -d postgres -Atc $bootstrapQuery
-    if (!([Guid]::Parse($emergencyId))) { throw 'Bootstrap audit missing the emergency user ID.' }
-    Write-Host 'Initialized a fresh PostgreSQL cluster and verified its administrator bootstrap audit.'
-
     $store = 'Cert:\CurrentUser\My'
     $certOptions = @{CertStoreLocation=$store; KeyExportPolicy='Exportable'; KeyAlgorithm='RSA'; KeyLength=2048; NotAfter=(Get-Date).AddDays(2)}
     $root = New-SelfSignedCertificate @certOptions -Type Custom -Subject 'CN=Release rehearsal CA' -KeyUsage CertSign,CRLSign -TextExtension '2.5.29.19={critical}{text}ca=1'
@@ -138,9 +131,23 @@ try {
     $env:CA_CERT = Join-Path $working 'ca.pem'
     $env:CLIENT_CERT = Join-Path $working 'emergency.pem'
     $env:CLIENT_KEY = Join-Path $working 'emergency.key'
-    openssl x509 -inform DER -in $rootFile -out $env:CA_CERT
-    openssl pkcs12 -in $clientPath -passin env:REHEARSAL_PFX_PASSWORD -nokeys -clcerts -out $env:CLIENT_CERT
-    openssl pkcs12 -in $clientPath -passin env:REHEARSAL_PFX_PASSWORD -nocerts -nodes -out $env:CLIENT_KEY
+    $openssl = (Get-Command openssl.exe -ErrorAction SilentlyContinue).Source
+    if (!$openssl) { $openssl = Join-Path ${env:ProgramFiles} 'Git/usr/bin/openssl.exe' }
+    & $openssl x509 -inform DER -in $rootFile -out $env:CA_CERT
+    & $openssl pkcs12 -in $clientPath -passin env:REHEARSAL_PFX_PASSWORD -nokeys -clcerts -out $env:CLIENT_CERT
+    & $openssl pkcs12 -in $clientPath -passin env:REHEARSAL_PFX_PASSWORD -nocerts -nodes -out $env:CLIENT_KEY
+    $env:OpenIddict__Certificates__Signing__Path = $signPath
+    $env:OpenIddict__Certificates__Signing__Password = $env:REHEARSAL_PFX_PASSWORD
+    $env:OpenIddict__Certificates__Encryption__Path = $encPath
+    $env:OpenIddict__Certificates__Encryption__Password = $env:REHEARSAL_PFX_PASSWORD
+
+    # Keep potentially sensitive migration/HTTP diagnostics off the workflow console.
+    & dotnet $migrator *> (Join-Path $working 'migrator.log')
+    $bootstrapQuery = 'SELECT "EntityId" FROM "AuditLogEntries" WHERE "Action" = ''User.BootstrapCreated'';'
+    $emergencyId = & "$pgBin/psql.exe" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 35433 -U rehearsal -d postgres -Atc $bootstrapQuery
+    if (!([Guid]::Parse($emergencyId))) { throw 'Bootstrap audit missing the emergency user ID.' }
+    Write-Host 'Initialized a fresh PostgreSQL cluster and verified its administrator bootstrap audit.'
+
     $publicTls = @{Path=$tlsPath; Password=$env:REHEARSAL_PFX_PASSWORD}
     $config = @{
         ConnectionStrings = @{openidentitystack=$env:ConnectionStrings__openidentitystack}

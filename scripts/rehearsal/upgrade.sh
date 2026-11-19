@@ -2,6 +2,8 @@
 # Run only on a disposable Linux Docker host. All product images must be pinned to published digests.
 set -Eeuo pipefail
 umask 077
+mode=${1:-local}
+[[ $mode == local || $mode == fresh || $mode == export || $mode == restore ]] || exit 2
 for image in RC_API RC_MIGRATOR RC_WEB BASE_API BASE_MIGRATOR BASE_WEB; do
     [[ ${!image:?Missing product image} =~ @sha256:[[:xdigit:]]{64}$ ]] || { echo "Missing digest for $image"; exit 1; }
 done
@@ -56,7 +58,7 @@ set_client_env() {
 
 make_environment() {
     openssl rand -hex 24 > "$material/db.secret"
-    openssl rand -base64 36 > "$material/admin.secret"
+    printf 'Aa2!%s\n' "$(openssl rand -hex 24)" > "$material/admin.secret"
     cat > "$material/common.env" <<EOF
 DOTNET_ENVIRONMENT=Production
 ASPNETCORE_ENVIRONMENT=Production
@@ -96,14 +98,24 @@ start_postgres() {
 
 migrate() {
     local image="$1" settings=(--env-file "$material/common.env")
+    for purpose in signing encryption; do
+        for extension in crt key; do
+            chmod g+r "$material/$purpose.$extension"
+            settings+=(--mount "type=bind,source=$material/$purpose.$extension,target=/drill/$purpose.$extension,readonly")
+        done
+        settings+=(-e "OpenIddict__Certificates__${purpose^}__CertificatePath=/drill/$purpose.crt"
+            -e "OpenIddict__Certificates__${purpose^}__PrivateKeyPath=/drill/$purpose.key")
+    done
     if [[ ${2:-} == bootstrap ]]; then
         printf 'Seed__AdminUser__Password=%s\n' "$ADMIN_PASSWORD" > "$work/seed.env"
         settings+=(--env-file "$work/seed.env" -e Seed__AdminUser__Enabled=true -e "Seed__AdminUser__Email=$ADMIN_EMAIL"
             -e Seed__AdministrativeAccess__BootstrapManagementWeb=true)
     fi
-    if ! docker run --rm --network "$network" "${settings[@]}" "$image" >"$work/migrator.log" 2>&1; then
+    if ! docker run --rm --network "$network" --group-add "$(id -g)" "${settings[@]}" "$image" >"$work/migrator.log" 2>&1; then
         echo "Migrator failed for $image; database remains offline."
         grep -Eo '(InvalidOperationException|[A-Za-z]+Exception|[0-9A-Z]{5}:)' "$work/migrator.log" | sort -u | head -15 || true
+        grep -Eo 'at (OpenIdentityStack|Program|Npgsql)[A-Za-z0-9.<>_$]+' "$work/migrator.log" | head -12 || true
+        grep -Eo 'Bootstrap password does not satisfy the password policy|OpenIddict signing and encryption certificates must be configured|The Management Web registration does not match|controlled administration bootstrap requires' "$work/migrator.log" | head -2 || true
         return 1
     fi
 }
@@ -143,11 +155,52 @@ dp_hash() {
     sql 'SELECT "Xml" FROM "DataProtectionKeys" ORDER BY "Id"' | sha256sum | cut -d' ' -f1
 }
 
-phase=baseline
+recover() {
+    phase=recovery
+    network="$prefix-restored"
+    material="$work/restored"
+    mkdir "$material"
+    (cd "$work/backup" && sha256sum -c checksums)
+    tar -xf "$work/backup/credentials.tar" -C "$material"
+    set_client_env
+    start_postgres
+    docker exec -i "$db" pg_restore --exit-on-error --no-owner --no-acl -U postgres -d ois < "$work/backup/ois.dump"
+    [[ $(dp_hash) == "$(cat "$work/backup/dp.sha256")" ]]
+    migrate "$BASE_MIGRATOR"
+    start_api "$BASE_API"
+    start_web "$BASE_WEB"
+    python3 "$script_dir/upgrade_flows.py" recovery
+    echo "PASS recovery: v0.8.0 restored to a fresh database volume, network and service instances with the original issuer and Data Protection keys"
+}
+
+if [[ $mode == restore ]]; then
+    phase=decrypt
+    transfer="${RUNNER_TEMP:?}/ois-transfer"
+    openssl cms -decrypt -binary -inform DER -in "$transfer/backup.cms" \
+        -recip "$transfer/recipient.crt" -inkey "$transfer/recipient.key" -out "$work/received.tar"
+    tar -xf "$work/received.tar" -C "$work/backup" -- ois.dump credentials.tar dp.sha256 checksums
+    recover
+    exit 0
+fi
+
+phase=prepare
 make_certs
 make_environment
 set_client_env
 start_postgres
+if [[ $mode == fresh ]]; then
+    phase=fresh
+    migrate "$RC_MIGRATOR" bootstrap
+    start_api "$RC_API"
+    start_web "$RC_WEB"
+    python3 "$script_dir/kube-admin.py"
+    echo "PASS clean install: Production API, migrator and Management Web from release digests"
+    phase=rotation
+    source "$script_dir/rotation.sh"
+    rehearse_rotation
+    exit 0
+fi
+phase=baseline
 migrate "$BASE_MIGRATOR" bootstrap
 start_api "$BASE_API"
 start_web "$BASE_WEB"
@@ -163,6 +216,15 @@ dp_hash > "$work/backup/dp.sha256"
 tar -cf "$work/backup/credentials.tar" -C "$material" .
 (cd "$work/backup" && sha256sum ois.dump credentials.tar > checksums)
 echo "PASS backup: offline PostgreSQL dump, nonempty Data Protection key ring and matching deployment material captured"
+if [[ $mode == export ]]; then
+    transfer="${RUNNER_TEMP:?}/ois-transfer"
+    # Only the authenticated ciphertext may cross runners. A fresh recipient privately owns the decryption key.
+    tar -cf "$work/outbound.tar" -C "$work/backup" ois.dump credentials.tar dp.sha256 checksums
+    openssl cms -encrypt -binary -aes-256-gcm -outform DER -in "$work/outbound.tar" \
+        -out "$transfer/backup.cms.tmp" "$transfer/recipient.crt"
+    mv "$transfer/backup.cms.tmp" "$transfer/backup.cms"
+    echo "PASS backup: encrypted for the fresh recovery host"
+fi
 
 phase=upgrade
 # Run each gate in its own subshell so a failed candidate cannot prevent rehearsal of the recovery point.
@@ -190,22 +252,10 @@ else
     echo "BLOCKED rotation: candidate unavailable"
 fi
 
-phase=recovery
-docker rm -fv "$api" "$web" >/dev/null 2>&1 || true
-docker rm -fv "$db" >/dev/null
-docker network rm "$network" >/dev/null
-network="$prefix-restored"
-material="$work/restored"
-mkdir "$material"
-(cd "$work/backup" && sha256sum -c checksums)
-tar -xf "$work/backup/credentials.tar" -C "$material"
-set_client_env
-start_postgres
-docker exec -i "$db" pg_restore --exit-on-error --no-owner --no-acl -U postgres -d ois < "$work/backup/ois.dump"
-[[ $(dp_hash) == "$(cat "$work/backup/dp.sha256")" ]]
-migrate "$BASE_MIGRATOR"
-start_api "$BASE_API"
-start_web "$BASE_WEB"
-python3 "$script_dir/upgrade_flows.py" recovery
-echo "PASS recovery: v0.8.0 restored to a fresh database volume, network and service instances with the original issuer and Data Protection keys"
+if [[ $mode == local ]]; then
+    docker rm -fv "$api" "$web" >/dev/null 2>&1 || true
+    docker rm -fv "$db" >/dev/null
+    docker network rm "$network" >/dev/null
+    recover
+fi
 [[ $upgrade_status == 0 && $rotation_status == 0 ]]

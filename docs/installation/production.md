@@ -42,6 +42,8 @@ kubectl rollout status deployment/open-identity-stack-api -n open-identity-stack
 kubectl rollout status deployment/open-identity-stack-managementweb -n open-identity-stack --timeout=10m
 ```
 
+For a disposable Kubernetes rehearsal, the repository includes a kind cluster fixture in `scripts/rehearsal/kube-clean.sh`. Supply the published image references with their SHA-256 digests in `RC_API`, `RC_MIGRATOR` and `RC_WEB`. It creates a new cluster, runs the Production migrator, checks the API and Management Web, and exercises a certificate-backed administrator sign-in and an authorized user lookup over loopback. Use your deployment's ingress, certificate custody and external identity provider for operator sign-off.
+
 ## Container responsibilities
 
 ### API

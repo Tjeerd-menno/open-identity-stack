@@ -86,7 +86,7 @@ def login():
     state = secrets.token_urlsafe(32)
     path = "/connect/authorize?" + urlencode({
         "client_id": client_id, "redirect_uri": callback, "response_type": "code",
-        "scope": "openid ois.admin offline_access", "state": state,
+        "scope": "openid profile email ois.admin offline_access", "state": state,
         "code_challenge_method": "S256", "code_challenge": challenge,
     })
     send(operator, recovery + "/Account/Login", 302, fields={

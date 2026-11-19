@@ -20,6 +20,14 @@ env:
   BASE_WEB: ghcr.io/tjeerd-menno/open-identity-stack-management-web@sha256:a24996c4bf68effc05e0aeebd844e2ac199b013ee5c403ee5b5899a5f3ced18c
 
 jobs:
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash scripts/rehearsal/upgrade.sh fresh
   kubernetes:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -47,8 +55,46 @@ jobs:
   upgrade-recovery-rotation:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: bash scripts/rehearsal/upgrade.sh
+      - name: Fetch the recovery host's ephemeral public certificate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/rehearsal/upgrade-transfer.sh wait-key
+      - run: bash scripts/rehearsal/upgrade.sh export
+      - name: Deliver encrypted pre-upgrade backup
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ois-drill-backup-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ois-transfer/backup.cms
+          retention-days: 1
+          if-no-files-found: error
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash scripts/rehearsal/upgrade-transfer.sh keygen
+      - name: Publish the recovery host's public certificate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ois-drill-key-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ois-transfer/recipient.crt
+          retention-days: 1
+          if-no-files-found: error
+      - name: Fetch the encrypted backup from the source host
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/rehearsal/upgrade-transfer.sh wait-backup
+      - run: bash scripts/rehearsal/upgrade.sh restore
