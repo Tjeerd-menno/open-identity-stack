@@ -17,3 +17,21 @@ Security is not only about prevention. For an identity platform, recovery matter
 4. Before returning a restored installation to service, reconcile account disablements, withdrawn grants and session revocations made after the backup. Obtain the recovery owner's approval. If the upgraded schema has already been applied, keep traffic closed while repairing forward or restore the complete pre-upgrade set. [Upgrade sequence](../operations/upgrades.md)
 
 Recovery is only complete when applications can trust and use the authority again.
+
+### PostgreSQL commands used in the rehearsal
+
+Drain API traffic and stop writers. With a private backup directory and a PostgreSQL service definition pointing to the source database, take the dump and check that PostgreSQL can read its table of contents.
+
+```sh
+umask 077
+PGSERVICE=ois-source pg_dump --format=custom --no-owner --no-acl --file=ois.dump
+pg_restore --list ois.dump >/dev/null
+```
+
+Put the dump, matching deployment material, and integrity manifest in authenticated encrypted backup storage. Provision an empty target database and its intended roles with the correct ownership and access. Configure a separate PostgreSQL service definition for that target. With the target API still offline, restore the dump.
+
+```sh
+pg_restore --exit-on-error --no-owner --no-acl --dbname='service=ois-recovery' ois.dump
+```
+
+Start the pre-upgrade release with its matching secrets. Complete the issuer, Data Protection and client checks above before the recovery owner decides whether to reopen traffic.

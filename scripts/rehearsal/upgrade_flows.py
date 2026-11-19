@@ -3,6 +3,7 @@
 import json
 import os
 import runpy
+import secrets
 import ssl
 import sys
 from pathlib import Path
@@ -60,6 +61,10 @@ def redeem_refresh(refresh):
 
 
 def populate(token):
+    request("/api/admin/users", "POST", {
+        "email": "existing-user@example.test", "displayName": "Existing release rehearsal user",
+        "password": "Aa2!" + secrets.token_urlsafe(36),
+    }, token)
     root = "/api/admin/applications"
     app = request(root, "POST", {
         "clientId": MACHINE_CLIENT, "displayName": "Release rehearsal worker", "profile": "MachineToMachine",
@@ -79,7 +84,21 @@ def populate(token):
 def registration_snapshot(token):
     root = "/api/admin/applications"
     rows = {r["clientId"]: r for r in request(root, token=token)["items"]}
-    result = {"administrator": request("/api/me", token=token)}
+    issuer = os.environ["ISSUER"]
+    metadata = request("/.well-known/openid-configuration")
+    if metadata["issuer"].rstrip("/") != issuer or not metadata["jwks_uri"].startswith(issuer + "/"):
+        raise RuntimeError("Unexpected discovery issuer or signing-key endpoint")
+    keys = request(metadata["jwks_uri"][len(issuer):])["keys"]
+    published = sorted(key["kid"] for key in keys if key.get("use", "sig") == "sig")
+    if not published:
+        raise RuntimeError("No public signing key in discovery")
+    users = request("/api/admin/users", token=token)["items"]
+    [existing] = [user for user in users if user["email"] == "existing-user@example.test"]
+    result = {
+        "administrator": request("/api/me", token=token),
+        "existingUser": {prop: existing[prop] for prop in ("id", "email", "displayName", "status")},
+        "issuer": metadata["issuer"], "publishedSigningKeyIds": published,
+    }
     for client in ("management-web-client", MACHINE_CLIENT):
         app_url = root + "/" + rows[client]["id"]
         app = request(app_url, token=token)
@@ -99,7 +118,7 @@ def verify(stage):
     if stage == "populate":
         reference.write_text(json.dumps(snapshot))
     elif snapshot != json.loads(reference.read_text()):
-        raise RuntimeError("Registered client, user, permission, or grant changed")
+        raise RuntimeError("Registered client, user, grant, issuer or published signing key changed")
     refreshed = redeem_refresh(tokens["refresh_token"])
     if request("/api/me", token=refreshed["access_token"]) != snapshot["administrator"]:
         raise RuntimeError("Refresh changed administrator identity or privileges")
@@ -115,7 +134,7 @@ def verify(stage):
     if request("/api/me", token=machine)["permissions"] != ["users:read"]:
         raise RuntimeError("Unexpected machine permission ceiling")
     request("/api/admin/users", token=machine)
-    print(f"PASS {stage}: administrator sign-in, PKCE, refresh, registered clients and grants, machine token and authorized API read", flush=True)
+    print(f"PASS {stage}: retained issuer and JWKS, administrator sign-in, PKCE, refresh, user, registered clients and grants, machine token and authorized API read", flush=True)
     if stage == "upgrade":
         # Obtain a second session and revoke it using the independent administrator session.
         uid = snapshot["administrator"]["subject"]

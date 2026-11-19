@@ -2,6 +2,12 @@
 
 Treat upgrades as coordinated changes across the migrator, API, management web, and deployment configuration.
 
+### Rehearsing v0.8.0 to 1.0.0-rc.1
+
+Record the v0.8.0 artifact digests, discovery issuer and JWKS key IDs. Verify an existing public client's PKCE and refresh flow, a confidential client's client-credentials flow, and the permissions each receives. Record the registration IDs and grants. Provision the candidate's MFA trust and independent operator login before the maintenance window.
+
+Drain traffic, stop the v0.8.0 API and web, and take the [pre-upgrade backup](../security/backup-and-recovery.md). Run the published RC1 DbMigrator to successful completion, then deploy the RC1 API and web by digest with the same database and key material. This pair of releases has the same EF migration set. The operation still exercises startup, seed preservation, and production authentication changes. Check readiness, compare the recorded IDs and grants, repeat both client flows, and revoke a disposable browser session. Verify the persisted revocation and a rejected refresh. If any check fails, keep traffic drained and choose forward repair or recovery of the complete pre-upgrade deployment.
+
 ### Upgrading to production administrator MFA
 
 Before replacing the API, provision the trusted upstream authentication context and the independent local recovery account, client certificate, and login listener. Rehearse both sign-in paths against the candidate. Drain older API replicas before reopening administrative traffic so every request receives the same assurance checks. Existing delegated cookies and refresh tokens without MFA evidence require interactive sign-in. Keep a tested deployment configuration and correct trust or routing problems on the enforcing version during recovery. [Administrator MFA and emergency access](../security/administrator-mfa.md)

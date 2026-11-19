@@ -148,7 +148,14 @@ restart_api() { docker rm -f "$api" >/dev/null && start_api "$1"; }
 start_web() {
     docker run -d --name "$web" --network "$network" -p 127.0.0.1:18446:80 \
         -e "VITE_API_BASE_URL=$issuer" -e "VITE_OIDC_AUTHORITY=$issuer" -e VITE_OIDC_CLIENT_ID=management-web-client "$1" >/dev/null
-    curl -fsS --retry 20 --retry-connrefused --retry-delay 1 http://localhost:18446/runtime-config.js | grep -Fq "$issuer"
+    for _ in {1..45}; do
+        if curl -fsS --max-time 3 http://localhost:18446/runtime-config.js -o "$work/web-runtime.js" 2>/dev/null &&
+                grep -Fq "$issuer" "$work/web-runtime.js"; then return 0; fi
+        [[ $(docker inspect -f '{{.State.Running}}' "$web") == true ]] || break
+        sleep 1
+    done
+    echo "Management Web did not serve the expected runtime issuer"
+    return 1
 }
 
 dp_hash() {
