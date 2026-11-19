@@ -51,7 +51,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REHEARSAL_RUNNER_ENVIRONMENT: ${{ runner.environment }}
-        run: ./scripts/rehearsal/windows-install.ps1 -ReleaseTag v1.0.0-rc.1 -MigratorDigest ($env:RC_MIGRATOR.Split('@')[1])
+        run: >
+          ./scripts/rehearsal/windows-install.ps1 -ReleaseTag v1.0.0-rc.1
+          -ExpectedZipSha256 d3ec956dd291af4cf4d678307c5a213b00bbf43e31bab990ef51d93dddfeb6da
+          -MigratorDigest ($env:RC_MIGRATOR.Split('@')[1])
   upgrade-recovery-rotation:
     runs-on: ubuntu-latest
     timeout-minutes: 40

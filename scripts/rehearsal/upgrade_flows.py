@@ -135,7 +135,7 @@ def verify(stage):
         raise RuntimeError("Unexpected machine permission ceiling")
     request("/api/admin/users", token=machine)
     print(f"PASS {stage}: retained issuer and JWKS, administrator sign-in, PKCE, refresh, user, registered clients and grants, machine token and authorized API read", flush=True)
-    if stage == "upgrade":
+    if stage in ("upgrade", "return-to-candidate"):
         # Obtain a second session and revoke it using the independent administrator session.
         uid = snapshot["administrator"]["subject"]
         endpoint = f"/api/admin/sessions?userId={uid}&status=Active&pageSize=100"
@@ -156,7 +156,7 @@ def verify(stage):
                 raise
         else:
             raise RuntimeError("Revoked session could refresh")
-        print("PASS upgrade: revoked session persisted and its refresh token returned invalid_grant", flush=True)
+        print(f"PASS {stage}: revoked session persisted and its refresh token returned invalid_grant", flush=True)
 
 
 if __name__ == "__main__":

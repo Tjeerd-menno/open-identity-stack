@@ -186,6 +186,16 @@ recover() {
     start_web "$BASE_WEB"
     python3 "$script_dir/upgrade_flows.py" recovery
     echo "PASS recovery: v0.8.0 restored to a fresh database volume, network and service instances with the original issuer and Data Protection keys"
+
+    phase=return-to-candidate
+    docker stop "$web" "$api" >/dev/null
+    docker rm "$web" "$api" >/dev/null
+    migrate "$RC_MIGRATOR"
+    [[ $(dp_hash) == "$(cat "$work/backup/dp.sha256")" ]]
+    start_api "$RC_API"
+    start_web "$RC_WEB"
+    python3 "$script_dir/upgrade_flows.py" return-to-candidate
+    echo "PASS recovery: recovered deployment returned to the release candidate after a second maintenance window"
 }
 
 if [[ $mode == restore ]]; then

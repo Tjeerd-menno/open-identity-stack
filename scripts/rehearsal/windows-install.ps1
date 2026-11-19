@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidatePattern('^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$')][string]$ReleaseTag,
-    [Parameter(Mandatory)][ValidatePattern('^sha256:[0-9a-f]{64}$')][string]$MigratorDigest
+    [Parameter(Mandatory)][ValidatePattern('^sha256:[0-9a-f]{64}$')][string]$MigratorDigest,
+    [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedZipSha256
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +20,8 @@ if (!$env:OIS_REHEARSAL_PHASE_FILE) {
     Set-Content $env:OIS_REHEARSAL_PHASE_FILE 'Starting rehearsal'
     $start = [Diagnostics.ProcessStartInfo]::new((Get-Command pwsh.exe).Source)
     $start.UseShellExecute = $false
-    foreach ($argument in @('-NoProfile', '-NonInteractive', '-File', $PSCommandPath, '-ReleaseTag', $ReleaseTag, '-MigratorDigest', $MigratorDigest)) {
+    foreach ($argument in @('-NoProfile', '-NonInteractive', '-File', $PSCommandPath, '-ReleaseTag', $ReleaseTag,
+            '-MigratorDigest', $MigratorDigest, '-ExpectedZipSha256', $ExpectedZipSha256)) {
         $start.ArgumentList.Add($argument)
     }
     $worker = [Diagnostics.Process]::Start($start)
@@ -110,8 +112,8 @@ try {
     gh release download $ReleaseTag -R Tjeerd-menno/open-identity-stack -D $working -p $zipName -p "$zipName.sha256"
     $hash = (Get-FileHash (Join-Path $working $zipName)).Hash
     $checksum = ((Get-Content -Raw (Join-Path $working "$zipName.sha256")).Trim() -split '\s+')
-    if ($checksum.Count -ne 2 -or $checksum[1] -ne $zipName -or $checksum[0] -ne $hash -or $asset.digest -ne "sha256:$hash") {
-        throw 'Windows ZIP failed GitHub asset digest or published checksum verification.'
+    if ($hash -ne $ExpectedZipSha256 -or $checksum.Count -ne 2 -or $checksum[1] -ne $zipName -or $checksum[0] -ne $hash -or $asset.digest -ne "sha256:$hash") {
+        throw 'Windows ZIP failed the candidate pin, GitHub asset digest or published checksum verification.'
     }
     Expand-Archive -LiteralPath (Join-Path $working $zipName) -DestinationPath $package
     Write-Host "Verified Windows ZIP $ReleaseTag SHA-256 $hash"
