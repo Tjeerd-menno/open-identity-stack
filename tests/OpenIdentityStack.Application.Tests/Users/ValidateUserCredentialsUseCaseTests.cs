@@ -112,6 +112,28 @@ public sealed class ValidateUserCredentialsUseCaseTests
         await this._userRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, false)]
+    public async Task DeniedEmergencyCredentialsLeaveLoginStateUntouched(bool designated, bool verifiedCertificate, bool unrestricted)
+    {
+        User user = this.CreateActiveUser("recovery@example.test", "Recovery test", "hash");
+        this._userRepository.GetByEmailAsync(user.Email, Arg.Any<CancellationToken>()).Returns(user);
+        this._passwordHasher.VerifyPassword("hash", "password").Returns(true);
+        this._permissionChecker.GetAllPermissionsAsync(user.Id, Arg.Any<CancellationToken>())
+            .Returns(unrestricted ? [Application.Authorization.Permissions.All] : []);
+        var emergency = new EmergencySignInContext(designated ? user.Id.Value : Guid.NewGuid(), verifiedCertificate);
+
+        Result<ValidateUserCredentialsResult> result = await this._useCase.ExecuteAsync(new ValidateUserCredentialsCommand(user.Email, "password", emergency));
+
+        result.Error.ShouldBe(UserErrors.InvalidCredentials);
+        user.LastLoginAt.ShouldBeNull();
+        await this._userRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        string actor = user.Id.Value.ToString();
+        await this._auditLog.Received(1).LogAsync(actor, "EmergencyAdministrator.Denied", "User", actor, null, Arg.Any<CancellationToken>());
+    }
+
     #endregion
 
     #region User Not Found

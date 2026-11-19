@@ -27,6 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\TestSeedHelpers\AdministrativeMfaTestPolicy.cs" Link="Fixtures\AdministrativeMfaTestPolicy.cs" />
     <Compile Include="..\TestSeedHelpers\AspireTestApplication.cs" Link="Fixtures\AspireTestApplication.cs" />
   </ItemGroup>
 

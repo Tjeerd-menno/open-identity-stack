@@ -19,6 +19,48 @@ namespace OpenIdentityStack.Api.Tests.Authentication;
 public sealed class DynamicAuthenticationSchemeServiceTests
 {
     [Theory]
+    [InlineData("strong-context", "subject", "strong-context")]
+    [InlineData(null, "subject", null)]
+    [InlineData("strong-context", null, null)]
+    [InlineData(new string[] { "strong-context", "another" }, "subject", null)]
+    [InlineData(new string[] { "strong-context" }, "subject", null)]
+    [InlineData(4, "subject", null)]
+    public async Task ValidatedIdTokenSuppliesOnlyScalarAssuranceAndItsSubject(
+        object? tokenContext, string? tokenSubject, string? expectedContext)
+    {
+        var cache = new OptionsCache<OpenIdConnectOptions>();
+        IServiceProvider services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(IEnumerable<IPostConfigureOptions<OpenIdConnectOptions>>))
+            .Returns(Array.Empty<IPostConfigureOptions<OpenIdConnectOptions>>());
+        using var service = new DynamicAuthenticationSchemeService(Substitute.For<IAuthenticationSchemeProvider>(),
+            cache, services, Substitute.For<ILogger<DynamicAuthenticationSchemeService>>());
+        UpstreamProvider provider = UpstreamProvider.Create("tenant", "Tenant", "https://issuer.example/", "client").Value;
+        await service.RegisterSchemeAsync(provider);
+        OpenIdConnectOptions options = cache.GetOrAdd("tenant", () => throw new InvalidOperationException());
+        var payload = new System.IdentityModel.Tokens.Jwt.JwtPayload { { "iss", "https://issuer.example/" } };
+        if (tokenContext is not null) { payload.Add("acr", tokenContext); }
+        if (tokenSubject is not null) { payload.Add("sub", tokenSubject); }
+        var token = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(new System.IdentityModel.Tokens.Jwt.JwtHeader(), payload);
+        var principal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+            [new System.Security.Claims.Claim("acr", "profile-context")], "tenant"));
+        var properties = new AuthenticationProperties();
+        properties.SetString("ois.validated_acr", "stale-context");
+        properties.SetString("ois.assurance_subject", "stale-subject");
+        var context = new TokenValidatedContext(new Microsoft.AspNetCore.Http.DefaultHttpContext(),
+            new AuthenticationScheme("tenant", "Tenant", typeof(OpenIdConnectHandler)), options, principal, properties)
+        {
+            SecurityToken = token
+        };
+
+        await options.Events.TokenValidated(context);
+
+        var ticket = new AuthenticationTicket(principal, properties, "ExternalCookie");
+        AuthenticationProperties persisted = TicketSerializer.Default.Deserialize(TicketSerializer.Default.Serialize(ticket))!.Properties;
+        Assert.Equal(expectedContext, persisted.GetString("ois.validated_acr"));
+        Assert.Equal(expectedContext is null ? null : tokenSubject, persisted.GetString("ois.assurance_subject"));
+    }
+
+    [Theory]
     [InlineData(null, null, null)]
     [InlineData(false, "person@example.com", null)]
     [InlineData("true", "person@example.com", null)]

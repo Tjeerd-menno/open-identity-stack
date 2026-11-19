@@ -106,6 +106,18 @@ public sealed class ValidateUserCredentialsUseCase : IValidateUserCredentialsUse
             return UserErrors.AccountNotVerified;
         }
 
+        if (command.Emergency is { } emergency && (emergency.CertificateVerified || emergency.DesignatedUserId == user.Id.Value))
+        {
+            bool authorized = emergency.CertificateVerified && emergency.DesignatedUserId == user.Id.Value &&
+                (await this.permissionChecker.GetAllPermissionsAsync(user.Id, cancellationToken)).Contains(Permissions.All, StringComparer.Ordinal);
+            if (!authorized)
+            {
+                string actor = user.Id.Value.ToString();
+                await this.auditLog.LogAsync(actor, "EmergencyAdministrator.Denied", "User", actor, cancellationToken: cancellationToken);
+                return UserErrors.InvalidCredentials;
+            }
+        }
+
         // Record login and save
         user.RecordLogin(this.dateTimeProvider);
         await this.userRepository.UpdateAsync(user, cancellationToken);

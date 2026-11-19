@@ -38,6 +38,8 @@ builder.AddPostgreSqlHealthCheck("openidentitystack");
 // Add Application services
 builder.Services.AddApplication();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<AdministrativeMfaPolicy>();
 builder.Services.AddScoped<OpenIdentityStack.Application.Abstractions.IAdministrativeActorContext, AdministrativeActorContext>();
 
 // Add Infrastructure services (DbContext, OpenIddict, etc.)
@@ -138,6 +140,8 @@ builder.Services.AddCors(options =>
 });
 
 WebApplication app = builder.Build();
+// Reject malformed deployment trust settings before accepting authentication traffic.
+_ = app.Services.GetRequiredService<AdministrativeMfaPolicy>();
 
 // Database migrations and seeding are performed by external tools.
 

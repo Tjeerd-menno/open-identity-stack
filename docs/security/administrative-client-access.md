@@ -5,6 +5,8 @@ The Admin API accepts tokens whose only audience is `urn:openidentitystack:admin
 
 ## Entitlement and ceilings
 
+In production, delegated access also requires an approved administrator MFA sign-in. Management Web uses the same check when loading the current user's permissions. [Administrator MFA and emergency access](administrator-mfa.md)
+
 Each administrative client needs an explicit grant to the reserved Admin resource, with separate delegated and machine permission ceilings. An ordinary client's scopes, role names, or resource mappings do not establish this entitlement. The reserved resource identity, scope, and `openidentitystack` permission namespace cannot be reassigned through ordinary resource configuration.
 
 Delegated permissions are the intersection of the user's current permissions, the client's delegated ceiling, the Admin resource, and the issued token's permissions. Client credentials use only the approved machine ceiling. A machine identity does not inherit a user's roles. Both use canonical `permission` claims; alternate `permissions`, `scope`, `scp`, and role claims do not convey administrative authority.

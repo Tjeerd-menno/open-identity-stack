@@ -2,6 +2,10 @@
 
 Treat upgrades as coordinated changes across the migrator, API, management web, and deployment configuration.
 
+### Upgrading to production administrator MFA
+
+Before replacing the API, provision the trusted upstream authentication context and the independent local recovery account, client certificate, and login listener. Rehearse both sign-in paths against the candidate. Drain older API replicas before reopening administrative traffic so every request receives the same assurance checks. Existing delegated cookies and refresh tokens without MFA evidence require interactive sign-in. Keep a tested deployment configuration and correct trust or routing problems on the enforcing version during recovery. [Administrator MFA and emergency access](../security/administrator-mfa.md)
+
 ## Recommended sequence
 
 Use this sequence when the schema remains compatible with the currently running API. For `RemoveCredentialCutover`, follow the [maintenance-window sequence below](#removing-the-pre-release-credential-cutover-schema) instead: old API instances must stop before the migrator runs.

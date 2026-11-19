@@ -122,6 +122,12 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
             }
         }
 
+        if (request.Scopes.Contains(AdministrativeTokenBoundary.Scope, StringComparer.Ordinal)
+            && request.Principal.FindSingleClaim(AdministrativeMfaPolicy.ClaimType) is { } assurance)
+        {
+            identity.AddClaim(new Claim(AdministrativeMfaPolicy.ClaimType, assurance.Value));
+        }
+
         foreach (GroupClaimDto groupClaim in request.GroupClaims.Where(claim => !ReservedGroupClaimTypes.IsReserved(claim.Type)))
         {
             identity.AddClaim(CreateGroupClaim(groupClaim));
@@ -234,6 +240,16 @@ public sealed class TokenClaimProjectionService : ITokenClaimProjectionService
 
     public static IEnumerable<string> GetDestinations(Claim claim)
     {
+        if (claim.Type == AdministrativeMfaPolicy.ClaimType)
+        {
+            if (claim.Subject?.HasResource(AdministrativeTokenBoundary.Audience) == true
+                && claim.Subject.HasScope(AdministrativeTokenBoundary.Scope))
+            {
+                yield return Destinations.AccessToken;
+            }
+            yield break;
+        }
+
         if (IsInternalTokenStateClaim(claim.Type))
         {
             yield break;

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using OpenIdentityStack.Testing;
 using Microsoft.AspNetCore.Authorization;
 using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Application.Authorization;
@@ -10,7 +11,7 @@ namespace OpenIdentityStack.Api.Tests.Authorization;
 /// </summary>
 public sealed class PermissionAuthorizationHandlerAnyTests
 {
-    private readonly PermissionAuthorizationHandler handler = new(new AdministrativeRequestAuthorization(new OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess()));
+    private readonly PermissionAuthorizationHandler handler = new(new AdministrativeRequestAuthorization(new OpenIdentityStack.Api.Tests.Authorization.ApprovedAdministrativeAccess(), AdministrativeMfaTestPolicy.Create()));
 
     [Fact]
     public async Task Multiple_requirements_fail_when_any_requirement_is_unmet()

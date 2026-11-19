@@ -9,6 +9,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Federation.Commands;
@@ -60,6 +63,13 @@ public class AccountControllerTests : IDisposable
 
         this.sessionMonitoringCookies.Create(Arg.Any<UserId>(), Arg.Any<SessionId>(), Arg.Any<DateTimeOffset>())
             .Returns("protected-session-cookie");
+        IHostEnvironment environment = Substitute.For<IHostEnvironment>();
+        environment.EnvironmentName.Returns("Testing");
+        IConfiguration mfaConfiguration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AdministrativeMfa:TrustedProviders:0e4300a0-d178-4acc-9784-7714b9736406:Issuer"] = "https://tenant.example/",
+            ["AdministrativeMfa:TrustedProviders:0e4300a0-d178-4acc-9784-7714b9736406:Acr"] = "urn:test:phishing-resistant"
+        }).Build();
         this._controller = new AccountController(
             this._validateCredentialsUseCase,
             this._createSessionUseCase,
@@ -70,7 +80,8 @@ public class AccountControllerTests : IDisposable
             this._jitProvisionUseCase,
             this.audit,
             this.sessionMonitoringCookies,
-            this._credentialTerminationService);
+            this._credentialTerminationService,
+            new AdministrativeMfaPolicy(environment, mfaConfiguration, TimeProvider.System));
 
         this.SetupHttpContext();
     }
@@ -277,6 +288,47 @@ public class AccountControllerTests : IDisposable
         await this._controller.ExternalLoginCallback("validated-provider");
         await this._authService.Received(1).SignInAsync(Arg.Any<HttpContext>(), "Cookies",
             Arg.Is<ClaimsPrincipal>(cookie => !cookie.HasClaim(c => c.Type == "ois_local_password_session")), Arg.Any<AuthenticationProperties>());
+    }
+
+    [Theory]
+    [InlineData("https://tenant.example/", "urn:test:phishing-resistant", "subject", false, true)]
+    [InlineData("https://other-tenant.example/", "urn:test:phishing-resistant", "subject", false, false)]
+    [InlineData("https://tenant.example/", "urn:test:password", "subject", false, false)]
+    [InlineData("https://tenant.example/", null, "subject", false, false)]
+    [InlineData("https://tenant.example/", "urn:test:phishing-resistant", "another-subject", false, false)]
+    [InlineData("https://tenant.example/", "urn:test:phishing-resistant", "subject", true, false)]
+    public async Task ExternalCallback_AdministrativeAssuranceMatchesTrustedTicketAndSubject(
+        string issuer, string? acr, string signedSubject, bool conflictingSubject, bool expected)
+    {
+        var providerId = Domain.Federation.UpstreamProviderId.From(
+            Guid.Parse("0e4300a0-d178-4acc-9784-7714b9736406"));
+        Domain.Users.User user = Domain.Users.User.CreateFederated(
+            "operator@example.com", "Operator", providerId, "tenant", "subject").Value;
+        var identity = new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, "subject"),
+            new Claim("acr", "urn:test:phishing-resistant")
+        ], "ExternalCookie");
+        if (conflictingSubject) { identity.AddClaim(new Claim("sub", "different-user")); }
+        var properties = new AuthenticationProperties();
+        properties.SetString(ExternalIdentityProperties.ProviderId, providerId.Value.ToString());
+        properties.SetString(ExternalIdentityProperties.ProviderName, "tenant");
+        properties.SetString(ExternalIdentityProperties.ValidatedIssuer, issuer);
+        properties.SetString(ExternalIdentityProperties.Authority, "https://discovery.example/common");
+        properties.SetString(ExternalIdentityProperties.ValidatedAcr, acr);
+        properties.SetString(ExternalIdentityProperties.AssuranceSubject, signedSubject);
+        var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), properties, "ExternalCookie");
+        this._authService.AuthenticateAsync(Arg.Any<HttpContext>(), "ExternalCookie").Returns(AuthenticateResult.Success(ticket));
+        this._jitProvisionUseCase.ExecuteAsync(Arg.Any<JitProvisionUserCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new JitProvisionUserResult(user.Id, false, user.Email, user.DisplayName));
+        this._userRepository.HandleAsync(new GetUserQuery(user.Id), Arg.Any<CancellationToken>()).Returns(PersistedUser.From(user));
+        this._createSessionUseCase.ExecuteAsync(Arg.Any<CreateSessionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new CreateSessionResult(SessionId.Create()));
+
+        await this._controller.ExternalLoginCallback("query-provider");
+
+        await this._authService.Received(1).SignInAsync(Arg.Any<HttpContext>(), "Cookies",
+            Arg.Is<ClaimsPrincipal>(cookie => cookie.HasClaim(claim => claim.Type == OpenIdentityStack.Api.Authorization.AdministrativeMfaPolicy.ClaimType) == expected),
+            Arg.Any<AuthenticationProperties>());
     }
     #region Login GET Tests
 

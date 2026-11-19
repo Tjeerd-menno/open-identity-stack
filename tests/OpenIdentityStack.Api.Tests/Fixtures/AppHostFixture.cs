@@ -216,6 +216,9 @@ public class AppHostFixture : IAsyncLifetime
         });
     }
 
+    internal WebApplicationFactory<Program> WithWebHostBuilder(Action<IWebHostBuilder> configure) =>
+        (this.Factory ?? throw new InvalidOperationException("Factory is not initialized.")).WithWebHostBuilder(configure);
+
     public async Task ExecuteDbContextAsync(Func<OpenIdentityStackDbContext, Task> operation)
     {
         if (this.Factory is null)

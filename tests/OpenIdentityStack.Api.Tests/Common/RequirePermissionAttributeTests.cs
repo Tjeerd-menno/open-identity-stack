@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using OpenIdentityStack.Testing;
 using Microsoft.AspNetCore.Authorization;
 using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Application.Authorization;
@@ -7,7 +8,7 @@ namespace OpenIdentityStack.Api.Tests.Common;
 
 public sealed class PermissionAuthorizationHandlerTests
 {
-    private readonly PermissionAuthorizationHandler handler = new(new AdministrativeRequestAuthorization(new ApprovedAccessEvaluator()));
+    private readonly PermissionAuthorizationHandler handler = new(new AdministrativeRequestAuthorization(new ApprovedAccessEvaluator(), AdministrativeMfaTestPolicy.Create()));
 
     private sealed class ApprovedAccessEvaluator : OpenIdentityStack.Application.Abstractions.IAdministrativeAccessEvaluator
     {

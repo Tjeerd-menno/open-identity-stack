@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Security.Claims;
+using OpenIdentityStack.Testing;
 using System.Text.Json;
 
 using Microsoft.AspNetCore.Authentication;
@@ -16,6 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using OpenIdentityStack.Infrastructure.Audit;
 using OpenIdentityStack.Infrastructure.Persistence;
 using OpenIdentityStack.Api.Authentication;
+using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Authorization;
@@ -27,6 +29,7 @@ using OpenIdentityStack.Application.Resources;
 using OpenIdentityStack.Application.Users.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Groups;
+using OpenIdentityStack.Domain.Resources;
 using OpenIdentityStack.Domain.Users;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
@@ -55,6 +58,7 @@ public class AuthorizationControllerTests : IDisposable
     private readonly ICredentialSessionValidator _credentialSessionValidator;
     private readonly IAntiforgery _antiforgery;
     private readonly AuthorizationController _controller;
+    private readonly AdministrativeMfaPolicy productionMfa = AdministrativeMfaTestPolicy.Create("Production");
     private readonly IAuditLog audit = Substitute.For<IAuditLog>();
     private readonly IResourcePermissionService resourcePermissions = Substitute.For<IResourcePermissionService>();
 
@@ -103,6 +107,7 @@ public class AuthorizationControllerTests : IDisposable
             this._credentialSessionValidator,
             this._antiforgery,
             new EphemeralDataProtectionProvider(),
+            this.productionMfa,
             resourcePermissionService: this.resourcePermissions);
         this.resourcePermissions.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>())
             .Returns((Result<ResourceTokenProjection>)new ResourceTokenProjection([], [], new Dictionary<Guid, long>()));
@@ -206,6 +211,98 @@ public class AuthorizationControllerTests : IDisposable
         && !string.IsNullOrWhiteSpace(destinations);
 
     #region Authorize Tests
+
+    [Fact]
+    public async Task Authorize_ProductionAdminScopeRequiresMfaBeforeParticipation()
+    {
+        User user = this.SetupPersistedTokenUser();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, user.Id.Value.ToString())], "Cookies"));
+        this.SetupMockServices(principal);
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(
+            new OpenIddictRequest { ClientId = "management-web-client", Scope = "openid ois.admin" });
+
+        ForbidResult result = Assert.IsType<ForbidResult>(await this._controller.Authorize());
+
+        result.Properties!.Items[OpenIddictServerAspNetCoreConstants.Properties.Error].ShouldBe("access_denied");
+        await this.audit.Received(1).LogAsync(user.Id.Value.ToString(), "Authentication.AdministrativeMfaDenied", "User",
+            user.Id.Value.ToString(), "Administrative MFA requirement was not met. Flow: authorization.", Arg.Any<CancellationToken>());
+        await this._addClientSessionUseCase.DidNotReceive().ExecuteAsync(
+            Arg.Any<AddClientSessionCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("authorization_code")]
+    [InlineData("refresh_token")]
+    public async Task Exchange_ProductionRejectsLegacyDelegatedAdminCredential(string grantType)
+    {
+        User user = this.SetupPersistedTokenUser();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim("sub", user.Id.Value.ToString()),
+            new Claim("ois_human_subject", user.Id.Value.ToString())], "token"));
+        principal.SetScopes("openid", "ois.admin");
+        this.SetupMockServices(principal);
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(
+            new OpenIddictRequest { ClientId = "management-web-client", GrantType = grantType });
+
+        ForbidResult result = Assert.IsType<ForbidResult>(await this._controller.Exchange());
+        result.Properties!.Items[OpenIddictServerAspNetCoreConstants.Properties.Error].ShouldBe("invalid_grant");
+        await this.audit.Received(1).LogAsync(user.Id.Value.ToString(), "Authentication.AdministrativeMfaDenied", "User",
+            user.Id.Value.ToString(), $"Administrative MFA requirement was not met. Flow: {grantType}.", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ManagementWebCodeAndRefreshPreserveMfaAndOriginalAuthenticationEvent()
+    {
+        const string clientId = "management-web-client";
+        var authenticationEvent = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 300);
+        string originalAuthentication = authenticationEvent.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+        User user = this.SetupPersistedTokenUser();
+        string subject = user.Id.Value.ToString();
+        string evidence = this.productionMfa.FederatedEvidence(
+            AdministrativeMfaTestPolicy.ProviderId, AdministrativeMfaTestPolicy.Issuer, AdministrativeMfaTestPolicy.Acr)!;
+        var cookie = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, subject),
+            new Claim(AdministrativeActorContext.HumanSubjectClaim, subject),
+            new Claim(AdministrativeActorContext.HumanAuthenticationClaim, originalAuthentication),
+            new Claim(AdministrativeMfaPolicy.ClaimType, evidence)], "Cookies"));
+        this.SetupMockServices(cookie, properties: new AuthenticationProperties { IssuedUtc = DateTimeOffset.UtcNow });
+        this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest
+            { ClientId = clientId, Scope = "openid profile offline_access ois.admin" });
+        this.resourcePermissions.ProjectAsync(Arg.Any<ResourceTokenRequest>(), Arg.Any<CancellationToken>())
+            .Returns((Result<ResourceTokenProjection>)new ResourceTokenProjection(
+                [ProtectedResource.AdministrativeAudience], ["users:read"], new Dictionary<Guid, long>()));
+
+        ClaimsPrincipal projected = Assert.IsType<SignInResult>(await this._controller.Authorize()).Principal;
+        foreach (string grantType in new[] { "authorization_code", "refresh_token" })
+        {
+            this.SetupMockServices(projected, properties: new AuthenticationProperties { IssuedUtc = DateTimeOffset.UtcNow });
+            this._requestService.GetRequest(Arg.Any<HttpContext>()).Returns(new OpenIddictRequest
+                { ClientId = clientId, GrantType = grantType });
+            projected = Assert.IsType<SignInResult>(await this._controller.Exchange()).Principal;
+            projected.GetClaim(AdministrativeMfaPolicy.ClaimType).ShouldBe(evidence);
+            projected.FindFirst(AdministrativeMfaPolicy.ClaimType)!.GetDestinations().ShouldBe([OpenIddictConstants.Destinations.AccessToken]);
+            projected.GetClaim(AdministrativeActorContext.HumanAuthenticationClaim).ShouldBe(originalAuthentication);
+        }
+
+        // Exercise the approval that protects unrestricted grants with the refreshed credential.
+        this._controller.HttpContext.User = projected;
+        var actor = new AdministrativeActorContext(new HttpContextAccessor { HttpContext = this._controller.HttpContext });
+        IDateTimeProvider clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(authenticationEvent.AddMinutes(5));
+        user.VerifyEmail(clock).IsSuccess.ShouldBeTrue();
+        IUserRepository users = Substitute.For<IUserRepository>();
+        users.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        IGetUserEffectiveRolesQueryHandler roles = Substitute.For<IGetUserEffectiveRolesQueryHandler>();
+        roles.HandleAsync(user.Id, Arg.Any<CancellationToken>()).Returns(
+            (Result<IReadOnlyList<RoleDto>>)new[] { new RoleDto(Guid.NewGuid(), "operator", "Operator", null, false, true, ["*"]) });
+        var approval = new AdministrativeApproval(actor, users, roles, clock, Substitute.For<IAdministrativeApprovalAudit>(),
+            Substitute.For<IAdministrativeAuthoritySnapshot>(), NullLogger<AdministrativeApproval>.Instance);
+        (await approval.RequireAsync("Role.GrantUnrestricted", "test-role", acknowledged: true)).IsSuccess.ShouldBeTrue();
+        clock.UtcNow.Returns(authenticationEvent.AddMinutes(5).AddSeconds(1));
+        (await approval.RequireAsync("Role.GrantUnrestricted", "test-role", acknowledged: true))
+            .Error.Code.ShouldContain("ReauthenticationRequired");
+    }
 
     [Fact]
     public async Task Authorize_ExplicitConsentWithPromptNone_ReturnsConsentRequired()

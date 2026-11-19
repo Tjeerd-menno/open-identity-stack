@@ -11,8 +11,8 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Primitives;
+using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Application.Abstractions;
 using OpenIdentityStack.Application.Authentication;
 using OpenIdentityStack.Application.Authorization;
@@ -56,6 +56,7 @@ public class AuthorizationController : Controller
     private readonly IOpenIddictRequestService requestService;
     private readonly IAuditLog auditLog;
     private readonly ITokenClaimProjectionService tokenClaimProjectionService;
+    private readonly AdministrativeMfaPolicy administrativeMfa;
     private readonly IResourcePermissionService? resourcePermissionService;
     private readonly ICredentialSessionValidator credentialSessionValidator;
     private readonly IAntiforgery antiforgery;
@@ -76,7 +77,7 @@ public class AuthorizationController : Controller
         ICredentialSessionValidator credentialSessionValidator,
         IAntiforgery antiforgery,
         IDataProtectionProvider dataProtection,
-        IHostEnvironment? environment = null,
+        AdministrativeMfaPolicy administrativeMfa,
         ITokenClaimProjectionService? tokenClaimProjectionService = null,
         IResourcePermissionService? resourcePermissionService = null)
     {
@@ -93,6 +94,7 @@ public class AuthorizationController : Controller
         this.credentialSessionValidator = credentialSessionValidator;
         this.antiforgery = antiforgery;
         this.consentProtector = dataProtection.CreateProtector(consentPurpose);
+        this.administrativeMfa = administrativeMfa;
         this.tokenClaimProjectionService = tokenClaimProjectionService ?? new TokenClaimProjectionService();
         this.resourcePermissionService = resourcePermissionService;
     }
@@ -191,6 +193,12 @@ public class AuthorizationController : Controller
             string returnUrl = this.Request.PathBase + this.Request.Path + QueryString.Create(
                 this.Request.HasFormContentType ? this.Request.Form.ToList() : this.Request.Query.ToList());
             return this.Redirect($"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}&fresh=true");
+        }
+
+        if (!this.AllowsRequestedAccess(user, userId.Value, request.GetScopes(), request.GetResources()))
+        {
+            await this.AuditAdministrativeMfaDenialAsync(userId.Value, "authorization");
+            return this.RejectUnavailableCredentials(Errors.AccessDenied);
         }
 
         if (!string.IsNullOrEmpty(request.ClientId)
@@ -598,6 +606,12 @@ public class AuthorizationController : Controller
             }
             UserId? subjectId = TryParseUserId(result.Principal!.GetClaim(Claims.Subject) ?? string.Empty);
             if (subjectId is null) { return this.ResourceAccessDenied(Domain.Resources.ResourceAccessErrors.NotGranted); }
+            if (!this.AllowsRequestedAccess(result.Principal, subjectId.Value, scopes, request.GetResources()))
+            {
+                await this.AuditAdministrativeMfaDenialAsync(subjectId.Value,
+                    request.IsAuthorizationCodeGrantType() ? GrantTypes.AuthorizationCode : GrantTypes.RefreshToken);
+                return this.RejectUnavailableCredentials();
+            }
 
             Result<TokenPermissionSnapshotResult> roles = await this.tokenPermissionSnapshot.GetAsync(subjectId.Value, this.HttpContext.RequestAborted);
             IReadOnlyList<string>? userPermissions = roles.IsSuccess ? roles.Value.Permissions : null;
@@ -764,6 +778,14 @@ public class AuthorizationController : Controller
     private Task AuditDisabledAccountAsync(UserId userId, string flow) =>
         this.auditLog.LogAsync(userId.Value.ToString(), "Authentication.DisabledAccountDenied", "User", userId.Value.ToString(),
             $"Local account is disabled. Flow: {flow}.", this.HttpContext.RequestAborted);
+
+    private bool AllowsRequestedAccess(ClaimsPrincipal principal, UserId userId, ImmutableArray<string> scopes, ImmutableArray<string> resources) =>
+        (!scopes.Contains(AdministrativeTokenBoundary.Scope) && !resources.Contains(AdministrativeTokenBoundary.Audience))
+        || this.administrativeMfa.AllowsHuman(principal, userId.Value);
+
+    private Task AuditAdministrativeMfaDenialAsync(UserId actor, string flow) =>
+        this.auditLog.LogAsync(actor.Value.ToString(), "Authentication.AdministrativeMfaDenied", "User", actor.Value.ToString(),
+            $"Administrative MFA requirement was not met. Flow: {flow}.", this.HttpContext.RequestAborted);
 
     private ForbidResult RejectUnavailableCredentials(string error = Errors.InvalidGrant) => this.Forbid(
         authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
