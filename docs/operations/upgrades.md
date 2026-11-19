@@ -6,6 +6,8 @@ Treat upgrades as coordinated changes across the migrator, API, management web, 
 
 Record the v0.8.0 artifact digests, discovery issuer and JWKS key IDs. Verify an existing public client's PKCE and refresh flow, a confidential client's client-credentials flow, and the permissions each receives. Record the registration IDs and grants. Provision the candidate's MFA trust and independent operator login before the maintenance window.
 
+On a clean host the v0.8.0 Management Web image can exit while its nginx entrypoint writes `/usr/share/nginx/html/runtime-config.js`. For v0.8.0 installation or backup recovery, mount a writable file at that path owned by the image's nginx user, then verify the served file contains the expected issuer. Keep nginx running under its packaged identity. RC1 ships this file with the required ownership.
+
 Drain traffic, stop the v0.8.0 API and web, and take the [pre-upgrade backup](../security/backup-and-recovery.md). Run the published RC1 DbMigrator to successful completion, then deploy the RC1 API and web by digest with the same database and key material. This pair of releases has the same EF migration set. The operation still exercises startup, seed preservation, and production authentication changes. Check readiness, compare the recorded IDs and grants, repeat both client flows, and revoke a disposable browser session. Verify the persisted revocation and a rejected refresh. If any check fails, keep traffic drained and choose forward repair or recovery of the complete pre-upgrade deployment.
 
 ### Upgrading to production administrator MFA

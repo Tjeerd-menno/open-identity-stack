@@ -146,7 +146,14 @@ start_api() {
 restart_api() { docker rm -f "$api" >/dev/null && start_api "$1"; }
 
 start_web() {
-    docker run -d --name "$web" --network "$network" -p 127.0.0.1:18446:80 \
+    local settings=()
+    if [[ $1 == "$BASE_WEB" ]]; then
+        # v0.8.0's unprivileged entrypoint writes a root-owned image file. Provide that one writable file.
+        install -m 0660 /dev/null "$work/v080-runtime-config.js"
+        settings+=(--group-add "$(id -g)" --mount
+            "type=bind,source=$work/v080-runtime-config.js,target=/usr/share/nginx/html/runtime-config.js")
+    fi
+    docker run -d --name "$web" --network "$network" "${settings[@]}" -p 127.0.0.1:18446:80 \
         -e "VITE_API_BASE_URL=$issuer" -e "VITE_OIDC_AUTHORITY=$issuer" -e VITE_OIDC_CLIENT_ID=management-web-client "$1" >/dev/null
     for _ in {1..45}; do
         if curl -fsS --max-time 3 http://localhost:18446/runtime-config.js -o "$work/web-runtime.js" 2>/dev/null &&
@@ -155,6 +162,7 @@ start_web() {
         sleep 1
     done
     echo "Management Web did not serve the expected runtime issuer"
+    docker logs "$web" 2>&1 | grep -Fo 'runtime-config.js: Permission denied' | head -1 || true
     return 1
 }
 

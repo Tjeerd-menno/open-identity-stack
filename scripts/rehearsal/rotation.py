@@ -99,6 +99,8 @@ def main(stage):
         previous_refresh = refresh(previous["refresh"])
         previous_read = admin_read(previous["access"])
         print(f"{stage} replacement: previous access HTTP {previous_read}, previous unused refresh = {previous_refresh}")
+        require(previous_read == 401 and previous_refresh == "invalid_grant",
+                f"Previously issued credentials behaved differently from the RC1 {stage} runbook")
     if stage != "encryption":
         fd = os.open(state_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         held = browser_tokens()
