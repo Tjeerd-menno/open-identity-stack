@@ -24,19 +24,20 @@ This page lists the public protocol endpoints exposed by the current OpenIdentit
 
 ## Admin API surface
 
-The admin API is organized around these resource areas:
+Management Web and trusted administrative integrations use these resource areas.
 
-- `/api/admin/clients`
+- `/api/admin/applications`
+- `/api/admin/application-permissions`
+- `/api/admin/permissions`
 - `/api/admin/users`
 - `/api/admin/roles`
 - `/api/admin/groups`
 - `/api/admin/sessions`
-- `/api/admin/service-accounts`
-- `/api/admin/service-permissions`
 - `/api/admin/providers`
-- `/api/admin/settings`
+- `/api/admin/authentication-settings`
+- `/api/admin/audit-entries`
 
-These routes are intended for the management web and other trusted administrative tooling rather than public internet clients.
+Use Applications for web clients and machine-to-machine registrations. The 1.x compatibility contract identifies the supported operations and their schemas. [Applications migration](../applications-migration.md) · [Compatibility across 1.x](compatibility.md)
 
 ## Root endpoint
 

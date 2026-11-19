@@ -1,0 +1,9 @@
+api-deprecated-sunset-missing none
+request-parameter-deprecated-sunset-missing none
+request-property-deprecated-sunset-missing none
+response-property-deprecated-sunset-missing none
+api-path-removed-with-deprecation err
+api-removed-with-deprecation err
+request-parameter-removed-with-deprecation err
+new-required-request-property-with-default err
+request-property-became-required-with-default err
