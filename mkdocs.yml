@@ -91,6 +91,7 @@ nav:
       - Email verification evidence: security/email-verification-evidence.md
       - Unrestricted administration: security/unrestricted-administration.md
       - Administrative client access: security/administrative-client-access.md
+      - Administrator MFA and emergency access: security/administrator-mfa.md
       - Identity boundary implementation evidence: security/identity-boundary-implementation-evidence.md
       - Hardening checklist: security/hardening-checklist.md
       - Secrets management: security/secrets-management.md

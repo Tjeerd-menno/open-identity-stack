@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using OpenIdentityStack.Testing;
 using Microsoft.AspNetCore.Authorization;
 using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Application.Authorization;
@@ -24,7 +25,7 @@ public sealed class PermissionRequirementTests
 
 public sealed class PermissionAuthorizationHandlerTests
 {
-    private readonly PermissionAuthorizationHandler handler = new(new AdministrativeRequestAuthorization(new ApprovedAccessEvaluator()));
+    private readonly PermissionAuthorizationHandler handler = new(new AdministrativeRequestAuthorization(new ApprovedAccessEvaluator(), AdministrativeMfaTestPolicy.Create()));
 
     [Fact]
     public async Task HandleRequirementAsync_UnauthenticatedUser_DoesNotSucceed()

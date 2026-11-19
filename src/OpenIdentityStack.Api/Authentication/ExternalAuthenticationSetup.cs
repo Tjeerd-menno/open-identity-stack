@@ -118,6 +118,12 @@ public sealed partial class DynamicAuthenticationSchemeService : IDynamicAuthent
                     context.Properties.SetString(ExternalIdentityProperties.ProviderId, provider.Id.Value.ToString());
                     context.Properties.SetString(ExternalIdentityProperties.ProviderName, context.Scheme.Name);
                     context.Properties.SetString(ExternalIdentityProperties.Authority, context.Options.Authority);
+                    // UserInfo may enrich the principal later. Bind assurance to the subject of this validated ID token.
+                    string? acr = context.SecurityToken.Payload.GetValueOrDefault("acr") as string;
+                    string? subject = context.SecurityToken.Payload.GetValueOrDefault("sub") as string;
+                    bool hasAssurance = !string.IsNullOrWhiteSpace(acr) && !string.IsNullOrWhiteSpace(subject);
+                    context.Properties.SetString(ExternalIdentityProperties.ValidatedAcr, hasAssurance ? acr : null);
+                    context.Properties.SetString(ExternalIdentityProperties.AssuranceSubject, hasAssurance ? subject : null);
                     System.Security.Claims.Claim[] authenticationTimes = context.SecurityToken.Claims.Where(c => c.Type == "auth_time").ToArray();
                     context.Properties.SetString(ExternalIdentityProperties.AuthenticationTime,
                         authenticationTimes.Length == 1 ? authenticationTimes[0].Value : null);
@@ -333,6 +339,8 @@ public static class ExternalAuthenticationExtensions
 /// <summary>Protected ticket metadata produced only after upstream token validation.</summary>
 public static class ExternalIdentityProperties
 {
+    public const string ValidatedAcr = "ois.validated_acr";
+    public const string AssuranceSubject = "ois.assurance_subject";
     public const string ValidatedIssuer = "ois.validated_issuer";
     public const string ProviderId = "ois.provider_id";
     public const string ProviderName = "ois.provider_name";

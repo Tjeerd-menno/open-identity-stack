@@ -1,10 +1,11 @@
 using System.Security.Claims;
+using OpenIdentityStack.Api.Authentication;
 using OpenIdentityStack.Application.Abstractions;
 using SharedKernel;
 
 namespace OpenIdentityStack.Api.Authorization;
 
-public sealed class AdministrativeRequestAuthorization(IAdministrativeAccessEvaluator evaluator)
+public sealed class AdministrativeRequestAuthorization(IAdministrativeAccessEvaluator evaluator, AdministrativeMfaPolicy administrativeMfa)
 {
     private ClaimsPrincipal? evaluatedPrincipal;
     private Task<AdministrativeAccessEvaluation?>? evaluation;
@@ -22,6 +23,8 @@ public sealed class AdministrativeRequestAuthorization(IAdministrativeAccessEval
     private async Task<AdministrativeAccessEvaluation?> EvaluateCurrentAsync(ClaimsPrincipal user)
     {
         if (!AdministrativeTokenBoundary.TryRead(user, out string clientId, out UserId? userId)) { return null; }
+        if (userId is { } human && !administrativeMfa.AllowsHuman(user, human.Value)) { return null; }
+        if (userId is null && administrativeMfa.IsRequired && !CredentialSubjectClassification.IsApplication(user)) { return null; }
         string[] permissions = user.FindAll("permission").Select(claim => claim.Value).ToArray();
         if (evaluator is IAdministrativeAccessProjectionEvaluator projectionEvaluator)
         {

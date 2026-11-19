@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Claims;
+using System.Security.Cryptography.X509Certificates;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -18,6 +19,7 @@ using OpenIdentityStack.Domain.Settings;
 using OpenIdentityStack.Domain.Users;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using OpenIdentityStack.Infrastructure.Identity;
+using OpenIdentityStack.Api.Authorization;
 
 using SharedKernel;
 namespace OpenIdentityStack.Api.Authentication;
@@ -37,6 +39,7 @@ public class AccountController : Controller
     private readonly IAuditLog audit;
     private readonly ISessionMonitoringCookieService sessionMonitoringCookies;
     private readonly ICredentialTerminationService credentialTerminationService;
+    private readonly AdministrativeMfaPolicy administrativeMfa;
 
     public AccountController(
         IValidateUserCredentialsUseCase validateCredentialsUseCase,
@@ -48,7 +51,8 @@ public class AccountController : Controller
         IJitProvisionUserUseCase jitProvisionUseCase,
         IAuditLog audit,
         ISessionMonitoringCookieService sessionMonitoringCookies,
-        ICredentialTerminationService credentialTerminationService)
+        ICredentialTerminationService credentialTerminationService,
+        AdministrativeMfaPolicy administrativeMfa)
     {
         this.validateCredentialsUseCase = validateCredentialsUseCase;
         this.createSessionUseCase = createSessionUseCase;
@@ -60,6 +64,7 @@ public class AccountController : Controller
         this.audit = audit;
         this.sessionMonitoringCookies = sessionMonitoringCookies;
         this.credentialTerminationService = credentialTerminationService;
+        this.administrativeMfa = administrativeMfa;
     }
 
     /// <summary>
@@ -268,6 +273,15 @@ public class AccountController : Controller
             new("provider", authenticatedProvider)
         };
 
+        string? acr = authenticateResult.Properties?.GetString(ExternalIdentityProperties.ValidatedAcr);
+        string? assuranceSubject = authenticateResult.Properties?.GetString(ExternalIdentityProperties.AssuranceSubject);
+        if (acr is not null && assuranceSubject == subjectId &&
+            externalUser.FindAll(c => c.Type is ClaimTypes.NameIdentifier or "sub").All(c => c.Value == assuranceSubject) &&
+            this.administrativeMfa.FederatedEvidence(providerGuid, issuer, acr) is { } mfaEvidence)
+        {
+            claims.Add(new Claim(AdministrativeMfaPolicy.ClaimType, mfaEvidence));
+        }
+
         // Only the upstream's validated authentication event can establish freshness; receiving an SSO callback cannot.
         string? upstreamAuthenticationTime = authenticateResult.Properties?.GetString(ExternalIdentityProperties.AuthenticationTime);
         if (upstreamAuthenticationTime is not null)
@@ -325,7 +339,15 @@ public class AccountController : Controller
             return this.View(model);
         }
 
-        var command = new ValidateUserCredentialsCommand(model.Email, model.Password);
+        string? emergencyProof = null;
+        EmergencySignInContext? emergency = null;
+        if (this.administrativeMfa.IsRequired && this.administrativeMfa.EmergencyUserId is { } emergencyId)
+        {
+            X509Certificate2? certificate = this.Request.IsHttps ? this.HttpContext.Connection.ClientCertificate : null;
+            emergencyProof = certificate is null ? null : this.administrativeMfa.EmergencyEvidence(emergencyId, certificate);
+            emergency = new EmergencySignInContext(emergencyId, emergencyProof is not null);
+        }
+        var command = new ValidateUserCredentialsCommand(model.Email, model.Password, emergency);
         Result<ValidateUserCredentialsResult> result = await this.validateCredentialsUseCase.ExecuteAsync(command);
 
         if (result.IsFailure)
@@ -365,6 +387,13 @@ public class AccountController : Controller
         string sessionId = sessionResult.Value.SessionId.Value.ToString();
         claims.Add(new Claim("sid", sessionId));
         claims.Add(new Claim("session_id", sessionId));
+
+        if (emergencyProof is not null && result.Value.UserId.Value == emergency?.DesignatedUserId)
+        {
+            string actor = result.Value.UserId.Value.ToString();
+            await this.audit.LogAsync(actor, "EmergencyAdministrator.Authenticated", "User", actor);
+            claims.Add(new Claim(AdministrativeMfaPolicy.ClaimType, emergencyProof));
+        }
 
         var claimsIdentity = new ClaimsIdentity(claims, "Cookies");
         var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);

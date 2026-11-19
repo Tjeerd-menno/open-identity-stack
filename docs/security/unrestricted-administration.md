@@ -19,7 +19,7 @@ A machine credential cannot approve a human operation. A stale token carrying `*
 
 Management Web requests acknowledgement for the pending operation. Cancellation sends no approved retry. When authentication is too old or its time is unknown, the dialog starts sign-in with `prompt=login` and `max_age=0`, returns to the operator's page, and requires the operator to repeat and review the operation. It does not automatically replay a mutation across sign-in.
 
-Local password sign-in supplies the actual authentication event. Federation can supply freshness only from the upstream's validated `auth_time` claim. Receiving an SSO callback is insufficient; providers without trustworthy authentication time require an independent supported sign-in method for protected approval.
+The local emergency sign-in records the time of password and client-certificate authentication. Federation can supply freshness only from the upstream's validated `auth_time` claim. Receiving an SSO callback is insufficient; providers without trustworthy authentication time require an independent supported sign-in method for protected approval. [Administrator MFA and emergency access](administrator-mfa.md)
 
 The API returns HTTP 403 Problem Details for approval failures, with an `errorCode`:
 

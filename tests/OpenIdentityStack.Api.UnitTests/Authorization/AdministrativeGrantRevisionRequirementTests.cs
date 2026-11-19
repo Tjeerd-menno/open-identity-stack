@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using OpenIdentityStack.Testing;
 
 using Microsoft.AspNetCore.Authorization;
 using OpenIddict.Abstractions;
@@ -36,7 +37,7 @@ public sealed class AdministrativeGrantRevisionRequirementTests
             [Permissions.Users.Read],
             new Dictionary<Guid, long> { [ProtectedResource.AdministrativeResourceId] = revision }));
         var administrativeAccess = new AdministrativeRequestAuthorization(new AdministrativeAccessEvaluator(
-            permissions, new StubAdministrativeAuthoritySnapshot()));
+            permissions, new StubAdministrativeAuthoritySnapshot()), AdministrativeMfaTestPolicy.Create());
         var revisionRequirement = new AdministrativeGrantRevisionRequirement();
         var accessRequirement = new AdministrativeAccessRequirement();
         var permissionRequirement = new PermissionRequirement(Permissions.Users.Read);
@@ -83,7 +84,7 @@ public sealed class AdministrativeGrantRevisionRequirementTests
         var permissionRequirement = new PermissionRequirement(Permissions.Users.Read);
         AuthorizationHandlerContext context = new([revisionRequirement, permissionRequirement], principal, null);
         var administrativeAccess = new AdministrativeRequestAuthorization(new AdministrativeAccessEvaluator(
-            permissions, new StubAdministrativeAuthoritySnapshot()));
+            permissions, new StubAdministrativeAuthoritySnapshot()), AdministrativeMfaTestPolicy.Create());
 
         await new AdministrativeGrantRevisionHandler(administrativeAccess).HandleAsync(context);
         await new PermissionAuthorizationHandler(administrativeAccess).HandleAsync(context);

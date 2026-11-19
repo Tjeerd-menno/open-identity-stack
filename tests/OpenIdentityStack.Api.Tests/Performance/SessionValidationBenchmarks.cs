@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Claims;
+using OpenIdentityStack.Testing;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -47,7 +48,8 @@ public class SessionValidationBenchmarks
             Substitute.For<IAuditLog>(),
             credentialSessionValidator,
             Substitute.For<Microsoft.AspNetCore.Antiforgery.IAntiforgery>(),
-            new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider()
+            new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider(),
+            AdministrativeMfaTestPolicy.Create()
         );
 
         var httpContext = new DefaultHttpContext();

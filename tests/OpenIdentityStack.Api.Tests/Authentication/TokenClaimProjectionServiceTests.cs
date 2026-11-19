@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 using OpenIdentityStack.Api.Authentication;
+using OpenIdentityStack.Api.Authorization;
 using OpenIdentityStack.Application.Groups.Queries;
 using OpenIdentityStack.Domain.Common;
 using OpenIdentityStack.Domain.Federation;
@@ -76,6 +77,20 @@ public sealed class TokenClaimProjectionServiceTests
     }
 
     private const string RequestedUserInfoClaim = "requested_userinfo_claim";
+
+    [Fact]
+    public void BusinessTokensAndUserInfoDoNotExposeAdministrativeMfaEvidence()
+    {
+        User user = CreateUser();
+        ClaimsPrincipal cookie = CreateCookiePrincipal(user.Id.Value);
+        cookie.SetClaim(AdministrativeMfaPolicy.ClaimType, "fixture-evidence");
+        var request = new TokenClaimProjectionRequest(cookie, PersistedUser.From(user), [], [], [],
+            ["openid", "business"], [AdministrativeMfaPolicy.ClaimType], null, null, null);
+
+        ClaimsPrincipal projected = this.service.ProjectSubjectClaims(request);
+        projected.HasClaim(claim => claim.Type == AdministrativeMfaPolicy.ClaimType).ShouldBeFalse();
+        this.service.CreateUserInfoResponse(projected).ContainsKey(AdministrativeMfaPolicy.ClaimType).ShouldBeFalse();
+    }
 
     private readonly IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
     private readonly TokenClaimProjectionService service = new();

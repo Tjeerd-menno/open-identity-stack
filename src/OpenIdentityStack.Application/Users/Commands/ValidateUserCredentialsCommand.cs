@@ -6,9 +6,13 @@ namespace OpenIdentityStack.Application.Users.Commands;
 /// </summary>
 /// <param name="Email">The user's email address.</param>
 /// <param name="Password">The user's password (plain text).</param>
+/// <param name="Emergency">Deployment-owned recovery account and certificate verification from the TLS connection.</param>
 public sealed record ValidateUserCredentialsCommand(
     string Email,
-    string Password);
+    string Password,
+    EmergencySignInContext? Emergency = null);
+
+public sealed record EmergencySignInContext(Guid DesignatedUserId, bool CertificateVerified);
 
 /// <summary>
 /// Result of validating user credentials.

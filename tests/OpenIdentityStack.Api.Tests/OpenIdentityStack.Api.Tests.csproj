@@ -25,6 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\TestSeedHelpers\AdministrativeMfaTestPolicy.cs" Link="Fixtures\AdministrativeMfaTestPolicy.cs" />
     <Compile Include="..\TestSeedHelpers\OpenIdentityStackTestSeeder.cs" Link="Fixtures\OpenIdentityStackTestSeeder.cs" />
   </ItemGroup>
 

@@ -20,7 +20,7 @@ internal sealed record HumanAdministrativeSession(
     string RefreshToken,
     string MonitoringCookie)
 {
-    public static async Task<HumanAdministrativeSession> SignInAsync(AppHostFixture fixture, string email, string password, IReadOnlyList<string> ceiling)
+    public static async Task<HumanAdministrativeSession> SignInAsync(AppHostFixture fixture, string email, string password, IReadOnlyList<string> ceiling, HttpClient? browser = null, HttpClient? loginBrowser = null)
     {
         string clientId = $"human-admin-{Guid.NewGuid():N}";
         const string secret = "test-client-secret";
@@ -53,11 +53,12 @@ internal sealed record HumanAdministrativeSession(
             ["response_type"] = "code", ["client_id"] = clientId, ["redirect_uri"] = redirect,
             ["scope"] = "openid ois.admin offline_access", ["code_challenge"] = challenge, ["code_challenge_method"] = "S256",
         }).ReadAsStringAsync();
-        HttpClient client = fixture.CreateClient(allowAutoRedirect: false);
-        HttpResponseMessage page = await client.GetAsync("/Account/Login");
+        HttpClient client = browser ?? fixture.CreateClient(allowAutoRedirect: false);
+        HttpClient loginClient = loginBrowser ?? client;
+        HttpResponseMessage page = await loginClient.GetAsync("/Account/Login");
         Match match = Regex.Match(await page.Content.ReadAsStringAsync(), "<input[^>]+name=\"__RequestVerificationToken\"[^>]+value=\"(?<value>[^\"]+)\"", RegexOptions.IgnoreCase);
         match.Success.ShouldBeTrue();
-        HttpResponseMessage login = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        HttpResponseMessage login = await loginClient.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["Email"] = email, ["Password"] = password, ["returnUrl"] = "/connect/authorize?" + query,
             ["__RequestVerificationToken"] = WebUtility.HtmlDecode(match.Groups["value"].Value),

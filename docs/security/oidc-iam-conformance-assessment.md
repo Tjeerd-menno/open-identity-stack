@@ -10,6 +10,8 @@ Scope: OpenID Provider/authorization server, upstream federation client, Admin A
 
 ## Executive assessment
 
+The original findings below describe the revision audited at the time. For the 1.0 administrator MFA gate, use the [candidate disposition and remaining work](#candidate-disposition-for-the-administrator-mfa-gate).
+
 **OpenIdentityStack has a substantial, tested OpenID Connect foundation, but the reviewed implementation has material security gaps and cannot be described as fully conformant or production-hardened on this evidence.** OpenIddict supplies much of the protocol machinery. The most serious findings concern application decisions around that machinery: account linking, disabled users, resource audiences, authorization, consent, and session termination.
 
 The assessment records **9 High and 8 Medium findings**. No Critical finding was established. High does not mean an unauthenticated internet attacker can exploit every finding: each entry states its prerequisites. Several concern a registered client, an existing credential, a configured upstream provider, or database access. Severity is qualitative, not a CVSS score.
@@ -246,6 +248,23 @@ Treat the High findings as release decisions requiring a fix or a documented, de
 The earlier no-restore attempts found no test project/assets in the fresh checkout; restore/build resolved that prerequisite. Test counts above are from the subsequent successful runs. Domain, architecture, frontend Vitest, browser E2E, live OIDF plans, and production infrastructure tests were **not run** for this assessment. Passing API tests in Testing mode does not validate production TLS, certificate deployment, enforced production rate limits, encrypted-token integration, or external RP delivery. Existing tests are evidence for their assertions, not independent proof that the security requirements are correct.
 
 This assessment did not include a secrets scan, penetration test, formal threat model, full ASVS audit, or supply-chain assessment. No production code or security behavior was changed.
+
+## Candidate disposition for the administrator MFA gate
+
+This review covers the implementation for [#633](https://github.com/Tjeerd-menno/open-identity-stack/issues/633). Deployment operators still need to rehearse their own identity provider, network path, and emergency credentials. The release maintainer owns the decision to accept or remediate unresolved risks before tagging 1.0.
+
+| Original findings | Candidate evidence and disposition | Owner |
+| --- | --- | --- |
+| F01–F04, F09 | Identity association, local disablement, administrative audiences, explicit grants, and email provenance have shipped with regression coverage. Preserve those controls when provisioning emergency access. [Implementation evidence](identity-boundary-implementation-evidence.md) | Identity and authorization maintainers |
+| F05 | The authorization endpoint now handles explicit consent, including silent requests and bound grant decisions. The authorization controller and consent transaction tests exercise these paths. | Identity maintainer |
+| F06, F10–F12, F17 | Targeted credential termination, logout delivery and audit have implementation and sequence tests. Independently validating resources retain their documented token-expiry window. [Credential termination](credential-termination-implementation.md) | Identity maintainer and relying-party owners |
+| F07, U1 | This gate enforces administrative MFA and retains the original authentication event for the five-minute approval window. Release evidence includes the MFA policy, authentication and authorization tests and emergency drill. [Administrator MFA](administrator-mfa.md) | Identity maintainer and deployment security officer |
+| F08 | **Open for release decision.** Data Protection persists keys to PostgreSQL. Application-level wrapping with a separate custodian remains outstanding. Demonstrate key protection and recovery, or obtain explicit maintainer risk acceptance before release. | Platform security and release maintainer |
+| F13, U6 | Login rate limiting and password hashing are implemented. Hash upgrade on successful verification, password policy and end-user account recovery still require a product disposition. Emergency administrator recovery covers only the designated account. | Identity maintainer |
+| F14, F16 | The fallback-eligibility response is uniform across supplied emails, with eligibility checked after credential validation. Development request diagnostics record credential-header presence. Account controller and diagnostics tests cover those behaviors. | Identity and API maintainers |
+| F15, U5 | Management Web keeps bearer credentials in browser session storage. Review the same-origin script exposure, deployed browser headers, and public profile visibility before accepting the residual risk. [Browser permission model](../adr/0004-management-web-opaque-access-token-permissions.md) | Management Web and security maintainers |
+| U2, U4 | Rehearse key rollover, recovery, and revocation in the intended deployment. Capture production-equivalent persistence, token protection, and client behavior. [Operations gate #634](https://github.com/Tjeerd-menno/open-identity-stack/issues/634) | Deployment owner |
+| U3, U7 | The emergency TLS proof applies to human sign-in. OAuth sender-constrained access tokens need separate protocol evidence if claimed. Candidate CI, dependency audit, and scoped OIDC conformance results belong to the verification gate. [Verification gate #635](https://github.com/Tjeerd-menno/open-identity-stack/issues/635) | Release maintainer |
 
 ## Sources and reproducible code evidence
 

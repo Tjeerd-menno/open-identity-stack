@@ -2,6 +2,10 @@
 
 Status: accepted.
 
+## Production administrator authentication
+
+Human access to the administrative resource requires deployment-approved MFA. Routine administrators authenticate through an explicitly trusted OIDC provider and authentication context. A designated local Emergency Administrator can use its password and pinned TLS client certificate during an upstream outage. Existing grants, client approval, account state, audit and the five-minute fresh-authentication rule continue to apply. [Policy and recovery procedure](../security/administrator-mfa.md)
+
 To address F01–F04 and F09 in the [IAM assessment](../security/oidc-iam-conformance-assessment.md), account linking requires explicit proof of control of the existing local account rather than matching email, and local administrative disablement remains authoritative until explicitly reversed locally. Administrative access requires an explicit client entitlement as well as appropriate subject permissions; role names grant no authority, while a deliberately assigned all-permissions grant includes future permissions and is reserved for controlled bootstrap and emergency administration. Email-verification trust is explicitly configured per provider, defaults to untrusted, and preserves verification provenance independently of account activation and account-linking authority.
 
 ## Consequences
