@@ -12,6 +12,50 @@ if (!$IsWindows -or $env:GITHUB_ACTIONS -ne 'true' -or $env:REHEARSAL_RUNNER_ENV
     throw 'The packaged installer modifies machine configuration. Use a disposable GitHub-hosted Windows runner.'
 }
 
+if (!$env:OIS_REHEARSAL_PHASE_FILE) {
+    # Some native commands start background processes. Enforce a deadline for each
+    # phase and report its name even if a child hangs with its output handles open.
+    $env:OIS_REHEARSAL_PHASE_FILE = Join-Path $env:RUNNER_TEMP ("ois-phase-" + [Guid]::NewGuid())
+    Set-Content $env:OIS_REHEARSAL_PHASE_FILE 'Starting rehearsal'
+    $start = [Diagnostics.ProcessStartInfo]::new((Get-Command pwsh.exe).Source)
+    $start.UseShellExecute = $false
+    foreach ($argument in @('-NoProfile', '-NonInteractive', '-File', $PSCommandPath, '-ReleaseTag', $ReleaseTag, '-MigratorDigest', $MigratorDigest)) {
+        $start.ArgumentList.Add($argument)
+    }
+    $worker = [Diagnostics.Process]::Start($start)
+    try {
+        while (!$worker.WaitForExit(10000)) {
+            $phase = Get-Item -LiteralPath $env:OIS_REHEARSAL_PHASE_FILE
+            if ($phase.LastWriteTimeUtc -lt [DateTime]::UtcNow.AddMinutes(-4)) {
+                $worker.Kill($true)
+                throw "Rehearsal timed out during: $(Get-Content -Raw -LiteralPath $phase.FullName)"
+            }
+        }
+        if ($worker.ExitCode -ne 0) { throw "Rehearsal failed during: $(Get-Content -Raw -LiteralPath $env:OIS_REHEARSAL_PHASE_FILE)" }
+    } finally {
+        $worker.Dispose()
+        Remove-Item -LiteralPath $env:OIS_REHEARSAL_PHASE_FILE
+        Remove-Item Env:OIS_REHEARSAL_PHASE_FILE
+    }
+    return
+}
+
+function Set-Phase([string]$name) {
+    Set-Content -LiteralPath $env:OIS_REHEARSAL_PHASE_FILE $name
+    Write-Host "Windows rehearsal phase: $name"
+}
+
+function Invoke-PostgresControl([string]$arguments) {
+    # Wait for the control utility only. The PostgreSQL server must survive its parent.
+    $names = Join-Path $working ([Guid]::NewGuid().ToString('N'))
+    $control = Start-Process "$pgBin/pg_ctl.exe" -WindowStyle Hidden -PassThru -ArgumentList $arguments `
+        -RedirectStandardInput $emptyInput -RedirectStandardOutput "$names.out" -RedirectStandardError "$names.err"
+    try {
+        if (!$control.WaitForExit(90000)) { throw 'pg_ctl did not exit in 90 seconds.' }
+        if ($control.ExitCode -ne 0) { throw "pg_ctl exited with status $($control.ExitCode)." }
+    } finally { $control.Dispose() }
+}
+
 function Get-VerifiedManifest([string]$digest) {
     $file = Join-Path $working ($digest.Substring(7) + '.json')
     Invoke-WebRequest "$registry/manifests/$digest" -Headers $registryHeaders -OutFile $file
@@ -58,6 +102,7 @@ $dbStarted = $false
 $serviceInstalled = $false
 $localRoot = $null
 try {
+    Set-Phase 'Download and verify the GitHub ZIP'
     $zipName = "open-identity-stack-api-win-x64-$ReleaseTag.zip"
     $release = gh release view $ReleaseTag -R Tjeerd-menno/open-identity-stack --json assets,isPrerelease | ConvertFrom-Json
     if (!$release.isPrerelease) { throw 'Expected a GitHub prerelease.' }
@@ -73,6 +118,7 @@ try {
 
     # The Windows ZIP contains the API. Its companion published Linux OCI image carries
     # the framework-dependent, RID-independent migrator in the final COPY /app layer.
+    Set-Phase 'Fetch and verify the published migration image'
     $repository = 'tjeerd-menno/open-identity-stack-db-migrator'
     $registry = "https://ghcr.io/v2/$repository"
     $bearer = Invoke-RestMethod "https://ghcr.io/token?service=ghcr.io&scope=repository:${repository}:pull"
@@ -93,6 +139,7 @@ try {
     if (!(Test-Path -LiteralPath $migrator)) { throw 'Framework-dependent migrator is absent from the verified release layer.' }
     Write-Host "Verified migrator $MigratorDigest with application layer $layer"
 
+    Set-Phase 'Initialize the isolated PostgreSQL cluster'
     $postgres = Get-ChildItem "${env:ProgramFiles}/PostgreSQL/*/bin/initdb.exe" | Sort-Object FullName -Descending | Select-Object -First 1
     if (!$postgres) { throw 'PostgreSQL tools missing from Windows runner.' }
     $pgBin = $postgres.DirectoryName
@@ -100,7 +147,10 @@ try {
     $passwordFile = Join-Path $working 'db-password'
     Set-Content $passwordFile $env:PGPASSWORD -Encoding ascii
     & $postgres.FullName -D $databaseDirectory -U rehearsal --auth=scram-sha-256 "--pwfile=$passwordFile" | Out-Null
-    & "$pgBin/pg_ctl.exe" -D $databaseDirectory -l (Join-Path $working 'postgres.log') -o '-h 127.0.0.1 -p 35433' -w start | Out-Null
+    Set-Phase 'Start the isolated PostgreSQL server'
+    $emptyInput = Join-Path $working 'empty.input'
+    [IO.File]::WriteAllText($emptyInput, '')
+    Invoke-PostgresControl ('-D "{0}" -l "{1}" -o "-h 127.0.0.1 -p 35433" -w start' -f $databaseDirectory, (Join-Path $working 'postgres.log'))
     $dbStarted = $true
     $env:ConnectionStrings__openidentitystack = "Host=127.0.0.1;Port=35433;Database=postgres;Username=rehearsal;Password=$env:PGPASSWORD"
     $env:Secrets__EncryptionKey = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
@@ -112,6 +162,7 @@ try {
     $env:OpenIddict__Clients__ManagementWeb__RedirectUris__0 = $redirect
     $env:OpenIddict__Clients__ManagementWeb__PostLogoutRedirectUris__0 = "$issuer/"
     $env:OpenIddict__Issuer = "$issuer/"
+    Set-Phase 'Provision issuer, TLS and emergency certificates'
     $store = 'Cert:\CurrentUser\My'
     $certOptions = @{CertStoreLocation=$store; KeyExportPolicy='Exportable'; KeyAlgorithm='RSA'; KeyLength=2048; NotAfter=(Get-Date).AddDays(2)}
     $root = New-SelfSignedCertificate @certOptions -Type Custom -Subject 'CN=Release rehearsal CA' -KeyUsage CertSign,CRLSign -TextExtension '2.5.29.19={critical}{text}ca=1'
@@ -142,6 +193,7 @@ try {
     $env:OpenIddict__Certificates__Encryption__Password = $env:REHEARSAL_PFX_PASSWORD
 
     # Keep potentially sensitive migration/HTTP diagnostics off the workflow console.
+    Set-Phase 'Migrate and bootstrap the fresh database'
     & dotnet $migrator *> (Join-Path $working 'migrator.log')
     $bootstrapQuery = 'SELECT "EntityId" FROM "AuditLogEntries" WHERE "Action" = ''User.BootstrapCreated'';'
     $emergencyId = & "$pgBin/psql.exe" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 35433 -U rehearsal -d postgres -Atc $bootstrapQuery
@@ -163,6 +215,7 @@ try {
         AdministrativeMfa = @{Emergency=@{UserId=$emergencyId; CertificateSha256=$client.GetCertHashString('SHA256')}}
     }
     $config | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $package 'publish/appsettings.Production.json')
+    Set-Phase 'Install and start the candidate service'
     & (Join-Path $package 'install-open-identity-stack.ps1') -Url $issuer
     $serviceInstalled = $true
     $dotnetRoot = Split-Path (Get-Command dotnet.exe).Source
@@ -170,6 +223,7 @@ try {
         "DOTNET_ROOT_X64=$dotnetRoot", 'ASPNETCORE_ENVIRONMENT=Production'
     ) | Out-Null
     Start-Service -Name $serviceName
+    Set-Phase 'Verify readiness, liveness and discovery'
     Wait-ForHealth 'alive'
     Wait-ForHealth 'health'
     $discovery = Invoke-RestMethod "$issuer/.well-known/openid-configuration"
@@ -180,11 +234,13 @@ try {
     $env:ADMIN_EMAIL = $env:Seed__AdminUser__Email
     $env:ADMIN_PASSWORD = $env:Seed__AdminUser__Password
     $env:REDIRECT_URI = $redirect
+    Set-Phase 'Authenticate the emergency administrator and exercise the Admin API'
     python (Join-Path $PSScriptRoot 'kube-admin.py')
+    Set-Phase 'Uninstall the service and stop the private PostgreSQL cluster'
 } finally {
     if ($serviceInstalled) { & (Join-Path $package 'uninstall-open-identity-stack.ps1') }
     [Environment]::SetEnvironmentVariable('ASPNETCORE_URLS', $originalUrls, 'Machine')
-    if ($dbStarted) { & "$pgBin/pg_ctl.exe" -D $databaseDirectory -m fast -w stop | Out-Null }
+    if ($dbStarted) { Invoke-PostgresControl ('-D "{0}" -m fast -w stop' -f $databaseDirectory) }
     if ($localRoot) { Remove-Item -LiteralPath "Cert:\LocalMachine\Root\$($localRoot.Thumbprint)" }
     # The hosted VM is discarded after the job; no private files or logs are exported.
 }

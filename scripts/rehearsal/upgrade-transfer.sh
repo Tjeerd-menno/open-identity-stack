@@ -12,9 +12,11 @@ case "${1:-}" in
         exit 0 ;;
     wait-key)
         artifact="ois-drill-key-${GITHUB_RUN_ATTEMPT:?}"
+        file=recipient.crt
         peer=recovery ;;
     wait-backup)
         artifact="ois-drill-backup-${GITHUB_RUN_ATTEMPT:?}"
+        file=backup.cms
         peer=upgrade-recovery-rotation ;;
     *) exit 2 ;;
 esac
@@ -23,13 +25,25 @@ esac
 run="repos/${GITHUB_REPOSITORY:?}/actions/runs/${GITHUB_RUN_ID:?}"
 deadline=$((SECONDS + 1500))
 while ((SECONDS < deadline)); do
-    id=$(gh api "$run/artifacts?name=$artifact" --jq '.artifacts[] | select(.expired == false) | .id')
-    if [[ $id =~ ^[0-9]+$ ]]; then
-        gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$artifact" --dir "$transfer"
-        echo "Retrieved $artifact from the paired runner"
-        exit 0
+    if ! id=$(gh api "$run/artifacts?name=$artifact" --jq '.artifacts[] | select(.expired == false) | .id'); then
+        sleep 10
+        continue
     fi
-    status=$(gh api "$run/attempts/$GITHUB_RUN_ATTEMPT/jobs" --jq ".jobs[] | select(.name == \"$peer\") | .status")
+    if [[ $id =~ ^[0-9]+$ ]]; then
+        download=$(mktemp -d "$transfer/receive.XXXXXXXX")
+        if gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$artifact" --dir "$download" &&
+                [[ -s $download/$file ]]; then
+            mv "$download/$file" "$transfer/$file"
+            echo "Retrieved $artifact from the paired runner"
+            exit 0
+        fi
+        sleep 10
+        continue
+    fi
+    if ! status=$(gh api "$run/attempts/$GITHUB_RUN_ATTEMPT/jobs" --jq ".jobs[] | select(.name == \"$peer\") | .status"); then
+        sleep 10
+        continue
+    fi
     if [[ $status == completed ]]; then
         echo "The $peer job finished without publishing $artifact"
         exit 1
