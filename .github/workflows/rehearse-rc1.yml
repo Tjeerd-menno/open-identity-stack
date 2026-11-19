@@ -1,0 +1,54 @@
+name: Rehearse 1.0.0-rc.1
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/634-release-rehearsal]
+    paths:
+      - .github/workflows/rehearse-rc1.yml
+      - scripts/rehearsal/**
+
+permissions:
+  contents: read
+
+env:
+  RC_API: ghcr.io/tjeerd-menno/open-identity-stack-api@sha256:bfae54349b272ed0db0df0493d0ecd27ef7e90e483b4618bb4a5f221b4b0c57b
+  RC_MIGRATOR: ghcr.io/tjeerd-menno/open-identity-stack-db-migrator@sha256:c6c00bdaf1dad18c18c0a3c9196191eb20fc8a320cf7d37a67f9dccd18350dc2
+  RC_WEB: ghcr.io/tjeerd-menno/open-identity-stack-management-web@sha256:9f98280cc3711d1ea57a3fa09f951af6847394e8c60474b38f8402f0a35ae6df
+  BASE_API: ghcr.io/tjeerd-menno/open-identity-stack-api@sha256:d549a713d99fd1dda036af33e04a67143522f5c4f0746e87fbf1ca300555001e
+  BASE_MIGRATOR: ghcr.io/tjeerd-menno/open-identity-stack-db-migrator@sha256:f54ded52e5fee80aea5e46cd8ecf3032ea25ee91e9c66eb26915f4e31c50fec4
+  BASE_WEB: ghcr.io/tjeerd-menno/open-identity-stack-management-web@sha256:a24996c4bf68effc05e0aeebd844e2ac199b013ee5c403ee5b5899a5f3ced18c
+
+jobs:
+  kubernetes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash scripts/rehearsal/kube-clean.sh
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 11.0.x
+      - name: Install the published Windows Service
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REHEARSAL_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: ./scripts/rehearsal/windows-install.ps1 -ReleaseTag v1.0.0-rc.1 -MigratorDigest ($env:RC_MIGRATOR.Split('@')[1])
+  upgrade-recovery-rotation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash scripts/rehearsal/upgrade.sh

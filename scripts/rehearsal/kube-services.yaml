@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-identity-stack-api
+spec:
+  selector:
+    matchLabels: {app: api}
+  template:
+    metadata:
+      labels: {app: api}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: api
+          image: API_IMAGE
+          envFrom:
+            - configMapRef: {name: authority}
+            - configMapRef: {name: listeners}
+            - secretRef: {name: open-identity-stack-app}
+          readinessProbe:
+            httpGet: {scheme: HTTPS, path: /health, port: 8443}
+          volumeMounts:
+            - {name: oidc, mountPath: /run/oidc, readOnly: true}
+            - {name: tls, mountPath: /run/tls, readOnly: true}
+      volumes:
+        - name: oidc
+          secret: {secretName: oidc-certificates}
+        - name: tls
+          secret: {secretName: listener-certificates}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-identity-stack-managementweb
+spec:
+  selector:
+    matchLabels: {app: web}
+  template:
+    metadata:
+      labels: {app: web}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: management-web
+          image: WEB_IMAGE
+          envFrom:
+            - configMapRef: {name: web}
+          readinessProbe:
+            httpGet: {path: /, port: 80}
