@@ -12,6 +12,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  oidc-conformance:
+    uses: ./.github/workflows/oidc-conformance.yml
+    with:
+      target: source
   admin-api-compatibility:
     name: Admin API 1.x compatibility
     runs-on: ubuntu-latest

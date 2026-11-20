@@ -1,0 +1,24 @@
+# CI overrides for the local loopback topology in conformance/local.
+services:
+  mongodb:
+    image: mongo@sha256:b415b12f638e2685d06c58ab7fb5943577c50fadec6d9340ef67d21aeac72070
+  postgres:
+    image: postgres@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+  server:
+    image: ${SUITE_IMAGE:?missing suite image}
+  nginx:
+    image: ${SUITE_NGINX_IMAGE:?missing suite proxy image}
+  migrator:
+    image: ${MIGRATOR_IMAGE:?missing migrator image}
+    restart: "no"
+    environment:
+      # Production prepares this separate public client before the certification
+      # clients. Its callback is loopback-only; the fixture grants no admin access.
+      OpenIddict__Clients__ManagementWeb__RedirectUris__0: https://localhost:5175/auth/callback
+      OpenIddict__Clients__ManagementWeb__PostLogoutRedirectUris__0: https://localhost:5175/
+      Seed__Certification__IncludeStagingRedirectUri: "false"
+      Seed__Certification__Clients__CodeClientSecret: ${CODE_CLIENT_SECRET:?missing client secret}
+      Seed__Certification__Clients__CodeClientPostSecret: ${POST_CLIENT_SECRET:?missing client secret}
+      Seed__Certification__Clients__CodeClientTakeoverSecret: ${SECOND_CLIENT_SECRET:?missing client secret}
+  provider:
+    image: ${API_IMAGE:?missing API image}

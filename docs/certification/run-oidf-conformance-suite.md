@@ -4,6 +4,21 @@
 
 This document explains how to run the OpenID Foundation conformance tests against OpenIdentityStack.
 
+## Selected tests in CI
+
+Pull requests and main-branch CI build the API and DbMigrator from the checkout and run these modules from the OpenID Foundation suite on an isolated runner. Changes to the conformance harness also exercise the published RC1 API and migrator. To repeat the candidate run, select **OIDC conformance** in GitHub Actions, choose **Run workflow** and select `candidate`. The workflow verifies the OCI revision labels against the RC1 commit before starting the provider.
+
+| Plan | Module | Behavior exercised |
+| --- | --- | --- |
+| Basic OP | `oidcc-server` | Complete authorization-code sign-in and validate the ID token. |
+| Basic OP | `oidcc-ensure-request-with-valid-pkce-succeeds` | Complete a code exchange with a valid PKCE verifier. |
+| Basic OP | `oidcc-userinfo-get` | Use an access token to retrieve UserInfo. |
+| Discovery configuration | `oidcc-discovery-endpoint-verification` | Verify the provider's discovery document and advertised configuration. |
+
+The suite uses discovery and static client registration for Basic OP. The configuration plan takes an empty variant. Every selected module must finish with `PASSED`. A missing result, warning, skip or review prevents the check from passing. Each job retains a redacted JSON report per plan with the plan and test IDs, module verdicts, suite version, and product revision and image identifiers. Download the `oidc-conformance-*` artifact from the Actions run within 90 days.
+
+This is repeatable CI evidence for the selected modules. The full hosted Basic OP and Discovery plans, operator reviews, and Foundation result exports for a certification submission follow the procedure below.
+
 ## Test Target
 
 OpenIdentityStack certification environment:
