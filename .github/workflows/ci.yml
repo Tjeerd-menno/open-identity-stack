@@ -12,6 +12,10 @@ concurrency:
   cancel-in-progress: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
 
 jobs:
+  oidc-conformance:
+    uses: ./.github/workflows/oidc-conformance.yml
+    with:
+      target: source
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 90

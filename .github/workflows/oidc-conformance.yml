@@ -1,0 +1,67 @@
+name: OIDC conformance
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Product under test
+        type: choice
+        options: [candidate, source]
+        default: candidate
+  # Revalidate the release reference whenever the measurement itself changes.
+  pull_request:
+    branches: [main, master]
+    paths:
+      - .github/workflows/oidc-conformance.yml
+      - conformance/ci/**
+      - conformance/local/docker-compose-local.yml
+      - tests/OpenIdentityStack.Conformance.Runner/**
+
+permissions:
+  contents: read
+
+jobs:
+  selected:
+    name: Selected OpenID Provider tests (${{ inputs.target || 'candidate' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      OIDC_TARGET: ${{ inputs.target || 'candidate' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 11.0.x
+      - name: Test evidence validation
+        run: python3 -m unittest discover -s conformance/ci -p 'evidence*test*.py'
+      - name: Build the conformance driver
+        run: dotnet build tests/OpenIdentityStack.Conformance.Runner -c Release
+      - name: Install the matching Chromium browser
+        shell: pwsh
+        run: ./tests/OpenIdentityStack.Conformance.Runner/bin/Release/net11.0/playwright.ps1 install --with-deps chromium
+      - name: Start the local suite and provider
+        id: stack
+        run: bash conformance/ci/start.sh "$OIDC_TARGET"
+      - name: Run the Discovery configuration selection
+        run: bash conformance/ci/run-plan.sh discovery
+      - name: Run the Basic OP selection
+        if: ${{ !cancelled() && steps.stack.outcome == 'success' }}
+        run: bash conformance/ci/run-plan.sh basic
+      - name: Retain redacted plan and module verdicts
+        if: ${{ !cancelled() && steps.stack.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: oidc-conformance-${{ env.OIDC_TARGET }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/oidf/evidence/*.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Remove the disposable stack
+        if: always()
+        run: bash conformance/ci/start.sh stop
