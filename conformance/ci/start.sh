@@ -93,7 +93,14 @@ jq -n --arg mode "$mode" --arg revision "$revision" --arg api "$api_ref" --arg m
     >"$state/images.json"
 
 "${compose[@]}" config --quiet
-"${compose[@]}" up --detach
+if ! "${compose[@]}" up --detach; then
+    # Never print raw service logs; they may contain tokens or fixture credentials.
+    "${compose[@]}" ps -a --format 'table {{.Service}}\t{{.State}}\t{{.ExitCode}}'
+    "${compose[@]}" logs --no-color --tail 160 migrator 2>&1 |
+        grep -Eo 'At least one redirect URI is required for authorization code flow|OpenIddict signing and encryption certificates must be configured|Bootstrap password does not satisfy the password policy|[[:alnum:].]+Exception|at (OpenIdentityStack|Program)[[:alnum:]._<>$]+' |
+        sort -u | head -20 || true
+    exit 1
+fi
 suite=https://localhost.emobix.co.uk:8443
 issuer=https://oidc.localtest.me:3000
 deadline=$((SECONDS + 240))
