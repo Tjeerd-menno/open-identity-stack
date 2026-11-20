@@ -11,10 +11,27 @@ Security is not only about prevention. For an identity platform, recovery matter
 
 ## Recovery checklist
 
-1. restore PostgreSQL
-2. redeploy the API and migrator with the correct secrets and certificates
-3. verify `/health`
-4. verify admin sign-in
-5. verify at least one client flow and one machine-to-machine flow
+1. Record the running image digests or Windows ZIP checksum and canonical issuer. Take a consistent PostgreSQL backup including the Data Protection key table. Securely back up the corresponding application encryption key, signing and encryption private keys, TLS and MFA configuration, and database access configuration. Keep backup access under operator control.
+2. Restore to an empty database on an isolated deployment with the pre-upgrade artifacts. Map the canonical issuer to the isolated deployment for rehearsal clients. Keep public traffic drained. Verify the restored Data Protection key records and restore the matching deployment secrets and certificates before starting the API.
+3. Verify readiness and compare discovery's issuer and signing key with the expected values. Sign in using the recovered administrator, complete PKCE and refresh, and perform an authorized Admin API read. Obtain a client-credentials token using an existing client secret. Check the expected permissions, registration IDs, and grants.
+4. Before returning a restored installation to service, reconcile account disablements, withdrawn grants and session revocations made after the backup. Obtain the recovery owner's approval. If the upgraded schema has already been applied, keep traffic closed while repairing forward or restore the complete pre-upgrade set. [Upgrade sequence](../operations/upgrades.md)
 
 Recovery is only complete when applications can trust and use the authority again.
+
+### PostgreSQL commands used in the rehearsal
+
+Drain API traffic and stop writers. With a private backup directory and a PostgreSQL service definition pointing to the source database, take the dump and check that PostgreSQL can read its table of contents.
+
+```sh
+umask 077
+PGSERVICE=ois-source pg_dump --format=custom --no-owner --no-acl --file=ois.dump
+pg_restore --list ois.dump >/dev/null
+```
+
+Put the dump, matching deployment material, and integrity manifest in authenticated encrypted backup storage. Provision an empty target database and its intended roles with the correct ownership and access. Configure a separate PostgreSQL service definition for that target. With the target API still offline, restore the dump.
+
+```sh
+pg_restore --exit-on-error --no-owner --no-acl --dbname='service=ois-recovery' ois.dump
+```
+
+Start the pre-upgrade release with its matching secrets. Complete the issuer, Data Protection and client checks above before the recovery owner decides whether to reopen traffic.

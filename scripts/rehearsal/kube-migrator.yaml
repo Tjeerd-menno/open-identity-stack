@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: open-identity-stack-db-migrator
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 360
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+        - name: db-migrator
+          image: MIGRATOR_IMAGE
+          envFrom:
+            - configMapRef: {name: authority}
+            - secretRef: {name: open-identity-stack-app}
+            - secretRef: {name: open-identity-stack-admin-seed}
+          volumeMounts:
+            - {name: oidc, mountPath: /run/oidc, readOnly: true}
+      volumes:
+        - name: oidc
+          secret: {secretName: oidc-certificates}
